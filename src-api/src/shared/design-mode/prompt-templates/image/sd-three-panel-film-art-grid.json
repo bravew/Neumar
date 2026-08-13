@@ -1,0 +1,18 @@
+{
+  "id": "sd-three-panel-film-art-grid",
+  "surface": "image",
+  "title": "Three-Panel Film Art Grid",
+  "summary": "A complex prompt for creating a triptych (three-panel) artistic layout. It describes a sequence of overexposed, cinematic shots in a Monet-style garden, focusing on movement, emotion, and film photography techniques like.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Edit the image into an equal three-panel grid film texture artistic portrait. The scene is a green afternoon. The sun is shining brightly. The character in the picture is consistent with the reference image, wearing a {argument name=\"clothing\" default=\"white dress\"}. The first shot is a medium shot, taken from the side, the character is running towards the {argument name=\"direction\" default=\"right\"} in an overexposed, green Monet garden, holding a {argument name=\"item\" default=\"gorgeous bouquet\"} in hand. The second shot is a close-up, photographing the bouquet, overexposed, dynamic blur. The third shot is a large close-up of the character, the profile of the character running, facing right, overexposed, dynamic blur, background is a green garden, giving the character eye light, allowing the character's expression to bring a sense of melancholy and hope. Portrait photography, image generation style with strong, direct flash effect: highlight mode, foreground exposure, surrealism, light and shadow atmosphere, fine shimmering light and shadow, dreamy movie film texture, dynamic blur, slow shutter effect, positive and negative film, peel-apart film, minimalism, extreme composition, vignette, light leak. Subtitles are located at the bottom center, three-panel grid synthesized into one picture. Ratio 3:4.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360229744_nvm9w5_1765288935135-wud1t9-0217652888936922504cb05148e9a08cc7612c3f2b24e52b75ef9_0-600x800.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

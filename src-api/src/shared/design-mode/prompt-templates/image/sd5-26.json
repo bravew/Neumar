@@ -1,0 +1,17 @@
+{
+  "id": "sd5-26",
+  "surface": "image",
+  "title": "制作一张上海未来5日的天气预报图，采用现代扁平化插画风格，清晰展示每日天气、温度和穿搭建议。 整体为横向排版，标题为“上…",
+  "summary": "制作一张上海未来5日的天气预报图，采用现代扁平化插画风格，清晰展示每日天气、温度和穿搭建议。 整体为横向排版，标题为“上海未来5日天气预报“，包含5个等宽的垂直卡片，从左到右依次排列。 整体风格为现代、干净、友好的扁平化矢量插画风格，线条清晰，色彩柔和。 人物形象采用年轻男女的卡通插画，表情自然，姿态放松，服装细节清晰。",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "制作一张上海未来5日的天气预报图，采用现代扁平化插画风格，清晰展示每日天气、温度和穿搭建议。 整体为横向排版，标题为“上海未来5日天气预报“，包含5个等宽的垂直卡片，从左到右依次排列。 整体风格为现代、干净、友好的扁平化矢量插画风格，线条清晰，色彩柔和。 人物形象采用年轻男女的卡通插画，表情自然，姿态放松，服装细节清晰。",
+  "previewImageUrl": "https://github.com/user-attachments/assets/61141f5d-633f-42ff-8cec-79b8b6e5f33c",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea6b4f2b552957d3c576a"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-email-marketing",
+  "version": "0.1.0",
+  "description": "A brand product-launch email — masthead with wordmark, hero image block, headline lockup with skewed-italic accent, body copy, primary CTA, and a specifications grid. Pure HTML email layout (centered single column, table fallback). Use when the brief asks for an \"email\", \"newsletter blast\", \"MJML\", \"product launch email\", or \"email template\".",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

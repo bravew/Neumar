@@ -1,0 +1,11 @@
+{
+  "id": "penguin",
+  "displayName": "Penguin",
+  "description": "A cozy pixel penguin bundled in a blue scarf.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/penguin-openpets",
+  "category": "western"
+}

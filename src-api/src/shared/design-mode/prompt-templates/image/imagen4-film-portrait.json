@@ -1,0 +1,17 @@
+{
+  "id": "imagen4-film-portrait",
+  "surface": "image",
+  "title": "Color Film Portrait",
+  "summary": "Documentary candid portrait with shallow depth of field, fine grain, and natural motion blur.",
+  "category": "Portrait / Cinematic",
+  "tags": ["imagen-4", "google", "portrait", "film", "documentary"],
+  "model": "imagen-4",
+  "aspect": "3:4",
+  "prompt": "A color film-inspired portrait of {argument name=\"subject\" default=\"a young man\"} looking to the side with a shallow depth of field that blurs the surrounding elements, drawing attention to the eye. The fine grain and color cast suggest a high ISO film stock, while the wide aperture lens creates a subtle motion blur on the background, enhancing the candid and natural documentary style. Natural skin texture, subtle halation around highlights, {argument name=\"key light\" default=\"warm key light from camera left\"}.",
+  "previewImageUrl": "https://replicate.delivery/xezq/FHSYw8PytcYZOdtDHqFDFc5KtJYIEhPfekwqD7Xi7xs5RtKWA/tmp5c8a3yee.jpg",
+  "source": {
+    "repo": "replicate/google/imagen-4",
+    "license": "platform-example",
+    "url": "https://replicate.com/google/imagen-4/examples"
+  }
+}

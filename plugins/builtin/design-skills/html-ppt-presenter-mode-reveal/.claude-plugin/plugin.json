@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-html-ppt-presenter-mode-reveal",
+  "version": "0.1.0",
+  "description": "演讲者模式专用 deck — tokyo-night 默认主题，5 套主题 T 键切换，每页带 150-300 字逐字稿示例（<aside class=\"notes\">），按 S 打开 popup（CURRENT / NEXT / SCRIPT / TIMER 四张磁吸卡片）。用于技术分享、公开演讲、课程讲解，怕忘词或要提词器的场景。",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

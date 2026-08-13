@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-html-ppt",
+  "version": "0.1.0",
+  "description": "HTML PPT Studio — author professional static HTML presentations in many styles, layouts, and animations, all driven by templates. Use when the user asks for a presentation, PPT, slides, keynote, deck, slideshow, reveal-style HTML deck, social carousel, or any kind of multi-slide pitch/report/sharing document that should look tasteful and support keyboard navigation. Triggers include keywords like \"presentation\", \"ppt\", \"slides\", \"deck\", \"keynote\", \"reveal\", \"slideshow\", \"talk slides\", \"pitch de…",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

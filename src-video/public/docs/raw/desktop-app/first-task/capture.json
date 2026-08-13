@@ -1,0 +1,47 @@
+{
+  "id": "desktop-app.first-task",
+  "kind": "video",
+  "page": "desktop-app",
+  "slot": "first-task",
+  "route": "/",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"home-page\"]",
+    "masks": [
+      "[data-testid=\"workspace-path\"]"
+    ],
+    "steps": [
+      "Pause on the new chat workspace",
+      "Focus the task composer",
+      "Type an agentic launch request",
+      "Review the prompt and visible controls",
+      "Start the task",
+      "Let the new task persist",
+      "Reopen the created task transcript",
+      "Review the running task context"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:01:12.166Z",
+  "source": "source.webm"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "veo31-film-noir-detective-dialogue",
+  "surface": "video",
+  "title": "Film Noir Detective Office Dialogue",
+  "summary": "Medium shot of a weary detective behind his desk who looks up and delivers a classic film-noir line — demonstrates Veo 3.1 reference-image consistency and native dialogue lip-sync.",
+  "category": "Cinematic / Film Noir",
+  "tags": [
+    "veo-3.1",
+    "google",
+    "cinematic",
+    "film-noir",
+    "dialogue",
+    "detective",
+    "character"
+  ],
+  "model": "veo-3.1",
+  "aspect": "16:9",
+  "prompt": "Create a medium shot of the detective behind his desk. He looks up at the woman and says in a weary voice, 'Of all the offices in this town, you had to walk into mine.' Style: 1940s film noir, low-key Rembrandt lighting, venetian blind shadow patterns across the desk, shallow depth of field.",
+  "previewImageUrl": "https://storage.googleapis.com/gweb-cloudblog-publish/images/8_AmMaGWn.max-1900x1900.png",
+  "source": {
+    "repo": "google/veo",
+    "license": "platform-example",
+    "author": "Google DeepMind",
+    "url": "https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1"
+  }
+}

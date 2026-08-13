@@ -1,0 +1,18 @@
+{
+  "id": "nb-woman-with-tom-and-jerry-characters-fashion-portrait",
+  "surface": "image",
+  "title": "Woman with Tom and Jerry Characters Fashion Portrait",
+  "summary": "A young woman with dark wavy hair smiles brightly, wearing a grey Tom and Jerry sweater, blue jeans, and white sneakers, posing in a studio. She stands next to a large, photorealistic 3D render of Tom.",
+  "category": "Fashion Photography",
+  "tags": ["nano-banana", "gemini", "fashion"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n\"description\": \"A stylish person with the same face.\", \n“clothing\":{\n\"Top\": (\"type\": \"knitted sweater\", \"color\": \"light grey (Tom Theme) \". }\n\"pants\": (\"type\": \"high-waisted jeans\", \"color\": \"denim blue\".\n\"shoes\":(\"type\": \"high-top sneakers\", \"color\": \"white\")\n\"pose\": \"standing with arm around a giant 3D Tom while Jerry\nsits on Tom's shoulder\", \n\"expression\": \"fun, mischievous\"\n\"character_element\":{\n\"name\": \"Tom & Jerry\", \n\"type': \"3D photorealistic duo\", \n\"interaction': \"Tom poses confidently, Jerry looks playful\"\n\"environment-( \"background'. (clean grey-blue backdrop\"}\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9YXeXkbIAEM6HA.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/ZaraIrahh/status/2005816508602278010",
+    "author": "Zara"
+  }
+}

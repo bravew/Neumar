@@ -1,0 +1,18 @@
+{
+  "id": "nb-ar-interior-design-industrial-modern-living-room-on-phone",
+  "surface": "image",
+  "title": "AR Interior Design: Industrial Modern Living Room on Phone",
+  "summary": "A person holds a smartphone showcasing an augmented reality (AR) rendering of an industrial modern living room, which appears to rise from the screen. The detailed interior design features a brick wal.",
+  "category": "Architecture & Interior",
+  "tags": ["nano-banana", "gemini", "architecture", "interior"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "People are finding insane ways to create 3D renderings, impossible shots, and ultra realistic AI influencers.\n\n10 examples + prompt. Bookmark this \n\n1. Nano banana -> World Labs -> WebAR (threejs)",
+  "previewImageUrl": "https://pbs.twimg.com/amplify_video_thumb/1995541218974203904/img/XeCooDLsFL5dbo6K.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/minchoi/status/1998983872718176660",
+    "author": "Min Choi"
+  }
+}

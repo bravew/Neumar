@@ -1,0 +1,18 @@
+{
+  "id": "sd-30-day-fitness-challenge-results-thumbnail",
+  "surface": "image",
+  "title": "30-Day Fitness Challenge Results Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for a \"30-Day Fitness Challenge\" results video, featuring a split-screen transformation of the YouTuber's physique. It highlights high subject consistency to showcase impressive.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a “30-Day Fitness Challenge” results video. It’s a split-screen image showing the YouTuber’s physique on Day 1 and Day 30. The transformation is clear and impressive. The YouTuber is flexing in the Day 30 photo with a confident expression. The text “My INSANE 30-Day Transformation!” is in a bold, athletic font. This requires high subject consistency across images. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359877133_wfrjxo_71b453d5c7354270702bd21ea6ce5c292083909941c78792940f78f07738b929-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

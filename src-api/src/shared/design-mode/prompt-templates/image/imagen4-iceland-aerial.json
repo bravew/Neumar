@@ -1,0 +1,17 @@
+{
+  "id": "imagen4-iceland-aerial",
+  "surface": "image",
+  "title": "Iceland Glacial Aerial",
+  "summary": "Abstract aerial of glacial rivers branching across volcanic black sand at golden hour, scaleless and sharp.",
+  "category": "Landscape / Aerial",
+  "tags": ["imagen-4", "google", "aerial", "landscape", "abstract"],
+  "model": "imagen-4",
+  "aspect": "21:9",
+  "prompt": "Aerial photograph of {argument name=\"location\" default=\"Iceland's glacial rivers\"} meeting {argument name=\"contrast surface\" default=\"volcanic black sand\"}, creating abstract branching patterns that look like veins or lightning. Taken from 3000 feet during golden hour, the water channels glow {argument name=\"water tint\" default=\"turquoise\"} against the {argument name=\"ground tint\" default=\"obsidian\"} sand. The scale is impossible to determine — it could be a microscope image of capillaries or a satellite photo of a delta. Large format camera, extreme sharpness, no horizon line.",
+  "previewImageUrl": "https://replicate.delivery/xezq/1e6uSBBg3fgmtkLjfIpwetKMxhhLkL9uICfSWfmfCZreCStKWA/tmpy5lg6jdu.jpg",
+  "source": {
+    "repo": "replicate/google/imagen-4",
+    "license": "platform-example",
+    "url": "https://replicate.com/google/imagen-4/examples"
+  }
+}

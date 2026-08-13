@@ -1,0 +1,42 @@
+{
+  "id": "automations.schedule-run",
+  "kind": "video",
+  "page": "automations",
+  "slot": "schedule-run",
+  "route": "/automation",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"automation-page\"]",
+    "masks": [],
+    "steps": [
+      "Pause on automation dashboard",
+      "Run the scheduled digest once",
+      "Pause on manual run feedback",
+      "Open the scheduled automation",
+      "Hold on automation detail"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:03:05.405Z",
+  "source": "source.webm"
+}

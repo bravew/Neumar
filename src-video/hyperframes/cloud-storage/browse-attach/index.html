@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1440, height=900" />
+    <title>Browse connected media context</title>
+    <style>
+      @keyframes recording-camera {
+        0% { transform: translate3d(0px, 0px, 0) scale(1); }
+        0.000% { transform: translate3d(0px, 0px, 0) scale(1); }
+        2.703% { transform: translate3d(0.00px, 0.00px, 0) scale(1); }
+        9.730% { transform: translate3d(0.00px, 0.00px, 0) scale(1); }
+        13.784% { transform: translate3d(0.00px, 0.00px, 0) scale(1.24); }
+        33.514% { transform: translate3d(0.00px, 0.00px, 0) scale(1.24); }
+        37.568% { transform: translate3d(-223.49px, 0.00px, 0) scale(1.26); }
+        61.622% { transform: translate3d(-223.49px, 0.00px, 0) scale(1.26); }
+        65.405% { transform: translate3d(0.00px, 0.00px, 0) scale(1); }
+        100% { transform: translate3d(0.00px, 0.00px, 0) scale(1); }
+      }
+
+      @keyframes intro-card {
+        0%, 0.649% {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        2.378%, 18.108% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        19.730%, 100% {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+      }
+
+      @keyframes progress-fill {
+        from { transform: scaleX(0); }
+        to { transform: scaleX(1); }
+      }
+
+      @keyframes chapter-0 {
+        0%, 3.568% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        4.757%, 16.541% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        17.730%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-1 {
+        0%, 14.649% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        15.838%, 28.703% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        29.892%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-2 {
+        0%, 38.432% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        39.622%, 53.568% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        54.757%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-3 {
+        0%, 66.270% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        67.459%, 83.027% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        84.216%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1440px;
+        height: 900px;
+        overflow: hidden;
+        background: #09090b;
+        color: #fafafa;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+
+      main {
+        display: block;
+        width: 100%;
+        height: 100vh;
+        padding: 0;
+      }
+
+      .stage {
+        position: relative;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        aspect-ratio: 1440 / 900;
+      }
+
+      .camera {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        border: 0;
+        border-radius: 0;
+        background: #09090b;
+      }
+
+      .recording {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform-origin: 0 0;
+        transition: none !important;
+      }
+
+      .intro {
+        position: absolute;
+        left: 28px;
+        top: 26px;
+        z-index: 3;
+        max-width: 520px;
+        border: 1px solid rgb(255 255 255 / 0.14);
+        border-radius: 12px;
+        background: rgb(9 9 11 / 0.76);
+        color: #fafafa;
+        opacity: 0;
+        padding: 16px 18px;
+        backdrop-filter: blur(12px);
+      }
+
+      .intro-title {
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .intro-intent {
+        margin-top: 8px;
+        color: rgb(250 250 250 / 0.72);
+        font-size: 14px;
+        line-height: 1.35;
+      }
+
+      .chapter {
+        position: absolute;
+        left: 28px;
+        bottom: 28px;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        max-width: min(620px, calc(100% - 56px));
+        gap: 12px;
+        border: 1px solid rgb(255 255 255 / 0.14);
+        border-radius: 999px;
+        background: rgb(9 9 11 / 0.78);
+        color: #fafafa;
+        opacity: 0;
+        padding: 11px 16px 11px 12px;
+        backdrop-filter: blur(12px);
+      }
+
+      .chapter-count {
+        min-width: 46px;
+        border-radius: 999px;
+        background: rgb(99 102 241 / 0.92);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        line-height: 1;
+        padding: 8px 10px;
+        text-align: center;
+      }
+
+      .chapter-text {
+        overflow: hidden;
+        color: #fafafa;
+        font-size: 16px;
+        font-weight: 650;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 4;
+        height: 4px;
+        background: rgb(255 255 255 / 0.1);
+      }
+
+      .progress-fill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #14b8a6, #6366f1);
+        transform: scaleX(0);
+        transform-origin: 0 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <main
+      id="root"
+      data-composition-id="cloud-storage-browse-attach"
+      data-width="1440"
+      data-height="900"
+      data-start="0"
+      data-duration="18.5"
+      data-hf-scene="docs-demo"
+    >
+      <div class="stage">
+        <div class="camera">
+        <video
+          id="source-recording"
+          class="recording"
+          src="./assets/source.mp4"
+          muted
+          playsinline
+          preload="auto"
+          data-start="0"
+          data-media-start="2.2"
+          data-duration="18.5"
+          data-track-index="1"
+        ></video>
+        </div>
+        <div class="intro">
+          <div class="intro-title">Browse connected media context</div>
+          <div class="intro-intent">Demonstrate browsing connected cloud media, searching assets, and keeping attachable context in the desktop workflow.</div>
+        </div>
+        <div class="chapter chapter-0">
+          <div class="chapter-count">1/4</div>
+          <div class="chapter-text">Establish cloud storage tab</div>
+        </div>
+        <div class="chapter chapter-1">
+          <div class="chapter-count">2/4</div>
+          <div class="chapter-text">Focus connected source</div>
+        </div>
+        <div class="chapter chapter-2">
+          <div class="chapter-count">3/4</div>
+          <div class="chapter-text">Focus media search and filters</div>
+        </div>
+        <div class="chapter chapter-3">
+          <div class="chapter-count">4/4</div>
+          <div class="chapter-text">Release to media grid</div>
+        </div>
+        <div class="progress"><div class="progress-fill"></div></div>
+      </div>
+    </main>
+    <script>
+      window.__timelines = window.__timelines || {};
+      let currentTime = 0;
+      const duration = 18.5;
+      const cameraFrames = [{"fromMs":0,"durationMs":500,"x":0,"y":0,"scale":1},{"fromMs":1800,"durationMs":750,"x":0,"y":0,"scale":1.24},{"fromMs":6200,"durationMs":750,"x":-223.48800000000006,"y":0,"scale":1.26},{"fromMs":11400,"durationMs":700,"x":0,"y":0,"scale":1}];
+      const chapterTimings = [{"inMs":660,"holdMs":2400,"outMs":3060},{"inMs":2710,"holdMs":2600,"outMs":5310},{"inMs":7110,"holdMs":2800,"outMs":9910},{"inMs":12260,"holdMs":3100,"outMs":15360}];
+      const recording = document.querySelector('.recording');
+      const intro = document.querySelector('.intro');
+      const chapters = Array.from(document.querySelectorAll('.chapter'));
+      const progress = document.querySelector('.progress-fill');
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function smoothstep(value) {
+        const t = clamp(value, 0, 1);
+        return t * t * (3 - 2 * t);
+      }
+
+      function mix(from, to, amount) {
+        return from + (to - from) * amount;
+      }
+
+      function fadeWindow(time, inTime, inDuration, outTime, outDuration) {
+        if (time < inTime) return 0;
+        if (time < inTime + inDuration) {
+          return smoothstep((time - inTime) / inDuration);
+        }
+        if (time < outTime) return 1;
+        if (time < outTime + outDuration) {
+          return 1 - smoothstep((time - outTime) / outDuration);
+        }
+        return 0;
+      }
+
+      function updateCamera(timeMs) {
+        let previous = { x: 0, y: 0, scale: 1 };
+        let current = previous;
+
+        for (const frame of cameraFrames) {
+          const endMs = frame.fromMs + frame.durationMs;
+          if (timeMs < frame.fromMs) break;
+          if (timeMs <= endMs) {
+            const amount = smoothstep((timeMs - frame.fromMs) / frame.durationMs);
+            current = {
+              x: mix(previous.x, frame.x, amount),
+              y: mix(previous.y, frame.y, amount),
+              scale: mix(previous.scale, frame.scale, amount),
+            };
+            break;
+          }
+          previous = { x: frame.x, y: frame.y, scale: frame.scale };
+          current = previous;
+        }
+
+        recording.style.transform =
+          'translate3d(' + current.x.toFixed(2) + 'px, ' +
+          current.y.toFixed(2) + 'px, 0) scale(' +
+          current.scale.toFixed(4) + ')';
+      }
+
+      function updateOverlays(timeMs) {
+        const introOpacity = fadeWindow(timeMs, 120, 320, 3350, 300);
+        intro.style.opacity = String(introOpacity);
+        intro.style.transform =
+          'translateY(' + mix(10, -8, smoothstep(timeMs / 3650)).toFixed(2) + 'px)';
+
+        for (const [index, chapter] of chapters.entries()) {
+          const timing = chapterTimings[index];
+          const opacity = fadeWindow(
+            timeMs,
+            timing.inMs,
+            220,
+            timing.outMs,
+            220,
+          );
+          chapter.style.opacity = String(opacity);
+          chapter.style.transform =
+            'translateY(' + (12 * (1 - opacity)).toFixed(2) + 'px)';
+        }
+
+        progress.style.transform =
+          'scaleX(' + clamp(timeMs / (duration * 1000), 0, 1).toFixed(5) + ')';
+      }
+
+      function update(time) {
+        const timeMs = clamp(Number(time) || 0, 0, duration) * 1000;
+        updateCamera(timeMs);
+        updateOverlays(timeMs);
+      }
+
+      update(0);
+      window.__timelines['cloud-storage-browse-attach'] = {
+        pause() { return this; },
+        play() { return this; },
+        seek(time) {
+          currentTime = Math.max(0, Math.min(duration, Number(time) || 0));
+          update(currentTime);
+          return this;
+        },
+        totalTime(time) {
+          if (time === undefined) return currentTime;
+          currentTime = Math.max(0, Math.min(duration, Number(time) || 0));
+          update(currentTime);
+          return currentTime;
+        },
+        time() { return currentTime; },
+        duration() { return duration; },
+        timeScale() { return this; },
+      };
+    </script>
+  </body>
+</html>

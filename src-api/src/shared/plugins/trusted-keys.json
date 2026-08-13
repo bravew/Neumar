@@ -1,0 +1,5 @@
+{
+  "$schema": "internal — see verify.ts",
+  "comment": "Trusted ed25519 public keys for plugin signature verification. Each entry maps a publicKeyId to a PEM-encoded SPKI public key. Empty by default — sign your own plugins via `pnpm plugin:sign` (follow-up PR) and add the publisher's key here. Anthropic's official key will be added once published.",
+  "keys": {}
+}

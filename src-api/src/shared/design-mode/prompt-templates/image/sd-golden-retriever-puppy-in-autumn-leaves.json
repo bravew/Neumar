@@ -1,0 +1,18 @@
+{
+  "id": "sd-golden-retriever-puppy-in-autumn-leaves",
+  "surface": "image",
+  "title": "Golden Retriever Puppy in Autumn Leaves",
+  "summary": "This prompt creates a heartwarming and candid photo of a golden retriever puppy playing in autumn leaves. It aims for dynamic action, joyful expression, and magical golden backlighting, perfect for capturing animal emoti.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:2",
+  "prompt": "A heartwarming, candid photo of a golden retriever puppy playing in a field of autumn leaves. The puppy is mid-jump, with leaves flying around it, and has a joyful expression on its face. The afternoon sun should create a beautiful golden backlight, making the scene warm and magical. The focus should be perfectly on the puppy’s eyes, capturing its playful spirit. This demonstrates the ability to render dynamic action and emotion in animals. –ar 3:2",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360205636_17iyst_f56f471d208f74fe3b796f5ea9e53dd60401af8e47242309fdc7119c652ee5e1-600x400.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

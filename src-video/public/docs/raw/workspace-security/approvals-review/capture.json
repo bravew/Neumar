@@ -1,0 +1,40 @@
+{
+  "id": "workspace-security.approvals-review",
+  "kind": "video",
+  "page": "workspace-security",
+  "slot": "approvals-review",
+  "route": "/approvals",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"approvals-page\"]",
+    "masks": [],
+    "steps": [
+      "Pause on pending approval",
+      "Scroll approval context",
+      "Hold on decision controls"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:00:51.240Z",
+  "source": "source.webm"
+}

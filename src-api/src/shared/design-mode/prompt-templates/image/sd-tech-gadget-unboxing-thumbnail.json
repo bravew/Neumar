@@ -1,0 +1,18 @@
+{
+  "id": "sd-tech-gadget-unboxing-thumbnail",
+  "surface": "image",
+  "title": "Tech Gadget Unboxing Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for an unboxing video of a new, expensive tech gadget. It focuses on creating curiosity with a magical light shining from an open box and an excited YouTuber.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for an unboxing video of a new, expensive tech gadget. The box is open, and a bright, magical light is shining out from inside. The YouTuber is peering into the box with a look of pure wonder and excitement. The product itself is not fully visible, creating curiosity. The text “I Can’t Believe What’s Inside!” is in a bold, excited font. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359851834_un6clb_85a267e1d3130620520e2800c5866185ed2faa39f4085ff237d045b4ef4ffce7-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

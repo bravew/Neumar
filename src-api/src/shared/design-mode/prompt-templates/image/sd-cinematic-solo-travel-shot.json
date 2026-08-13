@@ -1,0 +1,18 @@
+{
+  "id": "sd-cinematic-solo-travel-shot",
+  "surface": "image",
+  "title": "Cinematic Solo Travel Shot",
+  "summary": "This prompt generates a candid, cinematic image of a young woman on a solo train adventure, suitable for a travel blogger's social media. It focuses on moody lighting, reflections, and introspective wanderlust.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:5",
+  "prompt": "A candid, cinematic shot of a young woman on a solo travel adventure, sitting by the window of a moving train. She looks thoughtfully at the passing landscape of rolling green hills and misty mountains. The reflection of the train’s interior is subtly visible on the window. The color grading should be moody and atmospheric, with a slight film grain to evoke a sense of wanderlust and introspection. This demonstrates advanced lighting, reflection, and mood control for a travel blogger’s post. –ar 4:5",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360207630_nsjfk5_fabb02d530b4a43eed2633aeec2c7d448f898236c81c39d909b63fee4b4f792b-600x750.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Microphone: required for voice input to the AI agent -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Neumar uses the microphone for voice commands and dictation to the AI agent.</string>
+
+    <!-- Screen Recording: required for the agent to see screen context -->
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Neumar uses screen recording to provide visual context to the AI agent for better assistance.</string>
+
+    <!-- Location: required for location-aware AI context -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Neumar uses your approximate location to provide location-aware context to the AI agent.</string>
+
+    <!-- Apple Events: required by the updater's macOS admin fallback -->
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Neumar uses Apple Events only to request administrator approval when installing an app update requires elevated privileges.</string>
+</dict>
+</plist>

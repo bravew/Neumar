@@ -1,0 +1,18 @@
+{
+  "id": "sd-world-weary-office-bunny-selfie",
+  "surface": "image",
+  "title": "World-Weary Office Bunny Selfie",
+  "summary": "This prompt portrays an anthropomorphic bunny taking a world-weary selfie in an office, with a casual everyday style and slight motion blur, perfect for expressing the mood of overworked office workers.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "An anthropomorphic little rabbit, presented in the visual style of a daily snapshot, the photo has no clear subject or composition sense, and has slight motion blur. The protagonist occupies the center of the frame, a selfie headshot, with a world-weary expression on its face, wearing a badge with its own headshot around its neck. The background is an office scene, with a graphic design page on the computer screen next to it, creating a mundane yet unique atmosphere.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360328619_oh4j4y_1765339546064-p0sf2g-021765339534403f9825d5f0df17daef396c99db0606054de24f2_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7579120253477719305?workDetailType=Image&itemType=9",
+    "author": "ZAOO 枣知道"
+  }
+}

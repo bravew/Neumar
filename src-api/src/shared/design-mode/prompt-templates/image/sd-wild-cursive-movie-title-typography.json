@@ -1,0 +1,18 @@
+{
+  "id": "sd-wild-cursive-movie-title-typography",
+  "surface": "image",
+  "title": "Wild Cursive Movie Title Typography",
+  "summary": "This prompt creates wild and unrestrained cursive lettering with white text on a black background, featuring strong visual tension and flying white effects, ideal for movie poster titles or highly impactful visual design.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Black background with white text, calligraphy connected strokes chic, elegant and dynamic font design \"{argument name=\"text content\" default=\"Sea breeze blows endlessly, river moon shines in vain\"}\", wild and uninhibited cursive font, long strokes, visual tension full of dynamism, strokes smooth and elegant, strokes cleverly extended and deformed, flying white effect, font size variation, misplaced layout. Strokes smooth and free, clean background, masterpiece, movie theme font, strong visual impact.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360375259_s6jr2i_1765339501783-kxt0et-021765339489400c799e7b290acded99bf6695874956a9f90b493_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7576944495934049562?workDetailType=Image&itemType=9",
+    "author": "一棵永远成长的苹果树"
+  }
+}

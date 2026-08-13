@@ -1,0 +1,13 @@
+{
+  "name": "design-system-neumorphism",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for Neumorphism, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "Neumorphism",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

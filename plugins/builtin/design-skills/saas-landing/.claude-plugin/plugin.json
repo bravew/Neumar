@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-saas-landing",
+  "version": "0.1.0",
+  "description": "Single-page SaaS landing with hero, features, social proof, pricing, and CTA. Respects the active DESIGN.md color/typography/layout tokens. Trigger keywords: \"saas landing\", \"marketing page\", \"product landing\".",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

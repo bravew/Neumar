@@ -1,0 +1,18 @@
+{
+  "id": "sd-tomato-and-egg-stir-fry-hand-drawn-knowledge-card",
+  "surface": "image",
+  "title": "Tomato and Egg Stir-Fry Hand-Drawn Knowledge Card",
+  "summary": "This prompt generates a hand-drawn doodle-style recipe knowledge card using tomato scrambled eggs as an example, with simple illustrations and lively colors, perfect for fun teaching materials or life journaling.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Create a knowledge card for the recipe of {argument name=\"dish name\" default=\"Tomato Scrambled Eggs\"}, card style is hand-drawn/doodle note style. Font: Use handwriting or handwriting-like fonts, or direct handwriting. Elements: Use a lot of stick figures, small icons, arrows, speech bubbles, dividers, and other hand-drawn elements to assist expression. Colors: Rich and lively colors, often using highlighter, colored pencil effects. Layout: Free and spontaneous, unconventional, full of personality and fun.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360374866_rxnciw_1765339485966-e46fx9-021765339462510c799e7b290acded99bf6695874956a9f61f59d_0-600x450.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7551713848789716263?result=%E5%8D%A1%E7%89%87&type=inspiration&keywordSource=search_history&wordPosition=&enterFrom=home&workDetailType=Image&itemType=9",
+    "author": "Shilly"
+  }
+}

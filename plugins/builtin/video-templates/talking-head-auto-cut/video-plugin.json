@@ -1,0 +1,75 @@
+{
+  "specVersion": "1.0.0",
+  "name": "talking-head-auto-cut",
+  "title": "Talking Head Auto-cut",
+  "compatibility": {
+    "neuma": ">=26.6.15 <27.0.0",
+    "videoPluginApi": "^1.0.0"
+  },
+  "description": "Turn source talking-head footage into a tighter explainer by transcribing speech, proposing word-safe cuts, applying only approved edits, rendering a preview, and checking the result.",
+  "tags": ["talking-head", "auto-cut", "explainer", "source-editing"],
+  "video": {
+    "kind": "flow",
+    "mode": "explainer",
+    "aspectRatios": ["16:9", "9:16"],
+    "engine": { "id": "html" },
+    "useCase": {
+      "query": "Auto-cut the talking-head source footage into a concise explainer.",
+      "goals": [
+        "Remove only transcript-backed filler words and long silences",
+        "Keep cut edges on word boundaries",
+        "Show the plain-English edit strategy before timeline mutation",
+        "Record the applied cut plan as a reversible timeline operation batch"
+      ],
+      "activation": {
+        "keywords": [
+          "auto cut",
+          "autocut",
+          "talking head",
+          "remove filler",
+          "tighten pacing"
+        ],
+        "assetKinds": ["video", "audio"]
+      }
+    },
+    "pipeline": {
+      "stages": [
+        { "id": "transcribe", "atoms": ["source-transcribe"] },
+        { "id": "analyze", "atoms": ["source-analyze"] },
+        { "id": "plan-cuts", "atoms": ["auto-cut-plan"] },
+        { "id": "assemble", "atoms": ["timeline-assemble"] },
+        { "id": "preview", "atoms": ["render-preview"] },
+        { "id": "qa", "atoms": ["qa-check"] }
+      ]
+    },
+    "genui": {
+      "surfaces": [
+        {
+          "id": "strategy-confirmation",
+          "kind": "confirmation",
+          "persist": "project",
+          "title": "Approve auto-cut strategy",
+          "prompt": "Approve the transcript-backed auto-cut strategy before Neuma applies timeline edits.",
+          "capabilitiesRequired": [
+            "media:transcribe",
+            "video:analyze",
+            "video:edit"
+          ]
+        }
+      ]
+    },
+    "output": {
+      "preset": "web-1080p",
+      "durationTargetSec": [30, 180],
+      "captions": "auto",
+      "fps": 30
+    },
+    "capabilities": [
+      "prompt:inject",
+      "media:transcribe",
+      "video:analyze",
+      "video:edit"
+    ],
+    "networkAccess": { "allowedHosts": ["none"] }
+  }
+}

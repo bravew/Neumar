@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "printWidth": 80,
+  "semi": true,
+  "tabWidth": 2,
+  "useTabs": false,
+  "arrowParens": "always",
+  "sortImports": {
+    "customGroups": [
+      {
+        "groupName": "react",
+        "elementNamePattern": ["react", "react-dom"],
+      },
+      {
+        "groupName": "react-router",
+        "elementNamePattern": ["react-router-dom", "react-router-dom/**"],
+      },
+      {
+        "groupName": "app",
+        "elementNamePattern": ["@/**"],
+      },
+    ],
+    "groups": [
+      "react",
+      "react-router",
+      "external",
+      "app",
+      ["parent", "sibling", "index"],
+      "style",
+    ],
+    "newlinesBetween": true,
+    "order": "asc",
+  },
+  "sortTailwindcss": {
+    "functions": ["tw", "clsx", "cn", "cva"],
+  },
+  "ignorePatterns": [
+    "node_modules",
+    ".pnpm-store",
+    "dist",
+    "dev-doc/**/spikes/**",
+    "src-api",
+    "src-tauri",
+    "src-site",
+    "src-video",
+    "pnpm-lock.yaml",
+    "*.md",
+    "*.mdoc",
+  ],
+}

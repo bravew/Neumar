@@ -1,0 +1,91 @@
+{
+  "id": "desktop-app.settings-walkthrough",
+  "kind": "video",
+  "page": "desktop-app",
+  "slot": "settings-walkthrough",
+  "route": "/",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"chat-input-textarea\"]",
+    "masks": [],
+    "steps": [
+      "Focus the composer",
+      "Open the MCP settings shortcut",
+      "Select the settings command",
+      "Hold on MCP settings",
+      "Open Account settings",
+      "Pause on Account settings",
+      "Open General settings",
+      "Pause on General settings",
+      "Open Model settings",
+      "Pause on Model settings",
+      "Open runtime settings",
+      "Pause on runtime settings",
+      "Return to MCP settings",
+      "Pause on MCP settings",
+      "Open Skills settings",
+      "Pause on Skills settings",
+      "Open Modes settings",
+      "Pause on Modes settings",
+      "Open DesignMode settings",
+      "Pause on DesignMode settings",
+      "Open Connector settings",
+      "Pause on Connector settings",
+      "Open Channel settings",
+      "Pause on Channel settings",
+      "Open Memory settings",
+      "Pause on Memory settings",
+      "Open Speech settings",
+      "Pause on Speech settings",
+      "Open Search settings",
+      "Pause on Search settings",
+      "Open Keyboard settings",
+      "Pause on Keyboard settings",
+      "Open Publish settings",
+      "Pause on Publish settings",
+      "Open Usage settings",
+      "Pause on Usage settings",
+      "Open Workplace settings",
+      "Pause on Workplace settings",
+      "Open Theme settings",
+      "Pause on Theme settings",
+      "Open Profiles settings",
+      "Pause on Profiles settings",
+      "Open Permissions settings",
+      "Pause on Permissions settings",
+      "Open Hooks settings",
+      "Pause on Hooks settings",
+      "Open Secrets settings",
+      "Pause on Secrets settings",
+      "Open Data settings",
+      "Pause on Data settings",
+      "Open Advanced settings",
+      "Pause on Advanced settings",
+      "Open About settings",
+      "Hold on About settings"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:01:43.100Z",
+  "source": "source.webm"
+}

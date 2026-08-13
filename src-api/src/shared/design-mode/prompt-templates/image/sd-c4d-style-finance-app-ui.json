@@ -1,0 +1,18 @@
+{
+  "id": "sd-c4d-style-finance-app-ui",
+  "surface": "image",
+  "title": "C4D-Style Finance App UI",
+  "summary": "This prompt generates a modern 3D-style finance app UI with floating cards, glassmorphism buttons, and dynamic charts, great for UI designers seeking inspiration or showcasing concept designs.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Financial wealth management app mobile UI design, C4D style premium UI, 3D data charts, blue gradient interface, floating card design, glassmorphism buttons, dynamic balance number display, market trend curve, pure white background, masterpiece, high detail.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360405323_gut77j_1765339448274-3d70yd-0217653394360811e15ac27860f2c8c25bccd5ee2521f9a5adc04_0-600x1068.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7551711790363675931?workDetailType=Image&itemType=9",
+    "author": "口袋"
+  }
+}

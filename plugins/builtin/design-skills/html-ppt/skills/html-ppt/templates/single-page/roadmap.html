@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Roadmap</title>
+    <link rel="stylesheet" href="../../assets/fonts.css" />
+    <link rel="stylesheet" href="../../assets/base.css" />
+    <link
+      rel="stylesheet"
+      id="theme-link"
+      href="../../assets/themes/minimal-white.css"
+    />
+    <link rel="stylesheet" href="../../assets/animations/animations.css" />
+    <style>
+      .rm {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+        margin-top: 28px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .rm .col {
+        padding: 20px 22px;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+        position: relative;
+      }
+      .rm .col:last-child {
+        border-right: none;
+      }
+      .rm .col .tag {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: var(--surface-2);
+        color: var(--text-2);
+        margin-bottom: 10px;
+      }
+      .rm .col.now {
+        background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+      }
+      .rm .col.now .tag {
+        background: var(--accent);
+        color: #fff;
+      }
+      .rm h4 {
+        font-size: 15px;
+        margin: 8px 0 4px;
+      }
+      .rm ul {
+        padding-left: 18px;
+        margin: 8px 0 0;
+        font-size: 13px;
+        color: var(--text-2);
+      }
+      .rm li {
+        margin-bottom: 6px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body class="single">
+    <div class="deck">
+      <section class="slide is-active" data-title="Roadmap">
+        <p class="kicker">Roadmap · 2026</p>
+        <h2 class="h2">What we will build over the next four quarters</h2>
+        <div class="rm">
+          <div class="col now">
+            <span class="tag">NOW · Q2</span>
+            <h4>Theme system</h4>
+            <ul>
+              <li>24 official themes</li>
+              <li>semantic token docs</li>
+              <li>T-key theme cycling</li>
+            </ul>
+          </div>
+          <div class="col">
+            <span class="tag">NEXT · Q3</span>
+            <h4>Export</h4>
+            <ul>
+              <li>Batch PNG</li>
+              <li>PDF packaging</li>
+              <li>3:4 social slices</li>
+            </ul>
+          </div>
+          <div class="col">
+            <span class="tag">LATER · Q4</span>
+            <h4>Interaction</h4>
+            <ul>
+              <li>Presenter mode</li>
+              <li>Notes side-by-side</li>
+              <li>Remote pairing</li>
+            </ul>
+          </div>
+          <div class="col">
+            <span class="tag">VISION</span>
+            <h4>AI drafting</h4>
+            <ul>
+              <li>Auto-paginate from Markdown</li>
+              <li>Smart layout choice</li>
+              <li>Smart theme choice</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script src="../../assets/runtime.js"></script>
+  </body>
+</html>

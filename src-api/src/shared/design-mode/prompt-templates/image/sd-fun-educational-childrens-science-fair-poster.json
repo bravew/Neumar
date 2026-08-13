@@ -1,0 +1,18 @@
+{
+  "id": "sd-fun-educational-childrens-science-fair-poster",
+  "surface": "image",
+  "title": "Fun Educational Children's Science Fair Poster",
+  "summary": "This prompt generates a fun and educational poster for a children's science fair. It features a colorful cartoon illustration of kids as scientists, with playful typography to make science exciting and accessible.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "A fun and educational poster for a children’s science fair. The design is a colorful cartoon illustration featuring kids dressed as scientists, looking at bubbling beakers, telescopes, and robots. The typography is playful and kid-friendly. The poster should make science look exciting and accessible, encouraging kids to participate. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359646358_zspn1j_00dc35614217759a1ac037ff108b7f90289c94d0a1d5608a917db3eb67739092-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

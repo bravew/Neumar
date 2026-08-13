@@ -1,0 +1,17 @@
+{
+  "id": "sd5-22",
+  "surface": "image",
+  "title": "In the quiet grain of a dimly lit interior, a slender figure…",
+  "summary": "In the quiet grain of a dimly lit interior, a slender figure captures her own reflection, emanating a delicate, porcelain fairness evocative of Northern European frost. Her features, partially veiled by the phone she hol…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "In the quiet grain of a dimly lit interior, a slender figure captures her own reflection, emanating a delicate, porcelain fairness evocative of Northern European frost. Her features, partially veiled by the phone she holds, suggest the dewy freshness of late adolescence or early twenties, possessing the captivating allure of a high-fashion muse. Wisps of platinum blonde hair fall in soft bangs, framing a face defined by high cheekbones and full, inviting lips that pout slightly in the low light. Her physique is lithe and delicate, a testament to slender grace, clad in an ensemble that balances innocence with edge. A white, corset-style camisole with intricate lacing hugs her torso, contrasted by the dark, open embrace of a black cardigan sliding off her shoulders. Below, black denim shorts sit high on her waist, giving way to legs adorned in sheer, slate-grey thigh-high stockings that accentuate her long, elegant lines. The setting is intimate and unpolished, with the reflection caught within a tall mirror; behind her, the mundane details of a room—a mounted air conditioner and the warm, amber glow spilling from an adjacent doorway—fade into a soft, grainy backdrop. The composition, envisioned in a vertical 9:16 aspect ratio, emphasizes her statuesque posture, while the digital noise adds a raw, tangible texture to this moment of quiet vanity.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/c69bf361-360f-44bd-b0ee-694b453b24f1",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea642f2b552957d3c5751"
+  }
+}

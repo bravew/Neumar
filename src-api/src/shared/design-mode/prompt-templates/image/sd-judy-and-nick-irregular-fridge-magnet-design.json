@@ -1,0 +1,18 @@
+{
+  "id": "sd-judy-and-nick-irregular-fridge-magnet-design",
+  "surface": "image",
+  "title": "Judy and Nick Irregular Fridge Magnet Design",
+  "summary": "This is another Zootopia-themed fridge magnet prompt using an irregular shape, showing a portrait of Judy and Nick with Christmas elements, combining a premium feel with a modern minimalist style.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Modern minimalist design style, Zootopia themed enamel fridge magnet design, irregular shaped magnet, close-up of Judy Hopps and Nick Wilde, surrounded by Christmas element patterns, with \"{argument name=\"bottom text\" default=\"Merry Christmas\"}\" English font at the bottom, international design, premium feel, light purple gradient color. Pure texture background.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360345227_87dzct_1765339524396-c2vrso-021765339509675732fd601d62b6a7044a0e20965673d99fc2e76_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7574448578127482138?workDetailType=Image&itemType=9",
+    "author": "喵了个咪"
+  }
+}

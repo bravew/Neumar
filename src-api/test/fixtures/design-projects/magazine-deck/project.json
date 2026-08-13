@@ -1,0 +1,31 @@
+{
+  "id": "fixture-magazine-deck",
+  "title": "Fixture Magazine Deck",
+  "surface": "deck",
+  "status": "complete",
+  "skillId": "simple-deck",
+  "designSystemId": "editorial",
+  "inspirationDesignSystemIds": [],
+  "craftRefs": ["anti-ai-slop", "typography"],
+  "brief": {
+    "slides": 3,
+    "audience": "editors"
+  },
+  "media": {
+    "speakerNotes": true
+  },
+  "outputs": [
+    {
+      "id": "out-deck-1",
+      "kind": "deck",
+      "path": "artifacts/slides.json",
+      "mime": "application/json",
+      "provider": "agent-file-edit",
+      "model": "fixture",
+      "taskId": "task-deck-1",
+      "createdAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-02T00:00:00.000Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z"
+}

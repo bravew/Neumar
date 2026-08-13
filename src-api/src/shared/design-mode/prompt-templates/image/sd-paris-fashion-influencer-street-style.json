@@ -1,0 +1,18 @@
+{
+  "id": "sd-paris-fashion-influencer-street-style",
+  "surface": "image",
+  "title": "Paris Fashion Influencer Street Style",
+  "summary": "This prompt generates a street style photo of a fashion influencer in Paris during Fashion Week. It emphasizes capturing an avant-garde outfit in front of the Louvre, with blurred background and bright overcast lighting.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "A street style photo of a fashion influencer in Paris during Fashion Week. She is wearing an avant-garde outfit and posing confidently in front of the Louvre Pyramid. The background is slightly blurred to keep the focus on her, but the iconic location is still recognizable. The lighting should be overcast but bright, typical of Paris, which creates soft shadows and brings out the colors and textures of her outfit. This requires high consistency in subject details and accurate environmental context. –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360204383_1ci042_1b3b9a6717aab1c6f9fc0068aac1becadb4d037b522eb47cf359437d908456a6-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

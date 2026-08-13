@@ -1,0 +1,18 @@
+{
+  "id": "sd-serene-yoga-meditation-workshop-poster",
+  "surface": "image",
+  "title": "Serene Yoga & Meditation Workshop Poster",
+  "summary": "This prompt generates a serene and calming poster for a weekend yoga and meditation workshop. It features a soft-focus photograph of a person in a peaceful yoga pose at sunrise, evoking peace and wellness.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "A serene and calming poster for a weekend yoga and meditation workshop. The main visual is a beautiful, soft-focus photograph of a person in a peaceful yoga pose on a beach at sunrise. The color palette is soft pastels (pinks, oranges, light blues). The typography is a gentle, flowing script. The poster should evoke feelings of peace, wellness, and self-care. –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765367961714_t47x0n_313e7deeb6c193d794d71ec8cec044dbc36e20b3f9e0fa338284467031d9e04f-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

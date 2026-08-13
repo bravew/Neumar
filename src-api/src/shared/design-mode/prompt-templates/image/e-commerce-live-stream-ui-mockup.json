@@ -1,0 +1,18 @@
+{
+  "id": "e-commerce-live-stream-ui-mockup",
+  "surface": "image",
+  "title": "E-commerce Live Stream UI Mockup",
+  "summary": "Generates a realistic social media live stream interface overlaying a portrait, featuring customizable chat messages, gift popups, and a product purchase card.",
+  "category": "App / Web Design",
+  "tags": ["portrait", "fantasy", "product"],
+  "model": "gpt-image-2",
+  "aspect": "1:1",
+  "prompt": "{\n  \"type\": \"live stream UI mockup\",\n  \"subject\": {\n    \"description\": \"portrait of {argument name=\\\"host name\\\" default=\\\"Elon Musk\\\"}, smiling, wearing a black t-shirt with a white technical schematic graphic\",\n    \"background\": \"left side shows a screen with '{argument name=\\\"left background logo\\\" default=\\\"SPACEX\\\"}' text, right side shows a red '{argument name=\\\"right background logo\\\" default=\\\"Tesla T logo\\\"}' and a dark car\"\n  },\n  \"ui_overlay\": {\n    \"top_header\": {\n      \"host_info\": \"avatar, name '{argument name=\\\"host name\\\" default=\\\"Elon Musk\\\"}', subtext '556K likes in this session', red 'Follow' button\",\n      \"rank_badge\": \"gold coin icon with 'Ranked #1 site-wide'\",\n      \"viewer_stats\": \"3 top viewer avatars with '123K', '86K', '57K', total '687K', 'X' close button\",\n      \"right_links\": \"'More live streams >', 'Gift gallery 0/24' with blue 'Classic' tag\"\n    },\n    \"mid_left_gifts\": {\n      \"count\": 2,\n      \"items\": [\n        \"avatar 'Tech Fan', 'sent little hearts', heart icon x 1314\",\n        \"avatar 'Starlit Voyage', 'sent a rocket', rocket icon x 666\"\n      ]\n    },\n    \"bottom_left_chat\": {\n      \"system_message\": \"level 37 badge 'Cosmic Wanderer joined the live stream'\",\n      \"message_count\": 7,\n      \"messages\": [\n        \"Little Rocket: Musk, the future looks bright! 🚀\",\n        \"future: When will Tesla Model 2 come out?\",\n        \"Stargazer: Can SpaceX reach Mars this year?\",\n        \"AI Explorer: How is Neuralink progressing?\",\n        \"Friendly Viewer: Hello Mr. Musk!\",\n        \"Mars: First time in your stream, very excited!\",\n        \"User123: Talk about AI. Will it replace humans?\"\n      ]\n    },\n    \"bottom_right_product_card\": {\n      \"hot_tag\": \"orange 'Hot sale x 1888'\",\n      \"image\": \"Tesla Cybertruck\",\n      \"title\": \"{argument name=\\\"product name\\\" default=\\\"Tesla Cybertruck electric pickup\\\"}\",\n      \"price\": \"{argument name=\\\"product price\\\" default=\\\"¥ 1,618,000\\\"}\",\n      \"button\": \"red 'Buy' button\",\n      \"floating_animation\": \"translucent hearts floating up the right edge\"\n    },\n    \"bottom_bar\": {\n      \"input_field\": \"'Say something...'\",\n      \"icons\": [\"smiley face\", \"three dots\", \"shopping cart\", \"gift box\", \"share\"]\n    }\n  }\n}",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1776699445498_ga2ry5_HGO7H0DWkAApdKK.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-gpt-image-2",
+    "license": "CC-BY-4.0",
+    "author": "Anonymous creator",
+    "url": "https://x.com/sjbbxhz/status/2045684734714380687#reversed-0"
+  }
+}

@@ -1,0 +1,78 @@
+spec_version: 1
+id: frame-bullet-list
+name: Bullet List
+description: >
+  Title plus a list of up to 6 bullets that fade in one-by-one.
+engine: html
+engine_version: ^1.60.0
+source_entry: source/index.html
+
+category: explainer
+subcategory: list
+tags: [list, bullets, explainer, summary]
+best_for:
+  - 'Quick recap of 3-6 points'
+  - 'Feature highlight'
+
+output:
+  formats: [mp4]
+  default_format: mp4
+  resolution:
+    default: { width: 1920, height: 1080 }
+    supported_aspects: ['16:9']
+  fps:
+    default: 30
+    supported: [24, 30, 60]
+  duration:
+    type: variable
+    min_sec: 3
+    max_sec: 10
+  alpha: false
+  audio:
+    supported: false
+
+inputs:
+  schema:
+    type: object
+    required: [title, bullets]
+    properties:
+      title:
+        type: string
+        title: Title
+        maxLength: 80
+      bullets:
+        type: array
+        minItems: 1
+        maxItems: 6
+        items:
+          type: object
+          required: [text]
+          properties:
+            text:
+              type: string
+              maxLength: 100
+            emphasis:
+              type: boolean
+              default: false
+  examples:
+    - title: 'Q3 wins'
+      bullets:
+        - { text: 'Revenue up 12%', emphasis: true }
+        - { text: 'Signups +18k' }
+        - { text: 'Retention 91%' }
+
+license:
+  spdx: Apache-2.0
+  attribution_required: false
+  redistribution_allowed: true
+  commercial_use: true
+
+provenance:
+  origin:
+    kind: in-house
+  transformation: 'Original Neuma design — animated bullet reveal.'
+
+author:
+  name: Neuma
+
+version: 0.1.0

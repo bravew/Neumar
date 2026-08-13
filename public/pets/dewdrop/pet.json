@@ -1,0 +1,11 @@
+{
+  "id": "dewdrop",
+  "displayName": "Dewdrop",
+  "description": "A green slime sprout pet with a cheerful face.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "fantasy", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/dewdrop-openpets",
+  "category": "western"
+}

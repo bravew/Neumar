@@ -1,0 +1,18 @@
+{
+  "id": "sd-psychedelic-music-festival-poster-ethereal-bloom",
+  "surface": "image",
+  "title": "Psychedelic Music Festival Poster \"Ethereal Bloom\"",
+  "summary": "This prompt generates a vibrant, psychedelic poster for a summer music festival called \"Ethereal Bloom.\" It features a surreal explosion of color with glowing mushrooms and fantasy creatures, showcasing the ability to cr.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "A vibrant, psychedelic poster for a summer music festival called “Ethereal Bloom”. The design is a surreal explosion of color, featuring giant, glowing mushrooms, whimsical fantasy creatures, and abstract geometric patterns all intertwined. The festival lineup is integrated into the artwork in a wavy, distorted font. The overall mood is magical, energetic, and otherworldly, showcasing the ability to create complex, imaginative, and genre-specific visuals. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359797691_hgduy7_7f38ccdb2888614aea47dcabcb193265155dc519db24136d6482c0dd6a6c1160-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

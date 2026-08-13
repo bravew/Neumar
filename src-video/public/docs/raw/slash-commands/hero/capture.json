@@ -1,0 +1,39 @@
+{
+  "id": "slash-commands.hero",
+  "kind": "image",
+  "page": "slash-commands",
+  "slot": "hero",
+  "route": "/",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 2,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"chat-input-textarea\"]",
+    "masks": [],
+    "steps": [
+      "Open the slash command menu",
+      "Pause on slash commands"
+    ]
+  },
+  "capturedAt": "2026-05-09T21:58:42.548Z",
+  "source": "source.png"
+}

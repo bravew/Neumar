@@ -1,0 +1,7 @@
+{
+  "kind": "video-fixture",
+  "provider": "volcengine",
+  "model": "doubao-seedance-2-0-260128",
+  "durationSeconds": 5,
+  "referenceFrame": "assets/references/first-frame.svg"
+}

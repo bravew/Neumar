@@ -1,0 +1,11 @@
+{
+  "id": "patchi",
+  "displayName": "Patchi",
+  "description": "A tiny red panda with leafy head accents and a ringed tail.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/patchi-openpets",
+  "category": "western"
+}

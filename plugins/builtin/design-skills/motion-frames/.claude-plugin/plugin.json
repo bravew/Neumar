@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-motion-frames",
+  "version": "0.1.0",
+  "description": "A single-frame motion-design composition with looping CSS animations — rotating type ring, animated globe, ticking timer, parallax labels. Renders as a hero video poster you can hand straight to HyperFrames or any keyframe-based exporter. Use when the brief asks for \"motion design\", \"animated hero\", \"loop\", \"video poster\", \"title card\", or pairs Open Claude Design with HyperFrames for a kinetic export.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

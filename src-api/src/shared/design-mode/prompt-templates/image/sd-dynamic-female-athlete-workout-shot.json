@@ -1,0 +1,18 @@
+{
+  "id": "sd-dynamic-female-athlete-workout-shot",
+  "surface": "image",
+  "title": "Dynamic Female Athlete Workout Shot",
+  "summary": "This prompt creates a dynamic and powerful image of a female athlete lifting weights in an urban gym. It focuses on dramatic, high-contrast lighting to convey strength, determination, and raw energy, highlighting accurat.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:5",
+  "prompt": "A dynamic and powerful shot of a female athlete mid-workout in a gritty, urban gym. She is lifting a heavy barbell, and her muscles are defined and tense. The lighting is dramatic and high-contrast, with light streaming through a large window, highlighting the dust particles in the air. The image should convey strength, determination, and raw energy, demonstrating accurate anatomical rendering and atmospheric lighting. –ar 4:5",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360179604_xwadaf_4bc42730fac9b6b298ba8f732b6431248ae84dd281657d8709a0c816b1de3304-600x750.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

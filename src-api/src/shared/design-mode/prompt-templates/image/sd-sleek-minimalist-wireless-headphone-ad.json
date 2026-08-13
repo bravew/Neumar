@@ -1,0 +1,18 @@
+{
+  "id": "sd-sleek-minimalist-wireless-headphone-ad",
+  "surface": "image",
+  "title": "Sleek Minimalist Wireless Headphone Ad",
+  "summary": "This prompt generates a sleek and minimalist poster advertisement for new high-tech wireless headphones. It features a stunning 3D render of the headphones floating in zero-gravity, focusing on the product's beauty with.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "A sleek and minimalist poster advertisement for a new high-tech wireless headphone. The poster features a stunning, high-resolution 3D render of the headphone, seemingly floating in a zero-gravity environment. The background is a simple, clean gradient. The only text is the brand name and the product slogan: “Unleash Your Sound.” The design is modern, sophisticated, and focuses entirely on the product’s beauty. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359675191_mabnp6_d4ff0ab7b9e83178bdb7e5546de94745d68c03ddaa5d94b504aefe6a50e0d7f4-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

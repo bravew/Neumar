@@ -1,0 +1,17 @@
+{
+  "id": "sd5-06",
+  "surface": "image",
+  "title": "Referring to the “Duolingo” app interface, design a vocabula…",
+  "summary": "Referring to the “Duolingo” app interface, design a vocabulary check-in page with words and days, using that green bird element.",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "9:16",
+  "prompt": "Referring to the “Duolingo” app interface, design a vocabulary check-in page with words and days, using that green bird element.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/cae31e58-bae1-4daf-a5b9-dc73a90c2cbd",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea697f2b552957d3c575b"
+  }
+}

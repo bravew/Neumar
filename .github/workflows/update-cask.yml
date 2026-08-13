@@ -1,0 +1,173 @@
+name: Update Homebrew Cask
+
+# Updates the Homebrew cask formula after a new release is published.
+# DMG filenames must match the build workflow output.
+# Default: Neumar_{version}_{arch}.dmg (Tauri convention)
+#
+# Trigger: waits for "Build and Release" to finish so the DMG artifacts
+# actually exist on the release page before we try to download them.
+# Triggering on `release: published` raced ahead of build.yml and 404'd.
+
+on:
+  workflow_run:
+    workflows: ['Build and Release']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to update (e.g., 26.2.28)'
+        required: true
+        type: string
+
+jobs:
+  update-cask:
+    runs-on: ubuntu-latest
+    # Skip when the upstream Build and Release workflow didn't succeed —
+    # the DMG artifacts wouldn't have been uploaded.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: main
+
+      - name: Read branding
+        id: brand
+        run: |
+          DISPLAY_NAME=$(node -p "require('./branding.json').displayName")
+          SLUG=$(node -p "require('./branding.json').slug")
+          echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
+          echo "slug=$SLUG" >> $GITHUB_OUTPUT
+
+      - name: Get version
+        id: version
+        env:
+          # workflow_run sets head_branch to the ref that triggered the upstream
+          # workflow — for build.yml that's the tag (e.g. "v26.5.4").
+          TAG_NAME: ${{ github.event.workflow_run.head_branch }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            VERSION="${TAG_NAME#v}"
+          else
+            VERSION="$INPUT_VERSION"
+          fi
+          # Validate version format
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Invalid version format: $VERSION (expected X.Y.Z)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Calculate SHA256 for ARM64 DMG
+        id: sha_arm
+        env:
+          REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          # Tauri DMGs are named with the lowercase brand slug, not displayName
+          # (e.g. neumar_26.5.5_aarch64.dmg).
+          SLUG: ${{ steps.brand.outputs.slug }}
+        run: |
+          URL="https://github.com/$REPO/releases/download/v$VERSION/${SLUG}_${VERSION}_aarch64.dmg"
+          echo "Downloading from: $URL"
+          DMG_FILE=$(mktemp)
+          if ! curl -sfL "$URL" -o "$DMG_FILE" || [ ! -s "$DMG_FILE" ]; then
+            rm -f "$DMG_FILE"
+            echo "::warning::ARM64 DMG not found at $URL — skipping"
+            echo "sha=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          SHA=$(shasum -a 256 "$DMG_FILE" | cut -d ' ' -f 1)
+          rm -f "$DMG_FILE"
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "ARM64 SHA256: $SHA"
+
+      - name: Calculate SHA256 for Intel DMG
+        id: sha_intel
+        env:
+          REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SLUG: ${{ steps.brand.outputs.slug }}
+        run: |
+          URL="https://github.com/$REPO/releases/download/v$VERSION/${SLUG}_${VERSION}_x64.dmg"
+          echo "Downloading from: $URL"
+          DMG_FILE=$(mktemp)
+          if ! curl -sfL "$URL" -o "$DMG_FILE" || [ ! -s "$DMG_FILE" ]; then
+            rm -f "$DMG_FILE"
+            echo "::warning::Intel DMG not found at $URL — skipping (Intel build may be disabled)"
+            echo "sha=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          SHA=$(shasum -a 256 "$DMG_FILE" | cut -d ' ' -f 1)
+          rm -f "$DMG_FILE"
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "Intel SHA256: $SHA"
+
+      - name: Update Cask file
+        env:
+          CASK_VERSION: ${{ steps.version.outputs.version }}
+          CASK_ARM_SHA: ${{ steps.sha_arm.outputs.sha }}
+          CASK_INTEL_SHA: ${{ steps.sha_intel.outputs.sha }}
+          CASK_SLUG: ${{ steps.brand.outputs.slug }}
+        run: |
+          CASK_FILE="Casks/$CASK_SLUG.rb"
+          VERSION="$CASK_VERSION"
+          ARM_SHA="$CASK_ARM_SHA"
+          INTEL_SHA="$CASK_INTEL_SHA"
+
+          if [ ! -f "$CASK_FILE" ]; then
+            # The Homebrew cask formula lives in a tap repo, not this codebase.
+            # Until that wiring is set up, log and skip cleanly so the workflow
+            # exits successfully on every release.
+            echo "::notice::Cask file not found at $CASK_FILE — skipping update (cask formula tap not wired)"
+            exit 0
+          fi
+
+          if [ -z "$ARM_SHA" ] && [ -z "$INTEL_SHA" ]; then
+            echo "::warning::No DMGs available for v$VERSION — skipping cask update"
+            exit 0
+          fi
+
+          echo "Updating $CASK_FILE"
+          echo "  Version: $VERSION"
+          echo "  ARM64 SHA: $ARM_SHA"
+          echo "  Intel SHA: $INTEL_SHA"
+
+          sed -i "s/version \"[^\"]*\"/version \"$VERSION\"/" "$CASK_FILE"
+          if [ -n "$ARM_SHA" ]; then
+            sed -i "s/sha256 arm:   \"[^\"]*\"/sha256 arm:   \"$ARM_SHA\"/" "$CASK_FILE"
+          fi
+          if [ -n "$INTEL_SHA" ]; then
+            sed -i "s/intel: \"[^\"]*\"/intel: \"$INTEL_SHA\"/" "$CASK_FILE"
+          fi
+
+          echo "Updated content:"
+          head -20 "$CASK_FILE"
+
+      - name: Commit and push
+        env:
+          CASK_VERSION: ${{ steps.version.outputs.version }}
+          CASK_SLUG: ${{ steps.brand.outputs.slug }}
+        run: |
+          CASK_FILE="Casks/${CASK_SLUG}.rb"
+          if [ ! -f "$CASK_FILE" ]; then
+            # Mirror the guard in the previous step — when the cask formula
+            # lives in a separate Homebrew tap (or hasn't been wired up yet),
+            # there's nothing to commit. Skip cleanly instead of failing the
+            # workflow with `pathspec did not match any files`.
+            echo "::notice::$CASK_FILE not in repo — skipping commit (cask formula tap not wired)"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$CASK_FILE"
+          git diff --cached --exit-code && echo "No changes to commit" && exit 0
+          git commit -m "chore: update homebrew cask to v${CASK_VERSION}"
+          git push

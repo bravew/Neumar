@@ -1,0 +1,26 @@
+{
+  "id": "gptimage2-visual-polyglot-magazine",
+  "surface": "image",
+  "title": "Visual Polyglot Magazine Collage",
+  "summary": "Premium magazine page celebrating visual intelligence — an unstructured collage of scientific diagrams, manuscripts, pixel art, blueprints, and all human visual culture around the title 'Create Everything at Once'.",
+  "category": "Editorial / Collage",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "collage",
+    "editorial",
+    "magazine",
+    "infographic",
+    "science"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "4:5",
+  "prompt": "Create magazine page with theme of 'visual polyglot'. Title centered: 'Create Everything at Once'. Create art celebrating visual creations across human visual culture and natural visual elements. Curated collage representing: scientific diagrams, periodic table, solar system, medieval manuscript pages, botanical illustrations, anatomical drawings, old maps, climate charts, engineering schematics, transit signage, multilingual text, comic panels, UI screenshots, camera photos, butterfly specimen, pie charts, architectural blueprints, facade drawings, pixel art, sculptures, nature, photography, paintings, and all art forms. Text frames the model as fluent across languages, notation systems, interfaces, cultural forms, and visual conventions. Unstructured, creative, artistic layout avoiding grid-like designs. Portrait 4:5 aspect ratio. Don't add content text beside title. Text as part of art is okay. Avoid beige tint—maintain vibrant elements.",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/020-raw_20260423_x_prompt_008__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "author": "@dotey",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

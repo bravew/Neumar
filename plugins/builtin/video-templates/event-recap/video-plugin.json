@@ -1,0 +1,73 @@
+{
+  "specVersion": "1.0.0",
+  "name": "event-recap",
+  "title": "Event Recap",
+  "compatibility": {
+    "neuma": ">=26.6.15 <27.0.0",
+    "videoPluginApi": "^1.0.0"
+  },
+  "description": "Create a polished event recap from available media, prioritizing chronology, atmosphere, readable titles, licensed filler b-roll, and a restrained music bed.",
+  "tags": ["event", "recap", "highlights"],
+  "video": {
+    "kind": "flow",
+    "mode": "recap",
+    "aspectRatios": ["16:9", "9:16", "1:1"],
+    "engine": { "id": "html" },
+    "useCase": {
+      "query": "Make an event recap from the selected assets.",
+      "goals": [
+        "Establish the event quickly",
+        "Keep the sequence chronological when timestamps are available",
+        "Use music and motion without hiding the source footage"
+      ],
+      "activation": {
+        "keywords": ["recap", "event", "highlights", "conference"],
+        "assetKinds": ["image", "video", "audio"]
+      }
+    },
+    "pipeline": {
+      "stages": [
+        { "id": "storyboard", "atoms": ["storyboard-draft"] },
+        {
+          "id": "supporting-media",
+          "atoms": ["broll-stock"],
+          "optional": true
+        },
+        { "id": "music", "atoms": ["music-select"], "optional": true },
+        { "id": "assemble", "atoms": ["timeline-assemble"] },
+        {
+          "id": "qa",
+          "atoms": ["render-preview", "qa-check"],
+          "repeat": true,
+          "until": "qa.pass || iterations>=2"
+        }
+      ]
+    },
+    "output": {
+      "preset": "web-1080p",
+      "durationTargetSec": [45, 120],
+      "captions": "auto",
+      "fps": 30
+    },
+    "capabilities": ["prompt:inject", "network:stock", "network:music"],
+    "networkAccess": {
+      "allowedHosts": [
+        "api.pexels.com",
+        "www.pexels.com",
+        "pixabay.com",
+        "cdn.pixabay.com",
+        "api.storyblocks.com",
+        "api.openai.com"
+      ],
+      "allowedPaths": {
+        "api.pexels.com": ["/v1/videos/"],
+        "www.pexels.com": ["/video/"],
+        "pixabay.com": ["/api/videos/", "/videos/", "/get/"],
+        "cdn.pixabay.com": ["/video/"],
+        "api.storyblocks.com": ["/api/"],
+        "api.openai.com": ["/v1/"]
+      },
+      "reason": "Find licensed filler b-roll and optional music when project media needs support."
+    }
+  }
+}

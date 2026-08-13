@@ -1,0 +1,18 @@
+{
+  "id": "sd-diy-room-makeover-before-and-after",
+  "surface": "image",
+  "title": "DIY Room Makeover Before and After",
+  "summary": "This prompt generates a YouTube thumbnail for a DIY home decor video, featuring a split-screen \"before and after\" of a room transformation. It highlights high consistency and the ability to show impressive changes.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a DIY home decor video. The image shows a “before and after” split screen. The “before” side shows a plain, boring room. The “after” side shows the same room transformed into a stylish, cozy space. The YouTuber is in the middle, pointing to the “after” side with a proud smile. The text “Budget Room Makeover!” is prominently displayed. This demonstrates high consistency and the ability to show transformations. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359900370_9r1704_ab90bfdfcf0d0c7ab2556c996cbd238f4fe239e87325268a10cd40436c3f3634-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

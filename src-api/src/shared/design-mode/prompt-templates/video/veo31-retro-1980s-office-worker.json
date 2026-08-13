@@ -1,0 +1,26 @@
+{
+  "id": "veo31-retro-1980s-office-worker",
+  "surface": "video",
+  "title": "Retro 1980s Late-Night Office Worker",
+  "summary": "Medium shot of an exhausted corporate worker at a bulky 1980s computer, lit only by harsh fluorescent overheads and the green glow of a monochrome monitor — shot as if on 1980s color film with grain.",
+  "category": "Cinematic / Period",
+  "tags": [
+    "veo-3.1",
+    "google",
+    "cinematic",
+    "retro",
+    "1980s",
+    "character",
+    "period"
+  ],
+  "model": "veo-3.1",
+  "aspect": "16:9",
+  "prompt": "Medium shot, a tired corporate worker, rubbing his temples in exhaustion, in front of a bulky 1980s computer in a cluttered office late at night. The scene is lit by the harsh fluorescent overhead lights and the green glow of the monochrome monitor. Retro aesthetic, shot as if on 1980s color film, slightly grainy.",
+  "previewImageUrl": "https://storage.googleapis.com/gweb-cloudblog-publish/images/1_IHstV5A.max-2000x2000.png",
+  "source": {
+    "repo": "google/veo",
+    "license": "platform-example",
+    "author": "Google DeepMind",
+    "url": "https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1"
+  }
+}

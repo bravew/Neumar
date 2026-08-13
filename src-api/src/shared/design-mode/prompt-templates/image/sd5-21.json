@@ -1,0 +1,17 @@
+{
+  "id": "sd5-21",
+  "surface": "image",
+  "title": "Hero lands on wet street, rain mixes with dust shockwave, de…",
+  "summary": "Hero lands on wet street, rain mixes with dust shockwave, debris obeys gravity, cinematic handheld chaos.",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "Hero lands on wet street, rain mixes with dust shockwave, debris obeys gravity, cinematic handheld chaos.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/bb376404-d52b-47dd-a9e5-6b2d85e7fa62",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea63ef2b552957d3c574f"
+  }
+}

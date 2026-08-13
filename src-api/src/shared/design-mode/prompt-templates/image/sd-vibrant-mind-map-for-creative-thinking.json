@@ -1,0 +1,18 @@
+{
+  "id": "sd-vibrant-mind-map-for-creative-thinking",
+  "surface": "image",
+  "title": "Vibrant Mind Map for Creative Thinking",
+  "summary": "This prompt generates a vibrant and organic mind map centered on \"Creative Thinking.\" It uses unique colors and relevant icons for branches, with a friendly, handwritten font, ideal for educational and brainstorming tool.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A vibrant and organic mind map centered around the topic of “Creative Thinking.” The central idea is in a cloud-like shape, with branches extending to sub-topics like “Brainstorming,” “Mindfulness,” “Divergent Thinking,” and “Collaboration.” Each branch should have a unique color and be accompanied by a small, relevant icon (e.g., a lightbulb for ideas). The text should be in a friendly, handwritten font, showcasing a tool for educational and brainstorming purposes. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360046589_xbdktm_7f8ef516875cb2529572760ff3af83434fa448b108c72ee77fbed2f0d0c31349-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

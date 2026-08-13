@@ -1,0 +1,11 @@
+{
+  "id": "rabbit",
+  "displayName": "Rabbit",
+  "description": "A tiny white pixel rabbit with tall pink ears.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/rabbit-openpets",
+  "category": "western"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-eng-runbook",
+  "version": "0.1.0",
+  "description": "An engineering runbook — service overview, alerts table, dashboards links, common procedures with copy-pasteable commands, on-call rotation, and an incident-response checklist. Use when the brief mentions \"runbook\", \"ops doc\", \"on-call guide\", \"SRE doc\", or \"运维手册\".",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

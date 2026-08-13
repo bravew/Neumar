@@ -1,0 +1,18 @@
+{
+  "id": "sd-minimalist-high-fashion-portrait",
+  "surface": "image",
+  "title": "Minimalist High-Fashion Portrait",
+  "summary": "A striking, minimalist portrait prompt inspired by modern album covers. It uses a specific color palette, ring lighting, and a square composition to create a bold, high-contrast image with a fashion magazine aesthetic.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Minimalist half-body portrait of a {argument name=\"subject\" default=\"young woman\"}, solid color background ({argument name=\"background color\" default=\"#B4C7E7 haze blue\"}), intense gaze looking directly at the lens, Profoto ring light frontal flat lighting to eliminate shadows, clear but soft skin texture, high contrast while retaining details, fashion magazine cover composition, medium format camera Hasselblad texture, cool tone post-processing, Billie Eilish album cover aesthetic, 1:1 square composition",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360294364_xh7py4_1765274895843-7atxql-02176527488562899f4740eadd3360aa6250e68d85f7ec7240623_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

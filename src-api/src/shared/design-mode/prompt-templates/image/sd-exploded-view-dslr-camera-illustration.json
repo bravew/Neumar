@@ -1,0 +1,18 @@
+{
+  "id": "sd-exploded-view-dslr-camera-illustration",
+  "surface": "image",
+  "title": "Exploded View DSLR Camera Illustration",
+  "summary": "This prompt creates an exploded view technical illustration of a DSLR camera, separating and aligning its components. It uses a clean, precise 3D render with labels, demonstrating advanced spatial understanding for techn.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "An exploded view technical illustration of a DSLR camera. Each component of the camera (lens, body, sensor, mirror, battery) should be separated but aligned, showing how they fit together. The style should be a clean, precise 3D render with labels for the key parts. This demonstrates advanced spatial understanding and the ability to create complex technical diagrams for engineering and product design. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359997080_1prfza_c8269754000f110a97bf65145ca5373a1fc1fbe87f6b30e334dffbd18bc5b5df-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

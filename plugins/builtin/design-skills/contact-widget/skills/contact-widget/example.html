@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contact Widget</title>
+    <style>
+      :root {
+        --bg: #eef2f7;
+        --surface: #ffffff;
+        --fg: #172033;
+        --muted: #667085;
+        --border: #d7deea;
+        --accent: #1d4ed8;
+        --danger: #b42318;
+      }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      form {
+        width: min(440px, calc(100vw - 32px));
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 18px 50px rgba(23, 32, 51, 0.12);
+        padding: 24px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+      p {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        margin-top: 14px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      input,
+      select,
+      textarea {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--fg);
+        font: inherit;
+        padding: 10px 12px;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent);
+        outline: 3px solid color-mix(in srgb, var(--accent) 22%, transparent);
+      }
+      .error {
+        color: var(--danger);
+        font-size: 13px;
+      }
+      button {
+        width: 100%;
+        margin-top: 18px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 800;
+        padding: 12px 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <form data-od-id="contact-widget">
+      <h1>Talk to a specialist</h1>
+      <p>Send the context once. We will route it to the right person.</p>
+      <label data-od-id="contact-name">
+        Name
+        <input name="name" autocomplete="name" />
+      </label>
+      <label data-od-id="contact-email">
+        Work email
+        <input name="email" autocomplete="email" inputmode="email" />
+        <span class="error">Use a valid work email.</span>
+      </label>
+      <label data-od-id="contact-topic">
+        Topic
+        <select name="topic">
+          <option>Sales question</option>
+          <option>Support request</option>
+          <option>Partnership</option>
+        </select>
+      </label>
+      <label data-od-id="contact-message">
+        Message
+        <textarea name="message" rows="4"></textarea>
+      </label>
+      <p data-od-id="contact-privacy">
+        We use this only to respond to your request. No mailing-list opt-in is
+        hidden in this form.
+      </p>
+      <button data-od-id="contact-submit" type="button">Send request</button>
+    </form>
+  </body>
+</html>

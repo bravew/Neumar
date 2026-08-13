@@ -1,0 +1,11 @@
+{
+  "id": "bear",
+  "displayName": "Bear",
+  "description": "A warm brown pixel bear wearing a red bandana.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/bear-openpets",
+  "category": "western"
+}

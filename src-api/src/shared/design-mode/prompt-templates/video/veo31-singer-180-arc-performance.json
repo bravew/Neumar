@@ -1,0 +1,26 @@
+{
+  "id": "veo31-singer-180-arc-performance",
+  "surface": "video",
+  "title": "Singer 180° Arc Performance Shot",
+  "summary": "Smooth 180° arc shot that circles from the singer's front to a POV behind her on stage as she sings — showcasing Veo 3.1's 'first and last frame' camera control for seamless dynamic transitions.",
+  "category": "Music / Performance",
+  "tags": [
+    "veo-3.1",
+    "google",
+    "music",
+    "performance",
+    "camera-movement",
+    "arc-shot",
+    "dialogue"
+  ],
+  "model": "veo-3.1",
+  "aspect": "16:9",
+  "prompt": "The camera performs a smooth 180-degree arc shot, starting with the front-facing view of the singer and circling around her to seamlessly end on the POV shot from behind her on stage. The singer sings 'when you look me in the eyes, I can see a million stars.'",
+  "previewImageUrl": "https://storage.googleapis.com/gweb-cloudblog-publish/images/6_qNOc3Li.max-2000x2000.png",
+  "source": {
+    "repo": "google/veo",
+    "license": "platform-example",
+    "author": "Google DeepMind",
+    "url": "https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1"
+  }
+}

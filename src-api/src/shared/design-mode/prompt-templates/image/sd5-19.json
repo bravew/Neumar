@@ -1,0 +1,17 @@
+{
+  "id": "sd5-19",
+  "surface": "image",
+  "title": "h0674kz, hello kitty blowing up the office, retro film style…",
+  "summary": "h0674kz, hello kitty blowing up the office, retro film style, fine graininess",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "h0674kz, hello kitty blowing up the office, retro film style, fine graininess",
+  "previewImageUrl": "https://github.com/user-attachments/assets/0408bd50-da1e-4b16-844f-4c0c2d78afb1",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0/A-Costumed-Character-Stands-In-A-Chaotic-Office-Setting-Holding-A-Dynamite-Stick-As-Papers-And-Glass-Scatter-Around"
+  }
+}

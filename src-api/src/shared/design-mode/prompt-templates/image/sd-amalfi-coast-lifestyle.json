@@ -1,0 +1,18 @@
+{
+  "id": "sd-amalfi-coast-lifestyle",
+  "surface": "image",
+  "title": "Amalfi Coast Lifestyle",
+  "summary": "A sophisticated lifestyle photography prompt set on the Italian coast. It simulates the warm, elegant look of Leica film photography during the golden hour, perfect for high-end fashion or travel concepts featuring a rel.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Elegant {argument name=\"age\" default=\"30-year-old\"} {argument name=\"gender\" default=\"woman\"} on a {argument name=\"location\" default=\"terrace of a villa in Amalfi, Italy\"}, wearing {argument name=\"clothing\" default=\"off-white French linen dress\"} flowing in the wind, soft golden hour lighting (Magic Hour), blurred Mediterranean blue seascape background, Leica M10 film color simulation, warm tone movie film texture (Kodak Portra 400), shallow depth of field 35mm humanist photography, high-grade grey palette, natural relaxed atmosphere",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360310269_g67vo3_1765274880173-hxchdb-02176527486700575aeae14c82856eca08eecb5e75c057534d7a5_0-600x400.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

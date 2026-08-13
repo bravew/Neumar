@@ -1,0 +1,18 @@
+{
+  "id": "sd-ma-wencheng-artistic-signature-design",
+  "surface": "image",
+  "title": "Ma Wencheng Artistic Signature Design",
+  "summary": "This prompt generates an elegant and bold artistic signature in a celebrity-style cursive script, suitable for personal signature design or brand logo inspiration.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Master-level artistic signature font design: {argument name=\"name\" default=\"Ma Wencheng\"}: The font is elegant, bold, smooth yet majestic, imitating celebrity cursive signatures, fountain pen effect, varying thickness, connected strokes between characters, with decorative lines. Strong artistic sense in the signature, clean white background, no watermark, large negative space, suitable for signatures.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360394516_gxpvgm_1765339460382-eznpqh-021765339449957f8f49430e1e3875ff473008eb96b3a392ba9d6_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7576324411175882034?workDetailType=Image&itemType=9",
+    "author": "百里马"
+  }
+}

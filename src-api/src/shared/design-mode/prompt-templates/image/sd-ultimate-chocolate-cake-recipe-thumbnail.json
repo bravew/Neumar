@@ -1,0 +1,18 @@
+{
+  "id": "sd-ultimate-chocolate-cake-recipe-thumbnail",
+  "surface": "image",
+  "title": "Ultimate Chocolate Cake Recipe Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for a recipe video on \"The Ultimate Chocolate Cake.\" It features a mouth-watering close-up of a cake slice with molten chocolate, requiring hyper-realistic food rendering to crea.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a recipe video on “The Ultimate Chocolate Cake.” The image is a mouth-watering close-up of a slice of cake on a fork, with molten chocolate dripping from it. The background is a beautifully decorated, complete cake. The lighting is warm and delicious. Bold, elegant text says “The ONLY Chocolate Cake Recipe You Need.” This requires hyper-realistic food rendering to create a strong sense of craving. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359901359_1x34it_03121fa70e72330556cbd276f62b40bb3b959dd20737ecf355e76d61e5a3e077-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

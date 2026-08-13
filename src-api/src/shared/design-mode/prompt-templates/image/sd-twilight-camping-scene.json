@@ -1,0 +1,18 @@
+{
+  "id": "sd-twilight-camping-scene",
+  "surface": "image",
+  "title": "Twilight Camping Scene",
+  "summary": "An atmospheric outdoor adventure prompt set at twilight. It combines camping gear details with a majestic starry background and warm firelight to create an inviting, National Geographic-style landscape image.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Mountain tent campsite twilight scene, professional outdoor tent (The North Face) details visible, foreground campfire flames dancing, background starry sky galaxy clear (long exposure stacking), comfortable camping chairs, hot drinks steaming on wooden table, warm tone 2800K creating atmosphere, outdoor lifestyle aesthetic photography, wide-angle lens 24mm showing the scene, National Geographic style, 16:9 landscape composition",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360246893_mtapx3_1765275019542-dn719s-02176527499084515b33ccaa151d3ed7feaaa761bc71c37d80b76_0-600x337.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

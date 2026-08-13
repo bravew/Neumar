@@ -1,0 +1,18 @@
+{
+  "id": "sd-5-minute-life-hacks-thumbnail",
+  "surface": "image",
+  "title": "5-Minute Life Hacks Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for a \"5-Minute Life Hacks\" video, featuring a grid of clear instructional visuals and a YouTuber giving a thumbs-up. It focuses on creating clear, easy-to-understand hack demons.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a “5-Minute Life Hacks” video. The image is a grid of four different hacks being demonstrated (e.g., using a bottle to separate egg yolks). Each image is clear and easy to understand. The YouTuber is in the center of the grid, giving a thumbs-up. The number “5” is huge and placed prominently. This requires creating clear, instructional visuals. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359826854_zld663_5e728a1a63f054c88f1d7d774ba7d0e36ca40b9fad806abddf954eb7d957ef54-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

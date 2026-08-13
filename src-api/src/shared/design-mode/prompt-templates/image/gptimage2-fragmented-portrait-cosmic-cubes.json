@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-fragmented-portrait-cosmic-cubes",
+  "surface": "image",
+  "title": "Fragmented Portrait with Cosmic Metallic Cubes",
+  "summary": "Surreal portrait of a young man whose face and torso fragment into floating chrome-and-bronze 3D cubes against a warm nebular void, blending fine art photography with octane-render aesthetics.",
+  "category": "Portrait / Surreal",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "portrait",
+    "surreal",
+    "3d",
+    "conceptual",
+    "space"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "4:5",
+  "prompt": "A handsome young man with curly brown hair and green eyes, resting his chin on his hand with a thoughtful expression. Surreal deconstruction: the subject's face and upper body are fragmented into floating 3D metallic cubes. Chrome and bronze mirrored surfaces on cubes reflect parts of the subject and a cosmic background. Dust particles and small debris float in dark, warm-toned nebular space. Cinematic side-lighting with high contrast and golden hour highlights. Hyper-realistic digital art, fine art photography, octane render, 8k resolution.",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/003-raw_20260423_promptgather_prompt_067__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

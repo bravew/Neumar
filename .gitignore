@@ -1,0 +1,91 @@
+
+_sample/
+!.env.example
+!.vscode/extensions.json
+!.vscode/settings.json
+!branding/default/
+.claude/
+.codacy/cli.sh
+.codacy/codacy.yaml
+.DS_Store
+.env
+.env.*
+.graphify_cached.json
+.graphify_uncached.txt
+.idea
+.deepseek/
+.neuma-skills/
+.playwright-cli/
+.playwright-cli/.playwright-mcp/
+.playwright-mcp/
+verify-*.png
+mermaid-*.png
+.vscode/*
+*.build-backup
+*.db
+*.db-journal
+*.local
+*.log
+*.njsproj
+*.ntvs*
+*.sln
+*.sqlite
+*.sqlite3
+*.suo
+*.sw?
+*.tsbuildinfo
+*~
+# Branding — only track the default brand
+# Build outputs
+# Database (local development)
+# Dependencies
+# Editor directories and files
+# Environment variables
+# Lefthook local overrides
+# Logs
+# OS files
+# Sample files
+# Tauri
+# Test coverage
+# TypeScript cache
+branding/*
+!branding/default/
+!branding/default/**
+coverage/
+dist
+dist-ssr
+ehthumbs.db
+graphify-out/
+lefthook-local.yml
+lerna-debug.log*
+logs
+node_modules
+npm-debug.log*
+page-*.png
+packages/*/lib/
+.pnpm-store/
+pnpm-debug.log*
+preview-*.png
+settings*.png
+src-api/.env
+src-api/dist/
+# Video Mode runtime output (project bundles + render/scene cache)
+src-api/videos/
+src-api/.cache/
+src-cli/dist/
+src-site/
+src-tauri/Cargo.lock
+src-tauri/target/
+src-tauri/WixTools/
+test-results/
+
+.playwright-cli/
+.playwright-mcp/
+bundle-size-report.json
+release-files/
+
+# codegraph MCP local index
+.codegraph/
+
+# Local dev lifecycle runtime (scripts/dev.mjs)
+.dev/

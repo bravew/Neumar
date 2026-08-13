@@ -1,0 +1,7 @@
+# Ad-hoc sign the debug binary with entitlements.plist before launching, so
+# WKWebView in `tauri dev` can access the microphone, camera, and location.
+# Without this the dev build ships an unsigned host process and macOS denies
+# the WebKit sandbox extension — getUserMedia() silently returns zeroed audio.
+# See scripts/sign-dev-macos.sh for details.
+[target.'cfg(target_os = "macos")']
+runner = "../scripts/sign-dev-macos.sh"

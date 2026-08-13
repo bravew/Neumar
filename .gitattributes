@@ -1,0 +1,9 @@
+# Git LFS for binary media assets in src-video
+src-video/public/audio/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
+src-video/public/audio/**/*.wav filter=lfs diff=lfs merge=lfs -text
+src-video/public/recordings/**/*.webm filter=lfs diff=lfs merge=lfs -text
+src-video/public/recordings/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+src-video/public/voiceover/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
+src-video/out/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+src-video/out/**/*.webm filter=lfs diff=lfs merge=lfs -text
+src-video/out/**/*.gif filter=lfs diff=lfs merge=lfs -text

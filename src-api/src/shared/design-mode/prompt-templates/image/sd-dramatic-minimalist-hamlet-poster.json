@@ -1,0 +1,18 @@
+{
+  "id": "sd-dramatic-minimalist-hamlet-poster",
+  "surface": "image",
+  "title": "Dramatic Minimalist Hamlet Poster",
+  "summary": "This prompt generates a dramatic and minimalist poster for a Shakespeare's \"Hamlet\" production. It features a single powerful image of a skull with a golden crown against a black background, conveying symbolism and gravi.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "A dramatic and minimalist poster for a production of Shakespeare’s “Hamlet”. The design features a single, powerful image: a human skull with a golden crown resting on it, against a stark black background. The title “HAMLET” is in a classic, sharp serif font, with the letters slightly decaying. The design is symbolic, modern, and full of gravitas. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359699721_02hotm_a51c96ee3424f33d0b56d9c5ecd63f2ec580c0cd121f9eade399c950ed035404-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

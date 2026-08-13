@@ -1,0 +1,18 @@
+{
+  "id": "nb-the-science-of-comfort-conceptual-furniture-ad-2024",
+  "surface": "image",
+  "title": "The Science of Comfort | Conceptual Furniture Ad 2024",
+  "summary": "A photorealistic image features an Eames-style brown leather lounge chair displayed inside a large amber pill bottle, resting on a bed of capsules. The bottle, labeled with a warning about \"extreme re.",
+  "category": "Product Photography",
+  "tags": ["nano-banana", "gemini", "product", "studio", "commercial"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n\"creative_id\": \"product_photography-749156f4\",\n\"creative_world\": \"product_photography\",\n\"deliverable_type\": \"catalog_cover\",\n\"entry_point\": \"object\",\n\"core_tension\": \"comfort_vs_clinical\",\n\"twist_mechanisms\": [\n\"cutaway_logic\",\n\"function_misuse\",\n\"scale_mismatch\"\n],\n\"subject_kit\": {\n\"primary_subject\": \"a premium supplement bottle\",\n\"secondary_elements\": [\n\"tamper seal\",\n\"tiny lounge chair\",\n\"warning label sticker\"\n]\n},\n\"stage_context\": \"clean studio tabletop\",\n\"composition_rule\": \"centered, calm framing, high detail\",\n\"lighting_rule\": \"soft directional studio light, strong material definition\"\n}\n\n#nanobanana #NanoBananaPro #Prompt #IdeaGeneration",
+  "previewImageUrl": "https://pbs.twimg.com/media/G84tCi1bcAA_GwG.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/ttmouse/status/2003588959310660073",
+    "author": "ttmouse - 豆爸"
+  }
+}

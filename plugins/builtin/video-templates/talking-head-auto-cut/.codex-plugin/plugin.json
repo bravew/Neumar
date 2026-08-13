@@ -1,0 +1,13 @@
+{
+  "name": "talking-head-auto-cut",
+  "version": "1.0.0",
+  "description": "Analyze talking-head source footage, propose word-safe cuts, apply an approved cut plan, render a preview, and run QA.",
+  "displayName": "Talking Head Auto-cut",
+  "license": "MIT",
+  "metadata": {
+    "neuma": {
+      "surfaces": ["video"],
+      "videoManifest": "video-plugin.json"
+    }
+  }
+}

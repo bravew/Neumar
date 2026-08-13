@@ -1,0 +1,161 @@
+name: Docs Media
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/docs-media.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'src-video/**'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Docs media filter for rebuilds, for example projects or projects.create'
+        default: 'projects'
+        type: string
+      renderer:
+        description: 'Renderer for docs videos'
+        default: 'remotion'
+        type: choice
+        options:
+          - remotion
+          - hyperframes
+          - both
+      quality:
+        description: 'Render quality'
+        default: 'draft'
+        type: choice
+        options:
+          - draft
+          - standard
+          - high
+  schedule:
+    - cron: '17 9 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-media-check:
+    name: Manifest Check
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || !github.event.pull_request.draft) &&
+      !contains(github.actor, 'dependabot') &&
+      !contains(github.actor, 'renovate') &&
+      !contains(github.actor, '[bot]')
+    env:
+      DOCS_SITE_TOKEN: ${{ secrets.DOCS_SITE_TOKEN }}
+
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Skip notice when docs-site token unavailable
+        if: env.DOCS_SITE_TOKEN == ''
+        run: |
+          echo "::warning::DOCS_SITE_TOKEN repo secret is not configured; cross-repo manifest validation will be skipped. Add a fine-grained PAT (or GitHub App token) with read access to bravew/Neumar_site to enable full validation on PRs."
+
+      - name: Checkout docs site
+        if: env.DOCS_SITE_TOKEN != ''
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: bravew/Neumar_site
+          path: src-site
+          ref: ${{ github.event_name == 'pull_request' && 'main' || github.head_ref || github.ref_name }}
+          token: ${{ env.DOCS_SITE_TOKEN }}
+
+      - name: Setup pnpm
+        if: env.DOCS_SITE_TOKEN != ''
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        if: env.DOCS_SITE_TOKEN != ''
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: env.DOCS_SITE_TOKEN != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Check docs media manifest
+        if: env.DOCS_SITE_TOKEN != ''
+        run: pnpm docs:media:check
+
+  docs-media-rebuild:
+    name: Manual or Nightly Rebuild
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    timeout-minutes: 45
+    env:
+      DOCS_MEDIA_ONLY: ${{ inputs.only || 'projects' }}
+      DOCS_MEDIA_RENDERER: ${{ inputs.renderer || 'remotion' }}
+      DOCS_MEDIA_QUALITY: ${{ inputs.quality || 'draft' }}
+
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Checkout docs site
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: bravew/Neumar_site
+          path: src-site
+          ref: main
+          token: ${{ secrets.DOCS_SITE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Check Docker
+        run: docker version
+
+      - name: Seed docs demo data
+        run: pnpm --filter @neumar/video docs:seed -- --profile=docs.populated
+
+      - name: Capture docs media
+        run: pnpm --filter @neumar/video docs:capture -- --only="$DOCS_MEDIA_ONLY"
+
+      - name: Render docs video media
+        run: pnpm --filter @neumar/video docs:render -- --only="$DOCS_MEDIA_ONLY" --renderer="$DOCS_MEDIA_RENDERER" --quality="$DOCS_MEDIA_QUALITY"
+
+      - name: Optimize docs media
+        run: pnpm --filter @neumar/video docs:optimize -- --only="$DOCS_MEDIA_ONLY"
+
+      - name: Check docs media manifest
+        run: pnpm docs:media:check
+
+      - name: Upload docs media artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: docs-media-rebuild
+          path: |
+            src-video/public/docs/raw/
+            src-video/out/docs/
+            src-video/hyperframes/**/snapshots/
+            src-site/apps/web/public/docs/
+          retention-days: 14

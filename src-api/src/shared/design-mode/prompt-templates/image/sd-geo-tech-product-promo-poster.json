@@ -1,0 +1,18 @@
+{
+  "id": "sd-geo-tech-product-promo-poster",
+  "surface": "image",
+  "title": "GEO Tech Product Promo Poster",
+  "summary": "This prompt creates a highly techy product promo poster with deep blue tones and glowing typography, suitable for WeChat official account covers or launches of tech products.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Tech product promotional poster, left-text right-image layout, delicate dark blue to light blue gradient background, soft orange halo spreading upward from the bottom of the GEO text on the right, natural lighting effects, product-level visual design, dark blue gradient main tone, pure white text paired with orange light effects, professional exquisite and approachable, rich visual texture and fine details. Top left \"{argument name=\"date\" default=\"[2025.10]\"}\" in white concise small font, main title \"{argument name=\"main title\" default=\"When AI Answers\"}\" in extra-large white bold modern font, next line small text \"{argument name=\"subtitle\" default=\"GEO decides who it mentions\"}\", right side 3D realistic \"{argument name=\"3D text\" default=\"GEO\"}\" text, surface has candy-colored matte texture dotted with orange highlights, used for WeChat official account header.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360419602_kaflap_1765339429857-eubuen-021765339414965f8f49430e1e3875ff473008eb96b3a3954eec6_0-600x1068.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7564047604653280550?result=%E5%85%AC%E4%BC%97%E5%8F%B7%E5%B0%81%E9%9D%A2&type=inspiration&keywordSource=input&wordPosition=&enterFrom=home&workDetailType=Image&itemType=9",
+    "author": "创意字嘟嘟"
+  }
+}

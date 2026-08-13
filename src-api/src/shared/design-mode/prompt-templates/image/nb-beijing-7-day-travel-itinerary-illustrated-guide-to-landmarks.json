@@ -1,0 +1,18 @@
+{
+  "id": "nb-beijing-7-day-travel-itinerary-illustrated-guide-to-landmarks",
+  "surface": "image",
+  "title": "Beijing 7-Day Travel Itinerary: Illustrated Guide to Landmarks",
+  "summary": "A vibrant, hand-drawn cartoon illustration outlines a child's 7-day Beijing travel itinerary, showcasing iconic landmarks like the Forbidden City, Great Wall, and Temple of Heaven. The cheerful guide.",
+  "category": "Architecture & Interior",
+  "tags": ["nano-banana", "gemini", "architecture", "interior"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "This prompt generates a vibrant, child-like crayon-style vertical (9:16) travel-journal illustration for a {City Name} trip, automatically creating a winding route with daily recommended attractions, cute doodles, local landmarks, foods, and playful handwritten notes. The tone is warm, fun, and full of childlike curiosity.\n\n--- Prompt ---\n\nPlease create a vibrant, child-like crayon-style vertical (9:16) illustration titled “{City Name} Travel Journal.”  \nThe artwork should look as if it were drawn by a curious child using colorful crayons, featuring a soft, warm light-toned background (such as pale yellow), combined with bright reds, blues, greens, and other cheerful colors to create a cozy, playful travel atmosphere.\n\nI. Main Scene: Travel-Journal Style Route Map\n\nIn the center of the illustration, draw a “winding, zigzagging travel route” with arrows and dotted lines connecting multiple locations.  \nThe route should automatically generate recommended attractions based on {Number of Days}:\n\nExample structure (auto-filled with {City Name}-related content):\n\n- “Stop 1: {Attraction 1 + short fun description}”\n- “Stop 2: {Attraction 2 + short fun description}”\n- “Stop 3: {Attraction 3 + short fun description}”\n- …\n- “Final Stop: {Local signature food or souvenir + warm closing remark}”\n\nRules:\n- If no number of days is provided, default to a 1-day highlight itinerary.\n\nII. Surrounding Playful Elements (Auto-adapt to the City)\n\nAdd many cute doodles and child-like decorative elements around the route, such as:\n\n1. Adorable travel characters\n   - A child holding a local snack  \n   - A little adventurer with a backpack\n\n2. Q-style hand-drawn iconic landmarks\n   - “{City Landmark 1}”\n   - “{City Landmark 2}”\n   - “{City Landmark 3}”\n\n3. Funny signboards\n   - “Don’t get lost!”\n   - “Crowds ahead!”\n   - “Yummy food this way!”  \n   (Auto-adjust contextually for the city)\n\n4. Sticker-style short phrases\n   - “{City Name} travel memories unlocked!”\n   - “{City Name} food adventure!”\n   - “Where to next?”\n\n5. Cute icons of local foods\n   - “{Local Food 1}”\n   - “{Local Food 2}”\n   - “{Local Food 3}”\n\n6. Childlike exclamations\n   - “I didn’t know {City Name} was so fun!”\n   - “I want to come again!”\n\nIII. Overall Art Style Requirements\n\n- Crayon / children’s hand-drawn travel diary style  \n- Bright, warm, colorful palette  \n- Cozy but full and lively composition  \n- Emphasize the joy of exploring  \n- All text should be in a cute handwritten font  \n- Make the entire page feel like a young child’s fun travel-journal entry  \n\n---\n\nInput :\nChicago 7-Day Trip, English",
+  "previewImageUrl": "https://pbs.twimg.com/media/G69WHFDW4AAv0TK.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/dotey/status/1994908289813880915",
+    "author": "宝玉"
+  }
+}

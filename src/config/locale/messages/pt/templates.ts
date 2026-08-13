@@ -1,0 +1,18 @@
+export default {
+  title: 'Modelos',
+  startWithTemplate: 'Começar com modelo',
+  gallery: 'Galeria de modelos',
+  search: 'Pesquisar modelos',
+  allCategories: 'Todos',
+  dev: 'Desenvolvimento',
+  writing: 'Escrita',
+  research: 'Pesquisa',
+  data: 'Dados',
+  design: 'Design',
+  ops: 'Operações',
+  useTemplate: 'Usar modelo',
+  saveAsTemplate: 'Salvar como modelo',
+  builtIn: 'Integrados',
+  custom: 'Personalizados',
+  noTemplates: 'Nenhum modelo encontrado',
+};

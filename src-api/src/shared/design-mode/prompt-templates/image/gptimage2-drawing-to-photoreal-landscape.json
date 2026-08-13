@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-drawing-to-photoreal-landscape",
+  "surface": "image",
+  "title": "Drawing to Photorealistic Landscape Transformation",
+  "summary": "Transform a hand-drawn sketch into a photorealistic landscape — preserving exact layout, horizon, river path, and mountain placement while applying sunrise lighting, morning mist, and natural materials.",
+  "category": "Landscape / Transformation",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "landscape",
+    "transformation",
+    "edit",
+    "nature",
+    "sketch"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "16:9",
+  "prompt": "Turn this drawing into a photorealistic landscape image. Preserve the exact layout, horizon line, river path, mountain placement, tree placement, and overall perspective. Use realistic natural materials and sunrise lighting. Soft morning mist, believable rock texture, natural vegetation, gentle water reflections. Do not add people, buildings, animals, or text.",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/014-raw_20260423_fal_prompt_005__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

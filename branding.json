@@ -1,0 +1,28 @@
+{
+  "displayName": "Neumar",
+  "slug": "neumar",
+  "identifier": "ai.neumar",
+  "tagline": "Your Tireless AI Workhorse",
+  "description": "A desktop AI agent application that works tirelessly like a bull and horse to execute tasks through natural language.",
+  "copyrightHolder": "Neumar",
+  "urls": {
+    "website": "https://neumar.app",
+    "download": "https://neumar.app/download",
+    "support": "https://neumar.app/support",
+    "docs": "https://neumar.app/docs"
+  },
+  "theme": {
+    "primaryColor": "oklch(0.45 0.18 30)",
+    "primaryColorDark": "oklch(0.65 0.16 30)",
+    "accentColorId": "brand",
+    "accentColorName": "Brand",
+    "shadowColorLight": "#3d1a00",
+    "shadowColorDark": "#000000"
+  },
+  "api": {
+    "binaryName": "neumar-api"
+  },
+  "site": {
+    "apiBaseUrl": ""
+  }
+}

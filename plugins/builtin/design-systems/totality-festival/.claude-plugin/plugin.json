@@ -1,0 +1,13 @@
+{
+  "name": "design-system-totality-festival",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for Totality Festival, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "Totality Festival",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

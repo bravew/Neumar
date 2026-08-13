@@ -1,0 +1,59 @@
+name: Render Demo Videos
+
+on:
+  workflow_dispatch:
+    inputs:
+      composition:
+        description: "Composition ID (or 'all')"
+        default: 'all'
+        type: string
+      preset:
+        description: 'Render preset (preview, draft, final)'
+        default: 'draft'
+        type: choice
+        options:
+          - preview
+          - draft
+          - final
+  push:
+    paths:
+      - 'src-video/**'
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chrome
+        run: npx playwright install chromium
+
+      - name: Render videos
+        working-directory: src-video
+        run: npx tsx scripts/render-all.ts
+        env:
+          COMPOSITION: ${{ inputs.composition || 'all' }}
+          RENDER_PRESET: ${{ inputs.preset || 'draft' }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: demo-videos
+          path: src-video/out/
+          retention-days: 30

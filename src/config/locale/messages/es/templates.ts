@@ -1,0 +1,18 @@
+export default {
+  title: 'Plantillas',
+  startWithTemplate: 'Comenzar con plantilla',
+  gallery: 'Galería de plantillas',
+  search: 'Buscar plantillas',
+  allCategories: 'Todas',
+  dev: 'Desarrollo',
+  writing: 'Escritura',
+  research: 'Investigación',
+  data: 'Datos',
+  design: 'Diseño',
+  ops: 'Operaciones',
+  useTemplate: 'Usar plantilla',
+  saveAsTemplate: 'Guardar como plantilla',
+  builtIn: 'Integradas',
+  custom: 'Personalizadas',
+  noTemplates: 'No se encontraron plantillas',
+};

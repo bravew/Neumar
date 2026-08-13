@@ -1,0 +1,18 @@
+{
+  "id": "sd-website-building-tutorial-thumbnail",
+  "surface": "image",
+  "title": "Website Building Tutorial Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for a \"How to Build a Website in 10 Minutes\" tutorial, featuring a professional-looking website on a screen with a confident YouTuber. It promises a quick, easy solution.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a tutorial on “How to Build a Website in 10 Minutes.” The image shows a computer screen with a beautiful, professional-looking website on it. A large clock icon showing “10 Min” is overlaid on the screen. The YouTuber is in the corner, pointing to the screen and smiling, looking confident and helpful. The text is clear and promises a quick, easy solution. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359803888_85aak1_7db4d11cf8cb3d575477d6fcb44c884e843e09a9d1c849534498fc289271574c-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

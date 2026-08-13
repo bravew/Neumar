@@ -1,0 +1,31 @@
+{
+  "id": "fixture-prototype-html",
+  "title": "Fixture Prototype HTML",
+  "surface": "prototype",
+  "status": "complete",
+  "skillId": "web-prototype",
+  "designSystemId": "linear-app",
+  "inspirationDesignSystemIds": [],
+  "craftRefs": ["anti-ai-slop", "color", "typography"],
+  "brief": {
+    "flow": "dashboard",
+    "fidelity": "high-fidelity"
+  },
+  "media": {
+    "fidelity": "high-fidelity"
+  },
+  "outputs": [
+    {
+      "id": "out-prototype-1",
+      "kind": "html",
+      "path": "artifacts/index.html",
+      "mime": "text/html",
+      "provider": "agent-file-edit",
+      "model": "fixture",
+      "taskId": "task-prototype-1",
+      "createdAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-02T00:00:00.000Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z"
+}

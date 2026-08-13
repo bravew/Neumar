@@ -1,0 +1,18 @@
+{
+  "id": "nb-cinematic-desert-walk-solitary-figure-in-orange-haze",
+  "surface": "image",
+  "title": "Cinematic Desert Walk: Solitary Figure in Orange Haze",
+  "summary": "A solitary figure wearing a trench coat walks across a vast, cracked desert landscape under a hazy, orange-red sky with a glowing sun. The cinematic composition and warm atmospheric lighting evoke a s.",
+  "category": "Cinematic Poster",
+  "tags": ["nano-banana", "gemini", "cinematic", "poster"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"description\": \"A lone figure in a long coat walking across a barren landscape in thick orange-red fog.\",\n  \"subject\": {\n    \"type\": \"lone figure\",\n    \"attire\": \"long coat\",\n    \"action\": \"walking\"\n  },\n  \"setting\": {\n    \"location\": \"barren landscape\",\n    \"atmosphere\": \"thick orange-red fog\"\n  },\n  \"visual_style\": {\n    \"composition\": \"cinematic silhouette\",\n    \"color_palette\": \"warm monochrome\",\n    \"texture\": \"subtle film grain\",\n    \"lighting\": \"high contrast\",\n    \"realism\": \"photorealistic\"\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G5jlngNbcAA5FiN.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/lexx_aura/status/1988591706229411958",
+    "author": "Lex"
+  }
+}

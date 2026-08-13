@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-watercolor-childrens-book",
+  "surface": "image",
+  "title": "Soft Watercolor Children's Book Illustration",
+  "summary": "Gentle picture-book illustration with watercolor and gouache textures — muted pastels, visible brush strokes, and a minimalist composition of two children in calm conversation.",
+  "category": "Illustration / Children's Book",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "illustration",
+    "watercolor",
+    "children",
+    "picture book",
+    "soft"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "2:3",
+  "prompt": "Soft poetic children's book illustration with watercolor and gouache textures. Clear gentle daylight with slightly brighter highlights. Muted pastel colors with soft blue and warm tones. Visible brush strokes and paper grain. Minimalist composition with large negative space. Calm, thoughtful, slightly open-ended atmosphere. Child character (around 12 years old). Subtle visual metaphors like light, shadow, perspective, reflection. Hand-painted picture book style, not cartoon, not anime, not 3D. Two children in calm conversation, soft connection forming.",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/012-raw_20260423_x_prompt_012__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "_comment": "Per-triple size budgets in bytes. Ratchet down as plan checkpoints land. See dev-doc/plan/2026-05-05-package-size-optimization.md.",
+  "_units": "1 MB = 1,000,000 bytes (SI decimal)",
+
+  "aarch64-apple-darwin": {
+    "default": {
+      "appMaxBytes": 250000000,
+      "dmgMaxBytes": 165000000
+    },
+    "withCli": {
+      "appMaxBytes": 750000000,
+      "dmgMaxBytes": 310000000
+    }
+  },
+  "x86_64-apple-darwin": {
+    "default": {
+      "appMaxBytes": 450000000,
+      "dmgMaxBytes": 180000000
+    },
+    "withCli": {
+      "appMaxBytes": 770000000,
+      "dmgMaxBytes": 320000000
+    }
+  },
+  "x86_64-unknown-linux-gnu": {
+    "default": {
+      "appMaxBytes": 430000000,
+      "appImageMaxBytes": 170000000
+    },
+    "withCli": {
+      "appMaxBytes": 750000000,
+      "appImageMaxBytes": 300000000
+    }
+  },
+  "x86_64-pc-windows-msvc": {
+    "default": {
+      "appMaxBytes": 430000000,
+      "windowsInstallerMaxBytes": 180000000
+    },
+    "withCli": {
+      "appMaxBytes": 750000000,
+      "windowsInstallerMaxBytes": 310000000
+    }
+  }
+}

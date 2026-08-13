@@ -1,0 +1,581 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400;1,500;1,600;1,700;1,800&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import 'tailwindcss';
+@import './theme.css';
+
+/* Streamdown: let Tailwind detect utility classes used by the library */
+@source '../../node_modules/streamdown/dist/*.js';
+
+@custom-variant dark (&:is(.dark *));
+
+@plugin 'tailwindcss-animate';
+@plugin '@tailwindcss/typography';
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Enhanced focus states for accessibility */
+  *:focus-visible {
+    @apply outline-ring outline-2 outline-offset-2;
+  }
+
+  /* Smooth scrolling for better UX */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Prevent text selection in UI elements */
+  button,
+  [role='button'],
+  [role='tab'] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+.container {
+  @apply mx-auto max-w-7xl px-4 md:px-8;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Firefox scrollbar — standard properties, guarded so Safari 17.4+ doesn't
+ * see them (Safari treats scrollbar-width as a signal to disable
+ * ::-webkit-scrollbar customisation). Firefox doesn't support ::-webkit-scrollbar
+ * so this @supports fence targets it exclusively. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  *:hover {
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+}
+
+/* WebKit scrollbar theme (Chrome, Safari, Edge) */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+}
+
+*:hover::-webkit-scrollbar-thumb:hover {
+  background-color: var(--foreground);
+}
+
+/* Opt-in: keep the scrollbar thumb visible whenever the element overflows,
+ * instead of the default hover-to-reveal behaviour. `overflow: auto` still
+ * means it only appears when there is something to scroll. */
+.show-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+}
+
+.show-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .show-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+}
+
+input,
+select,
+textarea {
+  @apply border-border outline-ring/50 bg-background;
+}
+
+button {
+  @apply border-border outline-ring/50 cursor-pointer;
+}
+
+.design-media-model-provider-header {
+  min-height: 1.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.375rem;
+}
+
+.design-artifact-preview-close {
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.design-split,
+.design-split > * {
+  min-width: 0;
+}
+
+.design-split iframe {
+  max-width: 100%;
+}
+
+.design-system-search-field {
+  position: relative;
+  padding-left: 0.75rem;
+}
+
+.design-system-search-icon {
+  margin-left: 0;
+}
+
+.memory-detail-panel {
+  min-width: 16rem;
+}
+
+.memory-history-affordance {
+  min-height: 2rem;
+}
+
+@media (max-width: 700px) {
+  .memory-explorer-results {
+    flex-direction: column;
+  }
+
+  .memory-explorer-results > div:first-child,
+  .memory-explorer-detail {
+    width: 100%;
+    max-width: none;
+  }
+
+  .memory-detail-panel {
+    border-left-width: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+pre {
+  @apply px-4;
+}
+
+.docs th,
+.docs td {
+  @apply border-border border p-3;
+}
+
+@theme inline {
+  --animate-grid: grid 15s linear infinite;
+  @keyframes grid {
+    0% {
+      transform: translateY(-50%);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+  --animate-ripple: ripple var(--duration, 2s) ease calc(var(--i, 0) * 0.2s)
+    infinite;
+  @keyframes ripple {
+    0%,
+    100% {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    50% {
+      transform: translate(-50%, -50%) scale(0.9);
+    }
+  }
+  --animate-meteor: meteor 5s linear infinite;
+  @keyframes meteor {
+    0% {
+      transform: rotate(var(--angle)) translateX(0);
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: rotate(var(--angle)) translateX(-500px);
+      opacity: 0;
+    }
+  }
+  --animate-marquee: marquee var(--duration) infinite linear;
+  --animate-marquee-vertical: marquee-vertical var(--duration) linear infinite;
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(calc(-100% - var(--gap)));
+    }
+  }
+  @keyframes marquee-vertical {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(calc(-100% - var(--gap)));
+    }
+  }
+
+  /* AI-specific animations */
+  --animate-ai-pulse: ai-pulse 2s ease-in-out infinite;
+  @keyframes ai-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: var(--glow-ai);
+    }
+    50% {
+      opacity: 0.85;
+      box-shadow: 0px 0px 4px 0px var(--ai-glow);
+    }
+  }
+
+  --animate-ai-thinking: ai-thinking 1.5s ease-in-out infinite;
+  @keyframes ai-thinking {
+    0% {
+      transform: translateY(0);
+    }
+    25% {
+      transform: translateY(-4px);
+    }
+    50% {
+      transform: translateY(0);
+    }
+    75% {
+      transform: translateY(-2px);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  --animate-shimmer: shimmer 2s linear infinite;
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  --animate-fade-in: fade-in 0.3s ease-out;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  --animate-slide-up: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  --animate-glow: glow 2s ease-in-out infinite;
+  @keyframes glow {
+    0%,
+    100% {
+      filter: brightness(1);
+    }
+    50% {
+      filter: brightness(1.2);
+    }
+  }
+
+  --animate-gradient-shift: gradient-shift 4s ease infinite;
+  @keyframes gradient-shift {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+}
+
+/* Smooth cross-fade for task/page transitions (React Router viewTransition) */
+::view-transition-old(root) {
+  animation: vt-fade-out 180ms ease-in forwards;
+}
+
+::view-transition-new(root) {
+  animation: vt-fade-in 180ms ease-out forwards;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
+@keyframes vt-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Keep sidebar stable during view transitions */
+.left-sidebar {
+  view-transition-name: sidebar;
+}
+
+::view-transition-old(sidebar),
+::view-transition-new(sidebar) {
+  animation: none;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+  }
+}
+
+.prose-sm {
+  :where(h2):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    font-size: 1rem;
+  }
+}
+
+/* Prose typography styling for dark mode */
+.prose {
+  --tw-prose-links: var(--primary);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-body: var(--foreground);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-counters: var(--muted-foreground);
+  --tw-prose-bullets: var(--muted-foreground);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--foreground);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-captions: var(--muted-foreground);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-pre-code: var(--foreground);
+  --tw-prose-pre-bg: var(--muted);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+}
+
+/* Link styling */
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Table styling for dark mode */
+table {
+  @apply border-border;
+}
+
+th {
+  @apply text-foreground bg-muted/50;
+}
+
+td {
+  @apply text-foreground;
+}
+
+/* Dark mode specific fixes */
+.dark {
+  /* Ensure proper contrast for muted text */
+  --muted-foreground: oklch(0.7 0.01 270);
+}
+
+/* Code block styling */
+pre,
+code {
+  @apply bg-muted text-foreground;
+}
+
+.dark pre,
+.dark code {
+  @apply bg-muted;
+}
+
+/* AI-specific utility classes */
+
+/* AI message bubble */
+.ai-message {
+  @apply bg-ai-response text-ai-response-foreground rounded-lg p-4;
+  animation: var(--animate-fade-in);
+}
+
+/* User message bubble */
+.user-message {
+  @apply bg-user-message text-user-message-foreground rounded-lg p-4;
+  animation: var(--animate-fade-in);
+}
+
+/* AI processing indicator */
+.ai-processing {
+  @apply bg-ai-processing text-ai-processing-foreground;
+  animation: var(--animate-ai-pulse);
+}
+
+/* AI glow effect utility */
+.ai-glow {
+  box-shadow: var(--glow-ai);
+}
+
+/* Glassmorphism effect for modern AI interfaces */
+.glass {
+  background: var(--background);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid var(--border);
+}
+
+.glass-strong {
+  background: var(--card);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid var(--border);
+}
+
+/* Gradient text for AI branding */
+.gradient-text-ai {
+  background: linear-gradient(
+    135deg,
+    var(--primary) 0%,
+    var(--ai-glow) 50%,
+    var(--secondary) 100%
+  );
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: var(--animate-gradient-shift);
+}
+
+/* Shimmer loading effect */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    var(--accent) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* Respect reduced motion preferences (OS-level or user toggle) */
+@media (prefers-reduced-motion: reduce) {
+  .gradient-text-ai,
+  .shimmer {
+    animation: none;
+  }
+}
+
+/* Status indicators */
+.status-success {
+  @apply bg-success text-success-foreground;
+}
+
+.status-warning {
+  @apply bg-warning text-warning-foreground;
+}
+
+.status-info {
+  @apply bg-info text-info-foreground;
+}
+
+/* Elevated cards with modern shadows */
+.card-elevated {
+  @apply bg-card text-card-foreground rounded-lg;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow 0.2s ease;
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Interactive elements with smooth transitions */
+.interactive {
+  @apply transition-all duration-200 ease-out;
+}
+
+.interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Focus ring for accessibility */
+.focus-ring {
+  @apply focus-visible:outline-ring focus-visible:outline-2 focus-visible:outline-offset-2;
+}
+
+/* react-pdf annotation layer alignment */
+.react-pdf__Page {
+  position: relative;
+}
+.react-pdf__Page__annotations.annotationLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+html[data-neuma-window='pet-overlay'],
+html[data-neuma-window='pet-overlay'] body,
+html[data-neuma-window='pet-overlay'] #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+}

@@ -1,0 +1,18 @@
+{
+  "id": "nb-famous-faces-minimalist-vector-art-flat-design-portraits",
+  "surface": "image",
+  "title": "Famous Faces: Minimalist Vector Art & Flat Design Portraits",
+  "summary": "A grid of four minimalist vector art portraits, each featuring a famous personality rendered in a distinct two-tone flat color palette with geometric shapes. The portraits include Donald Trump (gold o.",
+  "category": "Minimalist Icon",
+  "tags": ["nano-banana", "gemini", "minimalist", "icon"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "A single, isolated, strict duotone flat vector icon representing the face of [CHARACTER NAME].\n\n**CONTENT SCOPE (FACE ONLY):**\nThe design must represent ONLY the head, face, or helmet of [CHARACTER NAME]. Absolutely NO shoulders, torso, weapons, or accessories.\n\n**DYNAMIC DUOTONE COLOR PALETTE (MATERIAL DESIGN):**\nThe entire image must use strictly ONLY TWO solid, flat colors chosen by the AI based on the character's lore, allegiance, or iconic appearance.\n1.  **Background Theme Color:** A moderate, pleasing solid flat color covering the entire canvas.\n2.  **Foreground Theme Color:** A second solid flat color used for the icon shape and the text, chosen to contrast well with the background.\n* **Aesthetic Constraint:** The colors must be chosen from a \"Google Material Design\" aesthetic—moderate hues, matte finish, pleasing to the eye, avoiding overly harsh saturation or neon tones. No gradients, shadows, or outlines.\n\n**STYLE & TECHNIQUE (BRUTAL MINIMALISM):**\nThe style is brutal geometric minimalism with high abstraction. Reduce facial features to their most basic, blocky, angular shapes. Use large, solid masses of the **Foreground Theme Color** to define the form. Internal details (eyes, mouth, key features) must be formed solely by bold, blocky \"cuts\" of the **Background Theme Color** negative space into the foreground silhouette. The icon must be a free-floating silhouette with NO enclosing circle, border, or container shape.\n\n**BACKGROUND:**\nThe background is filled entirely with the solid, flat **Background Theme Color**.\n\n**TYPOGRAPHY (CRITICAL CONSTRAINTS):**\nDirectly below the floating icon, placed centrally, is the name \"[CHARACTER NAME]\".\n1.  **FONT FAMILY (STRICT):** The text MUST be rendered in the style of the font **Inter Bold**. Do NOT use any other font.\n2.  **CASE & COLOR:** Title case only. The text color must exactly match the solid **Foreground Theme Color**.\n3.  **SIZE & SCALE (STRICT):** The text must be very small. The total width of the entire text string must NOT exceed 25% of the total image width.\n4.  **KERNING:** Maintain very tight negative kerning (approx **-8%**).",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9cSTAUXEAA27jE.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/AmirMushich/status/2006092994835804617",
+    "author": "AmirMušić"
+  }
+}

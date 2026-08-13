@@ -1,0 +1,13 @@
+{
+  "name": "explainer",
+  "version": "1.0.0",
+  "description": "Produce a structured explainer with research-backed beats, narration, visuals, and QA.",
+  "displayName": "Explainer",
+  "license": "MIT",
+  "metadata": {
+    "neuma": {
+      "surfaces": ["video"],
+      "videoManifest": "video-plugin.json"
+    }
+  }
+}

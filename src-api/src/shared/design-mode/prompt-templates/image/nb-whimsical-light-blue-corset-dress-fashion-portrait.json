@@ -1,0 +1,18 @@
+{
+  "id": "nb-whimsical-light-blue-corset-dress-fashion-portrait",
+  "surface": "image",
+  "title": "Whimsical Light Blue Corset Dress Fashion Portrait",
+  "summary": "A beautiful young woman stands elegantly in a sunlit, luxurious interior, showcasing a charming light blue corset-style mini dress with delicate lace detailing and a matching hair bow. The photorealis.",
+  "category": "Fashion Photography",
+  "tags": ["nano-banana", "gemini", "fashion"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"prompt_type\": \"photorealistic_portrait\",\n  \"subject\": {\n    \"demographics\": \"Young woman, estimated 20s\",\n    \"physique\": \"Slim, fit, hourglass figure, fair skined tone\",\n    \"hair\": {\n      \"style\": \"Updo with loose face-framing strands (tendrils)\",\n      \"color\": \"Dirty blonde with honey highlights and darker roots\",\n      \"accessory\": \"Large light blue fabric bow tied at the top of the head\"\n    },\n    \"face\": {\n      \"expression\": \"Neutral to soft confidence, looking slightly off-camera\",\n      \"makeup\": \"Soft glam, defined eyebrows, contoured cheeks, nude-pink matte lipstick, black eyeliner\"\n    },\n    \"pose\": \"Standing straight, arms relaxed at sides (hands possibly in pockets or behind skirt), facing forward\"\n  },\n  \"apparel\": {\n    \"item\": \"Corset-style mini dress\",\n    \"color\": \"Pastel baby blue\",\n    \"details\": [\n      \"Structured bodice with visible boning channels\",\n      \"Sweetheart neckline with delicate white lace trim\",\n      \"Thick straps with lace edging\",\n      \"Center front tied bow detail\",\n      \"Flared A-line skater skirt with pleats\",\n      \"Short mini length\"\n    ]\n  },\n  \"accessories\": {\n    \"jewelry\": \"Thin, delicate gold chain necklace\",\n    \"other\": \"Small hoop earrings (barely visible)\"\n  },\n  \"environment\": {\n    \"setting\": \"Luxurious entryway or patio interior\",\n    \"architectural_features\": [\n      \"White French doors with multiple glass panes (left)\",\n      \"Ornate black wrought iron decorative grille or gate (background right)\",\n      \"Carved stone fireplace mantel (background right)\",\n      \"Black and white checkered marble flooring\"\n    ]\n  },\n  \"lighting\": {\n    \"type\": \"Natural daylight\",\n    \"direction\": \"Side lighting coming from the left (window/door)\",\n    \"quality\": \"Soft, diffused, flattering highlights on skin and collarbone\"\n  },\n  \"technical_specs\": {\n    \"resolution\": \"4k ultra HD\",\n    \"quality\": \"Photorealistic, high fidelity, sharp focus on subject\",\n    \"style\": \"Fashion photography, lifestyle portrait\",\n    \"camera_settings\": \"Medium depth of field, background slightly softened but visible\"\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9qjrprXsAAnrLA.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/xIrissy/status/2007096574099308834",
+    "author": "Iris"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sd-quirky-independent-short-film-festival-poster",
+  "surface": "image",
+  "title": "Quirky Independent Short Film Festival Poster",
+  "summary": "This prompt generates a quirky and independent-style poster for a short film festival. It uses a collage of doodles and vintage photos with mixed typography, giving it a DIY, zine-like, retro feel to appeal to an arthous.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "A quirky and independent-style poster for a short film festival. The design is a collage of hand-drawn doodles, film strips, and vintage photographs. The typography is a mix of different typewriter and handwritten fonts, giving it a DIY, zine-like feel. The color palette is limited and has a retro vibe. The poster should look creative, unconventional, and appeal to an arthouse audience. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359726468_zopie3_4d8e818fd456103fde0de05f3d0f862ec8a451a32e6ec72f0dba56f5346c6fd2-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

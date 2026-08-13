@@ -1,0 +1,18 @@
+{
+  "id": "sd-kyoto-geisha-moment",
+  "surface": "image",
+  "title": "Kyoto Geisha Moment",
+  "summary": "A poetic Japanese cultural prompt inspired by cinema. It portrays a geisha walking through Gion with cherry blossoms falling, using soft light and film aesthetics to create a quiet, Zen-like moment reminiscent of Kore-ed.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Geisha (traditional kimono details, white makeup) walking on Gion stone paved road, Yoshino cherry trees in full bloom on both sides, pink petals falling dynamically, soft diffused light (cloudy day light quality), Japanese movie aesthetics (Hirokazu Kore-eda style), shallow depth of field 50mm blurring background, film tone (Fujifilm Pro 400H simulation), quiet Zen atmosphere, vertical composition suitable for mobile wallpaper",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360245230_cdsky8_1765275017915-b4oun1-02176527500110899f4740eadd3360aa6250e68d85f7ec7d1ab1c_0-600x1068.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

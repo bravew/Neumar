@@ -1,0 +1,65 @@
+name: Docs Media Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/workflows/docs-media-check.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'src-video/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-media-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Config, Manifest, and Typecheck
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' || !github.event.pull_request.draft) &&
+      !contains(github.actor, 'dependabot') &&
+      !contains(github.actor, 'renovate') &&
+      !contains(github.actor, '[bot]')
+    env:
+      DOCS_SITE_TOKEN: ${{ secrets.DOCS_SITE_TOKEN }}
+
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Checkout docs site
+        if: env.DOCS_SITE_TOKEN != ''
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          repository: bravew/Neumar_site
+          path: src-site
+          ref: main
+          token: ${{ env.DOCS_SITE_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check docs media config
+        run: pnpm --filter @neumar/video docs:config:check
+
+      - name: Check docs media manifest
+        if: env.DOCS_SITE_TOKEN != ''
+        run: pnpm --filter @neumar/video docs:check
+
+      - name: Typecheck video package
+        run: pnpm --filter @neumar/video typecheck

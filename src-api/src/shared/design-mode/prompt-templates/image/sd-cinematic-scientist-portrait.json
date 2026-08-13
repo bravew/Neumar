@@ -1,0 +1,18 @@
+{
+  "id": "sd-cinematic-scientist-portrait",
+  "surface": "image",
+  "title": "Cinematic Scientist Portrait",
+  "summary": "A dramatic black and white film prompt reminiscent of Christopher Nolan's biopic style. It places a scientist in a dimly lit lab with strong Rembrandt lighting and atmospheric smoke, perfect for historical or dramatic st.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "35mm black and white film style, a {argument name=\"character identity\" default=\"scientist\"} gazing at a suspended {argument name=\"object\" default=\"atom model\"} in a dim laboratory, strong Rembrandt side light striking from 45 degrees on the left, smoke forming layers in the light beam, deep facial wrinkles clearly visible, background experimental equipment blurred, film grain simulation ISO 800, high contrast black and white tone, dramatic chiaroscuro, Christopher Nolan cinematography style, anamorphic widescreen ratio 2.39:1",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360330618_p4wiub_1765274852012-pxolfq-021765274832182f8f49430e1e3875ff473008eb96b3a39e28165_0-600x257.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

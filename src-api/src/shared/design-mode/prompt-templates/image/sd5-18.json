@@ -1,0 +1,17 @@
+{
+  "id": "sd5-18",
+  "surface": "image",
+  "title": "Close-up of {argument name=\"product\" default=\"high-end lipst…",
+  "summary": "Close-up of {argument name=\"product\" default=\"high-end lipstick\"} placed on a black polished marble countertop, fresh rose petals naturally scattered, two softboxes at 45-degree side lighting combined with overhead honey…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "16:9",
+  "prompt": "Close-up of {argument name=\"product\" default=\"high-end lipstick\"} placed on a black polished marble countertop, fresh rose petals naturally scattered, two softboxes at 45-degree side lighting combined with overhead honeycomb soft light to eliminate glare, liquid paste texture authentically presenting subtle sheen, pure white seamless background C4D render level, macro lens 100mm capturing details, commercial product photography, 16:9 e-commerce detail page composition, Photoshop precision retouching level",
+  "previewImageUrl": "https://github.com/user-attachments/assets/78b5c33b-4f82-460e-8d93-6a5f863be2eb",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea69bf2b552957d3c575f"
+  }
+}

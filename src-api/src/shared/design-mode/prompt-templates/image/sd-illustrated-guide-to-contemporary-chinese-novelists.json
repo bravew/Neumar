@@ -1,0 +1,18 @@
+{
+  "id": "sd-illustrated-guide-to-contemporary-chinese-novelists",
+  "surface": "image",
+  "title": "Illustrated Guide to Contemporary Chinese Novelists",
+  "summary": "This prompt is used to generate an infographic poster titled \"Illustrated Guide to Contemporary Chinese Novelists\", combining flat illustration with infographic design. The poster is divided into six sections, each featu.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Create a graphic information poster titled \"Illustrated Guide to Contemporary Chinese Novelists\", using a flat illustration + infographic style. The overall layout is divided into {argument name=\"number of columns\" default=\"6\"} sections, each featuring a representative contemporary Chinese novelist.\\nEach section includes:\\n- A stylized, non-photorealistic, simplified illustration portrait, but the illustration portrait needs to be based on a real photograph to maintain similarity\\n- Author's name (Chinese)\\n- Representative works ({argument name=\"number of works\" default=\"1-2\"})\\n- Style tags (e.g., {argument name=\"style tag examples\" default=\"realism, avant-garde literature, youth literature, historical narrative, magical realism, science fiction\"})\\n- A one-sentence brief introduction (very short)\\nThe overall design uses a light background + partitioned color blocks, with a neat and orderly layout.\\nThe six novelists are:\\n- {argument name=\"novelist 1\" default=\"Jia Pingwa\"}\\n- {argument name=\"novelist 2\" default=\"Yu Hua\"}\\n- {argument name=\"novelist 3\" default=\"Wang Anyi\"}\\n- {argument name=\"novelist 4\" default=\"Liu Cixin\"}\\n- {argument name=\"novelist 5\" default=\"Su Tong\"}\\n- {argument name=\"novelist 6\" default=\"Han Shaogong\"}\\nThe main title is \"Illustrated Guide to Contemporary Chinese Novelists\", with a concise and modern style, suitable for a literary popular science poster.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360449200_ssk71c_1765340288466-2q2mst-021765340250361c5f50319cb4d4388d7836967b82aebe5128460_0-600x800.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/liu10102525",
+    "author": "nene"
+  }
+}

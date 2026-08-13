@@ -1,0 +1,26 @@
+{
+  "id": "gptimage2-tang-dynasty-hairdryer-anachronism",
+  "surface": "image",
+  "title": "Tang Dynasty Noble with Modern Hairdryer",
+  "summary": "Gongbi-style ink painting on aged rice paper: a Tang Dynasty noblewoman blow-drying her hair while three Minion servants in imperial robes assist — anachronistic humor rendered in muted mineral pigments.",
+  "category": "Illustration / Humor",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "illustration",
+    "humor",
+    "anachronistic",
+    "chinese",
+    "gongbi",
+    "tang dynasty"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "16:9",
+  "prompt": "A traditional Chinese ink and color painting in Gongbi style on aged rice paper texture. A noblewoman in elaborate Tang Dynasty Hanfu robes sits on a wooden stool, holding a modern hairdryer to dry her long flowing hair. She is wearing black stockings, red high heels on one foot, resting on a small stool.\n\nThree 小黄人 dressed in ancient Chinese servant robes and hats attend to her: one on the left looks stressed holding the hairdryer's power cord, one center kneels polishing her red shoe with a cloth, and one on the right holds up a smartphone taking a photo for her. The background features classical gnarled pine trees, bamboo groves, and Taihu rocks.\n\nTraditional Chinese calligraphy written in the top right corner, accompanied by a red artist chop seal (寶玉). The color palette is muted mineral pigments. Humorous, anachronistic fusion. --ar 16:9",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/041-raw_20260423_promptgather_prompt_063__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sd-cozy-christmas-hot-chocolate",
+  "surface": "image",
+  "title": "Cozy Christmas Hot Chocolate",
+  "summary": "This prompt creates a cozy and festive photo for a Christmas-themed Instagram post. It focuses on a close-up of hot chocolate with whipped cream and a candy cane, with a blurred Christmas tree in the background, to evoke.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:5",
+  "prompt": "A cozy and festive photo for a Christmas-themed Instagram post. The scene is a close-up of someone holding a large mug of hot chocolate with whipped cream and a candy cane. In the background, a Christmas tree with twinkling lights is softly blurred. The person is wearing a chunky, knitted sweater. The image should evoke feelings of warmth, comfort, and holiday cheer, showcasing strong control over depth of field and mood. –ar 4:5",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360073433_zgk9cr_4797fcbfa8cd3ff3bf1cb9894770f1dc19960ed270508561f45acbe17ea134e4-600x750.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

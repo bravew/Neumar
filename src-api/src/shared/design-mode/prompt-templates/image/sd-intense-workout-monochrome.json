@@ -1,0 +1,18 @@
+{
+  "id": "sd-intense-workout-monochrome",
+  "surface": "image",
+  "title": "Intense Workout Monochrome",
+  "summary": "A powerful black and white sports photography prompt. It captures the intensity of a workout with high contrast, dramatic side lighting, and frozen action, emphasizing muscle definition and determination similar to major.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Close-up of {argument name=\"subject\" default=\"athletic woman\"} lifting dumbbells during strength training moment, clear muscle lines, sweat beads reflecting on skin, dramatic side light striking hard from 90 degrees left, background equipment blurred, black and white high contrast tone enhancing sense of power, sports photography high shutter speed 1/1000 second freeze, Nike advertisement level visual, square 1:1 composition, edge sharpening enhancing texture",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360261690_4x4uf4_1765275000507-sqsucj-02176527498905999f4740eadd3360aa6250e68d85f7ec76a5c3d_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

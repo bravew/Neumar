@@ -1,0 +1,15 @@
+{
+  "runId": "jury_conformance_designer",
+  "projectId": "design_conformance",
+  "role": "designer",
+  "round": 1,
+  "artifactPath": "artifacts/index.html",
+  "artifactContent": "<main><h1>Launch</h1><button>Start</button></main>",
+  "roleScore": {
+    "role": "designer",
+    "score": 8,
+    "evidence": "Clear hierarchy and action placement.",
+    "mustFix": [],
+    "quickWins": ["Tighten spacing between heading and action."]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "../node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "printWidth": 80,
+  "semi": true,
+  "tabWidth": 2,
+  "useTabs": false,
+  "arrowParens": "always",
+  "sortImports": {
+    "customGroups": [
+      {
+        "groupName": "app",
+        "elementNamePattern": ["@/app/**"],
+      },
+      {
+        "groupName": "core",
+        "elementNamePattern": ["@/core/**"],
+      },
+      {
+        "groupName": "config",
+        "elementNamePattern": ["@/config/**"],
+      },
+      {
+        "groupName": "extensions",
+        "elementNamePattern": ["@/extensions/**"],
+      },
+      {
+        "groupName": "shared",
+        "elementNamePattern": ["@/shared/**"],
+      },
+    ],
+    "groups": [
+      "builtin",
+      "external",
+      "app",
+      "core",
+      "config",
+      "extensions",
+      "shared",
+      ["parent", "sibling", "index"],
+      "style",
+    ],
+    "newlinesBetween": true,
+    "order": "asc",
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    "pnpm-lock.yaml",
+    "*.md",
+    "*.d.ts",
+    "!src/**/*.d.ts",
+    "public",
+    "coverage",
+    "src/shared/components",
+    "src/config/branding.ts",
+  ],
+}

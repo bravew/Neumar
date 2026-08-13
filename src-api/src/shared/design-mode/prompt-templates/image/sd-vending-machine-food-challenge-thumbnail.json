@@ -1,0 +1,18 @@
+{
+  "id": "sd-vending-machine-food-challenge-thumbnail",
+  "surface": "image",
+  "title": "Vending Machine Food Challenge Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for an \"Eating Only Vending Machine Food for 24 Hours\" challenge, showing a YouTuber surrounded by snacks with a pained but funny expression. It aims to capture the essence of th.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for an “Eating Only Vending Machine Food for 24 Hours” challenge. The image shows the YouTuber sitting on the floor, surrounded by a huge pile of colorful snacks and drinks from vending machines. They have a pained but funny expression on their face. The text “I REGRET THIS” is in a bold, distressed font. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359826384_5thcf7_cf2681b72434f1f9eb3abcd48a02db5ba77094a0806434a7083b13088ea01ca2-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

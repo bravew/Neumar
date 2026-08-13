@@ -1,0 +1,13 @@
+{
+  "name": "design-system-mission-control",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for Mission Control Design System, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "Mission Control Design System",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

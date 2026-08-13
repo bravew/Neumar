@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Community Hallmark</title>
+    <style>
+      :root {
+        --bg: #f5f3ee;
+        --surface: #ffffff;
+        --fg: #17201b;
+        --muted: #66736c;
+        --border: #ddd8ce;
+        --accent: #2f7d5b;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 44px 24px;
+      }
+      .hero {
+        display: grid;
+        gap: 18px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 32px;
+      }
+      h1 {
+        max-width: 760px;
+        margin: 0;
+        font-family: Georgia, serif;
+        font-size: clamp(40px, 7vw, 82px);
+        line-height: 0.96;
+        letter-spacing: 0;
+      }
+      p {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-top: 28px;
+      }
+      article {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 20px;
+      }
+      a {
+        color: var(--accent);
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero" data-od-id="community-hero">
+        <p>Maker circle - monthly demos - shared studio hours</p>
+        <h1>Build in public with people who keep showing up.</h1>
+        <p>
+          A community page structure for shared values, member stories, repeat
+          rituals, and a concrete path to participate.
+        </p>
+        <a href="#join">Attend the next gathering</a>
+      </section>
+      <section class="grid" data-od-id="community-cards">
+        <article data-od-id="community-value">
+          <h2>Practice over posture</h2>
+          <p>Members share work in progress, not polished myths.</p>
+        </article>
+        <article data-od-id="community-story">
+          <h2>Member moments</h2>
+          <p>Short cards capture what people made, learned, or unblocked.</p>
+        </article>
+        <article data-od-id="community-ritual">
+          <h2>Rituals</h2>
+          <p>Weekly critique, monthly demo night, and office-hour pairings.</p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,147 @@
+spec_version: 1
+id: frame-data-rollup
+name: Data Rollup
+description: >
+  Native Remotion data-animation frame: bars grow from zero using the Remotion
+  frame clock while figures roll up to their target values in sync.
+
+engine: remotion
+engine_version: ^4.0.0
+source_entry: source/entry.ts
+native:
+  compositionId: DataRollup
+
+category: data-viz
+subcategory: bar-chart
+tags: [data, chart, bar, rollup, count-up, remotion, native, kpi]
+
+best_for:
+  - 'A data frame where numbers should animate, not sit static'
+  - 'Weekly metrics or KPI bars driven by real values'
+  - 'Enhancing one data segment inside an HTML-frame video'
+
+not_for:
+  - 'Decorative title cards or brand intros'
+  - 'Datasets with more than 7 bars'
+
+output:
+  formats: [mp4, webm]
+  default_format: mp4
+  resolution:
+    default: { width: 1920, height: 1080 }
+    supported_aspects: ['16:9', '9:16', '1:1']
+  fps:
+    default: 30
+    supported: [30, 60]
+  duration:
+    type: variable
+    min_sec: 3
+    max_sec: 8
+  alpha: false
+  audio:
+    supported: false
+    expected_inputs: []
+
+inputs:
+  schema:
+    type: object
+    required: [items]
+    properties:
+      title:
+        type: string
+        title: Title
+        maxLength: 64
+      subtitle:
+        type: string
+        title: Subtitle
+        maxLength: 120
+      unit:
+        type: string
+        title: Unit
+        maxLength: 8
+        description: 'Optional suffix after each rolled number, e.g. K or %.'
+      items:
+        type: array
+        title: Items
+        minItems: 1
+        maxItems: 7
+        description: 'The bars; each grows to value and rolls 0 to value.'
+        items:
+          type: object
+          required: [label, value]
+          properties:
+            label: { type: string, maxLength: 24 }
+            value: { type: number }
+            color: { type: string, maxLength: 24 }
+      accent:
+        type: string
+        title: Accent
+        description: 'Bar and number color. Default #F97316.'
+      background:
+        type: string
+        title: Background
+        description: 'Background color. Default #101114.'
+      foreground:
+        type: string
+        title: Foreground
+        description: 'Title, label, and baseline color. Default #F8FAFC.'
+  examples:
+    - title: 'This week on GitHub'
+      items:
+        - { label: 'Mon', value: 1200 }
+        - { label: 'Tue', value: 2400 }
+        - { label: 'Wed', value: 1800 }
+        - { label: 'Thu', value: 4200 }
+        - { label: 'Fri', value: 3600 }
+    - title: 'Stars by month'
+      unit: 'K'
+      items:
+        - { label: 'Mar', value: 12 }
+        - { label: 'Apr', value: 28 }
+        - { label: 'May', value: 47 }
+      accent: '#34D399'
+      background: '#0B1120'
+
+license:
+  spdx: Apache-2.0
+  attribution_required: true
+  redistribution_allowed: true
+  commercial_use: true
+
+provenance:
+  origin:
+    name: 'none'
+    kind: none
+    reference: >
+      Original sample work. Standard animated-bar-chart vocabulary implemented
+      from scratch as React TSX for Remotion.
+  via_skill:
+    name: 'none'
+    author: 'nexu-io'
+    url: https://github.com/nexu-io/html-video
+    license: Apache-2.0
+    source_file: 'templates/frame-data-rollup'
+  transformation: >
+    Ported into Neuma's template gallery with template.video.yaml metadata and
+    a top-level input contract that matches Neuma's form mapper. The Remotion
+    composition keeps the sample's native frame-clock animation: spring-grown
+    bars and count-up values derived from real input data.
+
+author:
+  name: nexu-io
+  url: https://github.com/nexu-io
+
+version: 0.1.0
+changelog:
+  - version: 0.1.0
+    date: 2026-06-09
+    notes: Ported native Remotion data rollup starter into Neuma.
+
+preview:
+  poster: preview.png
+
+performance:
+  reference_render:
+    duration_sec: 5
+    render_wall_clock_sec: 45
+    machine: 'M2 MacBook Air'

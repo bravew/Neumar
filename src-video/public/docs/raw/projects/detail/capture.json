@@ -1,0 +1,38 @@
+{
+  "id": "projects.detail",
+  "kind": "image",
+  "page": "projects",
+  "slot": "detail",
+  "route": "/projects/docs-project-alpha",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 2,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"project-detail\"]",
+    "masks": [
+      "[data-testid=\"project-workspace\"]"
+    ],
+    "steps": []
+  },
+  "capturedAt": "2026-05-09T22:03:09.952Z",
+  "source": "source.png"
+}

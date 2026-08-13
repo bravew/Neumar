@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-beach-selfie-iphone-15-pro",
+  "surface": "image",
+  "title": "Ultra-Realistic iPhone 15 Pro Beach Selfie",
+  "summary": "Hyper-realistic front-camera selfie of a woman on a bright beach, faithfully replicating iPhone 15 Pro computational photography — wide-angle distortion, pore-level skin detail, and coastal bounce light.",
+  "category": "Portrait / Photography",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "portrait",
+    "photography",
+    "selfie",
+    "beach",
+    "realistic"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "4:5",
+  "prompt": "Ultra-realistic iPhone 15 Pro front-camera selfie of an adult woman on a bright beach, photographed from a raised-arm high-angle selfie perspective with mild 24mm equivalent wide-angle distortion, realistic facial proportions, and deep smartphone depth of field. She has platinum-blonde braids, pale skin with real photographic texture, visible pores, subtle peach fuzz, and wears a light blue fitted top with deep neckline revealing collarbones. Strong late-morning coastal sunlight with white sand bounce and even shadow fill. Crisp but realistic highlights without harsh contrast. Neutral-to-pastel color rendering with realistic iPhone computational photography. Prioritize realism, physical accuracy, and true smartphone behavior over beauty stylization.",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/002-raw_20260423_promptgather_prompt_079__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

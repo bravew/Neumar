@@ -1,0 +1,17 @@
+{
+  "id": "sd5-15",
+  "surface": "image",
+  "title": "UI icon, a wallet filled with gold coins, a pile of gold coi…",
+  "summary": "UI icon, a wallet filled with gold coins, a pile of gold coins, on the gold coins is the {argument name=\"currency type\" default=\"RMB\"} symbol, 3D effect, glass texture, soft golden gradient, translucent material halo eff…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "UI icon, a wallet filled with gold coins, a pile of gold coins, on the gold coins is the {argument name=\"currency type\" default=\"RMB\"} symbol, 3D effect, glass texture, soft golden gradient, translucent material halo effect, light background contrasting color flow, 3D rendering style, the image is full of breathing sense.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/1ea8a18e-27f8-42c2-8fb3-1dba276a3cb3",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea643f2b552957d3c5752"
+  }
+}

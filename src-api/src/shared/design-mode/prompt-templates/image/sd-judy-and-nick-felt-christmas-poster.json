@@ -1,0 +1,18 @@
+{
+  "id": "sd-judy-and-nick-felt-christmas-poster",
+  "surface": "image",
+  "title": "Judy and Nick Felt Christmas Poster",
+  "summary": "This prompt creates a warm, healing felt-style Christmas poster showing Judy and Nick wrapping gifts in a cozy cottage, with every element rendered in wool-felt handmade textures and a rich festive atmosphere.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Felt texture Christmas theme poster, overall using warm and healing wool felt handmade texture. In the center is a fluffy 3D green felt Christmas tree. Disney characters Judy and Nick sit on the carpet packaging gift boxes, wrapped with milky white plush ribbons and gold pom-poms, the tree top adorned with a glowing felt star. Under the tree are piled gift boxes wrapped in wool felt fabric, paired with colorful yarn bows and felt bells. Scattered around are felt snowflakes, felt reindeer dolls, and felt gingerbread men. The background is a warm cottage scene with light brown felt texture, featuring a glowing felt fireplace, plush carpet, and mantelpiece with felt socks. Soft felt snowflakes float outside the window. Overall tone focuses on warm brown, Christmas red, milky white, and light gold. High saturation warm color scheme, ultra-high definition details, soft and warm lighting, lively and healing atmosphere with rich layers, full of heavy 3D sense of handmade texture,",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360325350_ip9hj7_1765339550598-d2sstp-0217653395383777b67bbc2a2a9a26108e071e40bb0b08477b4fc_0-600x800.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7578354580463947034?workDetailType=Image&itemType=9",
+    "author": "平平淡淡"
+  }
+}

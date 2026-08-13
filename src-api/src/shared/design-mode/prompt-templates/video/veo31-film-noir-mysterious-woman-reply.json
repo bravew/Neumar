@@ -1,0 +1,26 @@
+{
+  "id": "veo31-film-noir-mysterious-woman-reply",
+  "surface": "video",
+  "title": "Film Noir: The Mysterious Woman's Reply",
+  "summary": "Close shot of the mysterious woman's slight smile as she delivers her reply — pairs with the detective shot to form a two-clip film-noir dialogue sequence using Veo 3.1's native lip-sync.",
+  "category": "Cinematic / Film Noir",
+  "tags": [
+    "veo-3.1",
+    "google",
+    "cinematic",
+    "film-noir",
+    "dialogue",
+    "character",
+    "mystery"
+  ],
+  "model": "veo-3.1",
+  "aspect": "16:9",
+  "prompt": "Create a shot focusing on the woman. A slight, mysterious smile plays on her lips as she replies, 'You were highly recommended.' Style: 1940s film noir, soft fill light on her face, deep shadow behind her, medium close-up with shallow depth of field, cool blue rim light from the window.",
+  "previewImageUrl": "https://storage.googleapis.com/gweb-cloudblog-publish/images/9_K7SVkpN.max-2000x2000.png",
+  "source": {
+    "repo": "google/veo",
+    "license": "platform-example",
+    "author": "Google DeepMind",
+    "url": "https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1"
+  }
+}

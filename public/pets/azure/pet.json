@@ -1,0 +1,11 @@
+{
+  "id": "azure",
+  "displayName": "Azure",
+  "description": "A tiny blue dragon with small wings and a friendly snout.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "fantasy", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/azure-openpets",
+  "category": "western"
+}

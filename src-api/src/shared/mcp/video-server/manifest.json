@@ -1,0 +1,8 @@
+{
+  "name": "neuma-video",
+  "version": "0.1.0",
+  "capabilities": {
+    "tools": true
+  },
+  "transport": "stdio"
+}

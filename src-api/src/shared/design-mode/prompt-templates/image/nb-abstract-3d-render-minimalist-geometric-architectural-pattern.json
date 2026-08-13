@@ -1,0 +1,18 @@
+{
+  "id": "nb-abstract-3d-render-minimalist-geometric-architectural-pattern",
+  "surface": "image",
+  "title": "Abstract 3D Render: Minimalist Geometric Architectural Pattern",
+  "summary": "A detailed 3D render showcases a seamless, repeating pattern of abstract minimalist rooms and corridors in a grayscale palette. The design creates an illusion of depth and infinite space with its clea.",
+  "category": "Architecture & Interior",
+  "tags": ["nano-banana", "gemini", "architecture", "interior"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "Professional architectural photography 4x4 grid showcasing identical room layout transformed through 16 distinct interior design styles. All furniture placement, room geometry, and spatial composition must exactly match the provided depth map reference. Camera: consistent 3/4 angle, 24mm tilt-shift lens, f/8, tripod-mounted. Only materials, colors, textures, and decorative elements change—never position or scale of objects.CRITICAL CONSTRAINT: Furniture placement, room dimensions, window/door positions, and all object locations must remain pixel-perfect identical to the reference depth map across all 16 frames. The silhouette and spatial arrangement cannot change.",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9poTLhWIAAJ0Rj.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/gokayfem/status/2007031565277155334",
+    "author": "gokaygokay"
+  }
+}

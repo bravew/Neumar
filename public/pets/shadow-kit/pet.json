@@ -1,0 +1,11 @@
+{
+  "id": "shadow-kit",
+  "displayName": "Shadow Kit",
+  "description": "A black kitten with amber eyes and a purple collar.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/shadow-kit-openpets",
+  "category": "western"
+}

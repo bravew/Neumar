@@ -1,0 +1,41 @@
+{
+  "id": "cloud-storage.browse-attach",
+  "kind": "video",
+  "page": "cloud-storage",
+  "slot": "browse-attach",
+  "route": "/library?tab=cloud-storage",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"library-page\"]",
+    "masks": [],
+    "steps": [
+      "Open cloud storage tab",
+      "Pause on connected media source",
+      "Search cloud media",
+      "Hold on media results"
+    ]
+  },
+  "capturedAt": "2026-05-09T21:59:47.848Z",
+  "source": "source.webm"
+}

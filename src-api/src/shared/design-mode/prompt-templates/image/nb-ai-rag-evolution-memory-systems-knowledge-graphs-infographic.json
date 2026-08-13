@@ -1,0 +1,18 @@
+{
+  "id": "nb-ai-rag-evolution-memory-systems-knowledge-graphs-infographic",
+  "surface": "image",
+  "title": "AI RAG Evolution: Memory Systems & Knowledge Graphs Infographic",
+  "summary": "An illustrative infographic details the evolution of AI's Retrieval Augmented Generation (RAG) to advanced memory systems, presented on a notebook paper background. It visually compares traditional st.",
+  "category": "Minimalist Icon",
+  "tags": ["nano-banana", "gemini", "minimalist", "icon"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "</text>",
+  "previewImageUrl": "https://pbs.twimg.com/media/G6coV5jXQAARgvk.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/godofprompt/status/1992605871302697425",
+    "author": "God of Prompt"
+  }
+}

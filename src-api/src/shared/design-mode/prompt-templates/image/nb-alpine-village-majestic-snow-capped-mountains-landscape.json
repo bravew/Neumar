@@ -1,0 +1,18 @@
+{
+  "id": "nb-alpine-village-majestic-snow-capped-mountains-landscape",
+  "surface": "image",
+  "title": "Alpine Village & Majestic Snow-Capped Mountains Landscape",
+  "summary": "A stunning photorealistic scene showcases a quaint alpine village nestled on terraced green hillsides, overlooking a deep valley with a majestic snow-capped mountain range under a clear blue sky. Trad.",
+  "category": "Nature & Landscape",
+  "tags": ["nano-banana", "gemini", "nature", "landscape"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"prompt_name\": \"High Alpine Sanctuary Village\",\n  \"aesthetic_goal\": \"epic fantasy realism, ultra clear daylight, cinematic natural beauty, impossibly pristine and peaceful\",\n  \"scene\": {\n    \"environment\": \"steep emerald-green mountain terraces with bright mossy grass and scattered pink alpine flowers, layered with old trees and cliffs\",\n    \"architecture\": \"small wooden highland houses and temples built on stone foundations, handcrafted timber, weathered roofs, clustered on ledges and plateaus\",\n    \"background_scale\": \"towering icy mountain peak with dramatic ridgelines and snow, sharp sunlight hitting glacier edges, long depth all the way to the summit\",\n    \"atmosphere\": \"thin mountain air, cool blue clarity, low drifting clouds and mist wrapping around the slopes, untouched sacred place\",\n    \"tone\": \"utopian, peaceful, ancient, safe\"\n  },\n  \"lighting\": {\n    \"style\": \"bright clean midday sunlight from upper right, high-elevation alpine light\",\n    \"shadow_behavior\": \"soft but defined terrain shadows, gentle falloff into the valleys\",\n    \"color_temperature\": \"cool sky blue mixed with fresh spring green bounce light from grass\",\n    \"mood\": \"fresh, crisp, holy air feeling\"\n  },\n  \"camera\": {\n    \"framing\": \"cinematic aerial wide shot looking slightly downward across the terraces toward the snow mountain in the distance\",\n    \"lens\": \"full-frame equivalent ~18mm ultra wide landscape lens, deep depth of field\",\n    \"focus\": \"sharp across entire frame, no blur, extreme detail in foliage, stone, wood, and snow texture\",\n    \"composition_notes\": \"village in lower/mid frame leading the eye up the valley toward the sacred peak in the top of frame\"\n  },\n  \"style\": {\n    \"keywords\": [\n      \"fantasy landscape realism\",\n      \"4K cinematic environment\",\n      \"photoreal terrain detail\",\n      \"lush micro-detail vegetation\",\n      \"studio-grade color grading\"\n    ],\n    \"color_palette\": \"saturated alpine greens, icy whites, sky-deep cobalt blues\"\n  },\n  \"output_settings\": {\n    \"aspect_ratio\": \"9:16\",\n    \"format\": \"high detail still image\",\n    \"quality_target\": \"ultra high resolution, sharp, no noise\"\n  },\n  \"negative_prompt\": [\n    \"blurry, low detail, washed out, haze blocking the mountain\",\n    \"cartoon, anime, game UI, infographic style\",\n    \"text, captions, watermarks, logos, interface elements\",\n    \"distorted perspective, warped buildings, melted terrain\",\n    \"oversaturated neon color, unnatural purple grass, plastic look\"\n  ]\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G4rQW9JakAE_Bv2.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/IamEmily2050/status/1984628556262228365",
+    "author": "Emily"
+  }
+}

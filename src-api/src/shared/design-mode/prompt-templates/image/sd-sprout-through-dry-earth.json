@@ -1,0 +1,18 @@
+{
+  "id": "sd-sprout-through-dry-earth",
+  "surface": "image",
+  "title": "Sprout Through Dry Earth",
+  "summary": "This prompt generates a powerful and thought-provoking image of a single green sprout growing through a crack in dry earth. It uses dramatic lighting to symbolize hope, resilience, and environmental conservation, conveyi.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:2",
+  "prompt": "A powerful and thought-provoking image of a single, green sprout growing through a crack in dry, barren earth. The image is a close-up, with the focus on the delicate sprout. The lighting is dramatic, with a single beam of light illuminating the sprout. The image should symbolize hope, resilience, and the importance of environmental conservation, showcasing the ability to convey complex concepts visually. –ar 3:2",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360098798_0ty8mt_27b0b9e3e1c8d2fea5a0be237beb86d21c6c58e79dfea103cc7edb0f15e5f3d0-600x400.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

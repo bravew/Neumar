@@ -1,0 +1,9 @@
+{"type":"meta","id":"hello-read-edit","agent":"claude","model":"claude-opus-4-8","outcome":"succeeded","tags":["skill:demo"],"description":"Reads a file, makes one edit, reports back. Minimal happy-path trace for wiring up the mock agent."}
+{"type":"thinking","content":"Let me look at the file before changing it.","t_ms":120}
+{"type":"text","content":"I'll read `README.md` first, then update the title.","t_ms":300}
+{"type":"tool_call","id":"toolu_01","name":"Read","input":{"file_path":"README.md"},"t_ms":650}
+{"type":"tool_result","id":"toolu_01","output":"# Old Title\n\nSome content.\n","isError":false}
+{"type":"text","content":"Found it — updating the heading.","t_ms":1200}
+{"type":"tool_call","id":"toolu_02","name":"Edit","input":{"file_path":"README.md","old_string":"# Old Title","new_string":"# New Title"},"t_ms":1500}
+{"type":"tool_result","id":"toolu_02","output":"The file README.md has been updated successfully.","isError":false}
+{"type":"report","content":"Done. I changed the heading in `README.md` from \"Old Title\" to \"New Title\".","t_ms":2000}

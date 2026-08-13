@@ -1,0 +1,18 @@
+{
+  "id": "sd-minimalist-chic-outfit-flat-lay",
+  "surface": "image",
+  "title": "Minimalist Chic Outfit Flat-Lay",
+  "summary": "This prompt generates a minimalist and chic flat-lay of a curated outfit for a \"look of the day\" post. It focuses on natural, soft lighting and precise object placement to create a clean, stylish, and aspirational image.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:5",
+  "prompt": "A minimalist and chic flat-lay of a curated outfit for a “look of the day” post. The outfit consists of a pair of vintage jeans, a white linen shirt, a pair of leather sandals, a straw hat, and delicate gold jewelry. The items are neatly arranged on a clean, white wooden floor. The lighting is natural and soft. The image should be clean, stylish, and aspirational, demonstrating precise object placement and texture rendering. –ar 4:5",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360125159_i2075w_a0b39b20f4395d55a2eb9c0a526a6f21b39a7b892567c39ee689a98a3d1f2575-600x750.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

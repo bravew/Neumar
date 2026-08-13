@@ -1,0 +1,18 @@
+{
+  "id": "sd-black-hole-explanation-thumbnail",
+  "surface": "image",
+  "title": "Black Hole Explanation Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for a video explaining black holes, featuring a scientifically accurate rendering with an accretion disk and gravitational lensing. It showcases the ability to render complex sci.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a video explaining black holes. The image is a scientifically accurate and visually stunning rendering of a black hole, showing the accretion disk and gravitational lensing effect. A large, white arrow points to the singularity. The YouTuber’s face is in the corner, looking amazed. The title “What’s INSIDE a Black Hole?” is in a futuristic font. This showcases the ability to render complex scientific phenomena accurately. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359877066_tmo2mz_8ef67c65974dda9a310ea2835c5dfe9c4503821ef97bdeb9a7fd193f301d5313-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,245 @@
+{
+  "src/components/artifacts/ArtifactPreview.tsx": {
+    "current": 1112,
+    "target": 350
+  },
+  "src/components/video/assets/ProjectAssetsSection.tsx": {
+    "current": 367,
+    "target": 350
+  },
+  "src/components/library/CloudStorageLibraryTab.tsx": {
+    "current": 626,
+    "target": 350
+  },
+  "src/components/settings/cloud-storage/CloudStorageConnectionsSection.tsx": {
+    "current": 416,
+    "target": 350
+  },
+  "src/components/shared/CloudStorageAssetPicker.tsx": {
+    "current": 448,
+    "target": 350
+  },
+  "src/components/library/CloudStorageSearchOptionsDialog.tsx": {
+    "current": 357,
+    "target": 350
+  },
+  "src/components/artifacts/PptxPreview.tsx": { "current": 363, "target": 350 },
+  "src/components/artifacts/WebSearchPreview.tsx": {
+    "current": 351,
+    "target": 350
+  },
+  "src/components/auth/DesktopAccessGuide.tsx": {
+    "current": 420,
+    "target": 350
+  },
+  "src/components/design/CompareModal.tsx": { "current": 634, "target": 350 },
+  "src/components/design/DesignSystemPreviewModal.tsx": {
+    "current": 389,
+    "target": 350
+  },
+  "src/components/design/EntryView.tsx": {
+    "current": 393,
+    "target": 350
+  },
+  "src/components/design/ExportsDrawer.tsx": { "current": 371, "target": 350 },
+  "src/components/design/FileViewer.tsx": {
+    "current": 466,
+    "target": 350
+  },
+  "src/components/design/NewProjectPanel.tsx": {
+    "current": 359,
+    "target": 350
+  },
+  "src/components/design/ProjectView.tsx": {
+    "current": 472,
+    "target": 350
+  },
+  "src/components/design/ProjectChatSidebar.tsx": {
+    "current": 360,
+    "target": 350
+  },
+  "src/components/design/file-viewer-utils.tsx": {
+    "current": 376,
+    "target": 350
+  },
+  "src/components/automation/CronExpressionInput.tsx": {
+    "current": 482,
+    "target": 350
+  },
+  "src/components/automation/HeartbeatDetailDialog.tsx": {
+    "current": 378,
+    "target": 350
+  },
+  "src/components/home/AgentMessages.tsx": { "current": 528, "target": 350 },
+  "src/components/design/tabs/ExamplesTab.tsx": {
+    "current": 677,
+    "target": 350
+  },
+  "src/components/design/tabs/DesignSystemsTab.tsx": {
+    "current": 391,
+    "target": 350
+  },
+  "src/components/design/tabs/PromptTemplatesTab.tsx": {
+    "current": 373,
+    "target": 350
+  },
+  "src/components/profiles/detail/ProfileDetailSidebar.tsx": {
+    "current": 416,
+    "target": 350
+  },
+  "src/components/profiles/ProfileDialog.tsx": {
+    "current": 445,
+    "target": 350
+  },
+  "src/components/profiles/wizard/ConfigureStep.tsx": {
+    "current": 393,
+    "target": 350
+  },
+  "src/components/profiles/wizard/ProfileWizard.tsx": {
+    "current": 404,
+    "target": 350
+  },
+  "src/components/profiles/wizard/ReviewStep.tsx": {
+    "current": 367,
+    "target": 350
+  },
+  "src/components/settings/components/MemoryExplorer.tsx": {
+    "current": 765,
+    "target": 350
+  },
+  "src/components/settings/components/MemorySettingsConfig.tsx": {
+    "current": 557,
+    "target": 350
+  },
+  "src/components/settings/components/MemoryTable.tsx": {
+    "current": 855,
+    "target": 350
+  },
+  "src/components/settings/components/usage/BudgetPolicies.tsx": {
+    "current": 468,
+    "target": 350
+  },
+  "src/components/settings/components/usage/UsageDailyChart.tsx": {
+    "current": 481,
+    "target": 350
+  },
+  "src/components/settings/components/usage/UsagePieCharts.tsx": {
+    "current": 409,
+    "target": 350
+  },
+  "src/components/settings/components/usage/UsageRequestLog.tsx": {
+    "current": 599,
+    "target": 350
+  },
+  "src/components/settings/tabs/AccountSettings.tsx": {
+    "current": 381,
+    "target": 350
+  },
+  "src/components/settings/tabs/channel/ConfigTab.tsx": {
+    "current": 457,
+    "target": 350
+  },
+  "src/components/settings/tabs/channel/RoutingRulesTable.tsx": {
+    "current": 402,
+    "target": 350
+  },
+  "src/components/settings/tabs/ConnectorSettings.tsx": {
+    "current": 707,
+    "target": 350
+  },
+  "src/components/settings/tabs/DesignModeSettings.tsx": {
+    "current": 382,
+    "target": 350
+  },
+  "src/components/settings/tabs/DataSettings.tsx": {
+    "current": 561,
+    "target": 350
+  },
+  "src/components/settings/tabs/gateway/ChannelList.tsx": {
+    "current": 702,
+    "target": 350
+  },
+  "src/components/settings/tabs/HookSettings.tsx": {
+    "current": 365,
+    "target": 350
+  },
+  "src/components/settings/tabs/mcp/ConfigDialog.tsx": {
+    "current": 376,
+    "target": 350
+  },
+  "src/components/settings/tabs/MCPSettings.tsx": {
+    "current": 842,
+    "target": 350
+  },
+  "src/components/settings/tabs/ModelSettings.tsx": {
+    "current": 820,
+    "target": 350
+  },
+  "src/components/settings/tabs/ProfileSettings.tsx": {
+    "current": 371,
+    "target": 350
+  },
+  "src/components/settings/tabs/ProviderDetailView.tsx": {
+    "current": 590,
+    "target": 350
+  },
+  "src/components/settings/tabs/SearchSettings.tsx": {
+    "current": 408,
+    "target": 350
+  },
+  "src/components/settings/tabs/SkillsSettings.tsx": {
+    "current": 1171,
+    "target": 350
+  },
+  "src/components/settings/tabs/speech/TtsSection.tsx": {
+    "current": 371,
+    "target": 350
+  },
+  "src/components/settings/tabs/ThemeSettings.tsx": {
+    "current": 446,
+    "target": 350
+  },
+  "src/components/settings/tabs/UsageSettings.tsx": {
+    "current": 398,
+    "target": 350
+  },
+  "src/components/settings/tabs/WorkplaceSettings.tsx": {
+    "current": 529,
+    "target": 350
+  },
+  "src/components/shared/ChatInput.tsx": { "current": 422, "target": 350 },
+  "src/components/shared/ChatInputAttachments.tsx": {
+    "current": 543,
+    "target": 350
+  },
+  "src/components/shared/FolderPicker.tsx": { "current": 355, "target": 350 },
+  "src/components/task/DocumentPanel.tsx": { "current": 384, "target": 350 },
+  "src/components/task/MediaLightbox.tsx": { "current": 549, "target": 350 },
+  "src/components/task/MessageList.tsx": { "current": 376, "target": 350 },
+  "src/components/task/RightSidebar.tsx": { "current": 1675, "target": 350 },
+  "src/components/task/TaskV2MessageBubble.tsx": {
+    "current": 724,
+    "target": 350
+  },
+  "src/components/task/TaskV2Thread.tsx": { "current": 624, "target": 350 },
+  "src/components/workspace/media/MediaWorkspace.tsx": {
+    "current": 556,
+    "target": 350
+  },
+  "src/components/video/preview/RemotionTimelineComposition.tsx": {
+    "current": 362,
+    "target": 350
+  },
+  "src/components/video/StepPreviewCanvas.tsx": {
+    "current": 361,
+    "target": 350
+  },
+  "src/components/video/timeline/Timeline.tsx": {
+    "current": 369,
+    "target": 350
+  },
+  "src/components/video/timeline/TimelineClip.tsx": {
+    "current": 360,
+    "target": 350
+  }
+}

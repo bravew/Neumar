@@ -1,0 +1,18 @@
+{
+  "id": "sd-professional-sdlc-flowchart",
+  "surface": "image",
+  "title": "Professional SDLC Flowchart",
+  "summary": "This prompt generates a clean and professional flowchart illustrating the Software Development Life Cycle (SDLC). It includes distinct shapes for stages and clear arrowheads, using a corporate, minimalist color palette s.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A clean and professional flowchart illustrating the software development life cycle (SDLC). The chart should include stages like Planning, Design, Development, Testing, Deployment, and Maintenance, represented by distinct shapes (rectangles, diamonds for decisions). The connecting lines should have clear arrowheads. The color palette should be corporate and minimalist (blues and grays), demonstrating the ability to create clear, structured diagrams for technical and business contexts. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360048342_c53zez_ee77452b9f75a5acfcb5d1f9cce49aa48c929b421e9b18173c78f58aaa3340b5-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

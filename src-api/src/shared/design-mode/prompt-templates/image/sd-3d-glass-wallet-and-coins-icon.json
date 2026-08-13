@@ -1,0 +1,18 @@
+{
+  "id": "sd-3d-glass-wallet-and-coins-icon",
+  "surface": "image",
+  "title": "3D Glass Wallet and Coins Icon",
+  "summary": "This prompt generates a high-quality 3D glass-textured UI icon of a wallet filled with coins featuring a specific currency symbol, with a clear airy look and a strong sense of depth and breathing space.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "UI icon, a wallet filled with gold coins, a pile of gold coins, on the gold coins is the {argument name=\"currency type\" default=\"RMB\"} symbol, 3D effect, glass texture, soft golden gradient, translucent material halo effect, light background contrasting color flow, 3D rendering style, the image is full of breathing sense.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360359275_0kx2gu_1765339517519-f89k34-0217653395048557b67bbc2a2a9a26108e071e40bb0b084742913_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7569196092471004454?workDetailType=Image&itemType=9",
+    "author": "Jackie Chan"
+  }
+}

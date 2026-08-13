@@ -1,0 +1,18 @@
+{
+  "id": "sd-macro-eyeshadow-palette-shot",
+  "surface": "image",
+  "title": "Macro Eyeshadow Palette Shot",
+  "summary": "This prompt creates a macro, artistic shot of a new eyeshadow palette for a beauty blogger's review. It focuses on the texture of the powders and a brush kicking up dust, with clean, bright lighting for extreme detail an.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A macro, artistic shot of a new eyeshadow palette for a beauty blogger’s review. The shot focuses on the texture of the different eyeshadow powders, with a brush sweeping through one of the colors, kicking up a small cloud of pigmented dust. The lighting is clean and bright, showing the true colors and shimmer of the product. This requires extreme detail and precision in rendering textures and particles. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360099051_05ebmu_d39be6af8bb56f8a40942d1fb704230eb8b901658fd0e7ceaafa68a04f2499d3-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

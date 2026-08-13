@@ -1,0 +1,18 @@
+{
+  "id": "sd-ancient-egypt-documentary-thumbnail",
+  "surface": "image",
+  "title": "Ancient Egypt Documentary Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for an ancient Egypt documentary, featuring a cinematic, photorealistic rendering of the Giza Pyramids at sunset. It showcases rich world knowledge and cinematic rendering for hi.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a documentary about ancient Egypt. The image is a cinematic, photorealistic rendering of the Great Pyramids of Giza at sunset. The sun is setting behind the pyramids, creating a beautiful silhouette. In the foreground, the silhouette of an archaeologist looking at the pyramids. The title is in a font that mimics ancient hieroglyphs. This showcases rich world knowledge and cinematic rendering. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359853121_adq5sn_fab0eac438d07ba84861e7fabce5dd05b6a36b2183b7b06b72c5ad546aa7df69-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

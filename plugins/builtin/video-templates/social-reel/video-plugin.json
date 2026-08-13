@@ -1,0 +1,80 @@
+{
+  "specVersion": "1.0.0",
+  "name": "social-reel",
+  "title": "Social Reel",
+  "compatibility": {
+    "neuma": ">=26.6.15 <27.0.0",
+    "videoPluginApi": "^1.0.0"
+  },
+  "description": "Create a concise vertical social reel with a hook, grounded beats, b-roll, generated support visuals, captions, music, and a quick QA pass.",
+  "tags": ["shorts", "social", "vertical"],
+  "video": {
+    "kind": "flow",
+    "mode": "shorts",
+    "aspectRatios": ["9:16", "1:1"],
+    "engine": { "id": "html" },
+    "useCase": {
+      "query": "Make a social reel about {{topic}}.",
+      "goals": [
+        "Open with a clear hook",
+        "Use grounded facts when research is available",
+        "Assemble a short captioned timeline"
+      ],
+      "activation": {
+        "keywords": ["reel", "short", "tiktok", "instagram"],
+        "assetKinds": ["image", "video"]
+      }
+    },
+    "pipeline": {
+      "stages": [
+        { "id": "research", "atoms": ["research-search"], "optional": true },
+        { "id": "storyboard", "atoms": ["storyboard-draft"] },
+        {
+          "id": "visuals",
+          "atoms": ["broll-stock", "ai-image"],
+          "optional": true
+        },
+        { "id": "music", "atoms": ["music-select"], "optional": true },
+        { "id": "assemble", "atoms": ["timeline-assemble"] },
+        {
+          "id": "qa",
+          "atoms": ["render-preview", "qa-check"],
+          "repeat": true,
+          "until": "qa.pass || iterations>=2"
+        }
+      ]
+    },
+    "output": {
+      "preset": "social-vertical",
+      "durationTargetSec": [20, 45],
+      "captions": "auto",
+      "fps": 30
+    },
+    "capabilities": [
+      "prompt:inject",
+      "research:web",
+      "network:stock",
+      "network:music",
+      "media:generate"
+    ],
+    "networkAccess": {
+      "allowedHosts": [
+        "api.pexels.com",
+        "www.pexels.com",
+        "pixabay.com",
+        "cdn.pixabay.com",
+        "api.storyblocks.com",
+        "api.openai.com"
+      ],
+      "allowedPaths": {
+        "api.pexels.com": ["/v1/videos/"],
+        "www.pexels.com": ["/video/"],
+        "pixabay.com": ["/api/videos/", "/videos/", "/get/"],
+        "cdn.pixabay.com": ["/video/"],
+        "api.storyblocks.com": ["/api/"],
+        "api.openai.com": ["/v1/"]
+      },
+      "reason": "Find licensed support media, research public sources, and generate optional music or imagery for the reel."
+    }
+  }
+}

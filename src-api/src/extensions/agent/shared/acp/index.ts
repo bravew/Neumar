@@ -1,0 +1,16 @@
+export {
+  AcpRuntimeClient,
+  AcpTurnActivity,
+  AcpToolCallTracker,
+  assertAcpProtocolVersion,
+  mapAcpSessionUpdate,
+  normalizeAcpUsage,
+  resolveAcpPermissionRequest,
+  runAcpPromptSequence,
+  selectAcpPermissionOption,
+  shouldLoadAcpSession,
+  type AcpPermissionDecision,
+  type AcpPermissionMediator,
+  type AcpRuntimeOptions,
+  type AcpSessionResult,
+} from './protocol';

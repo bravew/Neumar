@@ -1,0 +1,1 @@
+{"assetId":"out-audio-1","projectId":"fixture-voiceover-audio","surface":"audio","path":"artifacts/transcript.txt","provider":"speech","model":"openai-tts","promptHash":"sha256:fixture-audio","references":[],"taskId":"task-audio-1","createdAt":"2026-05-02T00:00:00.000Z","disclosureText":"AI-generated voiceover fixture · speech openai-tts · 2026-05-02"}

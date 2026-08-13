@@ -1,0 +1,17 @@
+{
+  "id": "imagen4-tokyo-neon-portrait",
+  "surface": "image",
+  "title": "Tokyo Neon Portrait",
+  "summary": "Mixed-temperature neon portrait shot on expired Portra 800, with halation and tungsten warmth.",
+  "category": "Portrait / Cinematic",
+  "tags": ["imagen-4", "google", "portrait", "film", "neon"],
+  "model": "imagen-4",
+  "aspect": "3:4",
+  "prompt": "{argument name=\"subject\" default=\"A woman\"} standing in a {argument name=\"location\" default=\"Tokyo\"} alleyway at dusk, neon signs reflecting off wet pavement. Shot on {argument name=\"film stock\" default=\"expired Kodak Portra 800, pushed two stops\"}. The tungsten light from a {argument name=\"warm light source\" default=\"ramen shop\"} spills warm orange across the face while the neon casts cool cyan highlights on the hair. Visible grain, halation around the light sources, slightly lifted blacks. The subject is mid-step, caught between two worlds of color.",
+  "previewImageUrl": "https://replicate.delivery/xezq/u8WZoBsBof2e5EJcOr31oALWP6pjuNLPMh07O9fbGbHFkaVsA/tmph0r46ejr.jpg",
+  "source": {
+    "repo": "replicate/google/imagen-4",
+    "license": "platform-example",
+    "url": "https://replicate.com/google/imagen-4/examples"
+  }
+}

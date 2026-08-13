@@ -1,0 +1,18 @@
+{
+  "id": "sd-smartphone-review-thumbnail",
+  "surface": "image",
+  "title": "Smartphone Review Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for a smartphone review, showcasing the phone with checkmarks/X-marks for features and a shocked YouTuber. It emphasizes precise product rendering and clear narrative for a \"vs.\".",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a review of the latest smartphone. The phone is held in a hand, angled to show its sleek screen and camera array. On one side of the phone, a big green checkmark icon; on the other, a big red X icon. The YouTuber’s face is in the corner, with a shocked and surprised expression. The background is a clean, techy grid pattern. This demonstrates precise product rendering and the ability to create a clear “vs.” narrative. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359924818_vj5g9z_a672cbbb55c04d0fd842612f03751ff6f71209ee26810d0ecb31fb0006abacf0-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

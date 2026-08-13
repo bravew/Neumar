@@ -1,0 +1,18 @@
+{
+  "id": "sd-illustrated-homemade-pasta-recipe-card",
+  "surface": "image",
+  "title": "Illustrated Homemade Pasta Recipe Card",
+  "summary": "This prompt creates a beautifully illustrated recipe card for homemade pasta, featuring a charming illustration of the finished dish and small icons for ingredients. It aims for a warm, rustic style reminiscent of a hand.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "A beautifully illustrated recipe card for making homemade pasta. The top half is a charming illustration of the finished dish (e.g., fettuccine with basil). The bottom half lists the ingredients and steps, with small icons for each ingredient (flour, egg, salt). The style is warm and rustic, like a page from a handwritten family cookbook. –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359944420_tw6rfy_77721eb71d52cc73d3605105bd8b7a9888b199ad870f6a4296bfc6c56102fd53-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

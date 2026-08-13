@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1440, height=900" />
+    <title>Walk through settings tabs</title>
+    <style>
+      @keyframes recording-camera {
+        0% { transform: translate3d(0px, 0px, 0) scale(1); }
+        0.000% { transform: translate3d(0px, 0px, 0) scale(1); }
+        2.143% { transform: translate3d(-172.80px, -216.00px, 0) scale(1.24); }
+        13.571% { transform: translate3d(-172.80px, -216.00px, 0) scale(1.24); }
+        15.893% { transform: translate3d(0.00px, -77.04px, 0) scale(1.22); }
+        29.286% { transform: translate3d(0.00px, -77.04px, 0) scale(1.22); }
+        31.607% { transform: translate3d(-230.40px, 0.00px, 0) scale(1.16); }
+        45.000% { transform: translate3d(-230.40px, 0.00px, 0) scale(1.16); }
+        47.321% { transform: translate3d(-230.40px, 0.00px, 0) scale(1.16); }
+        60.714% { transform: translate3d(-230.40px, 0.00px, 0) scale(1.16); }
+        63.036% { transform: translate3d(-230.40px, 0.00px, 0) scale(1.16); }
+        75.714% { transform: translate3d(-230.40px, 0.00px, 0) scale(1.16); }
+        78.036% { transform: translate3d(-230.40px, 0.00px, 0) scale(1.16); }
+        90.000% { transform: translate3d(-230.40px, 0.00px, 0) scale(1.16); }
+        92.321% { transform: translate3d(0.00px, 0.00px, 0) scale(1); }
+        100% { transform: translate3d(0.00px, 0.00px, 0) scale(1); }
+      }
+
+      @keyframes intro-card {
+        0%, 0.429% {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        1.571%, 11.964% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        13.036%, 100% {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+      }
+
+      @keyframes progress-fill {
+        from { transform: scaleX(0); }
+        to { transform: scaleX(1); }
+      }
+
+      @keyframes chapter-0 {
+        0%, 2.714% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        3.500%, 11.286% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        12.071%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-1 {
+        0%, 16.464% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        17.250%, 28.250% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        29.036%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-2 {
+        0%, 32.179% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        32.964%, 43.964% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        44.750%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-3 {
+        0%, 47.893% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        48.679%, 59.679% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        60.464%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-4 {
+        0%, 63.607% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        64.393%, 75.393% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        76.179%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-5 {
+        0%, 78.607% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        79.393%, 89.679% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        90.464%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      @keyframes chapter-6 {
+        0%, 92.893% {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        93.679%, 100.000% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        100.000%, 100% {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1440px;
+        height: 900px;
+        overflow: hidden;
+        background: #09090b;
+        color: #fafafa;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+
+      main {
+        display: block;
+        width: 100%;
+        height: 100vh;
+        padding: 0;
+      }
+
+      .stage {
+        position: relative;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        aspect-ratio: 1440 / 900;
+      }
+
+      .camera {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        border: 0;
+        border-radius: 0;
+        background: #09090b;
+      }
+
+      .recording {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform-origin: 0 0;
+        transition: none !important;
+      }
+
+      .intro {
+        position: absolute;
+        left: 28px;
+        top: 26px;
+        z-index: 3;
+        max-width: 520px;
+        border: 1px solid rgb(255 255 255 / 0.14);
+        border-radius: 12px;
+        background: rgb(9 9 11 / 0.76);
+        color: #fafafa;
+        opacity: 0;
+        padding: 16px 18px;
+        backdrop-filter: blur(12px);
+      }
+
+      .intro-title {
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .intro-intent {
+        margin-top: 8px;
+        color: rgb(250 250 250 / 0.72);
+        font-size: 14px;
+        line-height: 1.35;
+      }
+
+      .chapter {
+        position: absolute;
+        left: 28px;
+        bottom: 28px;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        max-width: min(620px, calc(100% - 56px));
+        gap: 12px;
+        border: 1px solid rgb(255 255 255 / 0.14);
+        border-radius: 999px;
+        background: rgb(9 9 11 / 0.78);
+        color: #fafafa;
+        opacity: 0;
+        padding: 11px 16px 11px 12px;
+        backdrop-filter: blur(12px);
+      }
+
+      .chapter-count {
+        min-width: 46px;
+        border-radius: 999px;
+        background: rgb(99 102 241 / 0.92);
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        line-height: 1;
+        padding: 8px 10px;
+        text-align: center;
+      }
+
+      .chapter-text {
+        overflow: hidden;
+        color: #fafafa;
+        font-size: 16px;
+        font-weight: 650;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 4;
+        height: 4px;
+        background: rgb(255 255 255 / 0.1);
+      }
+
+      .progress-fill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #14b8a6, #6366f1);
+        transform: scaleX(0);
+        transform-origin: 0 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <main
+      id="root"
+      data-composition-id="desktop-app-settings-walkthrough"
+      data-width="1440"
+      data-height="900"
+      data-start="0"
+      data-duration="28"
+      data-hf-scene="docs-demo"
+    >
+      <div class="stage">
+        <div class="camera">
+        <video
+          id="source-recording"
+          class="recording"
+          src="./assets/source.mp4"
+          muted
+          playsinline
+          preload="auto"
+          data-start="0"
+          data-media-start="2.2"
+          data-duration="28"
+          data-track-index="1"
+        ></video>
+        </div>
+        <div class="intro">
+          <div class="intro-title">Walk through settings tabs</div>
+          <div class="intro-intent">Demonstrate opening Settings from the composer and moving through the major configuration areas users need to understand.</div>
+        </div>
+        <div class="chapter chapter-0">
+          <div class="chapter-count">1/7</div>
+          <div class="chapter-text">Open settings from the composer</div>
+        </div>
+        <div class="chapter chapter-1">
+          <div class="chapter-count">2/7</div>
+          <div class="chapter-text">Focus the settings navigation</div>
+        </div>
+        <div class="chapter chapter-2">
+          <div class="chapter-count">3/7</div>
+          <div class="chapter-text">Focus model and runtime configuration</div>
+        </div>
+        <div class="chapter chapter-3">
+          <div class="chapter-count">4/7</div>
+          <div class="chapter-text">Focus integrations and memory</div>
+        </div>
+        <div class="chapter chapter-4">
+          <div class="chapter-count">5/7</div>
+          <div class="chapter-text">Focus workplace and appearance</div>
+        </div>
+        <div class="chapter chapter-5">
+          <div class="chapter-count">6/7</div>
+          <div class="chapter-text">Focus safety and data controls</div>
+        </div>
+        <div class="chapter chapter-6">
+          <div class="chapter-count">7/7</div>
+          <div class="chapter-text">Release to full Settings surface</div>
+        </div>
+        <div class="progress"><div class="progress-fill"></div></div>
+      </div>
+    </main>
+    <script>
+      window.__timelines = window.__timelines || {};
+      let currentTime = 0;
+      const duration = 28;
+      const cameraFrames = [{"fromMs":0,"durationMs":600,"x":-172.79999999999995,"y":-216,"scale":1.24},{"fromMs":3800,"durationMs":650,"x":0,"y":-77.03999999999996,"scale":1.22},{"fromMs":8200,"durationMs":650,"x":-230.39999999999986,"y":0,"scale":1.16},{"fromMs":12600,"durationMs":650,"x":-230.39999999999986,"y":0,"scale":1.16},{"fromMs":17000,"durationMs":650,"x":-230.39999999999986,"y":0,"scale":1.16},{"fromMs":21200,"durationMs":650,"x":-230.39999999999986,"y":0,"scale":1.16},{"fromMs":25200,"durationMs":650,"x":0,"y":0,"scale":1}];
+      const chapterTimings = [{"inMs":760,"holdMs":2400,"outMs":3160},{"inMs":4610,"holdMs":3300,"outMs":7910},{"inMs":9010,"holdMs":3300,"outMs":12310},{"inMs":13410,"holdMs":3300,"outMs":16710},{"inMs":17810,"holdMs":3300,"outMs":21110},{"inMs":22010,"holdMs":3100,"outMs":25110},{"inMs":26010,"holdMs":3100,"outMs":29110}];
+      const recording = document.querySelector('.recording');
+      const intro = document.querySelector('.intro');
+      const chapters = Array.from(document.querySelectorAll('.chapter'));
+      const progress = document.querySelector('.progress-fill');
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function smoothstep(value) {
+        const t = clamp(value, 0, 1);
+        return t * t * (3 - 2 * t);
+      }
+
+      function mix(from, to, amount) {
+        return from + (to - from) * amount;
+      }
+
+      function fadeWindow(time, inTime, inDuration, outTime, outDuration) {
+        if (time < inTime) return 0;
+        if (time < inTime + inDuration) {
+          return smoothstep((time - inTime) / inDuration);
+        }
+        if (time < outTime) return 1;
+        if (time < outTime + outDuration) {
+          return 1 - smoothstep((time - outTime) / outDuration);
+        }
+        return 0;
+      }
+
+      function updateCamera(timeMs) {
+        let previous = { x: 0, y: 0, scale: 1 };
+        let current = previous;
+
+        for (const frame of cameraFrames) {
+          const endMs = frame.fromMs + frame.durationMs;
+          if (timeMs < frame.fromMs) break;
+          if (timeMs <= endMs) {
+            const amount = smoothstep((timeMs - frame.fromMs) / frame.durationMs);
+            current = {
+              x: mix(previous.x, frame.x, amount),
+              y: mix(previous.y, frame.y, amount),
+              scale: mix(previous.scale, frame.scale, amount),
+            };
+            break;
+          }
+          previous = { x: frame.x, y: frame.y, scale: frame.scale };
+          current = previous;
+        }
+
+        recording.style.transform =
+          'translate3d(' + current.x.toFixed(2) + 'px, ' +
+          current.y.toFixed(2) + 'px, 0) scale(' +
+          current.scale.toFixed(4) + ')';
+      }
+
+      function updateOverlays(timeMs) {
+        const introOpacity = fadeWindow(timeMs, 120, 320, 3350, 300);
+        intro.style.opacity = String(introOpacity);
+        intro.style.transform =
+          'translateY(' + mix(10, -8, smoothstep(timeMs / 3650)).toFixed(2) + 'px)';
+
+        for (const [index, chapter] of chapters.entries()) {
+          const timing = chapterTimings[index];
+          const opacity = fadeWindow(
+            timeMs,
+            timing.inMs,
+            220,
+            timing.outMs,
+            220,
+          );
+          chapter.style.opacity = String(opacity);
+          chapter.style.transform =
+            'translateY(' + (12 * (1 - opacity)).toFixed(2) + 'px)';
+        }
+
+        progress.style.transform =
+          'scaleX(' + clamp(timeMs / (duration * 1000), 0, 1).toFixed(5) + ')';
+      }
+
+      function update(time) {
+        const timeMs = clamp(Number(time) || 0, 0, duration) * 1000;
+        updateCamera(timeMs);
+        updateOverlays(timeMs);
+      }
+
+      update(0);
+      window.__timelines['desktop-app-settings-walkthrough'] = {
+        pause() { return this; },
+        play() { return this; },
+        seek(time) {
+          currentTime = Math.max(0, Math.min(duration, Number(time) || 0));
+          update(currentTime);
+          return this;
+        },
+        totalTime(time) {
+          if (time === undefined) return currentTime;
+          currentTime = Math.max(0, Math.min(duration, Number(time) || 0));
+          update(currentTime);
+          return currentTime;
+        },
+        time() { return currentTime; },
+        duration() { return duration; },
+        timeScale() { return this; },
+      };
+    </script>
+  </body>
+</html>

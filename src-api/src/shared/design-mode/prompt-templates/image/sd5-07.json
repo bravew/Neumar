@@ -1,0 +1,17 @@
+{
+  "id": "sd5-07",
+  "surface": "image",
+  "title": "Create a Nordic Winter Olympics poster: a Norwegian aurora b…",
+  "summary": "Create a Nordic Winter Olympics poster: a Norwegian aurora background, a skier wearing the national uniform, including Winter Olympics elements and a mascot.",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "2:3",
+  "prompt": "Create a Nordic Winter Olympics poster: a Norwegian aurora background, a skier wearing the national uniform, including Winter Olympics elements and a mascot.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/1a3e9541-499c-4d60-8756-fcb979a3ed28",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea698f2b552957d3c575c"
+  }
+}

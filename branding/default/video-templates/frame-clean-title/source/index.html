@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --bg: #0e0f12;
+        --fg: #f5f5f4;
+        --muted: #a1a1aa;
+        --accent: #ff5a36;
+      }
+      body.light {
+        --bg: #f8f8f7;
+        --fg: #0e0f12;
+        --muted: #555;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        padding: 8vh 6vw;
+        box-sizing: border-box;
+      }
+      .card {
+        max-width: 90vw;
+        text-align: left;
+      }
+      .stripe {
+        width: 80px;
+        height: 6px;
+        background: var(--accent);
+        transform-origin: left;
+        transform: scaleX(0);
+        animation: stripeIn 600ms 100ms forwards
+          cubic-bezier(0.22, 0.61, 0.36, 1);
+      }
+      h1 {
+        font-size: clamp(40px, 7vw, 96px);
+        font-weight: 700;
+        line-height: 1.05;
+        margin: 32px 0 12px 0;
+        letter-spacing: -0.02em;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: rise 700ms 300ms forwards cubic-bezier(0.22, 0.61, 0.36, 1);
+      }
+      p {
+        font-size: clamp(18px, 2.4vw, 28px);
+        color: var(--muted);
+        line-height: 1.3;
+        margin: 0;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: rise 700ms 500ms forwards cubic-bezier(0.22, 0.61, 0.36, 1);
+      }
+      @keyframes stripeIn {
+        to {
+          transform: scaleX(1);
+        }
+      }
+      @keyframes rise {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="stripe"></div>
+      <h1 id="title">Title</h1>
+      <p id="subtitle"></p>
+    </div>
+    <script>
+      var v = window.__NEUMA_VARS__ || {};
+      if (v.title) document.getElementById('title').textContent = v.title;
+      if (v.subtitle)
+        document.getElementById('subtitle').textContent = v.subtitle;
+      if (v.accent_color)
+        document.body.style.setProperty('--accent', v.accent_color);
+      if (v.background === 'light') document.body.classList.add('light');
+    </script>
+  </body>
+</html>

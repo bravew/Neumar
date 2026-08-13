@@ -1,0 +1,18 @@
+{
+  "id": "nb-cheerful-woman-posing-with-pikachu---pokemon-studio-photo",
+  "surface": "image",
+  "title": "Cheerful Woman Posing with Pikachu - Pokémon Studio Photo",
+  "summary": "A cheerful young woman, dressed in a bright yellow sweater and black jeans, stands playfully beside a large, fluffy Pikachu against a vibrant yellow studio background. She leans her arm gently on Pika.",
+  "category": "Portrait Photography",
+  "tags": ["nano-banana", "gemini", "portrait"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "[\n  {\n    \"image_generation\": {\n      \"quality\": \"hyper-realistic\",\n      \"face\": { \"preserve_original\": true },\n      \"subject\": {\n        \"clothing\": \"light grey knitted sweater, blue high-waisted jeans, white high-top sneakers\",\n        \"pose\": \"standing with arm around giant 3D Tom; Jerry on Tom's shoulder\",\n        \"expression\": \"fun, mischievous\",\n        \"character_element\": {\n          \"name\": \"Tom & Jerry\",\n          \"type\": \"3D photorealistic duo\",\n          \"interaction\": \"Tom posing confidently, Jerry playfully\"\n        }\n      },\n      \"environment\": \"clean grey-blue backdrop\"\n    }\n  },\n  {\n    \"image_generation\": {\n      \"quality\": \"hyper-realistic\",\n      \"face\": { \"preserve_original\": true },\n      \"subject\": {\n        \"clothing\": \"electric yellow knitted sweater, black high-waisted jeans, white/black high-top sneakers\",\n        \"pose\": \"arm resting on giant 3D Pikachu\",\n        \"expression\": \"energetic, cheerful\",\n        \"character_element\": {\n          \"name\": \"Pikachu\",\n          \"type\": \"giant 3D photorealistic render\",\n          \"interaction\": \"smiling up at person\"\n        }\n      },\n      \"environment\": \"vibrant yellow backdrop\"\n    }\n  },\n  {\n    \"image_generation\": {\n      \"quality\": \"hyper-realistic, professional fashion photoshoot\",\n      \"face\": { \"preserve_original\": true },\n      \"subject\": {\n        \"clothing\": \"Ben 10 themed green/black sweater, dark grey jeans, white/green sneakers\",\n        \"pose\": \"standing beside giant 3D Ben 10 activating Omnitrix\",\n        \"expression\": \"confident, energetic\",\n        \"character_element\": {\n          \"name\": \"Ben Tennyson (Classic Ben 10)\",\n          \"type\": \"giant 3D photorealistic render with cartoon accuracy\",\n          \"details\": \"accurate green jacket outfit, glowing green Omnitrix on wrist\",\n          \"interaction\": \"Ben activates Omnitrix with dynamic green glow\"\n        }\n      },\n      \"environment\": {\n        \"background\": \"neon-green and black circuitry patterns\",\n        \"lighting\": \"dynamic green glow reflecting from Omnitrix\",\n        \"mood\": \"sci-fi hero fashion shoot\"\n      }\n    }\n  },\n  {\n    \"image_generation\": {\n      \"quality\": \"hyper-realistic\",\n      \"face\": { \"preserve_original\": true },\n      \"subject\": {\n        \"clothing\": \"pastel pink knitted sweater, white high-waisted jeans, white/pink sneakers\",\n        \"pose\": \"posing fashionably beside tall 3D Pink Panther\",\n        \"expression\": \"elegant, stylish\",\n        \"character_element\": {\n          \"name\": \"Pink Panther\",\n          \"type\": \"giant 3D render\",\n          \"interaction\": \"striking a suave pose\"\n        }\n      },\n      \"environment\": \"light pastel pink backdrop\"\n    }\n  }\n]",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9ZOhiNXYAADWk9.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/YaseenK7212/status/2005877044584849773",
+    "author": "Yaseen Khan Gul"
+  }
+}

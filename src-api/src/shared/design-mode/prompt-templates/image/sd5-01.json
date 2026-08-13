@@ -1,0 +1,17 @@
+{
+  "id": "sd5-01",
+  "surface": "image",
+  "title": "A fun and educational poster for a children’s science fair.…",
+  "summary": "A fun and educational poster for a children’s science fair. The design is a colorful cartoon illustration featuring kids dressed as scientists, looking at bubbling beakers, telescopes, and robots. The typography is playf…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "2:3",
+  "prompt": "A fun and educational poster for a children’s science fair. The design is a colorful cartoon illustration featuring kids dressed as scientists, looking at bubbling beakers, telescopes, and robots. The typography is playful and kid-friendly. The poster should make science look exciting and accessible, encouraging kids to participate. –ar 2:3",
+  "previewImageUrl": "https://github.com/user-attachments/assets/4217fde9-12bc-462a-9a79-35badffabbdb",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=698ef5c7f2b552957d3c51df"
+  }
+}

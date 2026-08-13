@@ -1,0 +1,46 @@
+{
+  "id": "design-mode.create-export",
+  "kind": "video",
+  "page": "design-mode",
+  "slot": "create-export",
+  "route": "/design",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"design-entry-view\"]",
+    "masks": [],
+    "steps": [
+      "Open the surface picker",
+      "Select prototype surface",
+      "Pause on prototype controls",
+      "Name the project",
+      "Pause on project name",
+      "Write the design brief",
+      "Pause on completed brief",
+      "Create the DesignMode project",
+      "Hold on generated project workspace"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:02:24.225Z",
+  "source": "source.webm"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "sd5-05",
+  "surface": "image",
+  "title": "Adopt a hybrid illustration style of Moebius and Kim Jung Gi…",
+  "summary": "Adopt a hybrid illustration style of Moebius and Kim Jung Gi, with a white minimalist background, using colored pencils and watercolors overlaid to create vibrant colors, intricate details, and smooth, tension-filled lin…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "Adopt a hybrid illustration style of Moebius and Kim Jung Gi, with a white minimalist background, using colored pencils and watercolors overlaid to create vibrant colors, intricate details, and smooth, tension-filled lines. The overall effect should convey a futuristic and strongly dynamic, exaggerated visual, depicting a band with bizarre shapes and exaggerated movements.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/b15aeebc-8b27-4499-96ce-f3a70e2eb0f2",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0/A-Vibrant-Illustration-Showcases-A-Futuristic-Band-With-Colorful-Costumes-And-Unique-Instruments-In-An-Energetic-Performance-Setting"
+  }
+}

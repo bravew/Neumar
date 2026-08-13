@@ -1,0 +1,18 @@
+{
+  "id": "nb-miniature-man-resting-on-plant-seedling---photorealistic",
+  "surface": "image",
+  "title": "Miniature Man Resting on Plant Seedling - Photorealistic",
+  "summary": "A photorealistic image captures a miniature man in a pink t-shirt and black shorts, sitting serenely against the stem of a young plant seedling amidst a textured bed of soil and small rocks. The compo.",
+  "category": "Nature & Landscape",
+  "tags": ["nano-banana", "gemini", "nature", "landscape"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"image_generation_prompt\": {\n    \"subject\": {\n      \"description\": \"A tiny man sitting and leaning against a tall young bean sprout\",\n      \"clothing\": \"Casual pink t-shirt and black shorts\",\n      \"pose\": \"Sitting relaxed on the ground, resting under a giant plant stem\"\n    },\n    \"environment\": {\n      \"setting\": \"Surreal macro-fantasy scene, extreme close-up\",\n      \"elements\": \"Detailed textures of soil, pebbles, roots, and young seedlings\",\n      \"plant_details\": \"Bean sprout towering above with fresh green leaves, pale stems, and visible seed halves still attached\"\n    },\n    \"technical_specs\": {\n      \"style\": \"Macro photography, Hyper-realistic, Cinematic\",\n      \"lighting\": \"Natural outdoor lighting, realistic shadows, vibrant colors\",\n      \"camera_effects\": \"Shallow depth of field, soft blurred background (bokeh), crisp highly detailed foreground\",\n      \"resolution\": \"8K, Ultra-detailed\"\n    },\n    \"full_prompt_text\": \"A surreal macro-fantasy scene showing a tiny man wearing a pink t-shirt and black shorts, sitting and leaning against a tall young bean sprout. The environment is captured in extreme close-up macro style, revealing detailed textures of soil, pebbles, roots, and young seedlings. The bean sprout towers above him with fresh green leaves, pale stems, and visible seed halves. Shallow depth of field with soft blurred background, crisp foreground. Natural outdoor lighting, realistic shadows, vibrant colors, whimsical scale difference, hyper-realistic clarity.\"\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9T-J41awAAlBWT.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/Strength04_X/status/2005507212320616648",
+    "author": "𝐌"
+  }
+}

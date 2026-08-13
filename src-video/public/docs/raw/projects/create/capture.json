@@ -1,0 +1,53 @@
+{
+  "id": "projects.create",
+  "kind": "video",
+  "page": "projects",
+  "slot": "create",
+  "route": "/projects",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1920,
+        "height": 1080
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"projects-page\"]",
+    "masks": [
+      "[data-testid=\"project-workspace\"]"
+    ],
+    "steps": [
+      "Open the new project form",
+      "Pause on project form",
+      "Enter the project name",
+      "Pause on project name",
+      "Enter the project description",
+      "Pause on project description",
+      "Enter the workspace path",
+      "Pause on workspace scope",
+      "Create the project",
+      "Pause on created project card",
+      "Open the project detail",
+      "Pause on project detail",
+      "Start a scoped task",
+      "Pause on the scoped task composer"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:03:33.958Z",
+  "source": "source.webm"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sd-japanese-ukiyo-e-museum-poster",
+  "surface": "image",
+  "title": "Japanese Ukiyo-e Museum Poster",
+  "summary": "This prompt generates an elegant and artistic poster for a museum exhibition of Japanese Ukiyo-e woodblock prints. It features a cropped detail from a famous print and minimalist layout with negative space, showcasing kn.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "An elegant and artistic poster for a museum exhibition of Japanese Ukiyo-e woodblock prints. The design features a beautiful, high-resolution detail from a famous print, like Hokusai’s “The Great Wave,” but creatively cropped. The typography is a mix of an elegant English serif font and Japanese calligraphy. The layout is minimalist and respectful of the artwork, using a lot of negative space. This showcases knowledge of art history and sophisticated graphic design skills. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359780100_qk33pd_beae2d398472f2b3de739d44e5bf89f8efa9c33dfe4296325c296f7d75081a85-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

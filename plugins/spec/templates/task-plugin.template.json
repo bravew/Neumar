@@ -1,0 +1,17 @@
+{
+  "specVersion": "1.0.0",
+  "title": "My Task Workflow",
+  "description": "What this workflow accomplishes.",
+  "promptGuide": "Guidance injected into the task run when this plugin is applied.",
+  "skills": [],
+  "capabilities": ["prompt:inject"],
+  "pipeline": {
+    "stages": [
+      {
+        "id": "plan",
+        "title": "Plan",
+        "instructions": "What the agent should do in this stage."
+      }
+    ]
+  }
+}

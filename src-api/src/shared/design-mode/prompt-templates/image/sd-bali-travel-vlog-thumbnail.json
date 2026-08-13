@@ -1,0 +1,18 @@
+{
+  "id": "sd-bali-travel-vlog-thumbnail",
+  "surface": "image",
+  "title": "Bali Travel Vlog Thumbnail",
+  "summary": "This prompt generates a stunning YouTube thumbnail for a travel vlog about Bali, featuring a vibrant shot of a YouTuber swimming in an infinity pool overlooking a jungle. It uses hyper-saturated colors and advanced envir.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A stunning thumbnail for a travel vlog about Bali. The image is a beautiful, vibrant shot of the YouTuber swimming in a crystal-clear infinity pool that overlooks a lush, green jungle. The colors are hyper-saturated, making the water incredibly blue and the jungle intensely green. The video title, “I Found PARADISE!” is in a clean, white font. This showcases advanced environmental rendering and color control for aspirational content. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359903042_30dda6_1b055fabcac0ef74ade652ee5f228fd4eabc9b207be6f70f37a1616a3de931e2-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

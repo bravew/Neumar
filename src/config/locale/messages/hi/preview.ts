@@ -1,0 +1,46 @@
+export default {
+  // Artifact preview
+  preview: 'पूर्वावलोकन',
+  code: 'कोड',
+  static: 'स्टैटिक',
+  live: 'लाइव',
+  noArtifactSelected: 'कोई आर्टिफ़ैक्ट चयनित नहीं',
+  selectArtifactHint: 'पूर्वावलोकन के लिए पैनल से कोई आर्टिफ़ैक्ट चुनें',
+  previewNotAvailable: 'पूर्वावलोकन उपलब्ध नहीं है',
+  switchToCodeHint: 'सामग्री देखने के लिए कोड व्यू पर स्विच करें',
+  download: 'डाउनलोड',
+  copy: 'कॉपी करें',
+  copied: 'कॉपी हो गया!',
+  refresh: 'रीफ़्रेश करें',
+  refreshHint: 'रीफ़्रेश करें (Cmd+R)',
+  fullscreen: 'पूर्ण स्क्रीन',
+  exitFullscreen: 'पूर्ण स्क्रीन से बाहर निकलें',
+  close: 'बंद करें',
+  page: 'पृष्ठ',
+  openInBrowser: 'ब्राउज़र में खोलें',
+  openInNewTab: 'नई टैब में खोलें',
+  openInApp: '{app} में खोलें',
+  openInEditor: 'एडिटर में खोलें',
+  openContainingFolder: 'फ़ोल्डर में दिखाएँ',
+  documentHint: 'यह फ़ाइल Microsoft Word या अन्य संगत ऐप्लिकेशन से खोली जा सकती है।',
+  fileTooLarge: 'यह फ़ाइल पूर्वावलोकन के लिए बहुत बड़ी है',
+  openInSystemApp: 'सिस्टम ऐप में खोलें',
+  fileSize: 'फ़ाइल आकार',
+
+  // Live preview
+  livePreview: 'लाइव पूर्वावलोकन',
+  startingServer: 'पूर्वावलोकन सर्वर शुरू हो रहा है...',
+  installingDeps: 'डिपेंडेंसी इंस्टॉल और डेव सर्वर शुरू हो रहा है...',
+  firstRunHint: 'पहली बार चलाने में डिपेंडेंसी इंस्टॉल करने के लिए एक-दो मिनट लग सकते हैं।',
+  previewError: 'पूर्वावलोकन त्रुटि',
+  retry: 'पुनः प्रयास',
+  startPreview: 'पूर्वावलोकन शुरू करें',
+  livePreviewHint:
+    'रीयल टाइम में बदलाव देखने के लिए हॉट मॉड्यूल रिप्लेसमेंट के साथ लाइव पूर्वावलोकन शुरू करें।',
+  stopServer: 'सर्वर बंद करें',
+
+  // PDF व्यूअर
+  pdfPage: 'पृष्ठ',
+  pdfLoading: 'PDF लोड हो रहा है…',
+  pdfOpenExternal: 'सिस्टम व्यूअर में खोलें',
+};

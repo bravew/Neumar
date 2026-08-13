@@ -1,0 +1,18 @@
+{
+  "id": "sd-vintage-chalkboard-heart-anatomy",
+  "surface": "image",
+  "title": "Vintage Chalkboard Heart Anatomy",
+  "summary": "This prompt creates a detailed, vintage-style chalkboard illustration explaining the anatomy of the human heart. It uses realistic scientific style with chalk, clear labels, and visible chalk dust for rich knowledge-base.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:3",
+  "prompt": "A detailed, vintage-style chalkboard illustration explaining the anatomy of the human heart. The drawing should be done in a realistic, scientific style with white and colored chalk. All the different parts of the heart (ventricles, atriums, valves) should be clearly labeled with elegant, cursive handwriting. The texture of the chalkboard and the chalk dust should be visible, showcasing a rich, knowledge-based rendering capability. –ar 4:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360021711_vf88g1_375e97890c3e1c912a6be2d5a3238a4fe91a2a3e99abc7e9caeade8d5ebde855-600x450.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

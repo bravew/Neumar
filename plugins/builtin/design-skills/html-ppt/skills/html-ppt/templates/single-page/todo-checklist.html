@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Checklist</title>
+    <link rel="stylesheet" href="../../assets/fonts.css" />
+    <link rel="stylesheet" href="../../assets/base.css" />
+    <link
+      rel="stylesheet"
+      id="theme-link"
+      href="../../assets/themes/minimal-white.css"
+    />
+    <link rel="stylesheet" href="../../assets/animations/animations.css" />
+    <style>
+      .todo {
+        max-width: 820px;
+        margin-top: 26px;
+      }
+      .todo li {
+        list-style: none;
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .todo li .b {
+        flex-shrink: 0;
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--border-strong);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+      }
+      .todo li.done .b {
+        background: var(--good);
+        border-color: var(--good);
+        color: #fff;
+      }
+      .todo li.done .b::after {
+        content: '✓';
+        font-weight: 900;
+      }
+      .todo li.done .t {
+        text-decoration: line-through;
+        color: var(--text-3);
+      }
+      .todo li .t {
+        font-size: 18px;
+      }
+      .todo li .tag {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--text-3);
+      }
+    </style>
+  </head>
+  <body class="single">
+    <div class="deck">
+      <section class="slide is-active" data-title="Checklist">
+        <p class="kicker">Launch · pre-release checklist</p>
+        <h2 class="h2">8 checks before release</h2>
+        <ul class="todo anim-stagger-list" data-anim-target>
+          <li class="done">
+            <span class="b"></span
+            ><span class="t"
+              >All slides open in Chrome with no console errors</span
+            ><span class="tag">#sanity</span>
+          </li>
+          <li class="done">
+            <span class="b"></span
+            ><span class="t">Font fallback chain is correct</span
+            ><span class="tag">#fonts</span>
+          </li>
+          <li class="done">
+            <span class="b"></span
+            ><span class="t">Screenshot one slide across 24 themes</span
+            ><span class="tag">#themes</span>
+          </li>
+          <li class="done">
+            <span class="b"></span
+            ><span class="t">Keyboard navigation works end to end</span
+            ><span class="tag">#runtime</span>
+          </li>
+          <li>
+            <span class="b"></span
+            ><span class="t">PDF print does not clip across pages</span
+            ><span class="tag">#print</span>
+          </li>
+          <li>
+            <span class="b"></span
+            ><span class="t">render.sh passes for every showcase</span
+            ><span class="tag">#ci</span>
+          </li>
+          <li>
+            <span class="b"></span
+            ><span class="t">references/*.md has been reviewed</span
+            ><span class="tag">#docs</span>
+          </li>
+          <li>
+            <span class="b"></span
+            ><span class="t">LICENSE / README author info checked</span
+            ><span class="tag">#legal</span>
+          </li>
+        </ul>
+      </section>
+    </div>
+    <script src="../../assets/runtime.js"></script>
+  </body>
+</html>

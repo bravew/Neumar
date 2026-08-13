@@ -1,0 +1,18 @@
+{
+  "id": "sd-electric-vs-gasoline-cars-comparison",
+  "surface": "image",
+  "title": "Electric vs. Gasoline Cars Comparison",
+  "summary": "This prompt creates a visual comparison chart comparing electric cars and gasoline cars. It uses a clean, modern design with icons and brief text to organize and present comparative data clearly and concisely.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A visual comparison chart (a “vs.” infographic) comparing electric cars and gasoline cars. The chart should have two columns, with icons and brief text comparing them on factors like Fuel Cost, Environmental Impact, Maintenance, and Performance. The design should be clean, modern, and easy to understand at a glance, demonstrating the ability to visually organize and present comparative data. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359996985_swkfjt_025cf48cdf39f10755df260dea0d9796003eb88ba7ff741c5ef20828050b678b-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

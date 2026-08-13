@@ -1,0 +1,13 @@
+{
+  "name": "design-system-meta",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for Meta (Store), derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "Meta (Store)",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

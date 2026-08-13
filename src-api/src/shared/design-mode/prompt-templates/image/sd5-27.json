@@ -1,0 +1,17 @@
+{
+  "id": "sd5-27",
+  "surface": "image",
+  "title": "参考图1，生成四图片，图中人物分别带着墨镜，骑着摩托，带着帽子，拿着棒棒",
+  "summary": "参考图1，生成四图片，图中人物分别带着墨镜，骑着摩托，带着帽子，拿着棒棒",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "3:4",
+  "prompt": "参考图1，生成四图片，图中人物分别带着墨镜，骑着摩托，带着帽子，拿着棒棒",
+  "previewImageUrl": "https://github.com/user-attachments/assets/01be4222-1bab-4e4c-b676-3e877f6c2fc6",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea6b2f2b552957d3c5768"
+  }
+}

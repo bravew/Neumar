@@ -1,0 +1,10 @@
+{
+  "id": "fox",
+  "displayName": "Fox",
+  "description": "A bright orange pixel fox with a white-tipped tail.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/fox-openpets"
+}

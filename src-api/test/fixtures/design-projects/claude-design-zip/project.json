@@ -1,0 +1,31 @@
+{
+  "id": "fixture-claude-design-zip",
+  "title": "Fixture Claude Design Import",
+  "surface": "prototype",
+  "status": "complete",
+  "skillId": "web-prototype",
+  "designSystemId": "default-freeform",
+  "inspirationDesignSystemIds": [],
+  "craftRefs": ["anti-ai-slop"],
+  "brief": {
+    "importKind": "claude-design-zip",
+    "entry": "artifacts/index.html"
+  },
+  "media": {
+    "fidelity": "wireframe"
+  },
+  "outputs": [
+    {
+      "id": "out-import-1",
+      "kind": "html",
+      "path": "artifacts/index.html",
+      "mime": "text/html",
+      "provider": "import",
+      "model": "claude-design-zip-fixture",
+      "taskId": "task-import-1",
+      "createdAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-02T00:00:00.000Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z"
+}

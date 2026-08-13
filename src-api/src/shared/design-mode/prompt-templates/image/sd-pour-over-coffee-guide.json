@@ -1,0 +1,18 @@
+{
+  "id": "sd-pour-over-coffee-guide",
+  "surface": "image",
+  "title": "Pour-Over Coffee Guide",
+  "summary": "This prompt creates a simple, step-by-step visual guide on \"How to Brew the Perfect Cup of Coffee using a Pour-Over Method.\" It uses clean icons and short instructions with a minimalist style, ideal for lifestyle blogs o.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "A simple, step-by-step visual guide on “How to Brew the Perfect Cup of Coffee using a Pour-Over Method.” The infographic should have 6–8 steps, each with a clean icon and a short, clear instruction (e.g., “1. Boil Water,” “2. Grind Beans”). The style should be minimalist and icon-based, with a warm color palette. This is for a lifestyle blog or cafe, requiring clear, sequential visual instruction. –ar 1:2",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360020018_utsoub_569c26ce3c8be204cf2719b1245fa0d66c9364713f37e088e9c7f89b24103f68-600x1200.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

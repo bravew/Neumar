@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Process Steps</title>
+    <link rel="stylesheet" href="../../assets/fonts.css" />
+    <link rel="stylesheet" href="../../assets/base.css" />
+    <link
+      rel="stylesheet"
+      id="theme-link"
+      href="../../assets/themes/minimal-white.css"
+    />
+    <link rel="stylesheet" href="../../assets/animations/animations.css" />
+    <style>
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 22px;
+        margin-top: 24px;
+      }
+      .step {
+        position: relative;
+        padding: 24px 26px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+      .step .num {
+        position: absolute;
+        top: -24px;
+        left: 22px;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 20px;
+        box-shadow: var(--shadow);
+      }
+      .step h4 {
+        margin: 18px 0 8px;
+        font-size: 17px;
+      }
+      .step p {
+        font-size: 13px;
+        color: var(--text-2);
+        line-height: 1.6;
+      }
+      .step .tag {
+        display: inline-block;
+        margin-top: 10px;
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        color: var(--text-3);
+      }
+    </style>
+  </head>
+  <body class="single">
+    <div class="deck">
+      <section class="slide is-active" data-title="Process">
+        <p class="kicker">How-to · build a deck in four steps</p>
+        <h2 class="h2">From zero to one in ten minutes</h2>
+        <div class="steps anim-stagger-list" data-anim-target>
+          <div class="step">
+            <div class="num">1</div>
+            <h4>Scaffold</h4>
+            <p>Run <code>new-deck.sh</code> to create a six-page starter.</p>
+            <span class="tag">~30s</span>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <h4>Choose layout</h4>
+            <p>
+              Copy the page type you need from
+              <code>templates/single-page/</code>.
+            </p>
+            <span class="tag">~2min</span>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <h4>Writing</h4>
+            <p>Replace demo data while keeping the structure.</p>
+            <span class="tag">~6min</span>
+          </div>
+          <div class="step">
+            <div class="num">4</div>
+            <h4>Switch theme</h4>
+            <p>Press <b>T</b> to review 24 themes, then choose one.</p>
+            <span class="tag">~1min</span>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script src="../../assets/runtime.js"></script>
+  </body>
+</html>

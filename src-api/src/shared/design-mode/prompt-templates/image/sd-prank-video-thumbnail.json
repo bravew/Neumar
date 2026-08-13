@@ -1,0 +1,18 @@
+{
+  "id": "sd-prank-video-thumbnail",
+  "surface": "image",
+  "title": "Prank Video Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for a prank video, capturing the peak moment of surprise and chaos. It highlights the pranked person's reaction with a red circle and uses a shaky font to convey the fun.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a prank video. The image captures the peak moment of the prank: the person being pranked is screaming or jumping in surprise. The YouTuber who set up the prank is in the background, laughing. The scene is chaotic and funny. A red circle is drawn around the pranked person’s face to highlight their reaction. The text “He FREAKED OUT!” is in a shaky, hand-drawn font. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359826812_3kmm0z_c27c032b4e0eb4dd230eb1dbc5d907728aef5e86c12c00bd34808d2d640ef7f7-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

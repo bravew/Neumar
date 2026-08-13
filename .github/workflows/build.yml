@@ -1,0 +1,582 @@
+name: Build and Release
+
+# Builds the Tauri desktop app for all platforms using ./scripts/build.sh.
+# This ensures CI builds match local builds exactly.
+#
+# TRIGGERS:
+#   - Push of a "v*" tag (created by release.yml or scripts/release.mjs)
+#   - Manual dispatch (Actions → Build and Release → Run workflow)
+#
+# Do NOT add a push.branches trigger — builds only run on tagged releases.
+# To cut a release, use the "Release" workflow or run: node scripts/release.mjs
+#
+# Runners:
+#   - macOS ARM64 (Apple Silicon): macos-latest (ARM64 since macOS 14+)
+#   - macOS Intel: macos-13 (last Intel runner available)
+#   - Linux: ubuntu-22.04 (required for webkit2gtk-4.1)
+#   - Windows: windows-latest (MSVC toolchain)
+#
+# Secrets (macOS signing):
+#   APPLE_CERTIFICATE          - Base64-encoded .p12 certificate
+#   APPLE_CERTIFICATE_PASSWORD - Certificate password
+#   APPLE_SIGNING_IDENTITY     - e.g. "Developer ID Application: Your Name (TEAMID)"
+#
+# Secrets (macOS notarization — API key, preferred):
+#   APPLE_API_KEY              - App Store Connect API Key ID (e.g. "A1B2C3D4E5")
+#   APPLE_API_ISSUER           - Issuer ID from App Store Connect (UUID)
+#   APPLE_API_KEY_CONTENT      - Contents of the .p8 private key file
+#
+# Secrets (macOS notarization — Apple ID, fallback):
+#   APPLE_ID                   - Apple ID for notarization
+#   APPLE_PASSWORD             - App-specific password for notarization
+#   APPLE_TEAM_ID              - Apple Developer Team ID
+#
+# Secrets (Windows signing via Azure Key Vault + relic):
+#   AZURE_CLIENT_ID            - App Registration client ID
+#   AZURE_TENANT_ID            - Azure directory tenant ID
+#   AZURE_CLIENT_SECRET        - App Registration client secret
+#
+# Tauri updater signing key: read from TAURI_SIGNING_PRIVATE_KEY secret (not checked into this repo)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'macos-arm64'
+        type: choice
+        options:
+          - all
+          - linux
+          - windows
+          - macos-intel
+          - macos-arm64
+      with_cli:
+        description: 'Bundle CLI tools (Claude Code + Codex) -- adds ~100MB to package'
+        required: false
+        default: false
+        type: boolean
+      sign:
+        description: 'Code sign and notarize (macOS + Windows)'
+        required: false
+        default: true
+        type: boolean
+      release:
+        description: 'Create draft GitHub release'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+  NPM_REGISTRY: https://registry.npmjs.org
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # - platform: linux
+          #   os: ubuntu-22.04
+          #   rust_target: x86_64-unknown-linux-gnu
+          #   build_cmd: linux
+          #   name: linux-x86_64
+
+          # - platform: windows
+          #   os: windows-latest
+          #   rust_target: x86_64-pc-windows-msvc
+          #   build_cmd: windows
+          #   name: windows-x86_64
+
+          # - platform: macos-intel
+          #   os: macos-13
+          #   rust_target: x86_64-apple-darwin
+          #   build_cmd: mac-intel
+          #   name: macos-intel
+
+          - platform: macos-arm64
+            os: macos-latest
+            rust_target: aarch64-apple-darwin
+            build_cmd: mac-arm
+            name: macos-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Filter platform
+        id: check
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SELECTED_PLATFORM: ${{ github.event.inputs.platform }}
+          MATRIX_PLATFORM: ${{ matrix.platform }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && \
+                "$SELECTED_PLATFORM" != "all" && \
+                "$SELECTED_PLATFORM" != "$MATRIX_PLATFORM" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Skipping $MATRIX_PLATFORM (selected: $SELECTED_PLATFORM)"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      # ── System dependencies ──────────────────────────────────────
+      - name: Install system dependencies (Linux)
+        if: steps.check.outputs.skip != 'true' && matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libfuse2 \
+            file
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> $GITHUB_ENV
+
+      # ── Toolchain setup ──────────────────────────────────────────
+      - name: Setup pnpm
+        if: steps.check.outputs.skip != 'true'
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Setup Rust
+        if: steps.check.outputs.skip != 'true'
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Rust cache
+        if: steps.check.outputs.skip != 'true'
+        uses: swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: './src-tauri -> target'
+          shared-key: ${{ matrix.name }}
+
+      - name: Install dependencies
+        if: steps.check.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
+
+      # ── Windows code signing setup (Azure Key Vault + relic) ────
+      - name: Install relic for Windows signing
+        if: steps.check.outputs.skip != 'true' && matrix.platform == 'windows'
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ -n "$AZURE_CLIENT_ID" ]; then
+            echo "Installing relic for Windows code signing..."
+            go install github.com/sassoftware/relic/v8@v8.2.0
+            echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          else
+            echo "::notice::No Azure credentials, Windows signing will be skipped"
+          fi
+
+      # ── macOS code signing setup ─────────────────────────────────
+      - name: Import Apple certificate
+        if: steps.check.outputs.skip != 'true' && startsWith(matrix.platform, 'macos')
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        shell: bash
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "::notice::No Apple certificate provided, builds will use ad-hoc signing"
+            exit 0
+          fi
+
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security default-keychain -s $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          security import $CERTIFICATE_PATH \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k $KEYCHAIN_PATH
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH
+
+          rm -f $CERTIFICATE_PATH
+
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning $KEYCHAIN_PATH
+
+      - name: Write Apple API key file
+        if: steps.check.outputs.skip != 'true' && startsWith(matrix.platform, 'macos')
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        shell: bash
+        run: |
+          if [ -n "$APPLE_API_KEY_CONTENT" ]; then
+            echo "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+            echo "Apple API key written to $RUNNER_TEMP/AuthKey.p8"
+          else
+            echo "::notice::No Apple API key provided, will try Apple ID credentials or keychain profile"
+          fi
+
+      # ── Build ────────────────────────────────────────────────────
+      - name: Build application
+        if: steps.check.outputs.skip != 'true'
+        shell: bash
+        env:
+          # macOS signing
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # macOS notarization — API key (preferred)
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          # macOS notarization — Apple ID (fallback)
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows signing (Azure Key Vault)
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          # Google OAuth (PKCE + redirect URI validation protect the flow)
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          # Tauri updater signing
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Build params
+          NODE_OPTIONS: '--max-old-space-size=4096'
+          BUILD_CMD: ${{ matrix.build_cmd }}
+          EVENT_NAME: ${{ github.event_name }}
+          WITH_CLI: ${{ github.event.inputs.with_cli }}
+          SIGN_INPUT: ${{ github.event.inputs.sign }}
+          MATRIX_PLATFORM: ${{ matrix.platform }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          # Updater signing key comes from a secret; the private key is not checked into this repo.
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] && [ -f "src-tauri/update-key.key" ]; then
+            export TAURI_SIGNING_PRIVATE_KEY=$(cat src-tauri/update-key.key)
+          fi
+
+          BUILD_ARGS="$BUILD_CMD"
+
+          # Bundle CLI tools only when explicitly requested (adds ~100MB)
+          if [[ "$WITH_CLI" == "true" ]]; then
+            BUILD_ARGS="$BUILD_ARGS --with-cli"
+          fi
+
+          # Enable signing for macOS when certificate is available
+          if [[ "$MATRIX_PLATFORM" == macos-* && -n "$APPLE_SIGNING_IDENTITY" ]]; then
+            SHOULD_SIGN=true
+            if [[ "$EVENT_NAME" == "workflow_dispatch" && \
+                  "$SIGN_INPUT" == "false" ]]; then
+              SHOULD_SIGN=false
+            fi
+            if [[ "$SHOULD_SIGN" == "true" ]]; then
+              BUILD_ARGS="$BUILD_ARGS --sign"
+            fi
+          fi
+
+          echo "::group::Running build: ./scripts/build.sh $BUILD_ARGS"
+          ./scripts/build.sh $BUILD_ARGS
+          echo "::endgroup::"
+
+      # ── Bundle size: measure + gate ──────────────────────────────
+      - name: Measure bundle size
+        if: steps.check.outputs.skip != 'true'
+        env:
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: node scripts/measure-bundle-size.mjs --triple "$RUST_TARGET"
+        continue-on-error: false
+
+      - name: Upload bundle-size-report.json
+        if: steps.check.outputs.skip != 'true' && always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: bundle-size-${{ matrix.name }}
+          path: bundle-size-report.json
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Check bundle size against budgets
+        if: steps.check.outputs.skip != 'true'
+        run: node scripts/check-bundle-size.mjs
+
+      # ── Upload artifacts ─────────────────────────────────────────
+      - name: Upload artifacts (Linux)
+        if: steps.check.outputs.skip != 'true' && matrix.platform == 'linux'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: Neumar-${{ matrix.name }}
+          path: |
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/deb/*.deb
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/rpm/*.rpm
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage
+          if-no-files-found: ignore
+
+      - name: Upload artifacts (Windows)
+        if: steps.check.outputs.skip != 'true' && matrix.platform == 'windows'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: Neumar-${{ matrix.name }}
+          path: |
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/nsis/*.exe
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/nsis/*.nsis.zip
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/nsis/*.nsis.zip.sig
+          if-no-files-found: ignore
+
+      - name: Upload artifacts (macOS)
+        if: steps.check.outputs.skip != 'true' && startsWith(matrix.platform, 'macos')
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: Neumar-${{ matrix.name }}
+          path: |
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/macos/*.app.tar.gz.sig
+          if-no-files-found: ignore
+
+      # ── Cleanup ──────────────────────────────────────────────────
+      - name: Cleanup keychain
+        if: always() && startsWith(matrix.platform, 'macos')
+        shell: bash
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db 2>/dev/null || true
+
+  # ── Release ────────────────────────────────────────────────────
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.release == 'true'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: Neumar-*
+          path: artifacts
+
+      - name: Checkout for version
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          path: repo
+
+      - name: Get version and branding
+        id: meta
+        run: |
+          VERSION=$(node -p "require('./repo/package.json').version")
+          DISPLAY_NAME=$(node -p "require('./repo/branding.json').displayName")
+          GITHUB_REPO=$(node -p "require('./repo/branding.json').github?.repo || 'bravew/Neuma'")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
+          echo "github_repo=$GITHUB_REPO" >> $GITHUB_OUTPUT
+
+      - name: Flatten artifacts for release
+        run: |
+          mkdir -p release-files
+
+          echo "=== Downloaded artifact structure ==="
+          find artifacts/ -type f 2>/dev/null || echo "(no files found in artifacts/)"
+          echo "==="
+
+          # Copy all release-worthy files from artifacts/ to release-files/
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            cp "$f" "release-files/$(basename "$f")"
+          done < <(find artifacts/ -type f \( \
+            -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \
+            -o -name "*.msi" -o -name "*.exe" \
+            -o -name "*.dmg" \
+            -o -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" \
+            -o -name "*.nsis.zip" -o -name "*.nsis.zip.sig" \
+            -o -name "*.AppImage.tar.gz" -o -name "*.AppImage.tar.gz.sig" \
+          \))
+
+          echo "Release files:"
+          ls -la release-files/
+          FILE_COUNT=$(find release-files/ -type f | wc -l)
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "::error::No release files found after flattening artifacts. Check artifact download/extraction."
+            exit 1
+          fi
+
+      - name: Generate updater latest.json
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          GITHUB_REPO: ${{ steps.meta.outputs.github_repo }}
+        run: |
+          # Validate semver format before use
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version format: $VERSION"
+            exit 1
+          fi
+          cd release-files
+          TAG="v${VERSION}"
+          REPO="${GITHUB_REPO}"
+          export BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+          export REPO
+
+          node -e "
+          const fs = require('fs');
+          const version = process.env.VERSION;
+          const baseUrl = process.env.BASE_URL;
+          const repo = process.env.REPO;
+
+          const files = fs.readdirSync('.');
+          const platforms = {};
+
+          // Detect arch from DMG filenames (always include arch, e.g. neumar_26.4.14_aarch64.dmg)
+          const dmgArch = files.find(f => f.endsWith('.dmg') && f.includes('aarch64')) ? 'aarch64'
+            : files.find(f => f.endsWith('.dmg') && (f.includes('x64') || f.includes('x86_64'))) ? 'x64'
+            : '';
+
+          // macOS ARM64
+          const macArmTar = files.find(f => f.includes('aarch64') && f.endsWith('.app.tar.gz'));
+          const macArmSig = files.find(f => f.includes('aarch64') && f.endsWith('.app.tar.gz.sig'));
+          if (macArmTar && macArmSig) {
+              platforms['darwin-aarch64'] = {
+                  url: baseUrl + '/' + macArmTar,
+                  signature: fs.readFileSync(macArmSig, 'utf-8').trim()
+              };
+          }
+
+          // macOS Intel
+          const macIntelTar = files.find(f => f.includes('x64') && f.endsWith('.app.tar.gz'));
+          const macIntelSig = files.find(f => f.includes('x64') && f.endsWith('.app.tar.gz.sig'));
+          if (macIntelTar && macIntelSig) {
+              platforms['darwin-x86_64'] = {
+                  url: baseUrl + '/' + macIntelTar,
+                  signature: fs.readFileSync(macIntelSig, 'utf-8').trim()
+              };
+          }
+
+          // Single-arch fallback: if no arch-specific bundles found but generic ones exist,
+          // use the DMG arch to assign them (e.g. Neumar.app.tar.gz → darwin-aarch64)
+          if (!platforms['darwin-aarch64'] && !platforms['darwin-x86_64'] && dmgArch) {
+            const tar = files.find(f => f.endsWith('.app.tar.gz'));
+            const sig = files.find(f => f.endsWith('.app.tar.gz.sig'));
+            if (tar && sig) {
+              const platform = dmgArch === 'aarch64' ? 'darwin-aarch64' : 'darwin-x86_64';
+              platforms[platform] = {
+                url: baseUrl + '/' + tar,
+                signature: fs.readFileSync(sig, 'utf-8').trim()
+              };
+            }
+          }
+
+          // Windows
+          const winZip = files.find(f => f.endsWith('.nsis.zip'));
+          const winSig = files.find(f => f.endsWith('.nsis.zip.sig'));
+          if (winZip && winSig) {
+              platforms['windows-x86_64'] = {
+                  url: baseUrl + '/' + winZip,
+                  signature: fs.readFileSync(winSig, 'utf-8').trim()
+              };
+          }
+
+          // Linux
+          const linuxTar = files.find(f => f.endsWith('.AppImage.tar.gz'));
+          const linuxSig = files.find(f => f.endsWith('.AppImage.tar.gz.sig'));
+          if (linuxTar && linuxSig) {
+              platforms['linux-x86_64'] = {
+                  url: baseUrl + '/' + linuxTar,
+                  signature: fs.readFileSync(linuxSig, 'utf-8').trim()
+              };
+          }
+
+          const latest = {
+              version: 'v' + version,
+              notes: 'See https://github.com/' + repo + '/releases/tag/v' + version,
+              pub_date: new Date().toISOString(),
+              platforms
+          };
+
+          fs.writeFileSync('latest.json', JSON.stringify(latest, null, 2));
+          console.log('Generated latest.json with platforms:', Object.keys(platforms));
+          "
+
+      - name: Validate updater latest.json
+        run: |
+          if [ ! -f "release-files/latest.json" ]; then
+            echo "::warning::No latest.json generated (no updater artifacts found)"
+            exit 0
+          fi
+          node -e "
+          const j = JSON.parse(require('fs').readFileSync('release-files/latest.json', 'utf-8'));
+          const p = Object.entries(j.platforms);
+          if (p.length === 0) console.log('::warning::No platforms in latest.json (updater bundles missing)');
+          for (const [k, v] of p) {
+            if (!v.url || !v.signature) throw new Error('Missing url/sig for ' + k);
+            if (!v.url.startsWith('https://')) throw new Error('Non-HTTPS url for ' + k);
+          }
+          if (!j.version.match(/^v[0-9]+\.[0-9]+\.[0-9]+/)) throw new Error('Bad version: ' + j.version);
+          console.log('latest.json valid:', p.length, 'platform(s)');
+          "
+
+      - name: Create Release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        with:
+          draft: true
+          generate_release_notes: true
+          tag_name: v${{ steps.meta.outputs.version }}
+          name: ${{ steps.meta.outputs.display_name }} v${{ steps.meta.outputs.version }}
+          files: release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Cloudflare R2
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_R2_ACCESS_KEY_ID: ${{ secrets.CF_R2_ACCESS_KEY_ID }}
+          CF_R2_SECRET_ACCESS_KEY: ${{ secrets.CF_R2_SECRET_ACCESS_KEY }}
+          # Cache-purge credentials (optional). Token needs Zone.Cache Purge:Purge
+          # scoped to the cdn.neumar.app zone. Without these, the upload still
+          # succeeds but stale installer/*.dmg and latest.json may be served
+          # from Cloudflare's edge until their max-age (1h / 5min) expires.
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          R2_BUCKET: neumar
+          R2_PUBLIC_URL: https://cdn.neumar.app
+          RELEASE_DIR: release-files
+        run: bash repo/scripts/r2-upload.sh
+
+      - name: Verify R2 upload
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "Verifying latest.json is accessible..."
+          MANIFEST=$(curl -sf "https://cdn.neumar.app/latest.json" || true)
+          if [ -z "$MANIFEST" ]; then
+            echo "::warning::Could not verify R2 upload — latest.json not yet accessible (CDN propagation may take up to 5 minutes)"
+          else
+            echo "$MANIFEST" | jq .
+            REMOTE_VERSION=$(echo "$MANIFEST" | jq -r .version)
+            echo "Remote version: $REMOTE_VERSION"
+          fi

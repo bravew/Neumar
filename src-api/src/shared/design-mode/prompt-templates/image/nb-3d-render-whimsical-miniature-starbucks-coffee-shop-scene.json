@@ -1,0 +1,18 @@
+{
+  "id": "nb-3d-render-whimsical-miniature-starbucks-coffee-shop-scene",
+  "surface": "image",
+  "title": "3D Render: Whimsical Miniature Starbucks Coffee Shop Scene",
+  "summary": "A whimsical 3D render illustrates a multi-story Starbucks coffee shop shaped like an oversized coffee cup, complete with a green straw emerging from its lid, set within a charming miniature city envir.",
+  "category": "3D Miniature / Diorama",
+  "tags": ["nano-banana", "gemini", "3d", "miniature", "diorama"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "2:3",
+  "prompt": "{Brand Name}\n\n--- Prompt ---\n\n3D chibi-style miniature concept store of {Brand Name}, creatively designed with an exterior inspired by the brand's most iconic product or packaging (such as a giant {brand's core product, e.g., chicken bucket/hamburger/donut/roast duck}). The store features two floors with large glass windows clearly showcasing the cozy and finely decorated interior: {brand's primary color}-themed decor, warm lighting, and busy staff dressed in outfits matching the brand. Adorable tiny figures stroll or sit along the street, surrounded by benches, street lamps, and potted plants, creating a charming urban scene. Rendered in a miniature cityscape style using Cinema 4D, with a blind-box toy aesthetic, rich in details and realism, and bathed in soft lighting that evokes a relaxing afternoon atmosphere. --ar 2:3\n\nBrand name: Starbucks",
+  "previewImageUrl": "https://pbs.twimg.com/media/G7BWvI8X0AApeZB.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/dotey/status/1995190286775881780",
+    "author": "宝玉"
+  }
+}

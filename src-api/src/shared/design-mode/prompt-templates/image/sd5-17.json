@@ -1,0 +1,17 @@
+{
+  "id": "sd5-17",
+  "surface": "image",
+  "title": "Millennial digital camera style selfie, deliberate low-resol…",
+  "summary": "Millennial digital camera style selfie, deliberate low-resolution feel (simulating 2000s 2-megapixel quality), covered with cool blue-purple filters, overexposed highlights and hard shadows caused by direct front flash,…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "Millennial digital camera style selfie, deliberate low-resolution feel (simulating 2000s 2-megapixel quality), covered with cool blue-purple filters, overexposed highlights and hard shadows caused by direct front flash, unique color shift and noise of CCD sensors, date watermark \"{argument name=\"date\" default=\"02/12/2025\"}\", grid line decoration, MySpace era social media texture, square 1:1 composition",
+  "previewImageUrl": "https://github.com/user-attachments/assets/6bc5ee9c-4d3f-4682-bf3d-72d246432c70",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=698ef54ef2b552957d3c51c3"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "pip-mouse",
+  "displayName": "Pip Mouse",
+  "description": "A small gray mouse with big pink ears and tail.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/pip-mouse-openpets",
+  "category": "western"
+}

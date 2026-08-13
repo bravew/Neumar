@@ -1,0 +1,18 @@
+{
+  "id": "sd-crime-novel-book-cover-the-shadow-detective",
+  "surface": "image",
+  "title": "Crime Novel Book Cover \"The Shadow Detective\"",
+  "summary": "This prompt generates a thrilling and mysterious book cover for a crime novel titled \"The Shadow Detective.\" It features a silhouette of a detective in a foggy alley with a single streetlamp, demonstrating strong atmosph.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "A thrilling and mysterious book cover for a crime novel titled “The Shadow Detective”. The cover features a silhouette of a detective in a fedora and trench coat, standing in a dark, foggy alleyway. The only light source is a single, distant streetlamp. The title is in a gritty, textured font that looks like it was stamped on. The mood is noir and full of suspense, demonstrating strong atmospheric control. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359749886_kp53z5_6e8b4aee7f3968c08d89355e02eac75f80081c5a652af5be3043a2f7ddf122f3-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

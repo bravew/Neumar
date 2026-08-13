@@ -1,0 +1,6 @@
+{"type":"meta","id":"tool-error-recovery","agent":"claude","model":"claude-opus-4-8","outcome":"failed","tags":["skill:demo"],"description":"A tool call errors and the agent surfaces the failure. Exercises the is_error / error-event path."}
+{"type":"text","content":"Let me check the config file.","t_ms":200}
+{"type":"tool_call","id":"toolu_01","name":"Read","input":{"file_path":"missing.json"},"t_ms":500}
+{"type":"tool_result","id":"toolu_01","output":"ENOENT: no such file or directory, open 'missing.json'","isError":true}
+{"type":"text","content":"That file doesn't exist, so I can't continue.","t_ms":1000}
+{"type":"error","content":"Required file `missing.json` was not found; aborting.","t_ms":1200}

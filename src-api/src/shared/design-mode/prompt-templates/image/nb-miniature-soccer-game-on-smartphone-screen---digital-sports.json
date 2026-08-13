@@ -1,0 +1,18 @@
+{
+  "id": "nb-miniature-soccer-game-on-smartphone-screen---digital-sports",
+  "surface": "image",
+  "title": "Miniature Soccer Game on Smartphone Screen - Digital Sports",
+  "summary": "A photorealistic image displays a miniature soccer game unfolding on the screen of a modern smartphone, resting on a rustic wooden table. Tiny soccer players in red and blue jerseys, complete with goa.",
+  "category": "Sports & Action",
+  "tags": ["nano-banana", "gemini", "sports", "action"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"type\": \"image_generation\",\n  \"style\": \"hyper_realistic\",\n  \"quality\": \"8K DSLR\",\n  \"aspect_ratio\": \"4:5\",\n  \"camera\": {\n    \"angle\": \"slightly tilted cinematic perspective\",\n    \"lens\": \"50mm DSLR\",\n    \"depth_of_field\": \"shallow\",\n    \"focus\": \"smartphone and football action\"\n  },\n  \"scene\": {\n    \"setting\": \"smartphone placed on a wooden table\",\n    \"concept\": \"phone screen transformed into a miniature football stadium\",\n    \"environment\": \"indoor, soft daylight coming from the side\",\n    \"atmosphere\": \"cinematic, immersive, realistic\"\n  },\n  \"details\": {\n    \"screen\": \"weathered green football pitch with visible wear, dirt patches, and grass texture\",\n    \"players\": \"miniature football players actively playing a match with dynamic poses\",\n    \"lighting\": \"soft diffused daylight with subtle lens flares and realistic reflections\",\n    \"realism_effects\": [\n      \"fingerprints on screen\",\n      \"light scratches on phone body\",\n      \"natural smudges\",\n      \"micro dust particles\"\n    ]\n  },\n  \"materials\": {\n    \"phone\": \"metallic frame with realistic reflections\",\n    \"table\": \"textured wooden surface with warm tones\"\n  },\n  \"mood\": \"high-end cinematic, dramatic, premium advertising look\",\n  \"rendering\": {\n    \"sharpness\": \"ultra sharp\",\n    \"texture_detail\": \"extreme\",\n    \"lighting_quality\": \"studio grade\",\n    \"photorealism\": true\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9kooP7aAAApOX2.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/Strength04_X/status/2006679801256656925",
+    "author": "𝐌"
+  }
+}

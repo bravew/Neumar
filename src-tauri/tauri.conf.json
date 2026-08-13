@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Neumar",
+  "version": "26.8.9",
+  "identifier": "ai.neumar",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:3420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist",
+    "removeUnusedCommands": true
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": false,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": [
+      "../src-api/dist/neumar-api"
+    ],
+    "macOS": {
+      "entitlements": "entitlements.plist",
+      "minimumSystemVersion": "11.0",
+      "dmg": {
+        "background": "dmg/background.png",
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        }
+      }
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "both"
+      }
+    },
+    "resources": [
+      "../src-api/dist/sharp/**/*",
+      "../src-api/dist/sherpa-onnx/**/*",
+      "../src-api/dist/onnxruntime/**/*",
+      "../src-api/dist/design-mode/**/*",
+      "../src-api/dist/plugins/**/*",
+      "../skills/**/*"
+    ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://cdn.neumar.app/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYzMEY4NzZGN0VDRDhFNjQKUldSa2pzMStiNGNQODcwTTJsWXkrZktMa0JEUitYSVFYaFVUaFI4ZWhGN09CLzVIRUs0Q2FJUnEK"
+    }
+  }
+}

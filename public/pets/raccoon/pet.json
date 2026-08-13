@@ -1,0 +1,11 @@
+{
+  "id": "raccoon",
+  "displayName": "Raccoon",
+  "description": "A gray pixel raccoon with a striped tail and mask.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/raccoon-openpets",
+  "category": "western"
+}

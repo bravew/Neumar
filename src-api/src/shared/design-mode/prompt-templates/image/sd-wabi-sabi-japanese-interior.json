@@ -1,0 +1,18 @@
+{
+  "id": "sd-wabi-sabi-japanese-interior",
+  "surface": "image",
+  "title": "Wabi-Sabi Japanese Interior",
+  "summary": "A serene interior design prompt focusing on Japanese minimalism. It captures the essence of wabi-sabi with natural materials like tatami and rammed earth, soft natural light, and a clean composition suitable for architec.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "{argument name=\"area\" default=\"60 square meter\"} Japanese minimalist homestay interior panorama, tatami (straw color #D4C5A0), low ebony tea table, warm natural light penetrating through shoji doors (semi-transparent washi paper material) forming soft light and shadow, rammed earth wall texture with rough touch, spatial white space embodying wabi-sabi aesthetics, real architectural ratio 1:1 restoration, 16mm ultra-wide-angle lens showing sense of space, Kinfolk lifestyle aesthetic photography style",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360278768_h291le_1765274957426-7ugun0-02176527494361030d072d337ea6fcc7bbfbe2f0c485be262967b_0-600x257.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

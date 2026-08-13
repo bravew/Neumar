@@ -1,0 +1,5 @@
+{
+  "importKind": "claude-design-zip",
+  "entry": "artifacts/index.html",
+  "validatedRules": ["size", "count", "paths", "entry-html"]
+}

@@ -1,0 +1,18 @@
+export default {
+  title: 'Templates',
+  startWithTemplate: 'Start with Template',
+  gallery: 'Template Gallery',
+  search: 'Search templates',
+  allCategories: 'All',
+  dev: 'Development',
+  writing: 'Writing',
+  research: 'Research',
+  data: 'Data',
+  design: 'Design',
+  ops: 'Operations',
+  useTemplate: 'Use Template',
+  saveAsTemplate: 'Save as Template',
+  builtIn: 'Built-in',
+  custom: 'Custom',
+  noTemplates: 'No templates found',
+};

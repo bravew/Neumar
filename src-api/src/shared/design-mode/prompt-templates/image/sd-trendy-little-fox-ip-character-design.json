@@ -1,0 +1,18 @@
+{
+  "id": "sd-trendy-little-fox-ip-character-design",
+  "surface": "image",
+  "title": "Trendy Little Fox IP Character Design",
+  "summary": "This prompt designs a chibi anthropomorphic trendy little fox IP character with stylish clothing and a headset, conveying a relaxed, laid-back vibe, ideal for brand mascots or trendy merchandise design.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "IP character design: Q-version, a fluffy reddish-orange little fox, wearing headphones, intoxicated expression, wearing a white trendy T-shirt, wide-leg pants, crossbody bag, relaxed and cozy atmosphere, detailed depiction, small sans-serif text centered at the bottom \"{argument name=\"brand text\" default=\"YUAN×DESIGN\"}\" \"{argument name=\"slogan\" default=\"Original Works, Enriching Life\"}\", high quality output.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360343896_ks24yz_1765339541415-tyft9h-0217653395301927b67bbc2a2a9a26108e071e40bb0b084e8cebf_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7551613974454832436?workDetailType=Image&itemType=9",
+    "author": "铅笔妖妖"
+  }
+}

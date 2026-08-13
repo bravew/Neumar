@@ -1,0 +1,134 @@
+{
+  "source": {
+    "repository": "_sample/open-design",
+    "license": "Apache-2.0",
+    "licenseFile": "LICENSE.txt",
+    "catalog": "_sample/open-design/assets/community-pets"
+  },
+  "additionalSources": [
+    {
+      "name": "OpenPets Originals",
+      "repository": "https://github.com/alvinunreal/openpets",
+      "gallery": "https://openpets.dev/gallery?tab=originals",
+      "license": "MIT",
+      "licenseFile": "LICENSE-OPENPETS.txt"
+    }
+  ],
+  "pets": [
+    {
+      "slug": "clippit",
+      "petJson": "clippit/pet.json",
+      "spritesheet": "clippit/spritesheet.webp"
+    },
+    {
+      "slug": "dario",
+      "petJson": "dario/pet.json",
+      "spritesheet": "dario/spritesheet.webp"
+    },
+    {
+      "slug": "nori",
+      "petJson": "nori/pet.json",
+      "spritesheet": "nori/spritesheet.webp"
+    },
+    {
+      "slug": "cloud-puff",
+      "petJson": "cloud-puff/pet.json",
+      "spritesheet": "cloud-puff/spritesheet.webp"
+    },
+    {
+      "slug": "bitty",
+      "petJson": "bitty/pet.json",
+      "spritesheet": "bitty/spritesheet.webp"
+    },
+    {
+      "slug": "raccoon",
+      "petJson": "raccoon/pet.json",
+      "spritesheet": "raccoon/spritesheet.webp"
+    },
+    {
+      "slug": "shadow-kit",
+      "petJson": "shadow-kit/pet.json",
+      "spritesheet": "shadow-kit/spritesheet.webp"
+    },
+    {
+      "slug": "azure",
+      "petJson": "azure/pet.json",
+      "spritesheet": "azure/spritesheet.webp"
+    },
+    {
+      "slug": "bear",
+      "petJson": "bear/pet.json",
+      "spritesheet": "bear/spritesheet.webp"
+    },
+    {
+      "slug": "penguin",
+      "petJson": "penguin/pet.json",
+      "spritesheet": "penguin/spritesheet.webp"
+    },
+    {
+      "slug": "pip-mouse",
+      "petJson": "pip-mouse/pet.json",
+      "spritesheet": "pip-mouse/spritesheet.webp"
+    },
+    {
+      "slug": "robot",
+      "petJson": "robot/pet.json",
+      "spritesheet": "robot/spritesheet.webp"
+    },
+    {
+      "slug": "patchi",
+      "petJson": "patchi/pet.json",
+      "spritesheet": "patchi/spritesheet.webp"
+    },
+    {
+      "slug": "meowbot",
+      "petJson": "meowbot/pet.json",
+      "spritesheet": "meowbot/spritesheet.webp"
+    },
+    {
+      "slug": "dewdrop",
+      "petJson": "dewdrop/pet.json",
+      "spritesheet": "dewdrop/spritesheet.webp"
+    },
+    {
+      "slug": "budgie-berry",
+      "petJson": "budgie-berry/pet.json",
+      "spritesheet": "budgie-berry/spritesheet.webp"
+    },
+    {
+      "slug": "rabbit",
+      "petJson": "rabbit/pet.json",
+      "spritesheet": "rabbit/spritesheet.webp"
+    },
+    {
+      "slug": "nyako-shigure",
+      "petJson": "nyako-shigure/pet.json",
+      "spritesheet": "nyako-shigure/spritesheet.webp"
+    },
+    {
+      "slug": "prickle",
+      "petJson": "prickle/pet.json",
+      "spritesheet": "prickle/spritesheet.webp"
+    },
+    {
+      "slug": "planet",
+      "petJson": "planet/pet.json",
+      "spritesheet": "planet/spritesheet.webp"
+    },
+    {
+      "slug": "fox",
+      "petJson": "fox/pet.json",
+      "spritesheet": "fox/spritesheet.webp"
+    },
+    {
+      "slug": "tux",
+      "petJson": "tux/pet.json",
+      "spritesheet": "tux/spritesheet.webp"
+    },
+    {
+      "slug": "yelling-dario",
+      "petJson": "yelling-dario/pet.json",
+      "spritesheet": "yelling-dario/spritesheet.webp"
+    }
+  ]
+}

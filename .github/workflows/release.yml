@@ -1,0 +1,77 @@
+name: Release
+
+# Cut a new release: bump version, generate changelog, tag → triggers build.yml.
+#
+# How to release:
+#   1. Go to Actions → Release → Run workflow
+#   2. Pick a bump type (patch / minor / major) or enter an explicit version
+#   3. Optionally tick "Dry run" to preview without pushing
+#   4. Click "Run workflow"
+#
+# What happens:
+#   - Bumps version in package.json, tauri.conf.json, Cargo.toml
+#   - Prepends changelog entry (from conventional commits since last tag) to CHANGELOG.md
+#   - Creates a "chore(release): vX.Y.Z" commit + annotated git tag
+#   - Pushes commit + tag → build.yml triggers automatically and produces
+#     DMG, NSIS installer, AppImage, DEB, RPM for all platforms
+#
+# First-time setup:
+#   Set a repo secret GH_RELEASE_TOKEN (classic PAT, contents: write scope).
+#   Without it the tag push uses GITHUB_TOKEN, which cannot trigger build.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >
+          Version bump type or explicit version.
+          Bump types: patch (26.3.4→26.3.5), minor (→26.4.0), major (→27.1.0).
+          Or enter a full version like 26.3.5.
+        required: true
+        default: patch
+        type: string
+      dry_run:
+        description: 'Dry run — preview changelog without pushing anything'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout default branch (full history for changelog)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+          # PAT required so the pushed tag triggers build.yml.
+          # GITHUB_TOKEN pushes are intentionally blocked from triggering workflows.
+          token: ${{ secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run release script
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: node scripts/release.mjs
+
+      - name: Push commit and tag
+        if: ${{ !inputs.dry_run }}
+        run: git push --follow-tags

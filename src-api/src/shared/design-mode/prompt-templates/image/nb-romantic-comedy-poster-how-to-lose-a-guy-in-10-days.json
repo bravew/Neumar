@@ -1,0 +1,18 @@
+{
+  "id": "nb-romantic-comedy-poster-how-to-lose-a-guy-in-10-days",
+  "surface": "image",
+  "title": "Romantic Comedy Poster: How to Lose a Guy in 10 Days",
+  "summary": "A professional movie poster image featuring a man and a woman standing back-to-back, glancing at each other with playful, romantic expressions. The woman is in a shimmering gold gown, and the man is i.",
+  "category": "Cinematic Poster",
+  "tags": ["nano-banana", "gemini", "cinematic", "poster"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"scene_summary\": \"Clean early-2000s rom-com studio poster composite. Two adults stand back-to-back in a playful confident stance, both glancing sideways at each other with amused expressions.\",\n  \"composition\": \"Woman on the left, arms crossed, elegant posture. Man on the right, hands in pockets, relaxed lean. Full-body visible with generous negative space for title.\",\n  \"wardrobe\": \"Woman: sleeveless/strapless satin yellow-gold floor-length gown with smooth sheen, minimal jewelry. Man: dark charcoal or black tailored suit, white shirt, no tie or subtle tie.\",\n  \"props\": \"None.\",\n  \"background\": \"Warm pale yellow/cream sky gradient with extremely subtle city/park blur at the bottom; clean studio cutout feel.\",\n  \"lighting\": \"High-key studio lighting with softbox key + gentle rim light; crisp edges, natural shadows.\",\n  \"typography\": {\n    \"title_text_exact\": \"HOW TO LOSE A GUY IN 10 DAYS\",\n    \"font_vibe\": \"classic rom-com serif with refined spacing\",\n    \"color_and_harmony\": \"primary black with tasteful red/green accents that match the warm background without clashing\",\n    \"placement\": \"center-lower, stacked like a classic rom-com poster\"\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9rQVq8WIAAHQvV.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/astronomerozge1/status/2007145759997628816",
+    "author": "Özge"
+  }
+}

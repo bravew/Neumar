@@ -1,0 +1,18 @@
+{
+  "id": "nb-photorealistic-detective-board---vintage-cold-case-mystery",
+  "surface": "image",
+  "title": "Photorealistic Detective Board - Vintage Cold Case Mystery",
+  "summary": "A photorealistic image of a dimly lit detective's cork board, meticulously covered with yellowed newspaper clippings, vintage photographs, a map of Arizona and New Mexico, and red string connecting va.",
+  "category": "Vintage & Retro",
+  "tags": ["nano-banana", "gemini", "vintage", "retro"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "A detective's evidence board investigating [SUBJECT/MYSTERY]. Cork surface covered with pinned items: polaroid photographs with handwritten dates, a street map with circled locations, newspaper clippings with highlighted passages, sticky notes with theories and question marks, and printed documents with redacted black bars. Red string connects related evidence across the board, creating a web of connections. Thumbtacks in primary colors. A single bare bulb casts dramatic shadows. Coffee ring stains on some papers. The atmosphere is obsessive, late-night, noir—someone has been piecing this together for months. A few pins have fallen, suggesting frantic recent activity.\n\nCheck ALTs for ideas",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9JTkAyX0AA90JY.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/AllaAisling/status/2004937062907039787",
+    "author": "Alexandra Aisling"
+  }
+}

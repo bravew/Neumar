@@ -1,0 +1,9 @@
+{
+  "specVersion": "1.0.0",
+  "designSystems": [
+    {
+      "id": "figma",
+      "path": "./"
+    }
+  ]
+}

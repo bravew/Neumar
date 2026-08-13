@@ -1,0 +1,18 @@
+{
+  "id": "sd-iss-astronaut-interior",
+  "surface": "image",
+  "title": "ISS Astronaut Interior",
+  "summary": "A highly realistic space simulation prompt depicting the interior of the International Space Station. It details the zero-gravity environment, authentic equipment textures, and Earth views through the window, capturing t.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "International Space Station interior real physical environment, astronaut (NASA spacesuit details) in weightless floating state, blue atmosphere of Earth outside visible through the porthole, equipment indicator lights inside providing ambient lighting, metal bulkhead wear texture realistic, scientific instrument details accurate, NASA official photography style, wide-angle lens 16mm capturing narrow space, real physical lighting simulation",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360262884_b88c1d_1765274990209-k4hrrh-02176527497561815b33ccaa151d3ed7feaaa761bc71c37a78d07_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

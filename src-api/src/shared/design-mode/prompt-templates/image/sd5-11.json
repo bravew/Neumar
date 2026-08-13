@@ -1,0 +1,17 @@
+{
+  "id": "sd5-11",
+  "surface": "image",
+  "title": "一只金属闹钟，表盘上黑色粗短的时针指向 8，红色细长的粉针指向 1",
+  "summary": "一只金属闹钟，表盘上黑色粗短的时针指向 8，红色细长的粉针指向 1",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "一只金属闹钟，表盘上黑色粗短的时针指向 8，红色细长的粉针指向 1",
+  "previewImageUrl": "https://github.com/user-attachments/assets/16a26336-6bab-4439-bd94-4366eb5e4f6f",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea69df2b552957d3c5761"
+  }
+}

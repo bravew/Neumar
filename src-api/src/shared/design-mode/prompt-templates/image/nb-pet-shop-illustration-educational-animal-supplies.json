@@ -1,0 +1,18 @@
+{
+  "id": "nb-pet-shop-illustration-educational-animal-supplies",
+  "surface": "image",
+  "title": "Pet Shop Illustration | Educational Animal Supplies",
+  "summary": "This vibrant cartoon illustration captures a lively pet shop interior, featuring a friendly female shop assistant interacting with the store environment. Various domestic animals such as playful puppi.",
+  "category": "Nature & Landscape",
+  "tags": ["nano-banana", "gemini", "nature", "landscape"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{{pet shop}} scene and label every object with English words.\n\nLabel format: \n- First line: English word \n- Second line: IPA pronunciation \n- Third line: {Chinese} translation",
+  "previewImageUrl": "https://pbs.twimg.com/media/G6lbjxhbQAA5pDD.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/crystalsssup/status/1993225494410805623",
+    "author": "Crystal"
+  }
+}

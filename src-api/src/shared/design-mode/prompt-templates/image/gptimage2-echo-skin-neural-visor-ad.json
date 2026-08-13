@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-echo-skin-neural-visor-ad",
+  "surface": "image",
+  "title": "ECHO SKIN Neural Visor Sci-Fi Product Ad",
+  "summary": "Premium sci-fi advertising poster for a fictional near-future AI visor — titanium frame, electric teal holographic HUD, biopunk aesthetic, 9:16 vertical layout with feature grid and multilingual tagline.",
+  "category": "Product / Sci-Fi",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "product",
+    "sci-fi",
+    "advertising",
+    "tech",
+    "biopunk"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "9:16",
+  "prompt": "You are a premium sci-fi advertising director launching the ECHO SKIN NEURAL VISOR — a sleek, near-future AI visor worn across both eyes like a high-fashion accessory meets military optics. DEVICE: A slim, curved visor — titanium frame, smoked translucent lenses that glow electric teal when active. Sits across the face like luxury sunglasses but projects a full AI holographic HUD into the wearer's field of vision. One physical button on the right temple. Nothing else. Impossibly minimal. VISUAL STYLE: Deep black background, electric teal and pulse-white glow, cinematic studio lighting, floating holographic UI particles around the visor, ultra-premium biopunk aesthetic. Show the visor both worn on a face (hero) and floating alone as a product shot (secondary). LAYOUT: 9:16 vertical. Top: ECHO SKIN logo + tagline \"See beyond reality.\" Middle: hero device shots. Bottom: 2×4 feature grid with icons and short claims. FEATURES TO HIGHLIGHT: Neural HUD · Holographic Projection · BioSync AI · VoiceCommand · QuantumMesh 6G · BioCrypt Security · 48hr Battery · Featherweight Titanium Frame",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/031-raw_20260423_promptgather_prompt_071__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

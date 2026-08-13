@@ -1,0 +1,39 @@
+{
+  "name": "declarative-artifact-demo",
+  "version": "1.0.0",
+  "description": "Demo plugin that documents the Neuma A2UI declarative artifact subset.",
+  "displayName": "Declarative Artifact Demo",
+  "skills": "skills",
+  "metadata": {
+    "neuma": {
+      "configSchema": [
+        {
+          "key": "defaultAssignee",
+          "type": "string",
+          "label": "Default assignee",
+          "help": "Shown in the generated review form.",
+          "order": 1
+        },
+        {
+          "key": "notifyOnSubmit",
+          "type": "boolean",
+          "label": "Notify on submit",
+          "default": true,
+          "order": 2
+        },
+        {
+          "key": "priority",
+          "type": "enum",
+          "label": "Priority",
+          "default": "normal",
+          "options": [
+            { "label": "Low", "value": "low" },
+            { "label": "Normal", "value": "normal" },
+            { "label": "High", "value": "high" }
+          ],
+          "order": 3
+        }
+      ]
+    }
+  }
+}

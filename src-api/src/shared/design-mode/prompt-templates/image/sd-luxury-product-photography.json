@@ -1,0 +1,18 @@
+{
+  "id": "sd-luxury-product-photography",
+  "surface": "image",
+  "title": "Luxury Product Photography",
+  "summary": "A professional product photography prompt for high-end cosmetics. It describes precise lighting setups, background textures, and macro lens choices to produce a commercial-grade image suitable for e-commerce or advertisi.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Close-up of {argument name=\"product\" default=\"high-end lipstick\"} placed on a black polished marble countertop, fresh rose petals naturally scattered, two softboxes at 45-degree side lighting combined with overhead honeycomb soft light to eliminate glare, liquid paste texture authentically presenting subtle sheen, pure white seamless background C4D render level, macro lens 100mm capturing details, commercial product photography, 16:9 e-commerce detail page composition, Photoshop precision retouching level",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360278696_3z2znz_1765274938378-ir04ld-02176527492419215b33ccaa151d3ed7feaaa761bc71c372a0d71_0-600x337.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

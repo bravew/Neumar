@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-redesign-existing-projects",
+  "version": "0.1.0",
+  "description": "Audit an existing website, app screen, or HTML artifact, then apply a focused visual redesign without breaking routes, copy intent, accessibility, or product behavior. Use when the brief asks to redesign an existing project, improve the current UI, make an artifact feel more polished, or run a redesign audit before editing.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

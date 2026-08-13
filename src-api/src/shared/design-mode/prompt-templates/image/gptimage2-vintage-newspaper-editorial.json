@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-vintage-newspaper-editorial",
+  "surface": "image",
+  "title": "Vintage Newspaper Front Page Design",
+  "summary": "Hyper-realistic vintage newspaper front page wrapping a subject photo in cinematic black-and-white — aged paper texture, ink defects, fictitious masthead, and editorial column layout.",
+  "category": "Print / Editorial",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "newspaper",
+    "editorial",
+    "vintage",
+    "print",
+    "typography"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "4:5",
+  "prompt": "Create the most realistic front page design of a vintage newspaper featuring the main character. The layout should be made in the style of a real printed newspaper with cinematic black-and-white aesthetic. Main photo prominently placed in the center, framed as the title image. Subject remains unchanged and clearly distinguishable in natural light with increased contrast for editorial style. Include: bold attention-grabbing headline at the top with unique title matching the photo's spirit; smaller subtitle as real newspaper caption; realistic newspaper elements: columns of small text in lorem ipsum style framed like real news; fictitious publication name at top; date, issue number and location; decorative lines, dividers, and vintage typography; small additional articles or captions; optional stamps, doodles, or editorial notes. Style: Black and white or slightly faded monochrome paper; fine paper texture, grain, and ink defects; small shadows and creases mimicking real printed paper; aesthetics of clean but slightly worn vintage newspaper. Mood: Give the design personality, expressiveness and plot. Aspect ratio: 4:5 or 1:1. High-detail, ultra-realistic hybrid of editorial photography and print design.",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/008-raw_20260423_promptgather_prompt_027__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

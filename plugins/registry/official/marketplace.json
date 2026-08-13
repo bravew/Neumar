@@ -1,0 +1,3353 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "neumar-official",
+  "owner": {
+    "name": "Neumar"
+  },
+  "metadata": {
+    "description": "Official Neumar plugin registry, generated from plugins/builtin/.",
+    "version": "0.1.0",
+    "generatedFrom": "plugins/builtin",
+    "pluginRoot": "./plugins/builtin",
+    "pluginCount": 226
+  },
+  "plugins": [
+    {
+      "name": "design-skill-audio-jingle",
+      "source": "./design-skills/audio-jingle",
+      "description": "Audio generation skill — jingles, beds, voiceover, and sound effects. Routes music requests to Suno V5 / Udio / Lyria, speech to MiniMax TTS / FishAudio / ElevenLabs V3, and SFX to ElevenLabs SFX or AudioCraft. Output is one MP3/WAV file saved to the project folder.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-blog-post",
+      "source": "./design-skills/blog-post",
+      "description": "A long-form article / blog post — masthead, hero image placeholder, article body with figures and pull quotes, author byline, related posts. Use when the brief asks for \"blog\", \"article\", \"post\", \"essay\", or \"case study\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-clinical-case-report",
+      "source": "./design-skills/clinical-case-report",
+      "description": "Structured medical case presentation for clinical rounds, conferences, and documentation. Generates SOAP-format or narrative case reports with physiologically accurate vitals, labs, and evidence-based plans. Use when the brief mentions \"case report\", \"case presentation\", \"SOAP note\", \"clinical case\", \"ward rounds\", \"case summary\", or \"patient presentation\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-community-hallmark",
+      "source": "./design-skills/community-hallmark",
+      "description": "Shape a community identity page or campaign surface around shared rituals, values, member stories, and participation paths. Use when the user asks for a community hallmark, member spotlight, chapter page, nonprofit campaign, or values-led community landing page.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-contact-widget",
+      "source": "./design-skills/contact-widget",
+      "description": "Design a compact contact, support, or lead-capture widget with clear fields, validation states, privacy copy, and responsive embed behavior. Use when the brief asks for a contact widget, support widget, inquiry form, lead form, or callback request.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-critique",
+      "source": "./design-skills/critique",
+      "description": "Run a 5-dimension expert design review on any HTML artifact in the project — Philosophy / Visual hierarchy / Detail / Functionality / Innovation, each scored 0–10. Outputs a single self-contained HTML report with a radar chart, evidence-backed scores, and three lists: Keep / Fix / Quick-wins. Use when the brief asks for a \"design review\", \"design critique\", \"5 维度评审\", \"design audit\", or \"what's wrong with my design\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-dashboard",
+      "source": "./design-skills/dashboard",
+      "description": "Admin / analytics dashboard in a single HTML file. Fixed left sidebar, top bar with user/search, main grid of KPI cards and one or two charts. Use when the brief asks for a \"dashboard\", \"admin\", \"analytics\", or \"control panel\" screen.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-dating-web",
+      "source": "./design-skills/dating-web",
+      "description": "A consumer-feeling dating / matchmaking dashboard — left rail navigation, ticker bar of community signals, headline KPIs, a 30-day mutual-matches bar chart, and a match-rate trend block. Editorial typography, restrained accent. Use when the brief asks for a \"dating site\", \"matchmaking\", \"community dashboard\", \"social network dashboard\", or any consumer product where the data is the story.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-design-brief",
+      "source": "./design-skills/design-brief",
+      "description": "Parse a structured design brief written in I-Lang protocol format into a concrete design spec. Eliminates ambiguity from vague requests like \"make it professional\" by requiring explicit dimensions: palette, typography, layout, mood, density, and constraints. Trigger keywords: \"design brief\", \"create a design brief\", \"ilang brief\", \"structured brief\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-digital-eguide",
+      "source": "./design-skills/digital-eguide",
+      "description": "A two-spread digital e-guide preview — page 1 is a cover (display title, author, \"What's inside\" stats, table of contents teaser); page 2 is a spread (lesson body with pull-quote and a step list). Lifestyle / creator brand tone. Use when the brief asks for an \"e-guide\", \"digital guide\", \"lookbook\", \"lead magnet\", \"creator guide\", \"playbook\", \"PDF guide\", or \"电子指南\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-docs-page",
+      "source": "./design-skills/docs-page",
+      "description": "A documentation page — left nav, scrollable article body, right-rail table of contents. Use when the brief mentions \"docs\", \"documentation\", \"guide\", \"API reference\", or \"tutorial\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-email-marketing",
+      "source": "./design-skills/email-marketing",
+      "description": "A brand product-launch email — masthead with wordmark, hero image block, headline lockup with skewed-italic accent, body copy, primary CTA, and a specifications grid. Pure HTML email layout (centered single column, table fallback). Use when the brief asks for an \"email\", \"newsletter blast\", \"MJML\", \"product launch email\", or \"email template\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-eng-runbook",
+      "source": "./design-skills/eng-runbook",
+      "description": "An engineering runbook — service overview, alerts table, dashboards links, common procedures with copy-pasteable commands, on-call rotation, and an incident-response checklist. Use when the brief mentions \"runbook\", \"ops doc\", \"on-call guide\", \"SRE doc\", or \"运维手册\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-finance-report",
+      "source": "./design-skills/finance-report",
+      "description": "Quarterly / monthly financial report — masthead with KPIs, revenue and burn charts, P&L summary table, top-line highlights, and an outlook paragraph. Use when the brief mentions \"financial report\", \"Q3 report\", \"MRR review\", \"P&L\", or \"财报\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-gamified-app",
+      "source": "./design-skills/gamified-app",
+      "description": "A multi-frame gamified mobile-app prototype — three phone frames on a dark showcase stage. Frame 1: cover / poster, Frame 2: today's quests with XP ribbons and a level bar, Frame 3: quest detail. Vivid quest tiles, level ribbon, bottom tab bar. Use when the brief asks for a \"gamified app\", \"habit tracker\", \"RPG-style life app\", \"level-up app\", \"daily quests\", \"XP / streak app\", or \"ELI5-style explainer app\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-github-dashboard",
+      "source": "./design-skills/github-dashboard",
+      "description": "GitHub repository analytics dashboard — stars, forks, contributors, issues, pull requests, recent activity, and top contributors. Use when the brief asks for a GitHub repo dashboard, open-source growth report, repository health page, or GitHub analytics view.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-glass-dashboard",
+      "source": "./design-skills/glass-dashboard",
+      "description": "Build a premium glassmorphism dashboard — frosted translucent cards over a soft gradient backdrop, a responsive KPI/metric grid, a live activity panel, and a floating control bar. Use when the brief asks for a glass dashboard, glassmorphism UI, conference/meeting room dashboard, analytics console, or a frosted-glass control panel.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-guizang-ppt",
+      "source": "./design-skills/guizang-ppt",
+      "description": "生成\"电子杂志 × 电子墨水\"风格的横向翻页网页 PPT（单 HTML 文件），含 WebGL 流体背景、衬线标题 + 非衬线正文、章节幕封、数据大字报、图片网格等模板。当用户需要制作分享 / 演讲 / 发布会风格的网页 PPT，或提到\"杂志风 PPT\"、\"horizontal swipe deck\"、\"editorial magazine\"、\"e-ink presentation\"时使用。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-hatch-pet",
+      "source": "./design-skills/hatch-pet",
+      "description": "Create, repair, validate, preview, and package Codex-compatible animated pet spritesheets from character art, screenshots, generated images, or visual references. Use when a user wants to hatch a Codex pet, create a custom animated pet, or build a built-in pet asset with an 8x9 atlas, transparent unused cells, row-by-row animation prompts, QA contact sheets, preview videos, and pet.json packaging. This skill composes the installed $imagegen system skill for visual generation and uses bundled sc…",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-hr-onboarding",
+      "source": "./design-skills/hr-onboarding",
+      "description": "A new-hire onboarding plan as a single page — first week schedule, buddy + manager intro, learning track, equipment checklist, and \"you're set when…\" outcomes. Use when the brief mentions \"onboarding\", \"new hire\", \"first week plan\", or \"入职\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt",
+      "source": "./design-skills/html-ppt",
+      "description": "HTML PPT Studio — author professional static HTML presentations in many styles, layouts, and animations, all driven by templates. Use when the user asks for a presentation, PPT, slides, keynote, deck, slideshow, reveal-style HTML deck, social carousel, or any kind of multi-slide pitch/report/sharing document that should look tasteful and support keyboard navigation. Triggers include keywords like \"presentation\", \"ppt\", \"slides\", \"deck\", \"keynote\", \"reveal\", \"slideshow\", \"talk slides\", \"pitch de…",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-course-module",
+      "source": "./design-skills/html-ppt-course-module",
+      "description": "Online-course / workshop module deck — warm paper background + Playfair serif, persistent left sidebar of learning objectives, MCQ self-check page. Use for teaching modules, training materials, workshop slides.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-dir-key-nav-minimal",
+      "source": "./design-skills/html-ppt-dir-key-nav-minimal",
+      "description": "8 页极简方向键 keynote — 每页一个独立单色背景（靛 / 奶 / 绛 / 翠 / 灰 / 紫 / 白 / 炭），各自配色，160px display 标题 + 4px 短粗 accent 线分隔、箭头 → 前缀的 Mono 列表、左下 ← → kbd 提示 + 右下页码、巨大呼吸留白。适合\"有话要说但没什么可看\"的 keynote、launch、公开演讲。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-graphify-dark-graph",
+      "source": "./design-skills/html-ppt-graphify-dark-graph",
+      "description": "暗底知识图谱 deck — #06060c→#0e1020 深夜渐变 + 漂浮 blur orbs、封面 SVG 力导向图谱、彩虹渐变标题、JetBrains Mono 命令行高亮、glass-morphism 卡片。适合 dev-tool / CLI / 知识图谱 / 数据可视化的发布会，\"AI-native + 科幻 + 暖色\" 调子。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-hermes-cyber-terminal",
+      "source": "./design-skills/html-ppt-hermes-cyber-terminal",
+      "description": "暗终端 honest-review deck — #0a0c10 黑底 + 56px 赛博网格 + CRT 暗角 + 扫描线、窗口红绿灯 chrome、`$ prompt` 命令行标题、薄荷绿 #7ed3a4 大字、JetBrains Mono、stroke-only 柱状图、blinking 光标、琥珀/绿/红三档 tag、暗色代码块。适合 CLI / agent / dev tool 测评（含 trace、diff、benchmark）。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-knowledge-arch-blueprint",
+      "source": "./design-skills/html-ppt-knowledge-arch-blueprint",
+      "description": "奶油蓝图架构 deck — 奶油纸 #F0EAE0 底色 + 单一锈红 #B5392A 高亮、48px 蓝图网格 mask、2px 黑边硬卡片、pipeline 步骤盒（其中一个抬高）、右侧锈红 insight callout、Playfair 衬线大字、SVG 虚线反馈环。零渐变零软阴影，认真且印刷友好。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-obsidian-claude-gradient",
+      "source": "./design-skills/html-ppt-obsidian-claude-gradient",
+      "description": "GitHub 暗紫渐变 deck — GitHub-dark #0d1117 + 紫蓝 radial 环境光 + 60px 网格 mask、居中布局、紫色 pill 标签、三色渐变标题（#a855f7→#60a5fa→#34d399）、GitHub 风代码 palette、紫色左边框高亮块。适合开发者工作流 / MCP / Agent / dev tool 教程，类似 GitHub Blog / Linear Changelog。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-pitch-deck",
+      "source": "./design-skills/html-ppt-pitch-deck",
+      "description": "Investor-ready 10-slide HTML pitch deck — white + blue→purple gradient hero, big numbers, traction bar chart, $4.5M-style ask page. Use when the user wants a fundraising deck, seed-round pitch, or VC meeting slides.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-presenter-mode-reveal",
+      "source": "./design-skills/html-ppt-presenter-mode-reveal",
+      "description": "演讲者模式专用 deck — tokyo-night 默认主题，5 套主题 T 键切换，每页带 150-300 字逐字稿示例（<aside class=\"notes\">），按 S 打开 popup（CURRENT / NEXT / SCRIPT / TIMER 四张磁吸卡片）。用于技术分享、公开演讲、课程讲解，怕忘词或要提词器的场景。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-product-launch",
+      "source": "./design-skills/html-ppt-product-launch",
+      "description": "Launch keynote deck — dark hero + light content, warm orange→peach accent, feature cards, pricing tiers, CTA. Use when announcing a product, launching a feature, or doing a keynote-style reveal.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-tech-sharing",
+      "source": "./design-skills/html-ppt-tech-sharing",
+      "description": "Conference / internal tech-talk deck — GitHub-dark, JetBrains Mono, terminal code blocks, agenda + Q&A pages. Use for engineering presentations, internal sharing sessions, conference talks, and code-heavy walkthroughs.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-testing-safety-alert",
+      "source": "./design-skills/html-ppt-testing-safety-alert",
+      "description": "红琥珀警示 deck — 顶/底 45° 红黑 hazard 条纹、红色删除线否定标题、L1/L2/L3 绿/琥珀/红 tier 卡片、圆点状态 alert box、policy-yaml 代码块（红左边框 + bad 关键词高亮）、红绿 checklist、Q1 事故堆叠柱状图。适合安全 / 风险 / 事故复盘 / 红队 / 上线前 AI 评审 / policy-as-code。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-weekly-report",
+      "source": "./design-skills/html-ppt-weekly-report",
+      "description": "Team weekly / status-update deck — corporate clarity, 8-cell KPI grid, shipped list, 8-week bar chart, next-week table. Use for 周报, business reviews, team status updates, and exec dashboards.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-xhs-pastel-card",
+      "source": "./design-skills/html-ppt-xhs-pastel-card",
+      "description": "柔和马卡龙慢生活 deck — 奶油 #fef8f1 底 + 三个柔光 blob、Playfair 斜体衬线 display 标题混 sans 正文、28px 圆角马卡龙卡片（桃 / 薄荷 / 天 / 紫 / 柠 / 玫）、Playfair 斜体 01-04 序号、SVG donut 图、chip+page 顶栏。适合生活方式 / 个人成长 / 慢生活 / 情绪类内容，\"杂志、手作、不太科技\"的感觉。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-xhs-post",
+      "source": "./design-skills/html-ppt-xhs-post",
+      "description": "小红书 / Instagram 风 9 页 3:4 竖版图文（810×1080）— 暖色 pastel、虚线 sticker 卡片、底部页码点点。用于发小红书图文、Instagram carousel、品牌种草内容。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-html-ppt-xhs-white-editorial",
+      "source": "./design-skills/html-ppt-xhs-white-editorial",
+      "description": "白底杂志风 deck — 纯白背景 + 顶部 10 色彩虹 bar、80-110px display 标题、紫→蓝→绿→橙→粉渐变文字、马卡龙软卡片组（粉/紫/蓝/绿/橙）、黑底白字 .focus pill、引用大块。同时适合发小红书图文 + 横版 PPT 双用。",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-hyperframes",
+      "source": "./design-skills/hyperframes",
+      "description": "Create video compositions, animations, title cards, overlays, captions, voiceovers, audio-reactive visuals, and scene transitions in HyperFrames HTML. Use when asked to build any HTML-based video content, add captions or subtitles synced to audio, generate text-to-speech narration, create audio-reactive animation (beat sync, glow, pulse driven by music), add animated text highlighting (marker sweeps, hand-drawn circles, burst lines, scribble, sketchout), or add transitions between scenes (cross…",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-image-poster",
+      "source": "./design-skills/image-poster",
+      "description": "Single-image generation skill for posters, key art, and editorial illustrations. Defaults to gpt-image-2 but is provider-agnostic — the same workflow drives Flux, Imagen, or Midjourney via the active upstream tooling. Output is one or more PNG/JPEG files saved to the project folder.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-invoice",
+      "source": "./design-skills/invoice",
+      "description": "A printable invoice page — sender + recipient block, line items table, tax breakdown, totals, and payment instructions. Use when the brief mentions \"invoice\", \"bill\", \"billing statement\", or \"发票\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-kanban-board",
+      "source": "./design-skills/kanban-board",
+      "description": "Kanban / task board with columns (To do / In progress / In review / Done), draggable-looking cards, assignee avatars, swimlanes, and a top filter bar. Use when the brief mentions \"kanban\", \"task board\", \"sprint board\", \"trello\", \"看板\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-live-artifact",
+      "source": "./design-skills/live-artifact",
+      "description": "Create refreshable, auditable DesignMode artifacts backed by connector or local data. Trigger when the user asks for live dashboards, refreshable reports, synced views, or reusable data-backed artifacts.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-live-dashboard",
+      "source": "./design-skills/live-dashboard",
+      "description": "Notion-style team dashboard rendered as a Live Artifact. A single-page, self-contained HTML dashboard with KPIs, a 7-day sparkline, a real-time activity feed and a linked-database task table — wired to Notion via the external connector catalog. Refreshes on demand and when the artifact is opened. Falls back to seeded mock data when no connector is bound, so it works offline / in screenshots / in the picker preview.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-magazine-poster",
+      "source": "./design-skills/magazine-poster",
+      "description": "An editorial-style poster — newsprint paper, dateline, oversized serif headline with a struck-through word and italic accent, a 2-column body block, and 6 numbered sections with annotated pull-quote captions. Reads like a Sunday-paper full-page essay or a thoughtful launch poster. Use when the brief asks for \"magazine poster\", \"editorial poster\", \"newsprint\", \"essay layout\", or \"manifesto\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-meeting-notes",
+      "source": "./design-skills/meeting-notes",
+      "description": "Meeting notes page — title bar with attendees, agenda checklist, decisions block, action items table with owners + dates, and a \"next meeting\" footer. Use when the brief mentions \"meeting notes\", \"minutes\", \"1:1 notes\", \"all-hands recap\", or \"会议纪要\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-mobile-app",
+      "source": "./design-skills/mobile-app",
+      "description": "A mobile-app screen rendered inside a pixel-accurate iPhone 15 Pro frame on the page. Built by copying the seed `assets/template.html` and pasting one screen archetype from `references/layouts.md`. Use when the brief asks for \"mobile app\", \"iOS app\", \"Android app\", \"phone screen\", or \"app UI\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-mobile-onboarding",
+      "source": "./design-skills/mobile-onboarding",
+      "description": "A multi-screen mobile onboarding flow rendered as three phone frames side by side — splash, value-prop, sign-in. Status bar, swipe dots, primary CTA. Use when the brief mentions \"mobile onboarding\", \"iOS onboarding\", \"phone signup\", or \"移动端引导\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-motion-frames",
+      "source": "./design-skills/motion-frames",
+      "description": "A single-frame motion-design composition with looping CSS animations — rotating type ring, animated globe, ticking timer, parallax labels. Renders as a hero video poster you can hand straight to HyperFrames or any keyframe-based exporter. Use when the brief asks for \"motion design\", \"animated hero\", \"loop\", \"video poster\", \"title card\", or pairs Open Claude Design with HyperFrames for a kinetic export.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-pm-spec",
+      "source": "./design-skills/pm-spec",
+      "description": "Product spec / PRD as a single page — problem, success metrics, scope, user stories, design notes, rollout plan, open questions. Use when the brief mentions \"PRD\", \"spec\", \"product spec\", \"feature brief\", or \"需求文档\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-pptx-html-fidelity-audit",
+      "source": "./design-skills/pptx-html-fidelity-audit",
+      "description": "Audit a python-pptx export against its source HTML deck, identify layout/content drift (footer overflow, cropped content, missing italic/em, lost styling, off-rhythm spacing), and re-export with strict footer-rail + cursor-flow layout discipline. Use this skill whenever the user has a .pptx that was generated from an HTML slide deck and asks to compare/audit/verify/fix the export — including phrases like \"compare ppt with html\", \"fidelity audit\", \"fix the pptx\", \"ppt is cut off\", \"footer overla…",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-pricing-page",
+      "source": "./design-skills/pricing-page",
+      "description": "A standalone pricing page — header, plan tiers, feature comparison table, and an FAQ. Use when the brief asks for \"pricing\", \"plans\", \"subscription tiers\", or a \"compare plans\" page.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-redesign-existing-projects",
+      "source": "./design-skills/redesign-existing-projects",
+      "description": "Audit an existing website, app screen, or HTML artifact, then apply a focused visual redesign without breaking routes, copy intent, accessibility, or product behavior. Use when the brief asks to redesign an existing project, improve the current UI, make an artifact feel more polished, or run a redesign audit before editing.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-reference-design-contract",
+      "source": "./design-skills/reference-design-contract",
+      "description": "Convert a reference product, screenshot set, Figma note, or style audit into a reusable design contract with tokens, component rules, accessibility gates, and implementation constraints. Use when the user asks for a reference design contract, design-system brief, UI audit, or source-of-truth handoff.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-replit-deck",
+      "source": "./design-skills/replit-deck",
+      "description": "Single-file horizontal-swipe HTML deck in the style of Replit Slides's landing-page template gallery. Eight distinct themes (helix, holm, vance, bevel, world-dark, world-mint, atlas, bluehouse) — each a complete visual system (palette + type + accent) captured from replit.com/slides. Pick one theme, do not mix. For pitch decks, board reports, brand memos, campaign reveals — when the user explicitly wants \"Replit Slides style\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-saas-landing",
+      "source": "./design-skills/saas-landing",
+      "description": "Single-page SaaS landing with hero, features, social proof, pricing, and CTA. Respects the active DESIGN.md color/typography/layout tokens. Trigger keywords: \"saas landing\", \"marketing page\", \"product landing\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-simple-deck",
+      "source": "./design-skills/simple-deck",
+      "description": "Single-file horizontal-swipe HTML deck. Built by copying the seed `assets/template.html` (which carries the proven 5-rule iframe nav script) and pasting slide layouts from `references/layouts.md`. Pitch decks, product overviews, study material — when you don't need the magazine aesthetic of `magazine-web-ppt`.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-social-carousel",
+      "source": "./design-skills/social-carousel",
+      "description": "A three-card social-media carousel laid out as 1080×1080 squares — three cinematic, on-brand panels with display headlines that connect across the series (\"onwards.\" → \"to the next one.\" → \"looking ahead.\"). Each card has a brand mark, a number / total, a caption, and a \"loop\" affordance. Use when the brief asks for a \"carousel post\", \"social carousel\", \"Instagram carousel\", \"LinkedIn series\", \"X thread cards\", or \"三连发\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-sprite-animation",
+      "source": "./design-skills/sprite-animation",
+      "description": "A pixel / sprite-style animated explainer slide — full-bleed cream stage, bold display year, animated pixel-art mascot (e.g. Hanafuda card, mushroom, or 8-bit console), kinetic Japanese display type, ticking timeline ribbon. Reads like a single frame of an educational motion video — looping CSS keyframes, no JS, ready to be screen-recorded into a vertical video. Use when the brief asks for a \"sprite animation\", \"pixel-art video\", \"8-bit explainer\", \"history of X explainer\", \"kinetic typography…",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-team-okrs",
+      "source": "./design-skills/team-okrs",
+      "description": "OKR tracker page — quarter banner, three objectives with their key results as progress bars, owner avatars, status pills, and a \"this quarter at a glance\" sidebar. Use when the brief mentions \"OKRs\", \"key results\", \"objectives\", or \"目标\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-tweaks",
+      "source": "./design-skills/tweaks",
+      "description": "Wrap any HTML artifact with a side panel of live, parameterized controls — accent color, type scale, density, motion, theme — that rewrite CSS custom properties in real time and persist to localStorage. Lets the user explore variants of a design without re-prompting the agent. Use when the brief asks for \"variants\", \"side-by-side options\", \"tweak this\", \"let me adjust\", \"live knobs\", or \"实时调参\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-video-shortform",
+      "source": "./design-skills/video-shortform",
+      "description": "Short-form video generation skill — 3-10 second clips for product reveals, motion teasers, ambient loops. Defaults to Seedance 2 but works the same with Kling 3 / 4, Veo 3 or Sora 2. Output is one MP4 saved to the project folder. When the workspace also ships an interactive-video / hyperframes skill, prefer composing several short shots into a single timeline rather than one long monolithic clip.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-waitlist-page",
+      "source": "./design-skills/waitlist-page",
+      "description": "Minimal pre-launch landing with email capture, brand logo, and optional decorative layer. Reads DESIGN.md for colors, typography, and layout rules. Best for: product launches, beta signups, early access programs, indie projects.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-web-prototype",
+      "source": "./design-skills/web-prototype",
+      "description": "General-purpose desktop web prototype. Single self-contained HTML file built by copying the seed `assets/template.html` and pasting section layouts from `references/layouts.md`. Default for any landing / marketing / docs / SaaS page when no more specific skill matches.",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-weekly-update",
+      "source": "./design-skills/weekly-update",
+      "description": "Single-file horizontal-swipe slide deck for a weekly team update — shipped, in flight, blocked, metrics, asks. 6–8 slides. Use when the brief mentions \"weekly update\", \"team update slides\", \"weekly status\", \"周报演示\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-skill-wireframe-sketch",
+      "source": "./design-skills/wireframe-sketch",
+      "description": "A hand-drawn wireframe exploration — graph-paper background, marker / pencil tone, multiple tab labels for variants, sticky-note annotations, scribbled chart placeholders, hatched fills. Reads like a designer's whiteboard before any pixels are committed. Use when the brief asks for \"wireframe\", \"sketch wireframe\", \"hand-drawn\", \"lo-fi\", \"whiteboard\", \"草稿\", or \"手绘原型\".",
+      "version": "0.1.0",
+      "keywords": ["design-skill"],
+      "category": "design-skills",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-agentic",
+      "source": "./design-systems/agentic",
+      "description": "Bundled Open Design package for Agentic, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Agentic",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-airbnb",
+      "source": "./design-systems/airbnb",
+      "description": "Bundled Open Design package for Airbnb, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Airbnb",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-airtable",
+      "source": "./design-systems/airtable",
+      "description": "Bundled Open Design package for Airtable, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Airtable",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-ant",
+      "source": "./design-systems/ant",
+      "description": "Bundled Open Design package for Ant, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Ant",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-anthropic",
+      "source": "./design-systems/anthropic",
+      "description": "Category: AI & LLM",
+      "version": "0.1.0",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-apple",
+      "source": "./design-systems/apple",
+      "description": "Bundled Open Design package for Apple, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Apple",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-application",
+      "source": "./design-systems/application",
+      "description": "Bundled Open Design package for Application, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Application",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-arc",
+      "source": "./design-systems/arc",
+      "description": "Bundled Open Design package for Arc Browser, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Arc Browser",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-artistic",
+      "source": "./design-systems/artistic",
+      "description": "Bundled Open Design package for Artistic, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Artistic",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-atelier-zero",
+      "source": "./design-systems/atelier-zero",
+      "description": "Bundled Open Design package for Atelier Zero, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Atelier Zero",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-bento",
+      "source": "./design-systems/bento",
+      "description": "Bundled Open Design package for Bento, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Bento",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-binance",
+      "source": "./design-systems/binance",
+      "description": "Bundled Open Design package for Binance.US, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Binance.US",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-bmw",
+      "source": "./design-systems/bmw",
+      "description": "Bundled Open Design package for BMW, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "BMW",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-bmw-m",
+      "source": "./design-systems/bmw-m",
+      "description": "Bundled Open Design package for BMW M, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "BMW M",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-bold",
+      "source": "./design-systems/bold",
+      "description": "Bundled Open Design package for Bold, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Bold",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-bolt",
+      "source": "./design-systems/bolt",
+      "description": "Category: Developer Tools",
+      "version": "0.1.0",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-brutalism",
+      "source": "./design-systems/brutalism",
+      "description": "Bundled Open Design package for Brutalism, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Brutalism",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-bugatti",
+      "source": "./design-systems/bugatti",
+      "description": "Bundled Open Design package for Bugatti, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Bugatti",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-cafe",
+      "source": "./design-systems/cafe",
+      "description": "Bundled Open Design package for Cafe, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Cafe",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-cal",
+      "source": "./design-systems/cal",
+      "description": "Bundled Open Design package for Cal.com, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Cal.com",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-canva",
+      "source": "./design-systems/canva",
+      "description": "Bundled Open Design package for Canva, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Canva",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-cisco",
+      "source": "./design-systems/cisco",
+      "description": "Bundled Open Design package for Cisco, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Cisco",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-claude",
+      "source": "./design-systems/claude",
+      "description": "Bundled Open Design package for Claude (Anthropic), derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Claude (Anthropic)",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-clay",
+      "source": "./design-systems/clay",
+      "description": "Bundled Open Design package for Clay, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Clay",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-claymorphism",
+      "source": "./design-systems/claymorphism",
+      "description": "Bundled Open Design package for Claymorphism, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Claymorphism",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-clean",
+      "source": "./design-systems/clean",
+      "description": "Bundled Open Design package for Clean, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Clean",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-clickhouse",
+      "source": "./design-systems/clickhouse",
+      "description": "Bundled Open Design package for ClickHouse, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "ClickHouse",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-cohere",
+      "source": "./design-systems/cohere",
+      "description": "Bundled Open Design package for Cohere, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Cohere",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-coinbase",
+      "source": "./design-systems/coinbase",
+      "description": "Bundled Open Design package for Coinbase, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Coinbase",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-colorful",
+      "source": "./design-systems/colorful",
+      "description": "Bundled Open Design package for Colorful, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Colorful",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-composio",
+      "source": "./design-systems/composio",
+      "description": "Bundled Open Design package for Composio, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Composio",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-contemporary",
+      "source": "./design-systems/contemporary",
+      "description": "Bundled Open Design package for Contemporary, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Contemporary",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-corporate",
+      "source": "./design-systems/corporate",
+      "description": "Bundled Open Design package for Corporate, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Corporate",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-cosmic",
+      "source": "./design-systems/cosmic",
+      "description": "Bundled Open Design package for Cosmic, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Cosmic",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-creative",
+      "source": "./design-systems/creative",
+      "description": "Bundled Open Design package for Creative, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Creative",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-cursor",
+      "source": "./design-systems/cursor",
+      "description": "Bundled Open Design package for Cursor, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Cursor",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-dashboard",
+      "source": "./design-systems/dashboard",
+      "description": "Bundled Open Design package for Dashboard, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Dashboard",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-default",
+      "source": "./design-systems/default",
+      "description": "Bundled Open Design package for Neutral Modern, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Neutral Modern",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-default-freeform",
+      "source": "./design-systems/default-freeform",
+      "description": "Category: Starter",
+      "version": "0.1.0",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-discord",
+      "source": "./design-systems/discord",
+      "description": "Bundled Open Design package for Discord, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Discord",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-dithered",
+      "source": "./design-systems/dithered",
+      "description": "Bundled Open Design package for Dithered, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Dithered",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-doodle",
+      "source": "./design-systems/doodle",
+      "description": "Bundled Open Design package for Doodle, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Doodle",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-dramatic",
+      "source": "./design-systems/dramatic",
+      "description": "Bundled Open Design package for Dramatic, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Dramatic",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-duolingo",
+      "source": "./design-systems/duolingo",
+      "description": "Bundled Open Design package for Duolingo, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Duolingo",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-editorial",
+      "source": "./design-systems/editorial",
+      "description": "Bundled Open Design package for Editorial, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Editorial",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-elegant",
+      "source": "./design-systems/elegant",
+      "description": "Bundled Open Design package for Elegant, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Elegant",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-elevenlabs",
+      "source": "./design-systems/elevenlabs",
+      "description": "Bundled Open Design package for ElevenLabs, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "ElevenLabs",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-energetic",
+      "source": "./design-systems/energetic",
+      "description": "Bundled Open Design package for Energetic, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Energetic",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-enterprise",
+      "source": "./design-systems/enterprise",
+      "description": "Bundled Open Design package for Enterprise, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Enterprise",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-expo",
+      "source": "./design-systems/expo",
+      "description": "Bundled Open Design package for Expo, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Expo",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-expressive",
+      "source": "./design-systems/expressive",
+      "description": "Bundled Open Design package for Expressive, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Expressive",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-fantasy",
+      "source": "./design-systems/fantasy",
+      "description": "Bundled Open Design package for Fantasy, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Fantasy",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-ferrari",
+      "source": "./design-systems/ferrari",
+      "description": "Bundled Open Design package for Ferrari, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Ferrari",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-figma",
+      "source": "./design-systems/figma",
+      "description": "Bundled Open Design package for Figma, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Figma",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-flat",
+      "source": "./design-systems/flat",
+      "description": "Bundled Open Design package for Flat, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Flat",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-framer",
+      "source": "./design-systems/framer",
+      "description": "Bundled Open Design package for Framer, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Framer",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-friendly",
+      "source": "./design-systems/friendly",
+      "description": "Bundled Open Design package for Friendly, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Friendly",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-futuristic",
+      "source": "./design-systems/futuristic",
+      "description": "Bundled Open Design package for Futuristic, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Futuristic",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-github",
+      "source": "./design-systems/github",
+      "description": "Bundled Open Design package for GitHub, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "GitHub",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-glassmorphism",
+      "source": "./design-systems/glassmorphism",
+      "description": "Bundled Open Design package for Glassmorphism, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Glassmorphism",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-gradient",
+      "source": "./design-systems/gradient",
+      "description": "Bundled Open Design package for Gradient, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Gradient",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-hashicorp",
+      "source": "./design-systems/hashicorp",
+      "description": "Bundled Open Design package for HashiCorp, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "HashiCorp",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-hud",
+      "source": "./design-systems/hud",
+      "description": "Bundled Open Design package for HUD Design System, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "HUD Design System",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-huggingface",
+      "source": "./design-systems/huggingface",
+      "description": "Bundled Open Design package for Hugging Face, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Hugging Face",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-ibm",
+      "source": "./design-systems/ibm",
+      "description": "Bundled Open Design package for IBM, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "IBM",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-intercom",
+      "source": "./design-systems/intercom",
+      "description": "Bundled Open Design package for Intercom, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Intercom",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-kami",
+      "source": "./design-systems/kami",
+      "description": "Bundled Open Design package for kami (紙 / 纸), derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "kami (紙 / 纸)",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-kraken",
+      "source": "./design-systems/kraken",
+      "description": "Bundled Open Design package for Kraken, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Kraken",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-krea",
+      "source": "./design-systems/krea",
+      "description": "Category: AI & LLM",
+      "version": "0.1.0",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-lamborghini",
+      "source": "./design-systems/lamborghini",
+      "description": "Bundled Open Design package for Lamborghini, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Lamborghini",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-levels",
+      "source": "./design-systems/levels",
+      "description": "Bundled Open Design package for Levels, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Levels",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-linear-app",
+      "source": "./design-systems/linear-app",
+      "description": "Bundled Open Design package for Linear, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Linear",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-lingo",
+      "source": "./design-systems/lingo",
+      "description": "Bundled Open Design package for Lingo, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Lingo",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-loom",
+      "source": "./design-systems/loom",
+      "description": "Bundled Open Design package for Loom Design System, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Loom Design System",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-lovable",
+      "source": "./design-systems/lovable",
+      "description": "Bundled Open Design package for Lovable, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Lovable",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-luxury",
+      "source": "./design-systems/luxury",
+      "description": "Bundled Open Design package for Luxury, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Luxury",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-mastercard",
+      "source": "./design-systems/mastercard",
+      "description": "Bundled Open Design package for Mastercard, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Mastercard",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-material",
+      "source": "./design-systems/material",
+      "description": "Bundled Open Design package for Material, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Material",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-meta",
+      "source": "./design-systems/meta",
+      "description": "Bundled Open Design package for Meta (Store), derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Meta (Store)",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-midjourney",
+      "source": "./design-systems/midjourney",
+      "description": "Category: AI & LLM",
+      "version": "0.1.0",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-minimal",
+      "source": "./design-systems/minimal",
+      "description": "Bundled Open Design package for Minimal, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Minimal",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-minimax",
+      "source": "./design-systems/minimax",
+      "description": "Bundled Open Design package for MiniMax, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "MiniMax",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-mintlify",
+      "source": "./design-systems/mintlify",
+      "description": "Bundled Open Design package for Mintlify, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Mintlify",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-miro",
+      "source": "./design-systems/miro",
+      "description": "Bundled Open Design package for Miro, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Miro",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-mission-control",
+      "source": "./design-systems/mission-control",
+      "description": "Bundled Open Design package for Mission Control Design System, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Mission Control Design System",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-mistral-ai",
+      "source": "./design-systems/mistral-ai",
+      "description": "Bundled Open Design package for Mistral AI, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Mistral AI",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-modern",
+      "source": "./design-systems/modern",
+      "description": "Bundled Open Design package for Modern, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Modern",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-mongodb",
+      "source": "./design-systems/mongodb",
+      "description": "Bundled Open Design package for MongoDB, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "MongoDB",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-mono",
+      "source": "./design-systems/mono",
+      "description": "Bundled Open Design package for Mono, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Mono",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-neobrutalism",
+      "source": "./design-systems/neobrutalism",
+      "description": "Bundled Open Design package for Neobrutalism, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Neobrutalism",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-neon",
+      "source": "./design-systems/neon",
+      "description": "Bundled Open Design package for Neon, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Neon",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-neumorphism",
+      "source": "./design-systems/neumorphism",
+      "description": "Bundled Open Design package for Neumorphism, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Neumorphism",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-nike",
+      "source": "./design-systems/nike",
+      "description": "Bundled Open Design package for Nike, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Nike",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-notion",
+      "source": "./design-systems/notion",
+      "description": "Bundled Open Design package for Notion, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Notion",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-nvidia",
+      "source": "./design-systems/nvidia",
+      "description": "Bundled Open Design package for NVIDIA, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "NVIDIA",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-ollama",
+      "source": "./design-systems/ollama",
+      "description": "Bundled Open Design package for Ollama, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Ollama",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-openai",
+      "source": "./design-systems/openai",
+      "description": "Bundled Open Design package for OpenAI, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "OpenAI",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-opencode-ai",
+      "source": "./design-systems/opencode-ai",
+      "description": "Bundled Open Design package for OpenCode, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "OpenCode",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-pacman",
+      "source": "./design-systems/pacman",
+      "description": "Bundled Open Design package for Pacman, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Pacman",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-paper",
+      "source": "./design-systems/paper",
+      "description": "Bundled Open Design package for Paper, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Paper",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-perplexity",
+      "source": "./design-systems/perplexity",
+      "description": "Bundled Open Design package for Perplexity AI, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Perplexity AI",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-perspective",
+      "source": "./design-systems/perspective",
+      "description": "Bundled Open Design package for Perspective, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Perspective",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-pinterest",
+      "source": "./design-systems/pinterest",
+      "description": "Bundled Open Design package for Pinterest, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Pinterest",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-playstation",
+      "source": "./design-systems/playstation",
+      "description": "Bundled Open Design package for PlayStation, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "PlayStation",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-posthog",
+      "source": "./design-systems/posthog",
+      "description": "Bundled Open Design package for PostHog, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "PostHog",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-premium",
+      "source": "./design-systems/premium",
+      "description": "Bundled Open Design package for Premium, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Premium",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-professional",
+      "source": "./design-systems/professional",
+      "description": "Bundled Open Design package for Professional, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Professional",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-publication",
+      "source": "./design-systems/publication",
+      "description": "Bundled Open Design package for Publication, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Publication",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-raycast",
+      "source": "./design-systems/raycast",
+      "description": "Bundled Open Design package for Raycast, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Raycast",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-refined",
+      "source": "./design-systems/refined",
+      "description": "Bundled Open Design package for Refined, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Refined",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-renault",
+      "source": "./design-systems/renault",
+      "description": "Bundled Open Design package for Renault, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Renault",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-replicate",
+      "source": "./design-systems/replicate",
+      "description": "Bundled Open Design package for Replicate, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Replicate",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-replit",
+      "source": "./design-systems/replit",
+      "description": "Category: Developer Tools",
+      "version": "0.1.0",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-resend",
+      "source": "./design-systems/resend",
+      "description": "Bundled Open Design package for Resend, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Resend",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-retro",
+      "source": "./design-systems/retro",
+      "description": "Bundled Open Design package for Retro, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Retro",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-revolut",
+      "source": "./design-systems/revolut",
+      "description": "Bundled Open Design package for Revolut, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Revolut",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-runwayml",
+      "source": "./design-systems/runwayml",
+      "description": "Bundled Open Design package for Runway, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Runway",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-sanity",
+      "source": "./design-systems/sanity",
+      "description": "Bundled Open Design package for Sanity, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Sanity",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-sentry",
+      "source": "./design-systems/sentry",
+      "description": "Bundled Open Design package for Sentry, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Sentry",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-shadcn",
+      "source": "./design-systems/shadcn",
+      "description": "Bundled Open Design package for Shadcn, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Shadcn",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-shopify",
+      "source": "./design-systems/shopify",
+      "description": "Bundled Open Design package for Shopify, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Shopify",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-simple",
+      "source": "./design-systems/simple",
+      "description": "Bundled Open Design package for Simple, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Simple",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-skeumorphism",
+      "source": "./design-systems/skeumorphism",
+      "description": "Bundled Open Design package for Skeumorphism, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Skeumorphism",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-slack",
+      "source": "./design-systems/slack",
+      "description": "Bundled Open Design package for Slack, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Slack",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-sleek",
+      "source": "./design-systems/sleek",
+      "description": "Bundled Open Design package for Sleek, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Sleek",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-spacex",
+      "source": "./design-systems/spacex",
+      "description": "Bundled Open Design package for SpaceX, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "SpaceX",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-spacious",
+      "source": "./design-systems/spacious",
+      "description": "Bundled Open Design package for Spacious, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Spacious",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-spotify",
+      "source": "./design-systems/spotify",
+      "description": "Bundled Open Design package for Spotify, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Spotify",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-starbucks",
+      "source": "./design-systems/starbucks",
+      "description": "Bundled Open Design package for Starbucks, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Starbucks",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-storytelling",
+      "source": "./design-systems/storytelling",
+      "description": "Bundled Open Design package for Storytelling, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Storytelling",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-stripe",
+      "source": "./design-systems/stripe",
+      "description": "Bundled Open Design package for Stripe, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Stripe",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-supabase",
+      "source": "./design-systems/supabase",
+      "description": "Bundled Open Design package for Supabase, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Supabase",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-superhuman",
+      "source": "./design-systems/superhuman",
+      "description": "Bundled Open Design package for Superhuman, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Superhuman",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-tesla",
+      "source": "./design-systems/tesla",
+      "description": "Bundled Open Design package for Tesla, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Tesla",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-tetris",
+      "source": "./design-systems/tetris",
+      "description": "Bundled Open Design package for Tetris, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Tetris",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-theverge",
+      "source": "./design-systems/theverge",
+      "description": "Bundled Open Design package for The Verge, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "The Verge",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-together-ai",
+      "source": "./design-systems/together-ai",
+      "description": "Bundled Open Design package for Together AI, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Together AI",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-totality-festival",
+      "source": "./design-systems/totality-festival",
+      "description": "Bundled Open Design package for Totality Festival, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Totality Festival",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-trading-terminal",
+      "source": "./design-systems/trading-terminal",
+      "description": "Bundled Open Design package for Trading Terminal Design System, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Trading Terminal Design System",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-uber",
+      "source": "./design-systems/uber",
+      "description": "Bundled Open Design package for Uber, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Uber",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-urdu",
+      "source": "./design-systems/urdu",
+      "description": "Bundled Open Design package for Urdu Modern (Indus Script System), derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Urdu Modern (Indus Script System)",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-urdu-modern",
+      "source": "./design-systems/urdu-modern",
+      "description": "Category: Editorial / Personal / Publication",
+      "version": "0.1.0",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-v0",
+      "source": "./design-systems/v0",
+      "description": "Category: Developer Tools",
+      "version": "0.1.0",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-vercel",
+      "source": "./design-systems/vercel",
+      "description": "Bundled Open Design package for Vercel, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Vercel",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-vibrant",
+      "source": "./design-systems/vibrant",
+      "description": "Bundled Open Design package for Vibrant, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Vibrant",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-vintage",
+      "source": "./design-systems/vintage",
+      "description": "Bundled Open Design package for Vintage, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Vintage",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-vodafone",
+      "source": "./design-systems/vodafone",
+      "description": "Bundled Open Design package for Vodafone, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Vodafone",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-voltagent",
+      "source": "./design-systems/voltagent",
+      "description": "Bundled Open Design package for VoltAgent, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "VoltAgent",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-warm-editorial",
+      "source": "./design-systems/warm-editorial",
+      "description": "Bundled Open Design package for Warm Editorial, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Warm Editorial",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-warp",
+      "source": "./design-systems/warp",
+      "description": "Bundled Open Design package for Warp, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Warp",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-webex",
+      "source": "./design-systems/webex",
+      "description": "Bundled Open Design package for Webex, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Webex",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-webflow",
+      "source": "./design-systems/webflow",
+      "description": "Bundled Open Design package for Webflow, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Webflow",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-wechat",
+      "source": "./design-systems/wechat",
+      "description": "Bundled Open Design package for WeChat Design System, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "WeChat Design System",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-wired",
+      "source": "./design-systems/wired",
+      "description": "Bundled Open Design package for WIRED, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "WIRED",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-wise",
+      "source": "./design-systems/wise",
+      "description": "Bundled Open Design package for Wise, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Wise",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-x-ai",
+      "source": "./design-systems/x-ai",
+      "description": "Bundled Open Design package for xAI, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "xAI",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-xiaohongshu",
+      "source": "./design-systems/xiaohongshu",
+      "description": "Bundled Open Design package for Xiaohongshu, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Xiaohongshu",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "design-system-zapier",
+      "source": "./design-systems/zapier",
+      "description": "Bundled Open Design package for Zapier, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+      "version": "0.1.0",
+      "displayName": "Zapier",
+      "keywords": ["design-system"],
+      "category": "design-systems",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["design"],
+          "capabilitiesSummary": ["prompt:inject"]
+        }
+      }
+    },
+    {
+      "name": "event-recap",
+      "source": "./video-templates/event-recap",
+      "description": "Turn event footage and photos into a clean recap with pacing, titles, b-roll, and music.",
+      "version": "1.0.0",
+      "displayName": "Event Recap",
+      "license": "MIT",
+      "category": "video-templates",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["video"],
+          "capabilitiesSummary": [
+            "network:music",
+            "network:stock",
+            "prompt:inject"
+          ]
+        }
+      }
+    },
+    {
+      "name": "explainer",
+      "source": "./video-templates/explainer",
+      "description": "Produce a structured explainer with research-backed beats, narration, visuals, and QA.",
+      "version": "1.0.0",
+      "displayName": "Explainer",
+      "license": "MIT",
+      "category": "video-templates",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["video"],
+          "capabilitiesSummary": [
+            "media:generate",
+            "prompt:inject",
+            "research:web"
+          ]
+        }
+      }
+    },
+    {
+      "name": "social-reel",
+      "source": "./video-templates/social-reel",
+      "description": "Build a short social reel from a topic, source assets, stock b-roll, generated media, and music.",
+      "version": "1.0.0",
+      "displayName": "Social Reel",
+      "license": "MIT",
+      "category": "video-templates",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["video"],
+          "capabilitiesSummary": [
+            "media:generate",
+            "network:music",
+            "network:stock",
+            "prompt:inject",
+            "research:web"
+          ]
+        }
+      }
+    },
+    {
+      "name": "talking-head-auto-cut",
+      "source": "./video-templates/talking-head-auto-cut",
+      "description": "Analyze talking-head source footage, propose word-safe cuts, apply an approved cut plan, render a preview, and run QA.",
+      "version": "1.0.0",
+      "displayName": "Talking Head Auto-cut",
+      "license": "MIT",
+      "category": "video-templates",
+      "metadata": {
+        "neuma": {
+          "surfaces": ["video"],
+          "capabilitiesSummary": [
+            "media:transcribe",
+            "prompt:inject",
+            "video:analyze",
+            "video:edit"
+          ]
+        }
+      }
+    }
+  ]
+}

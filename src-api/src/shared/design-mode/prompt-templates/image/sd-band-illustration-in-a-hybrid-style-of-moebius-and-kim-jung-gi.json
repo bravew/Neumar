@@ -1,0 +1,18 @@
+{
+  "id": "sd-band-illustration-in-a-hybrid-style-of-moebius-and-kim-jung-gi",
+  "surface": "image",
+  "title": "Band Illustration in a Hybrid Style of Moebius and Kim Jung Gi",
+  "summary": "This prompt aims to generate a band image that combines the illustration styles of Moebius and Kim Jung Gi. It features a white minimalist background with layered colored pencil and watercolor techniques, presenting vivi.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Adopt a hybrid illustration style of Moebius and Kim Jung Gi, with a white minimalist background, using colored pencils and watercolors overlaid to create vibrant colors, intricate details, and smooth, tension-filled lines. The overall effect should convey a futuristic and strongly dynamic, exaggerated visual, depicting a band with bizarre shapes and exaggerated movements.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360448225_8otize_1765340288295-sovmnh-0217653402735382504cb05148e9a08cc7612c3f2b24e524dcfe7_0-600x450.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/liu10102525",
+    "author": "nene"
+  }
+}

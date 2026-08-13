@@ -1,0 +1,18 @@
+{
+  "id": "sd-isometric-national-park-map",
+  "surface": "image",
+  "title": "Isometric National Park Map",
+  "summary": "This prompt creates a stylized, isometric illustrated map of a national park, highlighting trails and landmarks. It combines geographic accuracy with artistic illustration for brochures or websites.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:3",
+  "prompt": "A stylized, isometric illustrated map of a national park. The map should highlight key trails, landmarks (like waterfalls and viewpoints), visitor centers, and camping areas. The style should be friendly and inviting, with small illustrations of animals that live in the park. This is for a park brochure or website, requiring a mix of geographic accuracy and artistic illustration. –ar 4:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359970268_rcdthd_bf500cba6499874444cf6ff9375a9c765df1bb571a2b8216c70ffa7a3a283d54-600x450.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

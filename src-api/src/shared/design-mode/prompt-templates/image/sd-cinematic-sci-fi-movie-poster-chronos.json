@@ -1,0 +1,18 @@
+{
+  "id": "sd-cinematic-sci-fi-movie-poster-chronos",
+  "surface": "image",
+  "title": "Cinematic Sci-Fi Movie Poster \"CHRONOS\"",
+  "summary": "This prompt generates a cinematic, epic movie poster for a fictional sci-fi blockbuster titled \"CHRONOS.\" It features a rugged astronaut looking at a black hole, with a mysterious alien artifact reflection, showcasing ad.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "A cinematic, epic movie poster for a fictional sci-fi blockbuster titled “CHRONOS”. The poster features the main hero, a rugged astronaut, looking out at a massive, swirling black hole in space. The reflection of a mysterious alien artifact is visible in his helmet visor. The typography is bold, metallic, and modern. The tagline “Time is the enemy” is positioned at the bottom. This requires advanced cinematic lighting, composition, and the ability to blend multiple complex elements seamlessly. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359801504_0xpg0w_1e5e6f6d40dcbf37b3007a60a5143337e0a67b48f0bae155544672a004419bb1-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

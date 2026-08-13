@@ -1,0 +1,18 @@
+{
+  "id": "sd-software-developer-recruitment-flyer",
+  "surface": "image",
+  "title": "Software Developer Recruitment Flyer",
+  "summary": "This prompt generates a bold and direct recruitment flyer for a startup seeking software developers. It uses strong sans-serif font, an abstract illustration of code becoming a city skyline, and an energetic, tech-orient.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "A bold and direct recruitment flyer for a startup looking for software developers. The headline “BUILD THE FUTURE” is in a large, strong, sans-serif font. The main visual is an abstract, stylized illustration of code turning into a growing city skyline. The company logo and a QR code to the application page are prominently displayed at the bottom. The color palette is energetic and tech-oriented (e.g., electric blue and dark gray). –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359779471_v1iid4_2be83f81b65155b8bd931d172064c1bc0cc2fb041ac281d6514d194c61e594a6-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

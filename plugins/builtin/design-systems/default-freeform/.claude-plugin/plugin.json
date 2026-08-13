@@ -1,0 +1,12 @@
+{
+  "name": "design-system-default-freeform",
+  "version": "0.1.0",
+  "description": "Category: Starter",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

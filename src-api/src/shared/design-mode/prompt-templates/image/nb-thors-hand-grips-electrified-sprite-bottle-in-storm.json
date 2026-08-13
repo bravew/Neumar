@@ -1,0 +1,18 @@
+{
+  "id": "nb-thors-hand-grips-electrified-sprite-bottle-in-storm",
+  "surface": "image",
+  "title": "Thor's Hand Grips Electrified Sprite Bottle in Storm",
+  "summary": "A powerful, photorealistic image depicts a hand, reminiscent of Thor's, gripping a glowing green Sprite bottle amidst a stormy, rain-swept background. Lightning bolts electrify the scene, illuminating.",
+  "category": "Product Photography",
+  "tags": ["nano-banana", "gemini", "product", "studio", "commercial"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "3:4",
+  "prompt": "[\n  {\n    \"concept_id\": \"iron_man_coke\",\n    \"visual_breakdown\": {\n      \"focus_object\": \"Coca-Cola Can\",\n      \"character_element\": \"Iron Man's Gauntlet\",\n      \"environment\": \"Blurred City Skyline\"\n    },\n    \"artistic_direction\": {\n      \"lighting\": \"Cinematic/Metallic\",\n      \"mood\": \"technological\"\n    },\n    \"generation_command\": {\n      \"aspect_ratio\": \"7:9\",\n      \"concise_prompt\": \"Iron Man's gauntlet hovering below a floating Coca-Cola can, cinematic city background, dramatic movie poster lighting. --ar 7:9\"\n    }\n  },\n  {\n    \"concept_id\": \"hulk_pepsi\",\n    \"visual_breakdown\": {\n      \"focus_object\": \"Crushed Pepsi Can\",\n      \"character_element\": \"Hulk's Giant Hand\",\n      \"environment\": \"Smoky City Ruins\"\n    },\n    \"artistic_direction\": {\n      \"lighting\": \"Explosive/High Contrast\",\n      \"mood\": \"destructive\"\n    },\n    \"generation_command\": {\n      \"aspect_ratio\": \"7:9\",\n      \"concise_prompt\": \"Hulk's giant hand hovering over a crushed Pepsi can embedded in pavement, smoky ruins, explosive action movie style. --ar 7:9\"\n    }\n  },\n  {\n    \"concept_id\": \"thor_sprite\",\n    \"visual_breakdown\": {\n      \"focus_object\": \"Sprite Bottle\",\n      \"character_element\": \"Thor's Glowing Hand\",\n      \"environment\": \"Storm/Lightning\"\n    },\n    \"artistic_direction\": {\n      \"lighting\": \"Electric/Blue-Toned\",\n      \"mood\": \"mythological\"\n    },\n    \"generation_command\": {\n      \"aspect_ratio\": \"7:9\",\n      \"concise_prompt\": \"Thor's glowing hand holding a floating Sprite bottle amidst crackling lightning and rain, Mjolnir in background, epic poster style. --ar 7:9\"\n    }\n  },\n  {\n    \"concept_id\": \"dr_strange_fanta\",\n    \"visual_breakdown\": {\n      \"focus_object\": \"Fanta Bottle\",\n      \"character_element\": \"Doctor Strange's Hand\",\n      \"environment\": \"Golden Magic Portal\"\n    },\n    \"artistic_direction\": {\n      \"lighting\": \"Magical/Golden Bokeh\",\n      \"mood\": \"mystical\"\n    },\n    \"generation_command\": {\n      \"aspect_ratio\": \"7:9\",\n      \"concise_prompt\": \"Doctor Strange casting a spell under a spinning Fanta bottle inside a golden magic portal, mystical Sanctum background, cinematic lighting. --ar 7:9\"\n    }\n  }\n]",
+  "previewImageUrl": "https://pbs.twimg.com/media/G8iUn5UXgAAFj68.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/YaseenK7212/status/2002013476370444766",
+    "author": "Yaseen Khan Gul"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sd-chinese-food-map-infographic-poster",
+  "surface": "image",
+  "title": "Chinese Food Map Infographic Poster",
+  "summary": "This prompt is designed to generate an infographic poster based on the map of China, with different color blocks marking each province, accompanied by highly three-dimensional and realistic representative food icons and.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Create a graphic poster titled \"Chinese Food Map\". The overall design is based on the map of China, with each province identified by a separate colored block background. Above each province, label the name of a representative dish and include a three-dimensional icon with a strong sense of realism (such as {argument name=\"food icon examples\" default=\"hot pot, roast duck, dim sum\"}), ensuring the food icons have a realistic texture. The main title is \"Chinese Food Map\", with neat typography, combining a flat illustration style with three-dimensional elements, and soft colors.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360455020_wgx9v9_1765340270629-wkli3h-02176534024967730d072d337ea6fcc7bbfbe2f0c485be24888b0_0-600x800.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/liu10102525",
+    "author": "nene"
+  }
+}

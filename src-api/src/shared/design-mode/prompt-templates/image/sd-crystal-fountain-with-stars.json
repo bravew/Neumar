@@ -1,0 +1,18 @@
+{
+  "id": "sd-crystal-fountain-with-stars",
+  "surface": "image",
+  "title": "Crystal Fountain with Stars",
+  "summary": "A dreamy, retro-style prompt combining a crystal fountain with colorful star stickers. It uses a specific trigger code to generate a nostalgic image with fine film grain.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "h0674kz, colorful star stickers, a fountain decorated with bright crystal bead chains, retro film style, fine graininess",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360230270_ezv9cs_1765288370319-dqtbl9-0217652883542227b67bbc2a2a9a26108e071e40bb0b084e528f9_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

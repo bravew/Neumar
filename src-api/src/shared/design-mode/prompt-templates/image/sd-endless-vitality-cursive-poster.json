@@ -1,0 +1,18 @@
+{
+  "id": "sd-endless-vitality-cursive-poster",
+  "surface": "image",
+  "title": "Endless Vitality Cursive Poster",
+  "summary": "This prompt generates a dynamic cursive poster featuring the phrase “生生不息”, with wild flowing strokes and flying white effects, suitable for movie posters or cultural and art promotions.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Calligraphy font poster \"{argument name=\"poster text\" default=\"Life Goes On\"}\", wild and uninhibited cursive font, visual tension full of dynamism, ultra-thick strokes smooth and elegant, strokes cleverly extended and deformed, flying white effect, strokes smooth and chic, clean background, master poster work, movie poster,",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360344447_ay1svn_1765339531784-ohhx37-0217653395206267b67bbc2a2a9a26108e071e40bb0b0844e93e4_0-600x800.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7551613974454832436?workDetailType=Image&itemType=9",
+    "author": "元祖儿"
+  }
+}

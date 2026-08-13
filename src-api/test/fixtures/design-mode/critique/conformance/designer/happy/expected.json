@@ -1,0 +1,10 @@
+{
+  "role": "designer",
+  "round": 1,
+  "score": 8,
+  "passes": true,
+  "evidence": "Clear hierarchy and action placement.",
+  "mustFix": [],
+  "quickWins": ["Tighten spacing between heading and action."],
+  "parserWarnings": []
+}

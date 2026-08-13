@@ -1,0 +1,11 @@
+{
+  "id": "bitty",
+  "displayName": "Bitty",
+  "description": "A tiny retro handheld console with a smiling green screen.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "retro", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/bitty-openpets",
+  "category": "western"
+}

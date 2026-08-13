@@ -1,0 +1,18 @@
+{
+  "id": "nb-fashion-design-layering-texture-sheer-fabric-diagram",
+  "surface": "image",
+  "title": "Fashion Design: Layering, Texture & Sheer Fabric Diagram",
+  "summary": "An informative whiteboard diagram illustrates fashion design concepts of layering and texture, featuring a hand-drawn female croquis. The diagram highlights a sheer black mesh crop top, an opaque unde.",
+  "category": "Character Design",
+  "tags": ["nano-banana", "gemini", "character", "character-design"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{{USER_TEXT}}\n  - Image input (if provided): {{USER_IMAGE}}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9pFHr9aMAUKNyn.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/IamEmily2050/status/2006993215736655946",
+    "author": "Emily"
+  }
+}

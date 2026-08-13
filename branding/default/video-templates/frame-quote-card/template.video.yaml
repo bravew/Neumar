@@ -1,0 +1,71 @@
+spec_version: 1
+id: frame-quote-card
+name: Quote Card
+description: >
+  Large pull quote with attribution. Suitable for vertical reels.
+engine: html
+engine_version: ^1.60.0
+source_entry: source/index.html
+
+category: social-shorts
+subcategory: pull-quote
+tags: [quote, social, reel, vertical]
+best_for:
+  - 'Testimonials'
+  - 'Single-line take on a topic'
+
+output:
+  formats: [mp4]
+  default_format: mp4
+  resolution:
+    default: { width: 1080, height: 1920 }
+    supported_aspects: ['9:16', '1:1']
+  fps:
+    default: 30
+    supported: [24, 30, 60]
+  duration:
+    type: variable
+    min_sec: 3
+    max_sec: 8
+  alpha: false
+  audio:
+    supported: false
+
+inputs:
+  schema:
+    type: object
+    required: [quote, attribution]
+    properties:
+      quote:
+        type: string
+        title: Quote
+        maxLength: 240
+        description: 'Pull quote body. Up to ~240 chars.'
+      attribution:
+        type: string
+        title: Attribution
+        maxLength: 60
+        description: 'Who said it.'
+      accent_color:
+        type: string
+        title: Accent Color
+        default: '#ff5a36'
+  examples:
+    - quote: 'The best way to predict the future is to invent it.'
+      attribution: 'Alan Kay'
+
+license:
+  spdx: Apache-2.0
+  attribution_required: false
+  redistribution_allowed: true
+  commercial_use: true
+
+provenance:
+  origin:
+    kind: in-house
+  transformation: 'Original Neuma design — quote card with mark and attribution.'
+
+author:
+  name: Neuma
+
+version: 0.1.0

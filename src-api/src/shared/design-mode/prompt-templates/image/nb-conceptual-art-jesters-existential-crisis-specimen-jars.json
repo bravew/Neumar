@@ -1,0 +1,18 @@
+{
+  "id": "nb-conceptual-art-jesters-existential-crisis-specimen-jars",
+  "surface": "image",
+  "title": "Conceptual Art: Jester's Existential Crisis Specimen Jars",
+  "summary": "A meticulously rendered conceptual art piece features three corked glass specimen jars on a wooden table, against a soft, bright background. The central jar contains a fragmented jester suspended in a.",
+  "category": "Fantasy & Sci-Fi",
+  "tags": ["nano-banana", "gemini", "fantasy", "scifi"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n\"creation_intent\": \"娱乐或玩笑\",\n\"generation_logic\": \"瞬间叙事\",\n\"subject_kit\": {\n\"primary_subject\": \"标本罐\",\n\"secondary_elements\": [\n\"软木塞封\",\n\"浑浊液体\",\n\"手写标签\"\n]\n},\n\"core_tension\": \"角色 vs 原型\",\n\"twist_mechanisms\": [\n\"碎片马赛克\",\n\"服装分解\",\n\"时间断裂\"\n],\n\"stage_context\": \"博物馆修复工作间\",\n\"composition_rule\": \"类型学序列布局\",\n\"lighting_rule\": \"阴天柔光\",\n\"imaging_assumption\": \"极简物体研究\",\n\"deliverable_type\": \"概念帧\",\n\"creative_directive\": \"对荒诞的事物使用过度的正式感\",\n\"oblique_strategy\": \"极简约束：只用3个元素\"\n}\n\n#nanobanana #NanoBananaPro #Prompt #MetaGeny",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9l7syUaMAcqpeC.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/ttmouse/status/2006771865436704798",
+    "author": "ttmouse - 豆爸"
+  }
+}

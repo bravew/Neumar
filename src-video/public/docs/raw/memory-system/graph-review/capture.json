@@ -1,0 +1,40 @@
+{
+  "id": "memory-system.graph-review",
+  "kind": "video",
+  "page": "memory-system",
+  "slot": "graph-review",
+  "route": "/library?tab=graph",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"library-page\"]",
+    "masks": [],
+    "steps": [
+      "Pause on graph status",
+      "Scroll into the graph report",
+      "Hold on memory report"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:00:07.732Z",
+  "source": "source.webm"
+}

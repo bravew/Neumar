@@ -1,0 +1,118 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:webview:allow-create-webview-window",
+    "core:webview:allow-set-webview-background-color",
+    "core:webview:allow-webview-close",
+    "core:window:allow-close",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-background-color",
+    "core:window:allow-set-position",
+    "core:window:allow-show",
+    "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "$HOME/.neumar/**"
+        },
+        {
+          "path": "$HOME/.claude/**"
+        },
+        {
+          "path": "$DOWNLOAD/**"
+        },
+        {
+          "path": "$DESKTOP/**"
+        },
+        {
+          "path": "$DOCUMENT/**"
+        }
+      ]
+    },
+    {
+      "identifier": "opener:allow-reveal-item-in-dir",
+      "allow": [
+        {
+          "path": "$HOME/.neumar/**"
+        },
+        {
+          "path": "$HOME/.claude/**"
+        },
+        {
+          "path": "$DOWNLOAD/**"
+        },
+        {
+          "path": "$DESKTOP/**"
+        },
+        {
+          "path": "$DOCUMENT/**"
+        }
+      ]
+    },
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-close",
+    "dialog:default",
+    "keychain:default",
+    "stronghold:default",
+    "stronghold:allow-initialize",
+    "stronghold:allow-load-client",
+    "stronghold:allow-create-client",
+    "stronghold:allow-save",
+    "stronghold:allow-save-store-record",
+    "stronghold:allow-get-store-record",
+    "stronghold:allow-remove-store-record",
+    "macos-permissions:default",
+    "fs:default",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-copy-file",
+    "fs:allow-rename",
+    "fs:allow-read-dir",
+    "fs:allow-remove",
+    "fs:allow-exists",
+    "fs:allow-stat",
+    "fs:read-files",
+    "fs:allow-temp-read-recursive",
+    "fs:scope-temp-recursive",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        "$HOME/.neumar/**",
+        "$HOME/.claude/**",
+        "$DOWNLOAD/**",
+        "$DESKTOP/**",
+        "$DOCUMENT/**"
+      ]
+    },
+    "notification:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    "updater:default",
+    "process:allow-restart",
+    "shell:allow-kill",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "neumar-api",
+          "sidecar": true
+        },
+        {
+          "name": "claude-code",
+          "sidecar": true
+        }
+      ]
+    }
+  ]
+}

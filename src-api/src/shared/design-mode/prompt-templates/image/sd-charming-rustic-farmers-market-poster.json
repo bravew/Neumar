@@ -1,0 +1,18 @@
+{
+  "id": "sd-charming-rustic-farmers-market-poster",
+  "surface": "image",
+  "title": "Charming Rustic Farmers Market Poster",
+  "summary": "This prompt generates a charming and rustic poster for a local farmers market. It features a hand-drawn illustration of fresh produce and flowers, with friendly typography to convey a wholesome, community-oriented feel.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "A charming and rustic poster for a local farmers market. The design is an illustration in a friendly, hand-drawn style, featuring a bounty of fresh vegetables, fruits, and flowers in a wooden crate. The typography is a friendly, rounded sans-serif. The poster should feel wholesome, local, and community-oriented. –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359700134_ix6s0n_aac15ea93919e9be4354837fd578b1dd1ab5f5eb0fa46415d47b4c11c9d1ae36-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

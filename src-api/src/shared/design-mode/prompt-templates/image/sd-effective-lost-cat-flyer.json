@@ -1,0 +1,18 @@
+{
+  "id": "sd-effective-lost-cat-flyer",
+  "surface": "image",
+  "title": "Effective 'Lost Cat' Flyer",
+  "summary": "This prompt generates an effective and clear \"Lost Cat\" flyer. It features a large photo of the cat, bold text, and contact information with tear-off tabs, demonstrating the ability to create practical, real-world design.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "An effective and clear “Lost Cat” flyer. The design is simple and functional. It features a large, clear, color photograph of the cat at the top. The headline “LOST CAT” is in a very large, bold, and easy-to-read font. Below the photo are the cat’s name, description, last seen location, and the owner’s contact information with tear-off tabs at the bottom. This demonstrates the ability to create practical, real-world designs. –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359674422_t8le7q_a7f1e1c4d786c8a59b6d56bed9f1794953eaf4c91d925c67b07d1ea281ad9f69-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

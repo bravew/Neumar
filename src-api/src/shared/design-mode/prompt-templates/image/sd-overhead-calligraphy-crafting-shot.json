@@ -1,0 +1,18 @@
+{
+  "id": "sd-overhead-calligraphy-crafting-shot",
+  "surface": "image",
+  "title": "Overhead Calligraphy Crafting Shot",
+  "summary": "This prompt generates a beautifully styled overhead shot of a crafting table with calligraphy supplies. It aims for soft lighting and fine detail, perfect for inspiring creative hobbyists on social media.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "A beautifully styled overhead shot of a crafting table where someone is practicing calligraphy. The scene includes a bottle of black ink, a dip pen, a sheet of high-quality paper with elegant lettering, and a few dried flowers for decoration. The lighting is soft and focused on the calligraphy. The image should be serene and inspiring, perfect for a creative hobbyist’s Instagram feed, showcasing fine detail and object placement. –ar 1:1",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360179002_wwu76m_70062e7ce488d2b620eee1af3585e26d690b5efc7951939621407713383231e4-600x600.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

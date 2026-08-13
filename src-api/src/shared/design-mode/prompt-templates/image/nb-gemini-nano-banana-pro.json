@@ -1,0 +1,18 @@
+{
+  "id": "nb-gemini-nano-banana-pro",
+  "surface": "image",
+  "title": "Gemini Nano Banana Pro",
+  "summary": "**Prompt:**.",
+  "category": "Miscellaneous",
+  "tags": ["nano-banana", "gemini", "misc"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"subject\": {\n    \"description\": \"Young woman lying on a bed\",\n    \"pose\": \"Lying on stomach, propped up on elbows, legs raised and crossed at the ankles behind her\",\n    \"expression\": \"Pouting lips, looking directly at the camera\",\n    \"hair\": \"Long, dark brown, loose and straight\",\n    \"clothing\": {\n      \"hat\": \"Red and white Santa hat with white fur trim and pom-pom\",\n      \"outfit\": \"Red velvet long-sleeved dress or top with white fur cuffs\",\n      \"stockings\": \"Sheer white thigh-high stockings\"\n    },\n    \"hands\": \"Right hand raised near face, showing manicured nails with red French tips\"\n  },\n  \"setting\": {\n    \"location\": \"Bedroom interior\",\n    \"furniture\": \"Bed with white linens and pillows\",\n    \"background_elements\": [\n      \"Cream-colored walls with decorative molding\",\n      \"Lamp with a pleated shade\",\n      \"Christmas garland with lights attached to wall/headboard\",\n      \"Small Christmas tree with lights in the distance\"\n    ]\n  },\n  \"lighting\": \"Warm, indoor ambient lighting\",\n  \"perspective\": \"High angle, looking down at the subject\",\n  \"orientation\": \"Vertical\"\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G8TX4SzWsAYokD-.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/xmliisu/status/2000961513985601954",
+    "author": "Melisa♡"
+  }
+}

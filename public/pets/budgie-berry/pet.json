@@ -1,0 +1,11 @@
+{
+  "id": "budgie-berry",
+  "displayName": "Budgie Berry",
+  "description": "A round pink bird with a small green sprout.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "animal", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/budgie-berry-openpets",
+  "category": "western"
+}

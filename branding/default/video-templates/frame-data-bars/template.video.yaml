@@ -1,0 +1,90 @@
+spec_version: 1
+id: frame-data-bars
+name: Data Bars
+description: >
+  Title and an animated horizontal bar chart from a list of (label, value) pairs.
+engine: html
+engine_version: ^1.60.0
+source_entry: source/index.html
+
+category: data-viz
+subcategory: bar-chart
+tags: [chart, bar, data, metrics]
+best_for:
+  - 'Comparing 2-8 metrics'
+  - 'Annual report highlights'
+
+output:
+  formats: [mp4]
+  default_format: mp4
+  resolution:
+    default: { width: 1920, height: 1080 }
+    supported_aspects: ['16:9']
+  fps:
+    default: 30
+    supported: [24, 30, 60]
+  duration:
+    type: variable
+    min_sec: 4
+    max_sec: 12
+  alpha: false
+  audio:
+    supported: false
+
+inputs:
+  schema:
+    type: object
+    required: [title, data]
+    properties:
+      title:
+        type: string
+        title: Title
+        maxLength: 80
+      subtitle:
+        type: string
+        title: Subtitle
+        maxLength: 140
+      data:
+        type: array
+        minItems: 2
+        maxItems: 8
+        items:
+          type: object
+          required: [label, value]
+          properties:
+            label:
+              type: string
+              maxLength: 40
+            value:
+              type: number
+              minimum: 0
+      unit:
+        type: string
+        title: Unit
+        description: "Suffix shown after each value (e.g. '%', 'k')."
+        maxLength: 8
+        default: ''
+  examples:
+    - title: 'Q3 numbers'
+      subtitle: 'by team'
+      data:
+        - { label: 'Templates', value: 231 }
+        - { label: 'Skills', value: 15 }
+        - { label: 'Systems', value: 150 }
+      unit: ''
+
+license:
+  spdx: Apache-2.0
+  attribution_required: false
+  redistribution_allowed: true
+  commercial_use: true
+
+provenance:
+  origin:
+    kind: in-house
+  transformation: 'Original Neuma design — animated bar chart with value counter.'
+
+author:
+  name: Neuma
+
+version: 0.1.0

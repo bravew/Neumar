@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-wildflower-meadow-bridal-portrait",
+  "surface": "image",
+  "title": "Radiant Bridal Portrait in Wildflower Meadow",
+  "summary": "Film-aesthetic bridal portrait on pushed Fuji Pro 400H — a Korean idol in ivory silk satin with cathedral veil, backlit at golden hour in a wildflower meadow with creamy bokeh and authentic film grain.",
+  "category": "Portrait / Fashion",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "portrait",
+    "fashion",
+    "film",
+    "bridal",
+    "fujifilm"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "9:16",
+  "prompt": "9:16 Japanese-style film photograph, Fujifilm aesthetic, shot on pushed Fuji Pro 400H at ISO 800 with prominent visible film grain. A stunning Korean female idol wears a sexy ivory wedding dress in an open wildflower meadow during golden hour with strong backlight from the setting sun. She stands in a confident body-twist pose with deep V-neckline, spaghetti straps, dramatic open back, and thigh-high slit. The dress is ivory silk satin with sheer tulle overlay. A cathedral-length veil billows upward, creating a luminous halo. She looks at camera with a radiant Duchenne smile, one hand touching the floating veil. Backlight creates golden halo, rim light, angelic glow through veil, subsurface scattering, and translucent dress glow. Face lit by soft environmental fill light with cool pink Fujifilm skin tone. Wind-swept hair outlined in gold. Background dissolved into creamy bokeh at f/1.4. Fuji Pro 400H color science with cool pink skin tones, fresh teals, warm peach-gold highlights, violet-blue shadows, low contrast, slightly lifted black point. Strong natural vignette. 35mm lens at f/1.4 with rounded Fujinon bokeh and slight warm barrel distortion. Masterpiece, best quality, editorial bridal photography, 8K UHD, photorealistic.",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/006-raw_20260423_promptgather_prompt_081__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

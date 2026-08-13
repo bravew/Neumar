@@ -1,0 +1,175 @@
+{
+  "version": "2.8",
+  "children": [
+    {
+      "type": "frame",
+      "id": "bi8Au",
+      "x": 0,
+      "y": 0,
+      "name": "Frame",
+      "clip": true,
+      "width": 800,
+      "height": 600,
+      "fill": "#FFFFFF",
+      "layout": "none"
+    },
+    {
+      "type": "frame",
+      "id": "5GJzR",
+      "x": 0,
+      "y": 0,
+      "name": "AI Agent Logo",
+      "width": 800,
+      "height": 624,
+      "fill": "#0A0A0F",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "b9DW8",
+          "x": 0,
+          "y": 0,
+          "name": "Background",
+          "width": 800,
+          "height": 800,
+          "fill": {
+            "type": "gradient",
+            "gradientType": "radial",
+            "enabled": true,
+            "rotation": 0,
+            "size": {
+              "width": 1,
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#141428",
+                "position": 0
+              },
+              {
+                "color": "#0A0A0F",
+                "position": 1
+              }
+            ]
+          },
+          "layout": "none"
+        },
+        {
+          "type": "frame",
+          "id": "5UXsi",
+          "x": 11,
+          "y": 34,
+          "name": "Bull Logo",
+          "width": 789,
+          "height": 591,
+          "fill": {
+            "type": "image",
+            "enabled": true,
+            "url": "./images/generated-1771258931128.png",
+            "mode": "fill"
+          },
+          "layout": "none"
+        },
+        {
+          "type": "path",
+          "id": "D29CA",
+          "x": 130,
+          "y": 110,
+          "name": "Hex Ring",
+          "geometry": "M270 0l230 130 0 240-230 130-230-130 0-240z",
+          "width": 540,
+          "height": 500,
+          "stroke": {
+            "thickness": 1,
+            "fill": "#FFD70025"
+          }
+        },
+        {
+          "type": "path",
+          "id": "vkEoM",
+          "x": 60,
+          "y": 60,
+          "name": "Corner Accent TL",
+          "geometry": "M0 60l0-60 60 0",
+          "width": 60,
+          "height": 60,
+          "stroke": {
+            "thickness": 2,
+            "fill": "#FFD70050"
+          }
+        },
+        {
+          "type": "path",
+          "id": "dIkBN",
+          "x": 680,
+          "y": 60,
+          "name": "Corner Accent TR",
+          "geometry": "M0 0l60 0 0 60",
+          "width": 60,
+          "height": 60,
+          "stroke": {
+            "thickness": 2,
+            "fill": "#FFD70050"
+          }
+        },
+        {
+          "type": "path",
+          "id": "Mqclq",
+          "x": 60,
+          "y": 730,
+          "name": "Corner Accent BL",
+          "geometry": "M0 0l0 60 60 0",
+          "width": 60,
+          "height": 60,
+          "stroke": {
+            "thickness": 2,
+            "fill": "#FFD70050"
+          }
+        },
+        {
+          "type": "path",
+          "id": "ck17e",
+          "x": 680,
+          "y": 730,
+          "name": "Corner Accent BR",
+          "geometry": "M60 0l0 60-60 0",
+          "width": 60,
+          "height": 60,
+          "stroke": {
+            "thickness": 2,
+            "fill": "#FFD70050"
+          }
+        },
+        {
+          "type": "ellipse",
+          "id": "OInai",
+          "x": 250,
+          "y": 180,
+          "name": "Bull Glow",
+          "fill": {
+            "type": "gradient",
+            "gradientType": "radial",
+            "enabled": true,
+            "rotation": 0,
+            "size": {
+              "width": 1,
+              "height": 1
+            },
+            "colors": [
+              {
+                "color": "#FFD70015",
+                "position": 0
+              },
+              {
+                "color": "#FFD70000",
+                "position": 1
+              }
+            ]
+          },
+          "width": 300,
+          "height": 300
+        }
+      ]
+    }
+  ]
+}

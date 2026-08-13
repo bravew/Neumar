@@ -1,0 +1,13 @@
+{
+  "name": "design-system-claymorphism",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for Claymorphism, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "Claymorphism",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

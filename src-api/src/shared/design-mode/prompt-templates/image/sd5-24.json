@@ -1,0 +1,17 @@
+{
+  "id": "sd5-24",
+  "surface": "image",
+  "title": "A vertical composition with an aspect ratio of 9:16 frames a…",
+  "summary": "A vertical composition with an aspect ratio of 9:16 frames a close-up portrait of a young woman who embodies the transcendent allure of a supermodel, her features bathed in the stark, illuminating wash of a direct flash…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "9:16",
+  "prompt": "A vertical composition with an aspect ratio of 9:16 frames a close-up portrait of a young woman who embodies the transcendent allure of a supermodel, her features bathed in the stark, illuminating wash of a direct flash against a void of deep black shadow. She appears to be of Northern European heritage, possessing a porcelain-fair complexion with cool pink undertones, the skin dewy and radiant, glowing with an ethereal perfection. Her age is estimated to be in the fresh bloom of her early twenties, and her visible form suggests a slender, lithe build, characterized by a delicate neck and prominent collarbones. Her face is tilted slightly upward, showcasing flawless symmetry and high, sculpted cheekbones flushed with a vibrant rosy hue. Piercing blue eyes, wide and captivating, gaze upward with profound depth, their crystalline color contrasting dramatically with the tumble of long, raven-black hair that frames her face in loose, messy waves, with stray strands catching the light across her nose and cheeks. Her lips are exceptionally full and inviting, coated in a glossy sheen that reflects the light, parted slightly to reveal a glimpse of teeth in an expression of breathless elegance. Around her neck, a classic strand of white pearls sits tight against the skin, leading down to a white garment adorned with gathered fabric and delicate lace trim at the bust. The lighting emphasizes the high points of her face—the tip of her button nose, the cupid's bow, and the chin—creating a visual hierarchy that celebrates her mesmerizing aesthetic grace within the darkness.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/d7cf1e3b-1279-4b7f-bac2-449357999a3f",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea641f2b552957d3c5750"
+  }
+}

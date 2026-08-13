@@ -1,0 +1,13 @@
+{
+  "name": "design-system-kami",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for kami (紙 / 纸), derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "kami (紙 / 纸)",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

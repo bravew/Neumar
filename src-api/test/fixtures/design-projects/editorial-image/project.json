@@ -1,0 +1,33 @@
+{
+  "id": "fixture-editorial-image",
+  "title": "Fixture Editorial Image",
+  "surface": "image",
+  "status": "complete",
+  "skillId": "image-poster",
+  "designSystemId": "editorial",
+  "inspirationDesignSystemIds": [],
+  "craftRefs": ["anti-ai-slop", "color"],
+  "brief": {
+    "subject": "festival poster",
+    "audience": "arts subscribers"
+  },
+  "media": {
+    "model": "gpt-image-1.5",
+    "aspect": "4:3",
+    "imageStyle": "editorial poster"
+  },
+  "outputs": [
+    {
+      "id": "out-image-1",
+      "kind": "image",
+      "path": "assets/generated/poster.svg",
+      "mime": "image/svg+xml",
+      "provider": "openai",
+      "model": "gpt-image-1.5",
+      "taskId": "task-image-1",
+      "createdAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-02T00:00:00.000Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z"
+}

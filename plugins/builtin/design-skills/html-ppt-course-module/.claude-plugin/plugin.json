@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-html-ppt-course-module",
+  "version": "0.1.0",
+  "description": "Online-course / workshop module deck — warm paper background + Playfair serif, persistent left sidebar of learning objectives, MCQ self-check page. Use for teaching modules, training materials, workshop slides.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "automations.hero",
+  "kind": "image",
+  "page": "automations",
+  "slot": "hero",
+  "route": "/automation",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 2,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"automation-page\"]",
+    "masks": [],
+    "steps": []
+  },
+  "capturedAt": "2026-05-09T21:58:24.028Z",
+  "source": "source.png"
+}

@@ -1,0 +1,18 @@
+export default {
+  title: 'टेम्पलेट',
+  startWithTemplate: 'टेम्पलेट से शुरू करें',
+  gallery: 'टेम्पलेट गैलरी',
+  search: 'टेम्पलेट खोजें',
+  allCategories: 'सभी',
+  dev: 'विकास',
+  writing: 'लेखन',
+  research: 'अनुसंधान',
+  data: 'डेटा',
+  design: 'डिज़ाइन',
+  ops: 'संचालन',
+  useTemplate: 'टेम्पलेट का उपयोग करें',
+  saveAsTemplate: 'टेम्पलेट के रूप में सहेजें',
+  builtIn: 'अंतर्निहित',
+  custom: 'कस्टम',
+  noTemplates: 'कोई टेम्पलेट नहीं मिला',
+};

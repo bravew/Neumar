@@ -1,0 +1,18 @@
+{
+  "id": "sd-blueprint-passive-solar-design",
+  "surface": "image",
+  "title": "Blueprint Passive Solar Design",
+  "summary": "This prompt creates a blueprint-style drawing explaining passive solar design in a house. It uses white lines on a blue background to show how sun angle affects heating/cooling, requiring technical accuracy and understan.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A section of a blueprint-style drawing explaining the concept of passive solar design in a house. The drawing should use white lines on a blue background, showing how the angle of the sun in winter and summer affects the heating and cooling of the house through window placement and overhangs. This requires technical accuracy and an understanding of architectural and physics principles. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359973271_pdbxwc_c6b94b7b550aac22ddcc5cb218e2579891facd7bf4789233eb0581b2ba0c84d9-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sd-barbie-dream-room",
+  "surface": "image",
+  "title": "Barbie Dream Room",
+  "summary": "Generates a hyper-realistic yet surreal interior inspired by the Barbie aesthetic. It features plastic textures, specific Pantone pinks, and commercial lighting to create a glossy, dollhouse-like environment with Wes And.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Barbie dream room interior, {argument name=\"wall color\" default=\"pink\"} walls (Pantone 219C), retro 60s plastic furniture with high-gloss reflections, softbox overhead lighting combined with side soft umbrellas to eliminate shadows, surreal feeling created by the collision of plastic materials and real light and shadow, high-gloss lacquered floor reflecting the ceiling, 16:9 composition, high saturation colors (saturation +40), soft focus edges, Wes Anderson symmetrical composition aesthetics, commercial advertisement level lighting",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360309359_gxt805_1765274866398-qhrtja-02176527483217975aeae14c82856eca08eecb5e75c05752b8142_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-reference-design-contract",
+  "version": "0.1.0",
+  "description": "Convert a reference product, screenshot set, Figma note, or style audit into a reusable design contract with tokens, component rules, accessibility gates, and implementation constraints. Use when the user asks for a reference design contract, design-system brief, UI audit, or source-of-truth handoff.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sd-dynamic-superhero-action",
+  "surface": "image",
+  "title": "Dynamic Superhero Action",
+  "summary": "Captures a high-octane superhero battle scene with movie-grade visual effects. It freezes the action with high shutter speeds, contrasting warm explosions with cool city lights, and blends comic book dynamism with realis.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "{argument name=\"color scheme\" default=\"Red and black\"} {argument name=\"character\" default=\"superhero\"} dynamic combat moment on a city street after rain, high-speed shutter freezing splashing water, background explosion creating warm halos contrasting with cool blue streetlights, foreground explosion debris splashing with motion blur, mixture of comic panel lines and realistic photography, HDR high dynamic range, impactful composition, Marvel movie-level VFX texture, 16:9 aspect ratio, edge sharpening processing",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360294446_b2592m_1765274884527-5qoikv-0217652748491047ed3dd5a26da08a73b6b7a28831080928df278_0-600x337.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

@@ -1,0 +1,5 @@
+{"type":"run_started","runId":"jury_e2e_happy","protocolVersion":"design-jury.v1","roles":["designer","critic","brand","accessibility","copy"],"startedAt":"2026-05-15T00:00:00.000Z"}
+{"type":"panelist_dim","runId":"jury_e2e_happy","round":1,"role":"designer","rating":8}
+{"type":"panelist_must_fix","runId":"jury_e2e_happy","round":1,"role":"critic","itemId":"critic-1","body":"Clarify primary action copy."}
+{"type":"round_end","runId":"jury_e2e_happy","round":1,"aggregate":{"avgScore":8,"mustFix":1,"quickWins":2}}
+{"type":"shipped","runId":"jury_e2e_happy"}

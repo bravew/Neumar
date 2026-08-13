@@ -1,0 +1,18 @@
+export default {
+  title: '模板',
+  startWithTemplate: '从模板开始',
+  gallery: '模板库',
+  search: '搜索模板',
+  allCategories: '全部',
+  dev: '开发',
+  writing: '写作',
+  research: '研究',
+  data: '数据',
+  design: '设计',
+  ops: '运维',
+  useTemplate: '使用模板',
+  saveAsTemplate: '保存为模板',
+  builtIn: '内置',
+  custom: '自定义',
+  noTemplates: '未找到模板',
+};

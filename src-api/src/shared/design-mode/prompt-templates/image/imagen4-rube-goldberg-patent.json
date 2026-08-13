@@ -1,0 +1,17 @@
+{
+  "id": "imagen4-rube-goldberg-patent",
+  "surface": "image",
+  "title": "Rube Goldberg Patent Drawing",
+  "summary": "Cross-hatched patent-style render of a chain-reaction contraption with physically correct shadows.",
+  "category": "Illustration / Technical",
+  "tags": ["imagen-4", "google", "illustration", "diagram"],
+  "model": "imagen-4",
+  "aspect": "4:3",
+  "prompt": "A Rube Goldberg machine: {argument name=\"chain of events\" default=\"a marble rolls down a wooden ramp, hits a row of dominoes, the last domino pulls a string that tips a watering can, the water fills a small cup on a balance scale, which lowers and pulls a lever that rings a tiny brass bell\"}. Every component casts physically correct shadows. The marble is mid-roll. The machine sits on a drafting table with visible grid paper underneath. {argument name=\"style\" default=\"Cross-hatching style, like a patent drawing brought to life\"}.",
+  "previewImageUrl": "https://replicate.delivery/xezq/cnkqhwm8S2JfSSSEe6BWmA7xngD1tvpreekzgAzd3GGpQ1qYB/tmpkc1zcvg0.jpg",
+  "source": {
+    "repo": "replicate/google/imagen-4",
+    "license": "platform-example",
+    "url": "https://replicate.com/google/imagen-4/examples"
+  }
+}

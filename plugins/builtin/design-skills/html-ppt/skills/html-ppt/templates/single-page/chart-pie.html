@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chart · Pie</title>
+    <link rel="stylesheet" href="../../assets/fonts.css" />
+    <link rel="stylesheet" href="../../assets/base.css" />
+    <link
+      rel="stylesheet"
+      id="theme-link"
+      href="../../assets/themes/minimal-white.css"
+    />
+    <link rel="stylesheet" href="../../assets/animations/animations.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  </head>
+  <body class="single">
+    <div class="deck">
+      <section class="slide is-active" data-title="Pie chart">
+        <p class="kicker">Chart · donut chart</p>
+        <h2 class="h2">Where the time goes</h2>
+        <div class="g2 mt-l grid" style="align-items: center">
+          <div class="card" style="height: 460px; padding: 28px">
+            <canvas id="c"></canvas>
+          </div>
+          <div class="card">
+            <h4>Takeaways</h4>
+            <p class="dim">
+              More than half the time goes into writing, while animation is only
+              5%, so reusable animation templates are worth it.
+            </p>
+            <ul class="mt-m dim">
+              <li>✍️ Writing &nbsp; 55%</li>
+              <li>🧩 Layout selection &nbsp; 18%</li>
+              <li>🎨 Styling &nbsp; 14%</li>
+              <li>📸 Export &nbsp; 8%</li>
+              <li>✨ Animation &nbsp; 5%</li>
+            </ul>
+          </div>
+        </div>
+        <script>
+          addEventListener('DOMContentLoaded', () => {
+            const css = getComputedStyle(document.documentElement);
+            const colors = [
+              '--accent',
+              '--accent-2',
+              '--accent-3',
+              '--good',
+              '--warn',
+            ].map((k) => css.getPropertyValue(k).trim());
+            const text2 = css.getPropertyValue('--text-2').trim();
+            new Chart(document.getElementById('c'), {
+              type: 'doughnut',
+              data: {
+                labels: [
+                  'Writing',
+                  'Layout selection',
+                  'Styling',
+                  'Export',
+                  'Animation',
+                ],
+                datasets: [
+                  {
+                    data: [55, 18, 14, 8, 5],
+                    backgroundColor: colors,
+                    borderWidth: 0,
+                  },
+                ],
+              },
+              options: {
+                cutout: '62%',
+                plugins: {
+                  legend: { position: 'right', labels: { color: text2 } },
+                },
+              },
+            });
+          });
+        </script>
+      </section>
+    </div>
+    <script src="../../assets/runtime.js"></script>
+  </body>
+</html>

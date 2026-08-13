@@ -1,0 +1,46 @@
+{
+  "id": "media-generation.generate-asset",
+  "kind": "video",
+  "page": "media-generation",
+  "slot": "generate-asset",
+  "route": "/design",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"design-entry-view\"]",
+    "masks": [],
+    "steps": [
+      "Open the surface picker",
+      "Switch to image generation",
+      "Pause on image generation controls",
+      "Name the media project",
+      "Pause on media project name",
+      "Write the media brief",
+      "Pause on completed media brief",
+      "Create the media project",
+      "Hold on media project state"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:02:46.188Z",
+  "source": "source.webm"
+}

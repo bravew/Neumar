@@ -1,0 +1,18 @@
+{
+  "id": "sd-serene-bath-for-self-care",
+  "surface": "image",
+  "title": "Serene Bath for Self-Care",
+  "summary": "This prompt creates a serene and calming image of a beautifully drawn bath for a self-care post. It uses candles for warm ambiance and emphasizes advanced lighting to invite relaxation and unwinding.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:2",
+  "prompt": "A serene and calming image for a post about self-care and mental health. The scene is a beautifully drawn bath with flower petals floating on the water. A book and a cup of tea are on a wooden tray resting on the tub. The room is lit by candles, creating a warm and relaxing ambiance. The image should be a visual invitation to relax and unwind, demonstrating advanced lighting and atmospheric rendering. –ar 3:2",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360072488_tpymr8_dde65621d97d14063e3d68ed13f389873d2eb1207bb870d484007949cda32fe8-600x400.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

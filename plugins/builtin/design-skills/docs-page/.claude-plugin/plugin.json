@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-docs-page",
+  "version": "0.1.0",
+  "description": "A documentation page — left nav, scrollable article body, right-rail table of contents. Use when the brief mentions \"docs\", \"documentation\", \"guide\", \"API reference\", or \"tutorial\".",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

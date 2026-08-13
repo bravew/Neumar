@@ -1,0 +1,11 @@
+{
+  "slides": [
+    {
+      "id": "cover",
+      "title": "Magazine Deck",
+      "notes": "Fixture cover notes."
+    },
+    { "id": "story", "title": "Narrative", "notes": "Fixture story notes." },
+    { "id": "close", "title": "Close", "notes": "Fixture close notes." }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "id": "agent-system.plan-review",
+  "kind": "video",
+  "page": "agent-system",
+  "slot": "plan-review",
+  "route": "/task/docs-task-triage",
+  "seed": "docs.streaming",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"task-detail-page\"]",
+    "masks": [],
+    "steps": [
+      "Pause on the task thread",
+      "Inspect execution context",
+      "Hold on progress details"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:02:01.995Z",
+  "source": "source.webm"
+}

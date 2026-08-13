@@ -1,0 +1,99 @@
+packages:
+  - '.'
+  - 'packages/*'
+  - 'src-api'
+  - 'src-video'
+
+# Build hooks allowed to run during install. Migrated from package.json
+# `pnpm.onlyBuiltDependencies` (ignored by pnpm 10.33+).
+ignoredBuiltDependencies:
+  - '@google/genai'
+allowBuilds:
+  '@contentauth/c2pa-node': true
+  '@google/genai': true
+  '@scarf/scarf': true
+  better-sqlite3: true
+  esbuild: true
+  fs-xattr: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
+
+# Transitive version pins. Migrated from package.json `pnpm.overrides`
+# (ignored by pnpm 10.33+). Every entry needs an inline reason.
+overrides:
+  # Transitive consistency — keep markdown ecosystem on a single major.
+  unified: '^11.0.5'
+  # Hold AG-UI runtime to the version our app integrates against.
+  '@ag-ui/client': '^0.0.57'
+  '@ag-ui/core': '^0.0.57'
+  '@ag-ui/encoder': '^0.0.57'
+  # Force-bump Slack Web API to keep transitive Bolt deps on the same minor.
+  # Raised to 8.x 2026-08-08 alongside the @slack/bolt 5.x major (G10).
+  '@slack/web-api': '^8.0.0'
+  # CVE / supply-chain pins for lodash family.
+  lodash: '^4.18.1'
+  lodash-es: '^4.18.1'
+  # CVE-CVE-2024-45296 and the v8 range fix for path-to-regexp.
+  'path-to-regexp@<0.1.13': '0.1.13'
+  'path-to-regexp@>=8.0.0 <8.4.0': '^8.4.2'
+  # CVE-2023-36665 (protobufjs prototype pollution). Raised floor to
+  # 7.6.5 2026-08-08 — GHSA .proto option-parsing DoS fixed at 7.6.5;
+  # `pnpm install` doesn't proactively re-resolve within an already-
+  # satisfied range, so the floor itself has to move.
+  protobufjs: '^7.6.5'
+  # CVE-2024-39338 (axios SSRF) — keep transitives on a patched minor.
+  # Raised floor to 1.18.1 2026-08-08 — 10 more advisories (DoS,
+  # prototype pollution, maxBodyLength/proxy bypasses) fixed at 1.18.0;
+  # same stale-resolution reason as protobufjs above.
+  axios: '^1.18.1'
+  # workbox lineage required by vite-plugin-pwa; pin until plugin catches up.
+  workbox-build: '^7.4.1'
+  workbox-window: '^7.4.1'
+  # CVE — esbuild <0.28.1 missing binary integrity verification (GHSA, Deno).
+  # Patch-bump only the prod 0.28.0 peer (@remotion/bundler); the dev-only
+  # 0.25/0.27 copies (vite/vitest) are out of the --prod audit and untouched.
+  'esbuild@0.28.0': '0.28.1'
+  # GHSA-96hv-2xvq-fx4p — force Remotion transitives onto patched ws.
+  ws: '8.21.0'
+  # GHSA-vxpw-j846-p89q — discord.js pins undici 6.24.1; force patched 6.x.
+  # Raised 2026-08-08: 6.27.0 itself gained 3 moderate advisories (response
+  # desync, CRLF injection, cookie injection) fixed at 6.28.0.
+  'undici@>=6.0.0 <6.28.0': '6.28.0'
+  # GHSA-w5hq-g745-h8pq — CopilotKit runtime still allows vulnerable uuid 10.
+  'uuid@10.0.0': '11.1.1'
+  # 2026-08-08: node-tar critical DoS (GHSA-23hp-3jrh-7fpw) + 3 more advisories
+  # in @yao-pkg/pkg's bundled tar; pin to the patched line until pkg vendors it.
+  '@yao-pkg/pkg>tar': '^7.5.21'
+
+peerDependencyRules:
+  allowedVersions:
+    # tailwindcss-animate has not widened its peer range text for Tailwind 4,
+    # but this app has already migrated to Tailwind 4.
+    tailwindcss: '>=4.0.0'
+    # CopilotKit keeps a narrow optional Anthropic SDK 0.57 peer while this app
+    # imports the current Anthropic SDK directly.
+    '@anthropic-ai/sdk': '>=0.57.0 <1.0.0'
+
+minimumReleaseAgeExclude:
+  - katex@0.18.2
+  - mediabunny@1.53.0
+  - read-excel-file@9.3.8
+  - '@assistant-ui/core@0.3.10'
+  - '@assistant-ui/react-markdown@0.14.10'
+  - '@assistant-ui/react@0.15.11'
+  - '@assistant-ui/store@0.3.8'
+  - '@assistant-ui/tap@0.9.11'
+  - assistant-cloud@0.1.39
+  - assistant-stream@0.3.36
+  - safe-content-frame@0.0.27
+  - '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.226'
+  - '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.226'
+  - '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.226'
+  - '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.226'
+  - '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.226'
+  - '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.226'
+  - '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.226'
+  - '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.226'
+  - '@anthropic-ai/claude-agent-sdk@0.3.226'
+  - '@anthropic-ai/sandbox-runtime@0.0.71'

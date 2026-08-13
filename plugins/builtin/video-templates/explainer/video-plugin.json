@@ -1,0 +1,59 @@
+{
+  "specVersion": "1.0.0",
+  "name": "explainer",
+  "title": "Explainer",
+  "compatibility": {
+    "neuma": ">=26.6.15 <27.0.0",
+    "videoPluginApi": "^1.0.0"
+  },
+  "description": "Draft a clear explainer with a problem, context, explanation, proof, and takeaway, using research and generated narration or support visuals when granted.",
+  "tags": ["explainer", "education", "narration"],
+  "video": {
+    "kind": "flow",
+    "mode": "explainer",
+    "aspectRatios": ["16:9", "9:16"],
+    "engine": { "id": "html" },
+    "useCase": {
+      "query": "Explain {{topic}} in a concise video.",
+      "goals": [
+        "State the premise in plain language",
+        "Ground factual claims with citations",
+        "End with one memorable takeaway"
+      ],
+      "activation": {
+        "keywords": ["explain", "explainer", "teach", "overview"],
+        "assetKinds": ["image", "video"]
+      }
+    },
+    "pipeline": {
+      "stages": [
+        { "id": "research", "atoms": ["research-search"] },
+        { "id": "storyboard", "atoms": ["storyboard-draft"] },
+        { "id": "narration", "atoms": ["tts-narration"], "optional": true },
+        { "id": "visuals", "atoms": ["ai-image"], "optional": true },
+        { "id": "assemble", "atoms": ["timeline-assemble"] },
+        {
+          "id": "qa",
+          "atoms": ["render-preview", "qa-check"],
+          "repeat": true,
+          "until": "qa.pass || iterations>=2"
+        }
+      ]
+    },
+    "output": {
+      "preset": "web-1080p",
+      "durationTargetSec": [60, 180],
+      "captions": "auto",
+      "fps": 30
+    },
+    "capabilities": ["prompt:inject", "research:web", "media:generate"],
+    "networkAccess": {
+      "allowedHosts": ["example.com", "api.openai.com"],
+      "allowedPaths": {
+        "example.com": ["/"],
+        "api.openai.com": ["/v1/"]
+      },
+      "reason": "Research public sources and generate optional narration or support imagery for the explainer."
+    }
+  }
+}

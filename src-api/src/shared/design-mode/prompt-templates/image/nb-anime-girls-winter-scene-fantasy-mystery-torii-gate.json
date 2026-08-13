@@ -1,0 +1,18 @@
+{
+  "id": "nb-anime-girls-winter-scene-fantasy-mystery-torii-gate",
+  "surface": "image",
+  "title": "Anime Girls Winter Scene: Fantasy & Mystery Torii Gate",
+  "summary": "A group of diverse anime girls, some in winter attire and others in fantasy gear, pose cheerfully in a snowy landscape with a traditional Japanese torii gate in the background. Two girls kneel in the.",
+  "category": "Anime & Manga",
+  "tags": ["nano-banana", "gemini", "anime", "manga"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "来年もよろしくお願いします。",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9f3ZoDaIAAdmA4.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/inosent999/status/2006375240595841281",
+    "author": "葵 詩安(E)"
+  }
+}

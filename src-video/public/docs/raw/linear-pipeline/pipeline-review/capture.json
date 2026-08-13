@@ -1,0 +1,40 @@
+{
+  "id": "linear-pipeline.pipeline-review",
+  "kind": "video",
+  "page": "linear-pipeline",
+  "slot": "pipeline-review",
+  "route": "/dashboard",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"dashboard-page\"]",
+    "masks": [],
+    "steps": [
+      "Pause on pipeline status",
+      "Scroll through operational panels",
+      "Hold on dashboard review"
+    ]
+  },
+  "capturedAt": "2026-05-09T21:59:04.931Z",
+  "source": "source.webm"
+}

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Two Column</title>
+    <link rel="stylesheet" href="../../assets/fonts.css" />
+    <link rel="stylesheet" href="../../assets/base.css" />
+    <link
+      rel="stylesheet"
+      id="theme-link"
+      href="../../assets/themes/minimal-white.css"
+    />
+    <link rel="stylesheet" href="../../assets/animations/animations.css" />
+  </head>
+  <body class="single">
+    <div class="deck">
+      <section class="slide is-active" data-title="Two column">
+        <p class="kicker">Pattern · two columns</p>
+        <h2 class="h2">Concept <span class="dim2">⟷</span> example</h2>
+        <div class="g2 mt-l grid" style="align-items: start">
+          <div class="card anim-fade-left" data-anim="fade-left">
+            <h3>Left column · concept</h3>
+            <p class="dim">
+              One theme equals one set of CSS variables. Color, type, radius,
+              and shadow all live in <code>:root</code>.
+            </p>
+            <ul class="mt-m">
+              <li>- tokens define semantics, not raw colors</li>
+              <li>- base.css uses tokens for layout</li>
+              <li>- each theme only changes variables</li>
+            </ul>
+          </div>
+          <div class="card anim-fade-right" data-anim="fade-right">
+            <h3>Right column · example</h3>
+            <pre
+              class="mono"
+              style="
+                font-size: 13px;
+                background: var(--surface-2);
+                padding: 14px;
+                border-radius: var(--radius-sm);
+                overflow: auto;
+              "
+            >
+:root {
+  --bg: #fff;
+  --text-1: #0c0d10;
+  --accent: #3b6cff;
+  --radius: 18px;
+}
+.card {
+  background: var(--bg);
+  color: var(--text-1);
+  border-radius: var(--radius);
+}</pre>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script src="../../assets/runtime.js"></script>
+  </body>
+</html>

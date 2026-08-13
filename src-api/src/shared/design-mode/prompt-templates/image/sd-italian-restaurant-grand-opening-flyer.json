@@ -1,0 +1,18 @@
+{
+  "id": "sd-italian-restaurant-grand-opening-flyer",
+  "surface": "image",
+  "title": "Italian Restaurant Grand Opening Flyer",
+  "summary": "This prompt generates a delicious and inviting flyer for a new Italian restaurant's grand opening. It features a rustic flat-lay of Italian food and a warm, authentic feel to appeal to customers.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:5",
+  "prompt": "A delicious and inviting flyer for the grand opening of a new Italian restaurant. The main visual is a beautiful, rustic flat-lay photograph of a table laden with Italian food: a pizza, a bowl of pasta, a glass of red wine, and some fresh basil. The restaurant’s name is in a warm, handwritten script font. The date and address of the opening are clearly visible. The overall feel is warm, authentic, and appetizing. –ar 4:5",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765367961890_sii4rm_1f4e43ff4dda6b28373b94aed5aa7bffc4815c1f5d212053ab1a343051b86704-600x750.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

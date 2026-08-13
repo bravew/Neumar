@@ -1,0 +1,18 @@
+{
+  "id": "sd-three-person-merged-top-down-selfie",
+  "surface": "image",
+  "title": "Three-Person Merged Top-Down Selfie",
+  "summary": "This prompt merges three character photos into a high-angle Japanese/Korean-style selfie set in a movie theater, perfect for playful composites or virtual group photos.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Do not swap faces, characters' faces must not change at all! Please merge the three people from Image 1, Image 2, and Image 3 into a three-person high-angle selfie. The composition is tight, the three subjects are very close, heads tilted slightly up, eyes looking directly at the lens, creating a strong visual impact. The person from Image 1 stands slightly forward in the middle, face similarity must be maintained; slightly hunching body, shooting angle is high-angle top-down, exaggerating head proportions, fitting typical Japanese/Korean visual selfie style. Simple and clean, further highlighting the character subjects. Visual style leans towards Japanese visual kei, overall image is high definition, shot with iPhone front camera, finally presenting an exquisite, stylish group photo effect. Requires seamless integration of characters into the scene, natural visual transition, overall lighting bright and even. Background is a super large cinema full of audience, two people with backs to the screen, screen displaying exquisite movie poster of \"{argument name=\"movie poster name\" default=\"Zootopia 2\"}\" filling the screen.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360362194_fl5qcm_1765339508978-oe6je3-021765339490813f9825d5f0df17daef396c99db0606054d5e479_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7575847719705611547?workDetailType=Image&itemType=9",
+    "author": "七夕"
+  }
+}

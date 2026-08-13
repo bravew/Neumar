@@ -1,0 +1,18 @@
+{
+  "id": "sd-high-end-gaming-setup",
+  "surface": "image",
+  "title": "High-End Gaming Setup",
+  "summary": "This prompt generates a photo of a high-end gaming setup ready for streaming, featuring RGB lighting, multiple monitors, and a sleek chair. It aims for a futuristic and immersive atmosphere, demonstrating understanding o.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A photo of a high-end gaming setup, ready for a streaming session. The setup includes a powerful PC with RGB lighting, multiple monitors displaying a vibrant game scene, a professional microphone, and a sleek gaming chair. The room is dark, and the only light comes from the screens and the RGB lighting, creating a futuristic and immersive atmosphere. This demonstrates an understanding of subcultures and their specific aesthetics. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360098499_qow13s_063678853526af502f0b76f143585a8979a45a67dece2321fc4d79bf0da9f83f-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "veo31-epic-canyon-hiker-crane-shot",
+  "surface": "video",
+  "title": "Epic Canyon Hiker Crane Shot",
+  "summary": "Crane shot that starts low on a lone hiker and ascends dramatically to reveal they stand at the edge of a colossal mist-filled canyon at sunrise — epic fantasy style with awe-inspiring soft morning light.",
+  "category": "Nature / Epic",
+  "tags": [
+    "veo-3.1",
+    "google",
+    "nature",
+    "cinematic",
+    "crane-shot",
+    "epic",
+    "landscape"
+  ],
+  "model": "veo-3.1",
+  "aspect": "16:9",
+  "prompt": "Crane shot starting low on a lone hiker and ascending high above, revealing they are standing on the edge of a colossal, mist-filled canyon at sunrise, epic fantasy style, awe-inspiring, soft morning light.",
+  "previewImageUrl": "https://storage.googleapis.com/gweb-cloudblog-publish/images/maxresdefault_5resomk.max-1300x1300.jpg",
+  "source": {
+    "repo": "google/veo",
+    "license": "platform-example",
+    "author": "Google DeepMind",
+    "url": "https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://hyperframes.heygen.com/schema/hyperframes.json",
+  "fps": 30,
+  "durationMs": 16000,
+  "snapshotAtMs": [
+    1800,
+    5400,
+    10000,
+    15500
+  ],
+  "paths": {
+    "blocks": "compositions",
+    "components": "compositions/components",
+    "assets": "assets"
+  }
+}

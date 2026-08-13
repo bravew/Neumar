@@ -1,0 +1,18 @@
+{
+  "id": "nb-sci-fi-cyberpunk-male-character-portrait---neon-city-night",
+  "surface": "image",
+  "title": "Sci-Fi Cyberpunk Male Character Portrait - Neon City Night",
+  "summary": "A photorealistic close-up profile shot of a brooding male character with visible scars on his face, illuminated by vibrant blue and purple neon lights. The futuristic, blurred city background emphasiz.",
+  "category": "Fantasy & Sci-Fi",
+  "tags": ["nano-banana", "gemini", "fantasy", "scifi"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"Objective\": \"Generate an ultra-realistic cinematic close-up side-profile portrait with a futuristic cyberpunk atmosphere, deep emotional tension, and dramatic lighting.\",\n\n  \"Subject\": {\n    \"Gender\": \"Male\",\n    \"Age_Group\": \"Young adult\",\n    \"Appearance\": {\n      \"Facial_Structure\": {\n        \"Jawline\": \"Sharp, sculpted, highly defined\",\n        \"Skin\": \"Hyper-realistic skin texture with visible pores, subtle imperfections, natural highlights\"\n      },\n      \"Expression\": \"Focused, intense, emotionally charged gaze\"\n    }\n  },\n\n  \"Lighting\": {\n    \"Style\": \"Cyberpunk cinematic lighting\",\n    \"Key_Lights\": [\n      \"Neon rim light from behind\",\n      \"Soft diffused key light on face\"\n    ],\n    \"Colors\": [\"Electric blue\", \"Neon magenta\", \"Purple glow\"],\n    \"Contrast\": \"High contrast with deep shadows and glowing highlights\"\n  },\n\n  \"Camera\": {\n    \"Shot_Type\": \"Extreme close-up side profile\",\n    \"Lens\": \"85mm cinematic portrait lens\",\n    \"Depth_of_Field\": \"Shallow DOF with soft background bokeh\",\n    \"Focus\": \"Eyes and jawline in razor-sharp focus\"\n  },\n\n  \"Environment\": {\n    \"Background\": \"Abstract futuristic city lights, blurred neon signs, cyberpunk ambience\",\n    \"Mood\": \"Dark, intense, futuristic, emotionally powerful\"\n  },\n\n  \"Quality\": {\n    \"Resolution\": \"8K\",\n    \"Rendering\": \"Ultra-detailed, photorealistic, cinematic color grading\",\n    \"Style\": \"High-end movie still, cyberpunk noir\"\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G82U0j4agAA5CGs.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/2abhisheknaks/status/2003421051502694599",
+    "author": "Abhishek Singh"
+  }
+}

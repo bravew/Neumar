@@ -1,0 +1,17 @@
+{
+  "id": "sd5-13",
+  "surface": "image",
+  "title": "把图 1 改成图 2 的风格",
+  "summary": "把图 1 改成图 2 的风格",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "2:3",
+  "prompt": "把图 1 改成图 2 的风格",
+  "previewImageUrl": "https://github.com/user-attachments/assets/70193dc2-f87f-49e8-96c5-d46b077c2b3c",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea69af2b552957d3c575e"
+  }
+}

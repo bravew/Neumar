@@ -1,0 +1,17 @@
+{
+  "id": "sd5-14",
+  "surface": "image",
+  "title": "This is a Q-version hand-drawn illustration of the classic c…",
+  "summary": "This is a Q-version hand-drawn illustration of the classic character duo from the Disney animated movie \"Zootopia\"—Nick the fox and Judy the rabbit. In the image, Nick lies on top of Judy, and they poke their heads out f…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "This is a Q-version hand-drawn illustration of the classic character duo from the Disney animated movie \"Zootopia\"—Nick the fox and Judy the rabbit. In the image, Nick lies on top of Judy, and they poke their heads out from behind a door together. There are two heart elements beside Judy. The overall style is cute and playful, fully demonstrating the tacit understanding and cuteness of this partner pair, full of a warm atmosphere.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/2137ec23-8142-41a5-8763-3bb1f649ad1e",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=698ef555f2b552957d3c51c9"
+  }
+}

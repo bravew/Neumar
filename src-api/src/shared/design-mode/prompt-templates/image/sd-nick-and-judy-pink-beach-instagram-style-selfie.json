@@ -1,0 +1,18 @@
+{
+  "id": "sd-nick-and-judy-pink-beach-instagram-style-selfie",
+  "surface": "image",
+  "title": "Nick and Judy Pink Beach Instagram-Style Selfie",
+  "summary": "This prompt creates an Instagram-style selfie of Nick and Judy on a pink beach vacation, filled with dreamy pink-gold tones and rich social media UI elements, perfect for vacation, sweet couple, or influencer-style conte.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Zootopia's Nick Wilde and Judy Hopps taking a selfie on a pink beach, Nick holds a giant phone up at a 45-degree angle, their arms extending out of the Instagram frame breaking the fourth wall, the phone floats in the center with perspective distortion. The giant screen UI on the right is ultra-sharp: username \"{argument name=\"username\" default=\"@NickJudy_Selfie\"}\" with blue check verification, like count \"{argument name=\"like count\" default=\"5.8M\"}\" bold and blinking, live recording red dot pulsing, comment bubbles with neon strokes. Frame edge is 2cm thick glass material reflecting the pink beach. Surrounded by floating 3D hearts❤️, thumbs up👍, pink coconut trees🌴, champagne bubbles✨ icons, trailing light effects overlaid with warm pink bloom halo, dreamy lens flare. Background is a Barbie pink beach: fine coral sand grain visible, gradient pink-orange water shimmering, soft sunset volumetric light, seashells and star sand twinkling. Left side real world shadows are sharp with realistic saturation, right side digital interface has soft light filter and vignette, high contrast pink-gold tone. Instagram influencer vacation style, 8K cinematic realism, ray tracing, fiber-level fur details, subsurface scattering, depth of field focused on phone, Unreal Engine 5 render, breaking dimensional composition, vacation vibe, exploding with internet aesthetic.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360408170_qygk43_1765339451176-di6d3i-021765339431792f8f49430e1e3875ff473008eb96b3a39602ab2_0-600x1068.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7574732743158926638?workDetailType=Image&itemType=9",
+    "author": "孤墨舟"
+  }
+}

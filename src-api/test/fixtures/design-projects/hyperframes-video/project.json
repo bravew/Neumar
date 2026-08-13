@@ -1,0 +1,33 @@
+{
+  "id": "fixture-hyperframes-video",
+  "title": "Fixture HyperFrames Video",
+  "surface": "video",
+  "status": "complete",
+  "skillId": "video-shortform",
+  "designSystemId": "vercel",
+  "inspirationDesignSystemIds": [],
+  "craftRefs": ["anti-ai-slop", "color"],
+  "brief": {
+    "composition": "title-card",
+    "durationSeconds": 4
+  },
+  "media": {
+    "model": "hyperframes-html",
+    "aspect": "16:9",
+    "lengthSeconds": 4
+  },
+  "outputs": [
+    {
+      "id": "out-hf-1",
+      "kind": "video",
+      "path": "artifacts/composition/index.html",
+      "mime": "text/html",
+      "provider": "hyperframes",
+      "model": "hyperframes-html",
+      "taskId": "task-hf-1",
+      "createdAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-02T00:00:00.000Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z"
+}

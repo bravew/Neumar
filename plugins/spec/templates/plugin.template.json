@@ -1,0 +1,15 @@
+{
+  "name": "my-plugin",
+  "version": "0.1.0",
+  "description": "What this plugin does, in one paragraph (max 500 chars).",
+  "displayName": "My Plugin",
+  "license": "MIT",
+  "keywords": [],
+  "skills": "skills",
+  "metadata": {
+    "neuma": {
+      "surfaces": [],
+      "configSchema": []
+    }
+  }
+}

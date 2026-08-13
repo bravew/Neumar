@@ -1,0 +1,18 @@
+{
+  "id": "sd-nyc-christmas-night",
+  "surface": "image",
+  "title": "NYC Christmas Night",
+  "summary": "A festive city night prompt capturing Christmas in New York. It features iconic elements like the Rockefeller tree and falling snow, using long exposure techniques to blend warm holiday lights with the cool winter atmosp.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "{argument name=\"location\" default=\"New York Fifth Avenue\"} Christmas night scene, Rockefeller Center 20-meter giant Christmas tree covered in colored lights, snowflakes falling (depth of field blurred into light spots), warm lights from shop windows on both sides of the street, silhouettes of pedestrians wearing winter clothes, contrast between warm tones and cool blue snowy night, strong festive atmosphere, urban night photography long exposure 2 seconds capturing light trails, movie-grade color grading, 16:9 postcard composition",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360246013_zi91m8_1765275008056-awrlob-02176527499183730d072d337ea6fcc7bbfbe2f0c485be2133621_0-600x337.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

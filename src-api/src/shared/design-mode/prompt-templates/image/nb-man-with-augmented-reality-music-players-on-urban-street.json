@@ -1,0 +1,18 @@
+{
+  "id": "nb-man-with-augmented-reality-music-players-on-urban-street",
+  "surface": "image",
+  "title": "Man with Augmented Reality Music Players on Urban Street",
+  "summary": "A man stands contemplatively on a bustling, dimly lit Indian street, holding a smartphone and surrounded by multiple glowing, translucent augmented reality music player interfaces floating in the air.",
+  "category": "Fantasy & Sci-Fi",
+  "tags": ["nano-banana", "gemini", "fantasy", "scifi"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"A hyper-realistic, cinematic 8k image of a man standing in a bustling Indian street market at night. He is wearing a plain grey t-shirt, green cargo pants, and white sneakers, holding a smartphone. The scene is overlaid with a detailed Augmented Reality (AR) visualization: numerous floating, translucent frosted-glass music player interface cards (resembling Spotify/Apple Music UI) orbiting the subject in 3D space. The cards feature colorful album artwork, progress bars, and playback controls with a soft, glowing border luminescence (bloom effect). The composition uses depth of field, with some cards blurred in the foreground and others sharp near the subject. The background features authentic Indian street elements: green and yellow auto-rickshaws, shop signs with Hindi text, and warm ambient street lighting contrasting with the cool blue-white glow of the AR interface.\",\n  \"negative_prompt\": \"coat, blazer, suit, formal wear, cartoon, illustration, low quality, blurry, distorted, bad anatomy, extra limbs, text watermark\",\n  \"subject_attributes\": {\n    \"clothing\": \"grey t-shirt, green cargo pants, white sneakers\",\n    \"pose\": \"standing, holding phone\",\n    \"facial_reference\": \"use uploaded face 100% accuracy\"\n  },\n  \"environment\": {\n    \"location\": \"Indian street market\",\n    \"time\": \"night\",\n    \"details\": \"auto-rickshaws, crowds, shop lights\"\n  },\n  \"style\": \"Augmented Reality, Cyberpunk, Cinematic, Photorealistic\"\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G8-_SQ0b0AEhTBE.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/Strength04_X/status/2004030710110408884",
+    "author": "𝐌"
+  }
+}

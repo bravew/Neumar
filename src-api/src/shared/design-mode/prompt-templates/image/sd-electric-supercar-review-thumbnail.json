@@ -1,0 +1,18 @@
+{
+  "id": "sd-electric-supercar-review-thumbnail",
+  "surface": "image",
+  "title": "Electric Supercar Review Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for an electric supercar review, showing the car from a dramatic angle with a blurred city background and a \"mind-blown\" YouTuber. It aims for a sleek, modern feel.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a review of a new electric supercar. The car is shown from a low, dramatic angle, making it look powerful and aggressive. The headlights are on, and the background is a blurred motion shot of a city at night. The YouTuber is standing next to the car with a wide-eyed, “mind-blown” expression. The text “The Future is HERE!” is in a sleek, modern font. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359852520_3t2hlv_4514080c766c42a1255a2246ff4b6261d85db0f25a78dd70994fe22caa05f7cb-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "social-reel",
+  "version": "1.0.0",
+  "description": "Build a short social reel from a topic, source assets, stock b-roll, generated media, and music.",
+  "displayName": "Social Reel",
+  "license": "MIT",
+  "metadata": {
+    "neuma": {
+      "surfaces": ["video"],
+      "videoManifest": "video-plugin.json"
+    }
+  }
+}

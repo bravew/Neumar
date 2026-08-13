@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-glass-dashboard",
+  "version": "0.1.0",
+  "description": "Build a premium glassmorphism dashboard — frosted translucent cards over a soft gradient backdrop, a responsive KPI/metric grid, a live activity panel, and a floating control bar. Use when the brief asks for a glass dashboard, glassmorphism UI, conference/meeting room dashboard, analytics console, or a frosted-glass control panel.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

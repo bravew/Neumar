@@ -1,0 +1,18 @@
+{
+  "id": "nb-extreme-close-up-broken-pencil-graphite-wood-texture",
+  "surface": "image",
+  "title": "Extreme Close-up: Broken Pencil, Graphite & Wood Texture",
+  "summary": "A hyper-detailed macro photograph captures the raw, broken tip of a pencil, showcasing the intricate textures of its graphite core and splintered wooden casing. The silvery-black graphite lead is visi.",
+  "category": "Minimalist Icon",
+  "tags": ["nano-banana", "gemini", "minimalist", "icon"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "Prompt : Imagine a pencil tip seen through a microscope. Imagine how the pencil tip would look and create an image.",
+  "previewImageUrl": "https://pbs.twimg.com/media/G7yaOONaAAAktN8.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/umesh_ai/status/1998641973943742577",
+    "author": "Umesh"
+  }
+}

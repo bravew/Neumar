@@ -1,0 +1,1 @@
+{"taskId":"task-image-1","projectId":"fixture-editorial-image","surface":"image","model":"gpt-image-1.5","state":"done","startedAt":"2026-05-02T00:00:00.000Z","endedAt":"2026-05-02T00:00:00.000Z","durationMs":1,"progressLines":["generated assets/generated/poster.svg"],"providerError":null,"usedStubFallback":false}

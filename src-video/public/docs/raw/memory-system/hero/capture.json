@@ -1,0 +1,36 @@
+{
+  "id": "memory-system.hero",
+  "kind": "image",
+  "page": "memory-system",
+  "slot": "hero",
+  "route": "/library?tab=graph",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 2,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"library-page\"]",
+    "masks": [],
+    "steps": []
+  },
+  "capturedAt": "2026-05-09T21:58:39.455Z",
+  "source": "source.png"
+}

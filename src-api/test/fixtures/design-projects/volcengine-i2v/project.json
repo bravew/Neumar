@@ -1,0 +1,34 @@
+{
+  "id": "fixture-volcengine-i2v",
+  "title": "Fixture Volcengine I2V",
+  "surface": "video",
+  "status": "complete",
+  "skillId": "video-shortform",
+  "designSystemId": "default-freeform",
+  "inspirationDesignSystemIds": [],
+  "craftRefs": ["anti-ai-slop"],
+  "brief": {
+    "subject": "product hero shot",
+    "motion": "slow orbit"
+  },
+  "media": {
+    "model": "doubao-seedance-2-0-260128",
+    "aspect": "16:9",
+    "lengthSeconds": 5,
+    "references": ["assets/references/first-frame.svg"]
+  },
+  "outputs": [
+    {
+      "id": "out-video-1",
+      "kind": "video",
+      "path": "artifacts/video-manifest.json",
+      "mime": "application/json",
+      "provider": "volcengine",
+      "model": "doubao-seedance-2-0-260128",
+      "taskId": "task-video-1",
+      "createdAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-02T00:00:00.000Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z"
+}

@@ -1,0 +1,1 @@
+{"taskId":"task-audio-1","projectId":"fixture-voiceover-audio","surface":"audio","model":"openai-tts","state":"done","startedAt":"2026-05-02T00:00:00.000Z","endedAt":"2026-05-02T00:00:00.000Z","durationMs":1,"progressLines":["wrote transcript"],"providerError":null,"usedStubFallback":false}

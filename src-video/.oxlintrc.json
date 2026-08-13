@@ -1,0 +1,20 @@
+{
+  "$schema": "../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript"],
+  "rules": {
+    "no-undef": "off",
+
+    "typescript/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "typescript/no-explicit-any": "warn",
+
+    "react/react-in-jsx-scope": "off"
+  },
+  "ignorePatterns": ["**/node_modules", "dist", "out", "public"]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "nb-ana-de-armas-studio-portraits-in-mini-dress-natural-beauty",
+  "surface": "image",
+  "title": "Ana de Armas: Studio Portraits in Mini Dress, Natural Beauty",
+  "summary": "A four-panel collage features stunning portraits of a woman, including a close-up with a strawberry and full-body shots in a soft mauve mini dress. The images showcase natural beauty with glowing skin.",
+  "category": "Portrait Photography",
+  "tags": ["nano-banana", "gemini", "portrait"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{ \n\"realism_level\": \"Ultra-photorealistic\", \"texture_quality\": \"8k\", \n\"lighting_simulation\": \"Ray-traced studio lighting\" } }, \n\"global_assets\": \n{ \"subject_definition\": \n{ \"hair\": \n{ \"style\": \"Long, loosely wavy, voluminous\", \"texture\": \"Natural, individual strands defined\", \"behavior\": \"Messy but styled, framing face and shoulders\" },\n \"complexion\": \n{ \"skin_texture\": \"Porous, hyper-realistic\", \"finish\": \"Dewy, glass-skin effect\", \"makeup\": { \"cheeks\": \"Heavy flush/blush\", \"lips\": \"High-gloss, plump, natural pink\", \"eyes\": \"Clean, defined lashes, natural brows\" }\n },\n \"wardrobe\": { \"item\": \"Mini dress\", \"fit\": \"Bodycon / Tight\", \"fabric\": { \"material\": \"Soft textured knit / Boucle\", \"tactility\": \"Fuzzy, light-catching fibers\", \"color\": \"Soft mauve or neutral taupe\" }, \"details\": \"Spaghetti straps, mid-thigh length\" } },\n\n \"environment_definition\": { \n\"studio_setup\": \n{ \"background\": \"Seamless paper, soft off-white/beige\", \"atmosphere\": \"Clean, warm, intimate\" },\n\n \"lighting_rig\": \n{ \"key_light\": \"Large diffuse softbox (Front-Left)\", \"fill_light\": \"Reflector (Right)\", \"highlights\": \"Specular highlights on lips, cheekbones, and shoulders\" }\n }\n }, \n\"panel_architecture\": \n\n[ \n{ \"position\": \"Top-Left (1)\", \"shot_type\": \"Extreme Close-Up (Macro)\", \"composition\": { \"angle\": \"Low angle, looking up slightly\", \"focus\": \"Mouth and nose area\", \"depth_of_field\": \"Shallow\" },\n\n \"action\": { \"primary\": \"Eating a strawberry\", \"nuance\": \"Delicate finger hold, lips slightly parted\" }, \n\"visual_anchors\": \n[ \"Moisture on strawberry surface\", \"Gloss reflection on lips\",\n \"Baby hairs at temple\" ]\n }, \n{ \"position\": \"Top-Right (2)\", \n\"shot_type\": \"Medium Shot (Thigh-up)\", \n\"composition\": \n{ \"angle\": \"Eye level\", \"pose_dynamic\": \"Leaning forward slightly towards lens\" }, \n\n\"action\": \n{ \"stance\": \"Standing straight on\", \"arms\": \"Relaxed at sides\", \"expression\": \"Direct gaze, alluring pout\" }, \n\"visual_anchors\": \n[ \"Texture of knit dress\", \"Collarbone shadows\", \"Curvature of waist\" ]\n },\n { \"position\": \"Bottom-Left (3)\", \"shot_type\": \"Full Body (Seated)\", \"composition\": \n{ \"angle\": \"Side profile\", \"framing\": \"Subject compacted on floor\" },\n \"action\":\n{ \"pose\": \"Knees to chest (fetal position variation)\", \"interaction\": \"Cheek resting on knee,",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9qlyPnW4AAyNXe.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/craftian_keskin/status/2007099649908150431",
+    "author": "Keskin"
+  }
+}

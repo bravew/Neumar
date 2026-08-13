@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-sprite-animation",
+  "version": "0.1.0",
+  "description": "A pixel / sprite-style animated explainer slide — full-bleed cream stage, bold display year, animated pixel-art mascot (e.g. Hanafuda card, mushroom, or 8-bit console), kinetic Japanese display type, ticking timeline ribbon. Reads like a single frame of an educational motion video — looping CSS keyframes, no JS, ready to be screen-recorded into a vertical video. Use when the brief asks for a \"sprite animation\", \"pixel-art video\", \"8-bit explainer\", \"history of X explainer\", \"kinetic typography…",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

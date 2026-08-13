@@ -1,0 +1,18 @@
+{
+  "id": "sd-try-not-to-laugh-challenge-thumbnail",
+  "surface": "image",
+  "title": "Try Not to Laugh Challenge Thumbnail",
+  "summary": "This prompt generates a high-energy YouTube thumbnail for a \"Try Not to Laugh Challenge\" video, featuring an exaggerated crying-laughing YouTuber and bold text. It aims to generate specific, over-the-top emotions and hig.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A high-energy thumbnail for a “Try Not to Laugh Challenge” video. It features a close-up of a YouTuber with an extremely exaggerated, crying-laughing expression, tears flying from their eyes. The background is a bright, explosive radial gradient of yellow and orange. Bold, white text with a black outline says “IMPOSSIBLE!” This requires the ability to generate specific, over-the-top emotions and high-impact text. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359926354_hoegcp_68ca62b3e06921c89f49982ed2dc9c4feff4e9435c2c33f98c1c42669ab38f7e-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "slash-commands.command-menu",
+  "kind": "video",
+  "page": "slash-commands",
+  "slot": "command-menu",
+  "route": "/",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"chat-input-textarea\"]",
+    "masks": [],
+    "steps": [
+      "Focus the composer",
+      "Type a command prefix",
+      "Hold on filtered command menu"
+    ]
+  },
+  "capturedAt": "2026-05-09T22:00:29.135Z",
+  "source": "source.webm"
+}

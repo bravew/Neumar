@@ -1,0 +1,11 @@
+{
+  "id": "cloud-puff",
+  "displayName": "Cloud Puff",
+  "description": "A smiling cream cloud pet with rosy cheeks.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "cozy", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/cloud-puff-openpets",
+  "category": "western"
+}

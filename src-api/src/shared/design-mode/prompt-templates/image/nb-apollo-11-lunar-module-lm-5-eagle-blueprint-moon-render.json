@@ -1,0 +1,18 @@
+{
+  "id": "nb-apollo-11-lunar-module-lm-5-eagle-blueprint-moon-render",
+  "surface": "image",
+  "title": "Apollo 11 Lunar Module LM-5 Eagle Blueprint & Moon Render",
+  "summary": "A detailed vintage-style poster features technical blueprints, an exploded axonometric view, and a 3D render of the Apollo 11 Lunar Module (LM-5) named Eagle on the moon's surface. The blueprint secti.",
+  "category": "Vintage & Retro",
+  "tags": ["nano-banana", "gemini", "vintage", "retro"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "An expert [DISCIPLINE] designer’s presentation board for [SUBJECT] — [ICONIC FEATURES / ERA], featuring black-and-white 2D technical drawings with annotations and dimensions on the left, an exploded axonometric diagram revealing [KEY INTERNAL COMPONENTS / MATERIALS] in the center, and a photorealistic 3D render of [SUBJECT] in [ICONIC ENVIRONMENT / SCENE] on the right, with [LIGHTING / ATMOSPHERE / MOTION DETAILS]; visual style transitions from [TECHNICAL / ARCHIVAL TONES] to [EMOTIONAL / ATMOSPHERIC COLOR PALETTE], clean grid layout, museum-grade industrial design presentation, ultra-detailed cinematic realism, title block reading “[TITLE] — [YEAR / VARIANT / TAGLINE]”.\n\nSee ALTs for ideas",
+  "previewImageUrl": "https://pbs.twimg.com/media/G86ZWOZXwAAVDPG.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/AllaAisling/status/2003849647392247864",
+    "author": "Alexandra Aisling"
+  }
+}

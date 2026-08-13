@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-clinical-case-report",
+  "version": "0.1.0",
+  "description": "Structured medical case presentation for clinical rounds, conferences, and documentation. Generates SOAP-format or narrative case reports with physiologically accurate vitals, labs, and evidence-based plans. Use when the brief mentions \"case report\", \"case presentation\", \"SOAP note\", \"clinical case\", \"ward rounds\", \"case summary\", or \"patient presentation\".",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

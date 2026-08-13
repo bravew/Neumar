@@ -1,0 +1,18 @@
+{
+  "id": "sd-informative-climate-change-seminar-poster",
+  "surface": "image",
+  "title": "Informative Climate Change Seminar Poster",
+  "summary": "This prompt generates an informative and engaging poster for a public seminar on climate change. It is designed as a mini-infographic with a central earth graphic and data points, aiming to educate effectively with a cle.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "An informative and engaging poster for a public seminar on climate change. The poster is designed as a mini-infographic, with a large, central graphic showing the earth with a thermometer, and smaller icons and data points around it explaining the causes and effects. The design is clean, organized, and aims to educate the viewer quickly and effectively. –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359675240_wtti1k_510c61e386a172f76c297cc251ac9821ddd69c51683562b1f031106bbb682648-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

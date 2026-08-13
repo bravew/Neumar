@@ -1,0 +1,17 @@
+{
+  "id": "sd5-09",
+  "surface": "image",
+  "title": "一只熊正在和一头驴玩跷跷板，驴比熊重",
+  "summary": "一只熊正在和一头驴玩跷跷板，驴比熊重",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "一只熊正在和一头驴玩跷跷板，驴比熊重",
+  "previewImageUrl": "https://github.com/user-attachments/assets/4863499e-1b22-4d27-87bd-2f14438d41d6",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea695f2b552957d3c5759"
+  }
+}

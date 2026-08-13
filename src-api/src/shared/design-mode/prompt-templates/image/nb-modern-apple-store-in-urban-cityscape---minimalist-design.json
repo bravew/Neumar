@@ -1,0 +1,18 @@
+{
+  "id": "nb-modern-apple-store-in-urban-cityscape---minimalist-design",
+  "surface": "image",
+  "title": "Modern Apple Store in Urban Cityscape - Minimalist Design",
+  "summary": "A photorealistic daytime shot captures a modern, minimalist Apple Store building with an iconic black logo, nestled in a bustling urban plaza. Tall glass skyscrapers rise in the background, complement.",
+  "category": "Urban Cityscape",
+  "tags": ["nano-banana", "gemini", "urban", "cityscape"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"type\": \"image_generation\",\n  \"style\": \"ultra_photorealistic\",\n  \"aspect_ratio\": \"1:1\",\n  \"resolution\": \"8K\",\n  \"quality\": \"high_detail_realism\",\n  \"scene\": {\n    \"location\": \"modern city business district\",\n    \"environment\": \"open plaza surrounded by glass skyscrapers\",\n    \"atmosphere\": \"busy urban lifestyle, premium commercial vibe\"\n  },\n  \"subject\": {\n    \"structure\": \"luxury brand pop-up store\",\n    \"design\": \"minimalist modern architecture with bold geometric shape\",\n    \"material\": \"wood, glass, metal finishes\",\n    \"branding\": \"large clean logo on outer wall\",\n    \"interior\": \"well-lit showroom with product displays\"\n  },\n  \"people\": {\n    \"crowd\": \"realistic people walking, shopping, interacting\",\n    \"style\": \"casual urban clothing\",\n    \"motion\": \"natural movement, candid poses\"\n  },\n  \"lighting\": {\n    \"type\": \"natural daylight\",\n    \"quality\": \"soft cinematic lighting\",\n    \"shadows\": \"realistic soft shadows\",\n    \"reflections\": \"glass and metal reflections visible\"\n  },\n  \"camera\": {\n    \"device\": \"DSLR\",\n    \"lens\": \"24mm wide angle\",\n    \"aperture\": \"f/4\",\n    \"iso\": 100,\n    \"focus\": \"sharp foreground with deep clarity\",\n    \"depth_of_field\": \"natural depth\"\n  },\n  \"rendering_details\": {\n    \"texture\": \"high-detail materials and surfaces\",\n    \"color_grading\": \"clean, premium, realistic\",\n    \"sharpness\": \"ultra clear\",\n    \"noise\": \"none\",\n    \"artifacts\": \"none\"\n  },\n  \"mood\": \"premium brand experience, futuristic yet realistic\",\n  \"negative_prompt\": [\n    \"cartoon\",\n    \"anime\",\n    \"illustration\",\n    \"cgi look\",\n    \"low quality\",\n    \"blur\",\n    \"distorted buildings\",\n    \"fake lighting\",\n    \"over-saturated colors\"\n  ]\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9EGAq-bAAALFtl.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/Strength04_X/status/2004390027179315659",
+    "author": "𝐌"
+  }
+}

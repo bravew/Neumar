@@ -1,0 +1,1 @@
+{"taskId":"task-video-1","projectId":"fixture-volcengine-i2v","surface":"video","model":"doubao-seedance-2-0-260128","state":"done","startedAt":"2026-05-02T00:00:00.000Z","endedAt":"2026-05-02T00:00:00.000Z","durationMs":1,"progressLines":["accepted reference frame","wrote artifacts/video-manifest.json"],"providerError":null,"usedStubFallback":false}

@@ -1,0 +1,18 @@
+{
+  "id": "nb-woman-post-workout-hydration-fitness-gym-scene",
+  "surface": "image",
+  "title": "Woman Post-Workout Hydration | Fitness & Gym Scene",
+  "summary": "A blonde woman in a pink sports bra and black leggings sits on a purple yoga mat, wiping sweat from her forehead with her hand after an intense workout. She holds a black water bottle, her face flushe.",
+  "category": "Sports & Action",
+  "tags": ["nano-banana", "gemini", "sports", "action"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"subject\": {\n    \"description\": \"A young woman sitting on yoga mat, wiping sweat with towel, holding water bottle\",\n    \"mirror_rules\": \"N/A - direct gym photo\",\n    \"age\": \"late 20s\",\n    \"expression\": \"accomplished, slight breathlessness, confident smile\",\n    \"hair\": {\n      \"color\": \"blonde with highlights\",\n      \"style\": \"high ponytail, slightly messy with flyaways from workout\"\n    },\n    \"clothing\": {\n      \"top\": {\n        \"type\": \"sports bra\",\n        \"color\": \"dusty rose pink\",\n        \"details\": \"medium support, strappy back detail, moisture visible from sweat\"\n      },\n      \"bottom\": {\n        \"type\": \"high-waisted leggings\",\n        \"color\": \"black with mesh panels\",\n        \"details\": \"ankle length, mesh cutouts on calves, compression fit\"\n      }\n    },\n    \"face\": {\n      \"preserve_original\": true,\n      \"makeup\": \"minimal, dewy from workout, natural flushed cheeks, no eye makeup\"\n    }\n  },\n  \"accessories\": {\n    \"headwear\": {\n      \"type\": \"none\",\n      \"details\": \"hair pulled back in scrunchie\"\n    },\n    \"jewelry\": {\n      \"earrings\": \"small diamond studs\",\n      \"necklace\": \"none\",\n      \"wrist\": \"rose gold fitness tracker, black hair ties on wrist\",\n      \"rings\": \"none\"\n    },\n    \"device\": {\n      \"type\": \"smartphone\",\n      \"details\": \"propped against dumbbell, recording workout selfie\"\n    },\n    \"prop\": {\n      \"type\": \"insulated water bottle\",\n      \"details\": \"matte black 32oz bottle with motivational quote sticker, condensation visible\"\n    }\n  },\n  \"photography\": {\n    \"camera_style\": \"gym selfie aesthetic, smartphone front camera\",\n    \"angle\": \"slightly above eye level, sitting position\",\n    \"shot_type\": \"full upper body and crossed legs, centered composition\",\n    \"aspect_ratio\": \"9:16 vertical\",\n    \"texture\": \"crisp detail, bright gym lighting, energetic feel\"\n  },\n  \"background\": {\n    \"setting\": \"modern gym studio\",\n    \"wall_color\": \"light gray with motivational mural\",\n    \"elements\": [\n      \"purple yoga mat laid out\",\n      \"set of dumbbells scattered nearby\",\n      \"white towel draped over shoulder\",\n      \"blurred gym equipment in background\",\n      \"large mirror reflecting back wall\",\n      \"resistance bands coiled on floor\"\n    ],\n    \"atmosphere\": \"energetic, accomplished, health-focused\",\n    \"lighting\": \"bright overhead LED gym lighting, even coverage\"\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G6zqTvMXAAAsqd7.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/godofprompt/status/1994226363692171267",
+    "author": "God of Prompt"
+  }
+}

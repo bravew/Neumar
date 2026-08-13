@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-contact-widget",
+  "version": "0.1.0",
+  "description": "Design a compact contact, support, or lead-capture widget with clear fields, validation states, privacy copy, and responsive embed behavior. Use when the brief asks for a contact widget, support widget, inquiry form, lead form, or callback request.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

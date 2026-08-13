@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-tang-dynasty-imperial-palace",
+  "surface": "image",
+  "title": "Tang Dynasty Imperial Palace Portrait",
+  "summary": "Ultra-realistic editorial portrait of a woman in exquisite Tang-style hanfu inside a grand ancient Chinese imperial palace — red lacquered pillars, golden carvings, and soft lantern light in movie-grade quality.",
+  "category": "Portrait / Historical",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "portrait",
+    "historical",
+    "chinese",
+    "hanfu",
+    "tang dynasty"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "2:3",
+  "prompt": "A breathtakingly beautiful woman in high-end artistic photoshoot style, extremely realistic photography, with delicate soft beautiful face, refined features, warm fair skin, and long flowing soft wavy hair. Outfit: Exquisite romantic Tang-style improved hanfu with chest-high ruqun, flowing wide sleeves, multi-layered lightweight silk and gauze fabrics in soft apricot, pale lotus pink, misty rose, and subtle gold accents. Scene: Standing inside a magnificent ancient Chinese imperial palace with grand hall, red lacquered pillars, intricate golden carvings, ornate wooden lattice screens, luxurious silk curtains and lanterns. Pose: Elegantly sensual standing pose beside an ornate pillar, graceful S-curve body line, waist gently twisted, one hand touching the pillar, the other resting on flowing skirt. Expression: Gentle and serene with soft dreamy smile, warm captivating eyes. Lighting: Soft natural daylight mixed with warm ambient lantern light, gentle highlights and soft shadows. Style: High-end fashion editorial photography, ultra realistic, photorealistic, subtle film grain, soft low contrast, slightly desaturated warm tones, movie-grade quality. Details: Flawless yet natural skin texture, realistic hair strands with natural movement, intricate fabric folds, rich architectural details, soft flower petals floating. Atmosphere: Romantic, graceful, dreamy, luxurious and poetic. Quality: 8K ultra detailed, cinematic lighting, shallow depth of field, professional photography masterpiece, best quality. Aspect Ratio: 2:3",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/007-raw_20260423_promptgather_prompt_033__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "design-system-urdu-modern",
+  "version": "0.1.0",
+  "description": "Category: Editorial / Personal / Publication",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

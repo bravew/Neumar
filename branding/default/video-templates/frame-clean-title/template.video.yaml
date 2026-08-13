@@ -1,0 +1,83 @@
+spec_version: 1
+id: frame-clean-title
+name: Clean Title Card
+description: >
+  Centered title card with a subtitle and an accent stripe. Single frame.
+engine: html
+engine_version: ^1.60.0
+source_entry: source/index.html
+
+category: intro-outro
+subcategory: title-card
+tags: [title, intro, outro, minimal]
+best_for:
+  - 'Opening title for a short video'
+  - "Closing 'subscribe' card"
+not_for:
+  - 'Long-form explainers'
+
+output:
+  formats: [mp4, webm]
+  default_format: mp4
+  resolution:
+    default: { width: 1920, height: 1080 }
+    supported_aspects: ['16:9', '9:16', '1:1']
+  fps:
+    default: 30
+    supported: [24, 30, 60]
+  duration:
+    type: variable
+    min_sec: 2
+    max_sec: 6
+  alpha: false
+  audio:
+    supported: false
+
+inputs:
+  schema:
+    type: object
+    required: [title]
+    properties:
+      title:
+        type: string
+        title: Title
+        maxLength: 80
+        description: 'Main headline.'
+      subtitle:
+        type: string
+        title: Subtitle
+        maxLength: 140
+        description: 'Optional secondary line.'
+      accent_color:
+        type: string
+        title: Accent Color
+        description: 'CSS color used for the divider stripe.'
+        default: '#ff5a36'
+      background:
+        type: string
+        title: Background
+        enum: ['dark', 'light']
+        default: 'dark'
+  examples:
+    - {
+        title: 'Q3 Results',
+        subtitle: 'Audience + Engagement',
+        accent_color: '#ff5a36',
+        background: 'dark',
+      }
+
+license:
+  spdx: Apache-2.0
+  attribution_required: false
+  redistribution_allowed: true
+  commercial_use: true
+
+provenance:
+  origin:
+    kind: in-house
+  transformation: 'Original Neuma design — title card with stripe reveal animation.'
+
+author:
+  name: Neuma
+
+version: 0.1.0

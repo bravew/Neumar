@@ -1,0 +1,12 @@
+{
+  "name": "design-system-v0",
+  "version": "0.1.0",
+  "description": "Category: Developer Tools",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

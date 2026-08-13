@@ -1,0 +1,40 @@
+{
+  "id": "mcp-and-skills.marketplace-review",
+  "kind": "video",
+  "page": "mcp-and-skills",
+  "slot": "marketplace-review",
+  "route": "/library?tab=marketplace",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"library-page\"]",
+    "masks": [],
+    "steps": [
+      "Pause on the marketplace",
+      "Search for a GitHub capability",
+      "Hold on filtered capabilities"
+    ]
+  },
+  "capturedAt": "2026-05-09T21:59:26.381Z",
+  "source": "source.webm"
+}

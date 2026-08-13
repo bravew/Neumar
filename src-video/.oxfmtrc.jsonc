@@ -1,0 +1,43 @@
+{
+  "$schema": "../node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "printWidth": 80,
+  "semi": true,
+  "tabWidth": 2,
+  "useTabs": false,
+  "arrowParens": "always",
+  "sortImports": {
+    "customGroups": [
+      {
+        "groupName": "react",
+        "elementNamePattern": ["react", "react-dom"],
+      },
+      {
+        "groupName": "remotion",
+        "elementNamePattern": ["remotion", "@remotion/**"],
+      },
+      {
+        "groupName": "video",
+        "elementNamePattern": ["@video/**"],
+      },
+    ],
+    "groups": [
+      "react",
+      "remotion",
+      "external",
+      "video",
+      ["parent", "sibling", "index"],
+      "style",
+    ],
+    "newlinesBetween": true,
+    "order": "asc",
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    "out",
+    "public",
+    "*.md",
+    "hyperframes",
+  ],
+}

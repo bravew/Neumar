@@ -1,0 +1,18 @@
+{
+  "id": "sd-romantic-picnic-in-lavender-field",
+  "surface": "image",
+  "title": "Romantic Picnic in Lavender Field",
+  "summary": "This prompt generates a romantic and dreamy photo of a couple picnicking at sunset in a Provence lavender field. It emphasizes warm flares, long shadows, and soft purple haze to create an intimate and magical atmosphere.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A romantic and dreamy photo of a couple having a picnic at sunset in a lavender field in Provence, France. They are laughing and sharing a bottle of wine. The setting sun creates a beautiful, warm flare and long shadows. The air is filled with a soft, purple haze from the lavender. The image should feel intimate and magical, showcasing advanced environmental rendering and emotional consistency between subjects. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360152290_ucceii_2e1174d444139a8eb541644c3eb5020576fe4c220017db9e976b341d2a54a149-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

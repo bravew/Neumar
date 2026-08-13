@@ -1,0 +1,18 @@
+{
+  "id": "sd-line-art-of-traditional-chinese-seasoning-herbs",
+  "surface": "image",
+  "title": "Line Art of Traditional Chinese Seasoning Herbs",
+  "summary": "This prompt is designed to generate a line-art illustration of commonly used traditional Chinese seasoning herbs. It requires an intaglio print line-art style, using 0.8mm thick lines for the outer contours and 0.2mm thi.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Nine common Chinese seasoning herbs used in cooking, line drawing, intaglio print line art. Use {argument name=\"thick line width\" default=\"0.8mm\"} thick lines for the outer contour and {argument name=\"thin line width\" default=\"0.2mm\"} thin lines to depict the surface texture, retaining the traces of copperplate engraving, on a pure white background.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360433911_ehmj82_1765340299572-6opt91-0217653402821028547934892c4038781a87d514f9a9196c3270d_0-600x450.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/liu10102525",
+    "author": "nene"
+  }
+}

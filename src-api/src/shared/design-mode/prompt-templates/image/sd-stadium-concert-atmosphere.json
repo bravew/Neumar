@@ -1,0 +1,18 @@
+{
+  "id": "sd-stadium-concert-atmosphere",
+  "surface": "image",
+  "title": "Stadium Concert Atmosphere",
+  "summary": "Creates a breathtaking stadium concert scene reminiscent of major pop tours. It details stage lighting, falling confetti, and the sea of audience lights to capture the electric energy and dreamlike quality of a live perf.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "{argument name=\"scene\" default=\"Large stadium concert venue\"}, golden confetti falling from the sky, {argument name=\"person\" default=\"female singer\"} in the center of the spotlight beam, purple-blue gradient on the LED screen behind, ocean of audience phone lights creating a starry sea effect, stage fog machine creating a dreamlike atmosphere, concert photography telephoto lens compression 200mm, high ISO 3200 capturing motion, saturated night scene colors, Eras Tour visual style, 16:9 landscape composition",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360294924_376i3s_1765274893099-wen28j-02176527488074375aeae14c82856eca08eecb5e75c0575f6b505_0-600x337.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

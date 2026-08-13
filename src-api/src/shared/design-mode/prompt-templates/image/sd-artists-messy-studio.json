@@ -1,0 +1,18 @@
+{
+  "id": "sd-artists-messy-studio",
+  "surface": "image",
+  "title": "Artist's Messy Studio",
+  "summary": "This prompt generates a photo of an artist's messy but inspiring studio. It focuses on natural lighting and scattered art supplies to celebrate the creative process with realism and coherence.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:3",
+  "prompt": "A photo of an artist’s messy but inspiring studio. Canvases are leaning against the wall, some finished, some in progress. Jars of paintbrushes, tubes of paint, and palettes are scattered around. The floor is splattered with paint. The lighting is natural, coming from a large, north-facing window. The image should celebrate the creative process, showcasing the ability to render complex, chaotic scenes with a high degree of realism and coherence. –ar 4:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360073375_zdsx14_642c32b87cf5be86178882a3ce41f082d51ff7403ec7c14a2ff414736abd12fb-600x450.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sd-futuristic-k-pop-concept",
+  "surface": "image",
+  "title": "Futuristic K-Pop Concept",
+  "summary": "Generates a polished K-pop group concept photo with a futuristic edge. It specifies formation, styling, and lighting details to emulate the high-end visual production style of major entertainment agencies like SM Enterta.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "K-pop {argument name=\"number of people\" default=\"four-member\"} group concept photo, precise positioning in a diamond formation, unified futuristic silver styling color scheme, dreamy gradient lighting from purple to blue, wet ground reflecting silhouettes, high-end retouching retaining skin texture but unifying tones, SM Entertainment visual style, mixed soft and hard lighting, background fog machine creating layers, 16:9 album concept photo composition",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360279863_tz4g4f_1765274910581-tq9tne-02176527489415015b33ccaa151d3ed7feaaa761bc71c37a7cd8b_0-600x337.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

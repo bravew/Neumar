@@ -1,0 +1,18 @@
+{
+  "id": "sd-plastic-pollution-psa-poster",
+  "surface": "image",
+  "title": "Plastic Pollution PSA Poster",
+  "summary": "This prompt generates a powerful and thought-provoking poster for a public service announcement about plastic pollution. It depicts a sea turtle swimming through plastic waste, designed to evoke an emotional response and.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "A powerful and thought-provoking poster for a public service announcement about plastic pollution in the oceans. The image is a surreal and sad depiction of a sea turtle swimming through a sea of plastic bags and bottles, instead of water. The tagline “Is this the ocean you want?” is at the bottom. The visual should be realistic and impactful, designed to evoke an emotional response and raise awareness. –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765367960733_h016tz_5ed05bd2ce5bba756b3a380cd7620a25b24a29a495ab05eafe9f2c85b4c08d8a-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

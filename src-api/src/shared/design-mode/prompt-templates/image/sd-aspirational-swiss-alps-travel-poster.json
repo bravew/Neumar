@@ -1,0 +1,18 @@
+{
+  "id": "sd-aspirational-swiss-alps-travel-poster",
+  "surface": "image",
+  "title": "Aspirational Swiss Alps Travel Poster",
+  "summary": "This prompt generates an aspirational and beautiful travel poster for the Swiss Alps. It features a breathtaking, hyper-realistic photograph of an alpine village with snow-capped mountains, evoking wanderlust.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "2:3",
+  "prompt": "An aspirational and beautiful travel poster for visiting the Swiss Alps. The image is a breathtaking, hyper-realistic photograph of a picturesque alpine village with snow-capped mountains in the background. The text “SWITZERLAND: The Adventure Awaits” is in an elegant, classic font. The poster should evoke a strong sense of wanderlust and make the viewer want to book a trip immediately. –ar 2:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359647153_218ang_18e85e9a2161677e43484cb9cd7b1887218ccf8c936d1d72f58fef6c121a3ea8-600x900.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

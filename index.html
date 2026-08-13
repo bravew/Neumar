@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neumar</title>
+    <script>
+      // Apply dark mode class before first paint to prevent white flash.
+      // Key must match `${APP_SLUG}_settings` from settings.ts (slug from branding.json).
+      (function () {
+        try {
+          var stored = localStorage.getItem('neumar_settings');
+          var theme = stored ? JSON.parse(stored).theme : 'system';
+          var dark =
+            theme === 'dark' ||
+            (theme !== 'light' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.backgroundColor = '#323232';
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

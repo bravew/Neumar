@@ -1,0 +1,13 @@
+{
+  "name": "design-system-premium",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for Premium, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "Premium",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

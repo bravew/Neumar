@@ -1,0 +1,26 @@
+{
+  "id": "gptimage2-haute-couture-entomology",
+  "surface": "image",
+  "title": "Haute Couture Meets Entomology Fashion Art",
+  "summary": "Conceptual art piece: insect anatomy reconstructed entirely from luxury fashion house textiles — exoskeleton formed from Hermès, Chanel, Versace, and Dior fabrics. Four insects, four brands, one image.",
+  "category": "Character / Conceptual Art",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "fashion",
+    "illustration",
+    "conceptual",
+    "entomology",
+    "luxury"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "1:1",
+  "prompt": "<instructions> Input = Luxury Fashion House. Identify 4 iconic fashion brands and their signature fabrics/patterns. Function Draw ($Fashion_Brand, $ Insect_Species) ... Anchor: [$Insect_Species] :: [$Fashion_Brand]::4 | Morphology: Biological anatomy of [$Insect_Species] reconstructed via the assemblage of [$Fashion_Brand] textiles, exoskeleton formed from constituent haute couture garments, wings from signature prints, legs from accessory leather, eyes from jewellery stones. Generate 4 insects, each anchored to one brand. Render as high-end editorial studio photography on white background. </instructions>",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/037-raw_20260423_promptgather_prompt_045__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "author": "@Gdgtify",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

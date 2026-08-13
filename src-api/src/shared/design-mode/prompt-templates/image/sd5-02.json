@@ -1,0 +1,17 @@
+{
+  "id": "sd5-02",
+  "surface": "image",
+  "title": "A trendy and eye-catching poster for a fashion store’s end-o…",
+  "summary": "A trendy and eye-catching poster for a fashion store’s end-of-season sale. The design uses bold, vibrant colors and modern, edgy typography. The main visual is a stylish model wearing clothes from the store, but the imag…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "3:4",
+  "prompt": "A trendy and eye-catching poster for a fashion store’s end-of-season sale. The design uses bold, vibrant colors and modern, edgy typography. The main visual is a stylish model wearing clothes from the store, but the image is creatively treated with paint strokes or collage elements. The text “50% OFF EVERYTHING” is the most prominent element. The poster should create a sense of urgency and excitement. –ar 3:4",
+  "previewImageUrl": "https://github.com/user-attachments/assets/efd3460f-1215-4490-92b2-25fb15297e91",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=698ef5c8f2b552957d3c51e0"
+  }
+}

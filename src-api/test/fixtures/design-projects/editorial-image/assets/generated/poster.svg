@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-label="Editorial poster fixture">
+  <rect width="1200" height="900" fill="#f4efe5"/>
+  <circle cx="620" cy="390" r="210" fill="#1f1f1f"/>
+  <rect x="120" y="690" width="760" height="16" fill="#b64b35"/>
+  <text x="120" y="170" font-family="Georgia, serif" font-size="72" fill="#1f1f1f">Fixture Poster</text>
+  <text x="120" y="780" font-family="Arial, sans-serif" font-size="32" fill="#1f1f1f">DesignMode evaluation asset</text>
+</svg>

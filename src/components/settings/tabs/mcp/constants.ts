@@ -1,0 +1,92 @@
+import type { ConfigDialogState, MCPPreset } from './types';
+
+export const MCP_PRESETS: MCPPreset[] = [
+  {
+    id: 'notion',
+    name: 'Notion',
+    description: 'Read and write Notion pages, databases, and blocks via OAuth',
+    type: 'http',
+    url: 'https://mcp.notion.com/mcp',
+    requiresOAuth: true,
+    icon: '/mcp-icons/notion.svg',
+    advertisedToolCount: 24,
+  },
+  {
+    id: 'figma',
+    name: 'Figma(Desktop App required)',
+    description:
+      'Inspect Figma designs, components, and variables (requires Figma desktop app)',
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', 'figma-developer-mcp', '--stdio'],
+    icon: '/mcp-icons/figma.svg',
+  },
+  {
+    id: 'granola',
+    name: 'Granola',
+    description: 'Access Granola meeting notes and transcripts via OAuth',
+    type: 'http',
+    url: 'https://mcp.granola.ai/mcp',
+    requiresOAuth: true,
+    icon: '/mcp-icons/granola.svg',
+    advertisedToolCount: 6,
+  },
+  {
+    id: 'slack',
+    name: 'Slack',
+    description:
+      'Read channels, search messages, and send replies (requires SLACK_BOT_TOKEN + SLACK_TEAM_ID)',
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-slack'],
+    icon: '/mcp-icons/slack.svg',
+  },
+  {
+    id: 'github',
+    name: 'github',
+    description: 'GitHub API integration for repos, issues, PRs',
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropic-ai/mcp-server-github'],
+    icon: '/mcp-icons/github.svg',
+  },
+  {
+    id: 'context7',
+    name: 'context7',
+    description: 'Up-to-date documentation and code examples for any library',
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', '@upstash/context7-mcp@latest'],
+    icon: '/mcp-icons/context7.png',
+  },
+  {
+    id: 'filesystem',
+    name: 'filesystem',
+    description: 'Secure file operations with configurable access',
+    type: 'stdio',
+    command: 'npx',
+    args: ['-y', '@anthropic-ai/mcp-server-filesystem'],
+    icon: '/mcp-icons/filesystem.svg',
+  },
+  {
+    id: 'playwright',
+    name: 'playwright',
+    description: 'Browser automation via Playwright',
+    type: 'stdio',
+    command: 'npx',
+    icon: '/mcp-icons/playwright.svg',
+    args: ['-y', '@anthropic-ai/mcp-server-playwright'],
+  },
+];
+
+export const initialConfigDialog: ConfigDialogState = {
+  open: false,
+  mode: 'add',
+  serverName: '',
+  transportType: 'stdio',
+  command: '',
+  args: [],
+  env: [],
+  url: '',
+  headers: [],
+};

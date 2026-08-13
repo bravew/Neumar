@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-live-artifact",
+  "version": "0.1.0",
+  "description": "Create refreshable, auditable DesignMode artifacts backed by connector or local data. Trigger when the user asks for live dashboards, refreshable reports, synced views, or reusable data-backed artifacts.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

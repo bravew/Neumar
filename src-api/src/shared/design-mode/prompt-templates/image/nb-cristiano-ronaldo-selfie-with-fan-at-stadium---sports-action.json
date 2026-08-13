@@ -1,0 +1,18 @@
+{
+  "id": "nb-cristiano-ronaldo-selfie-with-fan-at-stadium---sports-action",
+  "surface": "image",
+  "title": "Cristiano Ronaldo Selfie with Fan at Stadium - Sports Action",
+  "summary": "A cheerful selfie captures football star Cristiano Ronaldo and a young woman smiling brightly on the field of a large, brightly lit stadium. In the background, enthusiastic fans wearing yellow cheer a.",
+  "category": "Sports & Action",
+  "tags": ["nano-banana", "gemini", "sports", "action"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"image_prompt\": {\n    \"reference\": {\n      \"face_identity\": \"uploaded reference image\",\n      \"identity_lock\": true,\n      \"face_preservation\": \"100% identical facial structure, proportions, skin texture, eye shape, lips, nose, brows, moles, and natural expression\"\n    },\n\n    \"subjects\": [\n      {\n        \"type\": \"young woman\",\n        \"role\": \"foreground subject\",\n        \"expression\": \"soft confident smile\",\n        \"gaze\": \"looking directly at the camera\",\n        \"pose\": {\n          \"position\": \"standing very close to the male subject\",\n          \"interaction\": \"leaning slightly toward him in a casual selfie pose\"\n        },\n        \"hair\": {\n          \"color\": \"dark brown\",\n          \"style\": \"sleek high ponytail\"\n        },\n        \"makeup\": {\n          \"style\": \"natural glam\",\n          \"details\": [\n            \"even glowing skin\",\n            \"subtle contour\",\n            \"soft blush\",\n            \"defined brows\",\n            \"natural pink lips\"\n          ]\n        },\n        \"outfit\": {\n          \"clothing\": \"black fitted short-sleeve top\",\n          \"style\": \"sporty casual\"\n        }\n      },\n      {\n        \"type\": \"Cristiano Ronaldo\",\n        \"role\": \"secondary subject\",\n        \"expression\": \"relaxed smile\",\n        \"gaze\": \"looking at the camera\",\n        \"hair\": {\n          \"color\": \"dark brown\",\n          \"style\": \"short, neatly styled\"\n        },\n        \"outfit\": {\n          \"clothing\": \"bright yellow football jersey\",\n          \"details\": [\n            \"team logo visible\",\n            \"athletic fit\"\n          ]\n        }\n      }\n    ],\n\n    \"environment\": {\n      \"location\": \"football stadium\",\n      \"background_elements\": [\n        \"large cheering crowd\",\n        \"stadium seating filled with fans\",\n        \"players and staff visible in the distance\",\n        \"night sky with stadium floodlights\"\n      ]\n    },\n\n    \"lighting\": {\n      \"type\": \"stadium lighting\",\n      \"characteristics\": [\n        \"bright overhead lights\",\n        \"even illumination on faces\",\n        \"slight highlights on skin\",\n        \"realistic night-time contrast\"\n      ]\n    },\n\n    \"photography_style\": {\n      \"style\": \"real-life selfie photography\",\n      \"camera_look\": \"smartphone camera\",\n      \"depth_of_field\": \"moderate depth of field with slightly blurred crowd\",\n      \"mood\": \"excited, celebratory, candid\"\n    },\n\n    \"render_quality\": {\n      \"realism\": \"ultra-photorealistic\",\n      \"detail_level\": \"high\",\n      \"Aspect Ratio\": \"4:5\",\n      \"skin_texture\": \"natural and realistic\",\n      \"resolution\": \"high resolution\",\n      \"color_grading\": \"true-to-life colors with stadium vibrancy\"\n    }\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G8mr27TakAAsqBb.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/ZaraIrahh/status/2002320492548722766",
+    "author": "Zara"
+  }
+}

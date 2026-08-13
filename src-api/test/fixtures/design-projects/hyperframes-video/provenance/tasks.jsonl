@@ -1,0 +1,1 @@
+{"taskId":"task-hf-1","projectId":"fixture-hyperframes-video","surface":"video","model":"hyperframes-html","state":"done","startedAt":"2026-05-02T00:00:00.000Z","endedAt":"2026-05-02T00:00:00.000Z","durationMs":1,"progressLines":["frame 1/96","frame 96/96"],"providerError":null,"usedStubFallback":false}

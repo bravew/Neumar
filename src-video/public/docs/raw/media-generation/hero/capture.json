@@ -1,0 +1,40 @@
+{
+  "id": "media-generation.hero",
+  "kind": "image",
+  "page": "media-generation",
+  "slot": "hero",
+  "route": "/design",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 2,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"new-project-panel\"]",
+    "masks": [],
+    "steps": [
+      "Open the surface picker",
+      "Switch to the image surface",
+      "Pause on image generation controls"
+    ]
+  },
+  "capturedAt": "2026-05-09T21:58:37.007Z",
+  "source": "source.png"
+}

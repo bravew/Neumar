@@ -1,0 +1,18 @@
+{
+  "id": "sd-nick-and-judy-xiaohongshu-style-fourth-wall-breaking-selfie",
+  "surface": "image",
+  "title": "Nick and Judy Xiaohongshu-Style Fourth-Wall-Breaking Selfie",
+  "summary": "This prompt generates a 3D selfie of Nick and Judy inside a Xiaohongshu-style interface, with the characters breaking out of the frame, creating strong interaction and social-media vibes, ideal for couple daily posts or.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Zootopia characters, Nick Wilde and Judy Hopps. Nick has orange-red fur, wears his classic green palm leaf print short-sleeved shirt, a blue and red striped tie, and khaki pants, with a handsome smirk. Judy has gray fur and purple eyes, ears perked up high, wearing a dark blue ZPD officer vest, silver badge, fully equipped belt, looking sweet and cute. The two sit side-by-side on the bottom edge of a giant, floating \"Xiaohongshu\" app interface frame. Breaking the fourth wall composition, their legs dangle outside the frame plane. Nick intimately wraps one arm around Judy's shoulder, while the other hand holds a smartphone extended far to the front, taking a selfie at a 45-degree angle (fisheye perspective). Judy leans closely against Nick, looking up at the camera with a sweet smile, showing off a sweet couple moment. The core of the image is a giant Xiaohongshu-style social media frame. The UI interface replicates the classic layout: scrolling text title in the bottom left, vertical floating icons of \"❤\", \"⭐\", \"comment bubble\", and \"forward arrow\" on the right. The top displays the username \"{argument name=\"username\" default=\"Nick & Judy\"}\" with trending hashtags (such as {argument name=\"hashtags\" default=\"#Zootopia #CoupleDaily\"}). 3D Pixar animation style, Unreal Engine 5 render, 8K ultra-HD quality. Fur shows fiber-level detail, ray tracing technology, soft selfie fill light on their faces, background is a blurred colorful Zootopia street scene with dreamy bokeh. Bright and vivid colors, high saturation, emphasizing social media internet aesthetics and candy tones, visually striking.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360424853_aa4im4_3ff7bf8e75a27eee13984fb677f4cb01d8949df05bbf6a9bc3e3a3f4688c880b-600x1068.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7576570007811886382?workDetailType=Image&itemType=9",
+    "author": "名剑风流"
+  }
+}

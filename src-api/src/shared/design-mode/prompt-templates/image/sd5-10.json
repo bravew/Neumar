@@ -1,0 +1,17 @@
+{
+  "id": "sd5-10",
+  "surface": "image",
+  "title": "基于参考图，提取一张时尚平铺摄影图：包含人物穿搭以及手中道具",
+  "summary": "基于参考图，提取一张时尚平铺摄影图：包含人物穿搭以及手中道具",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "基于参考图，提取一张时尚平铺摄影图：包含人物穿搭以及手中道具",
+  "previewImageUrl": "https://github.com/user-attachments/assets/6d4fd14e-b19f-4f51-b0ed-cd9581946b50",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea69ef2b552957d3c5762"
+  }
+}

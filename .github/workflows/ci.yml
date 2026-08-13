@@ -1,0 +1,197 @@
+name: CI
+
+# ABOUT THIS WORKFLOW
+# - Purpose: Validate code quality, type safety, formatting, and tests on release PRs.
+# - Trigger: Automatic only on release PRs (head branch `release/*` or `*release-v*`),
+#   e.g. release/v26.5.17, chore/release-v26.6.14, codex/release-v26.6.16.
+#   Regular PRs skip CI by default — run it manually via workflow_dispatch when needed.
+# - Jobs: Three parallel tracks — quality (lint/types/format), test (frontend+API), build verification.
+# - Caching: pnpm store cached via actions/setup-node built-in cache support.
+#
+# CUSTOMIZATION TIPS
+# - To add E2E tests, change `pnpm test:fast` to `pnpm test:ci` (adds E2E suite, slower).
+# - Coverage thresholds are configured in vitest configs, not here.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      run_e2e:
+        description: Run full test suite including E2E (slower)
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Quality Gate ────────────────────────────────────────────
+  quality:
+    name: Lint, Types & Format
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' ||
+        (!github.event.pull_request.draft &&
+          (startsWith(github.head_ref, 'release/') || contains(github.head_ref, 'release-v')))) &&
+      !contains(github.actor, 'dependabot') &&
+      !contains(github.actor, 'renovate') &&
+      !contains(github.actor, '[bot]')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Brand check
+        run: pnpm brand:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check (frontend + API)
+        run: pnpm typecheck:all
+
+      - name: Component size check
+        run: pnpm check:component-size
+
+      - name: Format check
+        run: pnpm format:check
+
+  # ─── Test Suite ──────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' ||
+        (!github.event.pull_request.draft &&
+          (startsWith(github.head_ref, 'release/') || contains(github.head_ref, 'release-v')))) &&
+      !contains(github.actor, 'dependabot') &&
+      !contains(github.actor, 'renovate') &&
+      !contains(github.actor, '[bot]')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        env:
+          RUN_E2E: ${{ github.event.inputs.run_e2e }}
+        run: |
+          if [ "$RUN_E2E" = "true" ]; then
+            pnpm test:ci
+          else
+            pnpm test:fast
+            pnpm test:gate
+          fi
+
+      - name: Select evals
+        run: pnpm eval:select --json > selected-evals.json
+
+      - name: Upload eval selection
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: selected-evals
+          path: selected-evals.json
+          retention-days: 14
+
+  # ─── Browser E2E (Playwright) ────────────────────────────────
+  browser-e2e:
+    name: Browser E2E
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    if: github.event.inputs.run_e2e == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # The Playwright webServer spawns the API + vite, both of which import
+      # @neumar/video-ir via its built `lib/` (exports → ./lib/index.js). Unlike
+      # the test job (built by its pretest hooks), this job must build it
+      # explicitly or both servers crash with ERR_MODULE_NOT_FOUND on startup.
+      - name: Build workspace packages
+        run: pnpm --filter @neumar/video-ir build
+
+      - name: Run Playwright tests
+        run: pnpm test:e2e:browser
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  # ─── Build Verification ─────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'

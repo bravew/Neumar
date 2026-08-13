@@ -1,0 +1,18 @@
+{
+  "id": "sd-3d-e-commerce-platform-architecture-diagram",
+  "surface": "image",
+  "title": "3D E-Commerce Platform Architecture Diagram",
+  "summary": "This prompt creates a highly three-dimensional technical architecture flowchart for a sales platform, clearly showing module hierarchies and data flows, ideal for technical documents, system demos, or architecture review.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "With a highly three-dimensional perspective, accurately present the technical architecture diagram of a sales platform via a flowchart. Clearly display the distinct hierarchical relationships between modules, dynamically and intuitively show the direction of data flow between modules, as well as interaction logic, comprehensively presenting the full picture of the e-commerce platform's technical architecture.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360391141_ovuy4h_1765339488473-osj4sc-021765339454032f9825d5f0df17daef396c99db0606054fc66d7_0-600x337.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7550153477431758089?result=%E7%BB%93%E6%9E%84&type=inspiration&keywordSource=input&wordPosition=&enterFrom=home&workDetailType=Image&itemType=9",
+    "author": "锦瑟"
+  }
+}

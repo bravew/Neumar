@@ -1,0 +1,18 @@
+{
+  "id": "nb-mens-outdoor-style-mountain-adventure-fashion",
+  "surface": "image",
+  "title": "Men's Outdoor Style: Mountain Adventure Fashion",
+  "summary": "A man wearing a dark puffer jacket, blue jeans, and a baseball cap sits on a rugged rock formation, gazing down into a scenic autumn mountain valley. This photorealistic image captures a serene moment.",
+  "category": "Fashion Photography",
+  "tags": ["nano-banana", "gemini", "fashion"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"type\": \"image_generation\",\n  \"style\": \"cinematic_fashion_editorial\",\n  \"aspect_ratio\": \"3:4\",\n  \"resolution\": \"8K\",\n  \"camera\": {\n    \"model\": \"Leica SL2\",\n    \"lens\": \"35mm\",\n    \"angle\": \"low-angle shot\",\n    \"depth_of_field\": \"shallow\",\n    \"focus\": \"sharp on subject, softly blurred background\"\n  },\n  \"subject\": {\n    \"gender\": \"male\",\n    \"pose\": \"standing confidently on rocky terrain\",\n    \"expression\": \"calm, composed, editorial look\",\n    \"outfit\": {\n      \"jacket\": \"dark grey puffer jacket\",\n      \"pants\": \"baggy denim jeans\",\n      \"shoes\": \"beige Timberland boots\",\n      \"accessories\": \"CP Company cap\"\n    }\n  },\n  \"environment\": {\n    \"location\": \"Swiss Alps\",\n    \"weather\": \"misty, cool alpine air\",\n    \"season\": \"late autumn\",\n    \"terrain\": \"rocky mountain ground with subtle moisture\"\n  },\n  \"lighting\": {\n    \"type\": \"soft diffused natural light\",\n    \"direction\": \"overcast top light\",\n    \"mood\": \"cinematic and atmospheric\",\n    \"shadows\": \"soft, realistic falloff\"\n  },\n  \"visual_style\": {\n    \"color_tone\": \"muted autumn palette\",\n    \"film_grain\": \"subtle cinematic grain\",\n    \"contrast\": \"natural, slightly moody\",\n    \"texture_detail\": \"hyper-detailed clothing fabric and terrain\"\n  },\n  \"aesthetic\": {\n    \"vibe\": \"luxury outdoor fashion editorial\",\n    \"realism\": \"photorealistic\",\n    \"atmosphere\": \"cold alpine air with light fog\"\n  },\n  \"render_quality\": {\n    \"clarity\": \"ultra-sharp\",\n    \"dynamic_range\": \"high\",\n    \"realism_level\": \"DSLR professional capture\"\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9n4zVlawAAqzYG.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/Strength04_X/status/2006908730638807141",
+    "author": "𝐌"
+  }
+}

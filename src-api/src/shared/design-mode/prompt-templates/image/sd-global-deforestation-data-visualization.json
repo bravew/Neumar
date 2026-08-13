@@ -1,0 +1,18 @@
+{
+  "id": "sd-global-deforestation-data-visualization",
+  "surface": "image",
+  "title": "Global Deforestation Data Visualization",
+  "summary": "This prompt generates a beautiful and informative data visualization for a report on global deforestation. It uses compelling visuals like a colored world map or stylized tree graphics to turn data into an impactful and.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A beautiful and informative data visualization for a report on global deforestation. The main visual could be a world map where countries are colored based on their rate of forest loss, or a series of stylized tree graphics where the number of leaves represents the remaining forest cover. The design should be impactful and emotionally resonant, not just a dry chart, demonstrating the ability to turn data into a compelling visual story. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359995792_935v79_451d9e59da9ac0d1e4ab12f3fc35b626497c9a0386c651672c3556e1ec4fc70a-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

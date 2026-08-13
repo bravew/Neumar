@@ -1,0 +1,18 @@
+{
+  "id": "sd-3d-printer-works-diagram",
+  "surface": "image",
+  "title": "3D Printer Works Diagram",
+  "summary": "This prompt creates a clear and simple diagram explaining how a 3D printer (FDM technology) works. It uses a clean, 3D-esque illustration with arrows to show process flow, simplifying complex technology.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A clear and simple diagram explaining how a 3D printer works (FDM technology). The diagram should show the filament being fed into the extruder, the heating element, and the nozzle depositing the material layer by layer to build an object. The style should be a clean, 3D-esque illustration with arrows showing the process flow, demonstrating the ability to explain complex technology simply. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359951657_6x8wiq_a28d98bfdcf6bcfbf29d169ba7af5ea98ab3794f7bd1909ab4b05462414b7772-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

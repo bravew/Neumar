@@ -1,0 +1,403 @@
+name: Claude - Diff-Aware PR Reviewer
+
+# ABOUT THIS WORKFLOW
+# - Purpose: Generate a thorough, diff-aware code review for PRs with inline comments and summary.
+# - Trigger: Automatic on PR open/sync OR manual via workflow_dispatch.
+# - Outputs: A single sticky summary comment (updated in-place) + optional inline comments + optional report artifact.
+# - Docs: https://github.com/anthropics/claude-code-action
+#
+# REQUIRED SECRETS
+# - CLAUDE_CODE_OAUTH_TOKEN: Claude Code OAuth token for authentication.
+#
+# PERMISSIONS EXPLAINED
+# - contents: read - Read repository code and PR diffs
+# - pull-requests: write - Post PR comments and inline review comments
+# - issues: read - Read linked issues for context
+# - id-token: write - Required by the action runtime
+# - actions: read - Read CI results to provide context-aware reviews
+#
+# CUSTOMIZATION TIPS
+# - Adjust --allowedTools to restrict/enable commands. Keep the scope tight.
+# - Update the prompt sections to match your team's review style.
+# - Use track_progress: true for visual progress during long reviews.
+# - Override CLAUDE_MODEL via workflow_dispatch input or set in repository variables
+#   (defaults to claude-sonnet-4-5-20250929) https://platform.claude.com/docs/en/about-claude/models/overview
+# - Enable extended thinking via workflow_dispatch input for deeper analysis (use_extended_thinking=true)
+# - Enable inline comments via workflow_dispatch input or repository variable (enable_inline_comments=true)
+#
+# STICKY COMMENT BEHAVIOR
+# - The summary is posted via a wrapper script using `gh pr comment --edit-last --create-if-none`.
+# - On subsequent pushes, the existing comment is updated in-place automatically.
+# - Old inline review comments are minimized (collapsed) as OUTDATED before each run.
+# - This prevents review comment spam and keeps the PR conversation clean.
+#
+# SECURITY
+# - This workflow does not modify source code. It only posts comments and writes reports.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, unlabeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to review
+        required: true
+      post_comment:
+        description: Post summary comment on PR (true/false)
+        default: 'true'
+      generate_report:
+        description: Generate markdown report artifact (true/false)
+        default: 'true'
+      claude_model:
+        description: Claude model to use (e.g., claude-opus-4-5-20251101, https://platform.claude.com/docs/en/about-claude/models/overview)
+        required: false
+      use_extended_thinking:
+        description: Enable extended thinking for deeper analysis (true/false)
+        required: false
+        default: 'false'
+      enable_inline_comments:
+        description: Enable inline review comments on specific lines (true/false)
+        required: false
+        default: 'false'
+
+# Environment variables (can be overridden via workflow_dispatch or repository settings)
+env:
+  CLAUDE_MODEL: ${{ github.event.inputs.claude_model || vars.CLAUDE_MODEL || 'claude-sonnet-4-6' }}
+  ENABLE_EXTENDED_THINKING: ${{ github.event.inputs.use_extended_thinking || vars.ENABLE_EXTENDED_THINKING || 'false' }}
+  ENABLE_INLINE_COMMENTS: ${{ github.event.inputs.enable_inline_comments || vars.ENABLE_INLINE_COMMENTS || 'false' }}
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+  actions: read
+
+# Prevent multiple reviews running simultaneously for the same PR
+# Cancels in-progress reviews when new commits are pushed
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Skip for draft PRs, automated dependency update bots, and PRs with "skip AI review" label
+    # Trigger immediately when "skip AI review" label is removed
+    if: |
+      (github.event_name == 'workflow_dispatch' || !github.event.pull_request.draft) &&
+      !contains(github.actor, 'dependabot') &&
+      !contains(github.actor, 'renovate') &&
+      (
+        (github.event.action == 'unlabeled' && github.event.label.name == 'skip AI review') ||
+        (github.event.action != 'unlabeled' && !contains(github.event.pull_request.labels.*.name, 'skip AI review'))
+      )
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          # Shallow clone is sufficient - gh pr diff fetches diff from GitHub API
+          fetch-depth: 1
+
+      - name: Set PR number
+        id: pr
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_GENERATE_REPORT: ${{ inputs.generate_report }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "number=$INPUT_PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "generate_report=$INPUT_GENERATE_REPORT" >> $GITHUB_OUTPUT
+          else
+            echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "generate_report=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Minimize old review comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Collapse previous inline review comments from claude[bot] as OUTDATED
+          # This keeps the PR conversation clean on subsequent pushes
+          gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+            --jq '.[] | select(.user.login == "claude[bot]" or .user.login == "claude" or .user.login == "github-actions[bot]") | .node_id' \
+            | while read -r node_id; do
+                if [ -n "$node_id" ]; then
+                  gh api graphql -f query='
+                    mutation($id: ID!) {
+                      minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) {
+                        minimizedComment { isMinimized }
+                      }
+                    }' -f id="$node_id" 2>/dev/null || true
+                fi
+              done
+
+      - name: Create review posting script
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          # Wrapper script that ensures --edit-last --create-if-none flags are always used.
+          # This makes the summary comment sticky: first run creates it, subsequent runs update in-place.
+          # Claude calls this script instead of `gh pr comment` directly so it can't forget the flags.
+          cat > post-review.sh << 'SCRIPT_EOF'
+          #!/bin/bash
+          set -e
+          REVIEW_FILE="$1"
+          if [ -z "$REVIEW_FILE" ]; then
+            echo "Error: Usage: post-review.sh <REVIEW_FILE>" >&2
+            exit 1
+          fi
+          if [ ! -f "$REVIEW_FILE" ]; then
+            echo "Error: Review file not found: $REVIEW_FILE" >&2
+            exit 1
+          fi
+          SCRIPT_EOF
+          # Append the gh command with the PR number baked in (avoids interpolation issues)
+          echo "gh pr comment ${PR_NUMBER} --repo \"\${GITHUB_REPOSITORY}\" --body-file \"\$REVIEW_FILE\" --edit-last --create-if-none" >> post-review.sh
+          chmod +x post-review.sh
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@3ac52d0da9f8ec9ca7b4dc23bb477e36ef9c77a9 # v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # track_progress not supported for unlabeled events
+          track_progress: ${{ github.event.action != 'unlabeled' }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ steps.pr.outputs.number }}
+            GENERATE REPORT: ${{ steps.pr.outputs.generate_report }}
+            CLAUDE_MODEL: ${{ env.CLAUDE_MODEL }}
+            ENABLE_EXTENDED_THINKING: ${{ env.ENABLE_EXTENDED_THINKING }}
+            ENABLE_INLINE_COMMENTS: ${{ env.ENABLE_INLINE_COMMENTS }}
+
+            You are a senior engineer reviewing application — a desktop AI agent app built with three layers:
+            - **Frontend** (`src/`): React 19 + TypeScript 5.8 + Vite 7 + Tailwind CSS 4 + Radix UI
+            - **Backend API** (`src-api/`): Node.js + Hono 4 + Claude Agent SDK + Zod 4
+            - **Desktop Shell** (`src-tauri/`): Tauri 2 + Rust + SQLite
+
+            The app executes natural language tasks via AI agents with a two-phase flow (planning → execution).
+
+            ## Review Focus Areas
+
+            ### React & Frontend
+
+            **Hooks Rules (CRITICAL)**
+            - Hooks called conditionally or after early returns — React will crash at runtime
+            - Missing `useEffect` cleanup: uncanceled AbortControllers, uncleared timers, unremoved event listeners → memory leaks
+            - Stale closures: missing dependencies in `useEffect`/`useCallback`/`useMemo` arrays cause reading outdated values
+            - Unnecessary dependencies causing re-runs (e.g., object/array literals created inline in deps)
+            - With React 19 compiler, manual `useMemo`/`useCallback` is less needed — flag over-memoization of simple computations (arithmetic, string ops) but DO allow it for expensive computations (large array operations, complex algorithms)
+
+            **React 19 Specific Pitfalls**
+            - `use(promise)` inside a `try/catch` block — it integrates with Suspense/ErrorBoundary, try-catch bypasses that mechanism
+            - Promises created directly in Client Component render body and passed to `use()` — recreated every render, use Server Components or lift outside render
+            - `useFormStatus()` called in the same component that renders the `<form>` — it only reads status from a **parent** form, must be called from a child component
+            - `useActionState` dispatch called outside a Transition or `<form action={...}>` — async actions must run inside a Transition or React throws
+
+            **Component Patterns**
+            - Components over 250 lines should be split into sub-components
+            - Missing `aria-label` on interactive elements (buttons, inputs, links) — required by project convention
+            - Conditional class merging must use `cn()` from `@/shared/lib/utils`, not string concatenation
+            - List rendering without stable, unique `key` props
+            - Event handlers that should use `useCallback` when passed as props to child components
+
+            **State Management**
+            - This project uses SQLite (Tauri) + IndexedDB (browser fallback) — NOT Redux/Zustand
+            - All data flows through `src/shared/db/` → backend API → database
+            - Frontend state lives in React hooks (`useState`, `useRef`, `useMemo`)
+            - Flag accidental state mutations in updater functions — React StrictMode double-invokes updaters, mutations cause duplicate effects
+
+            **i18n**
+            - User-facing strings must use the i18n system via `useLanguage()` hook → `t.section.key`
+            - Locale files in `src/config/locale/messages/{en,zh,es,fr}/`
+            - New strings added to English MUST also be added to zh, es, and fr locale files
+            - Flag hardcoded user-facing strings in JSX
+
+            ### TypeScript
+
+            - `import type` syntax MUST be used for type-only imports — project enforces this
+            - Path alias `@/*` maps to `src/` (frontend) or `src-api/src/` (backend) — flag relative imports that should use `@/`
+            - No `any` — use `unknown` with proper type narrowing or explicit interfaces. Also flag `as any` casts
+            - Non-null assertion `!` (e.g., `array.find(...)!`) instead of proper null checks — leads to runtime TypeError
+            - Discriminated unions preferred for variant types (e.g., `AgentMessage.type` field) — flag `switch` on union type without exhaustive `default: never` check
+            - Magic numbers must be extracted to named constants at file top (e.g., `const REFRESH_INTERVAL = 10_000`)
+
+            ### Backend API (Hono + Node.js)
+
+            **Logging (CRITICAL)**
+            - `src-api/` code MUST use `createLogger()` from `@/shared/utils/logger` — NEVER `console.log`/`console.warn`/`console.error`
+            - Frontend `src/` code MAY use `console.warn` for dev diagnostics
+            - Flag any `console.*` call in `src-api/` files
+
+            **API Security**
+            - Hono route handlers must validate input with Zod via `zValidator()` inline in the handler chain — NOT via `app.use()` (loses TypeScript type inference on `c.req.valid()`)
+            - Flag routes accepting user input without validation
+            - Zod schemas must NOT use `.passthrough()` (allows unknown fields → mass assignment risk) — use `.strict()` or default stripping
+            - SSE streams (`text/event-stream`) must include proper headers: `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`
+            - Workspace file operations must be confined to the user-configured workspace directory — flag path traversal risks
+            - Sensitive data (API keys, tokens) must not be logged or returned in API responses
+
+            **Streaming & Async Generators**
+            - Agent operations use `AsyncGenerator<AgentMessage>` for streaming — ensure proper cleanup in `finally` blocks
+            - SSE streams must handle client disconnection (abort signals) to prevent resource leaks
+            - `for await...of` loops over generators must have try/finally cleanup
+            - Flag unbounded buffering in streams without backpressure handling
+            - `fetch()` inside async generators MUST receive an `AbortSignal` — otherwise in-flight requests survive generator teardown
+            - `AbortSignal.timeout()` or `AbortSignal.any()` stored in long-lived scope leaks timers — create per-request
+
+            **Agent System (Claude Agent SDK)**
+            - `BaseAgent` is the abstract class; providers in `src-api/src/extensions/agent/`
+            - Agent messages follow strict types: `text`, `tool_use`, `tool_result`, `result`, `error`, `plan`, etc.
+            - New agent providers must implement the `IAgent` interface and register via the registry pattern
+            - MCP tool definitions must have proper `inputSchema` with Zod validation
+            - Flag `bypassPermissions: true` without explicit security justification — grants full autonomous system access
+            - Agent execution should set `maxTurns` to prevent runaway API billing from confused/looping agents
+            - Tool errors must be intercepted with structured error responses — unhandled exceptions cause Claude to retry or hallucinate
+
+            ### Tauri / Desktop Security
+
+            **Capabilities (CRITICAL)**
+            - Tauri 2 uses a capabilities system — permissions in `src-tauri/capabilities/default.json`
+            - Flag overly broad permissions (e.g., `fs:scope-home-recursive` without justification)
+            - Flag `"windows": ["*"]` in capabilities — grants all windows access; each window must be explicitly named
+            - Shell execute must only allow known sidecar binaries — flag `shell:allow-execute` without restricted `allow` list
+            - Shell argument validators must use tight regex — flag `"validator": ".*"` which allows arbitrary command injection
+            - IPC commands must validate all inputs from the WebView — treat frontend as untrusted
+            - Sidecar processes (`neuma-api`, `claude-code`) must be the ONLY allowed shell executions
+            - Flag permissions granted but never invoked in frontend code — unused permissions expand attack surface
+
+            **Rust Code**
+            - Tauri commands must use proper error handling (`Result<T, E>`) — no `unwrap()` in production paths
+            - Database migrations in `lib.rs` must be idempotent
+            - Flag `unsafe` blocks without safety comments
+
+            ### Security (Cross-Cutting)
+
+            - XSS: `dangerouslySetInnerHTML` usage, unsanitized user content rendered as HTML
+            - Credential exposure: API keys, tokens, OAuth secrets in client-side code, logs, or error messages
+            - Path traversal: file operations that don't validate against workspace boundaries
+            - Command injection: shell commands constructed from user input without sanitization
+            - SQL injection: raw SQL queries with string interpolation instead of parameterized queries
+            - Sensitive data in URLs or query parameters
+
+            ### Performance
+
+            - Large components (>250 lines) that should be split for maintainability
+            - Missing `React.lazy()` for route-level code splitting
+            - Expensive computations in render path without `useMemo`
+            - Event handlers recreated on every render when passed to memoized children
+            - Large dependencies imported entirely when only a subset is used (e.g., `import * as _ from 'lodash'`)
+            - Barrel file (`index.ts` re-exports) used with `await import()` — Vite/Rollup cannot tree-shake dynamic barrel imports, use direct file paths
+            - Same module both statically and dynamically imported — static import forces eager loading, making the dynamic import pointless
+
+            ## Instructions
+
+            1. Fetch PR diff: `gh pr diff ${{ steps.pr.outputs.number }}`
+            2. Read `CLAUDE.md` for project conventions: `cat CLAUDE.md`
+            3. Analyze changed files for issues in focus areas above
+            4. **Inline Comments (conditional on ENABLE_INLINE_COMMENTS):**
+               - If ENABLE_INLINE_COMMENTS is "true":
+                 - Before posting ANY inline comment, check if a similar comment already exists
+                 - Use: `gh pr view ${{ steps.pr.outputs.number }} --json reviews -q '.reviews[].comments[] | select(.path == "<file>") | {line: .line, body: .body}'`
+                 - If a comment already exists on the same line with similar content, SKIP it
+                 - Only post NEW findings to avoid duplicate comments
+                 - Post inline comments via `mcp__github_inline_comment__create_inline_comment` for:
+                   - Bugs (state mutations, memory leaks, stale closures, logic errors)
+                   - Security issues (XSS, path traversal, credential exposure, command injection)
+                   - Performance problems (unnecessary re-renders, missing memoization, large bundles)
+                   - Convention violations (logging, import type, named constants, i18n, aria-labels)
+                   - Tauri capability issues (overly broad permissions, unvalidated IPC inputs)
+               - If ENABLE_INLINE_COMMENTS is "false":
+                 - Do NOT post any inline comments on specific lines
+                 - Include all findings in the summary comment instead, with file:line references
+            5. Write the review summary to `review.md`, then post it using `./post-review.sh review.md` (this updates the existing comment in-place or creates one if none exists):
+               - Assessment: ✅ Approve / ⚠️ Request Changes / 💬 Comment
+               - Issues: bulleted list grouped by severity (Critical → Warning → Info) with file:line references
+               - **Layer Summary** (always include):
+                 - 🖥️ Frontend: React/TypeScript issues found (or "No issues")
+                 - ⚙️ Backend: Hono/Agent/Streaming issues found (or "No issues")
+                 - 🔒 Security: Tauri capabilities, credential exposure, injection risks (or "No issues")
+                 - 🌐 i18n: Missing translations in any locale (or "All locales updated")
+            6. If GENERATE REPORT is "true":
+               - Create `reports/pr-${{ steps.pr.outputs.number }}-review.md`
+               - Include code snippets showing violations
+               - Provide corrected examples as unified diffs
+
+            ## Comment Formatting
+
+            Use collapsible sections for technical details:
+
+            ```markdown
+            <details>
+            <summary>🔍 Technical Explanation</summary>
+
+            [Detailed explanation, stack traces, or additional context]
+
+            </details>
+            ```
+
+            **Collapsible section usage:**
+            - Inline: collapse detailed explanations, code examples, alternative solutions
+            - Summary: collapse "Technical Details", "Code Examples", "Additional Context"
+            - Keep high-level findings visible
+
+            **Inline comment structure (example):**
+            ```markdown
+            ⚠️ Missing useEffect cleanup — AbortController not aborted on unmount
+
+            <details>
+            <summary>Why this leaks</summary>
+
+            If the component unmounts before the fetch completes, the response handler
+            will try to update state on an unmounted component, and the request continues
+            consuming resources.
+
+            </details>
+
+            <details>
+            <summary>Fix</summary>
+
+            \`\`\`typescript
+            useEffect(() => {
+              const controller = new AbortController();
+              fetch(url, { signal: controller.signal }).then(...)
+
+              return () => controller.abort(); // cleanup
+            }, [url]);
+            \`\`\`
+
+            </details>
+            ```
+
+            ## Rules
+            - **NEVER post duplicate comments** - Always check existing comments first via `gh pr view`
+            - **NEVER post compliments or praise** - No positive feedback in inline comments OR summary. Skip all "good job", "nice work", "well done" type comments entirely.
+            - **Inline comments are ONLY for issues** - Do not comment on good code. Only flag problems that need fixing.
+            - Be direct and concise - state issue, location, fix. No filler text.
+            - Skip formatting nitpicks (Prettier and ESLint handle formatting)
+            - Flag real issues only: bugs, security risks, performance problems, convention violations
+            - Cite file paths and line numbers when referencing code
+            - Do NOT modify source code files
+            - Use collapsible sections for technical depth
+            - **NEVER use `gh pr comment` directly** — always write the review to `review.md` and post via `./post-review.sh review.md` to ensure in-place updates
+            - **ALWAYS include a Layer Summary section** in the PR summary comment — even if only to say "No issues"
+
+          claude_args: |
+            --model ${{ env.CLAUDE_MODEL }}
+            ${{ env.ENABLE_EXTENDED_THINKING == 'true' && '--thinking=enabled' || '' }}
+            --allowedTools Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(cat CLAUDE.md),Bash(./post-review.sh:*),Write(review.md),Read(review.md),Edit(review.md),Write(reports/*),Bash(mkdir -p reports)${{ env.ENABLE_INLINE_COMMENTS == 'true' && ',mcp__github_inline_comment__create_inline_comment' || '' }}
+            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. CRITICAL: Always check for existing comments before posting to prevent duplicates - use 'gh pr view' to query existing review comments. LOGGING: In src-api/ code, console.* is forbidden — must use createLogger(). TYPES: import type must be used for type-only imports. I18N: New strings must exist in all 4 locale files (en, zh, es, fr). TAURI: Flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: Only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references. POSTING: Always write the review summary to review.md and post via ./post-review.sh review.md — never use gh pr comment directly."
+
+      - name: Upload reports artifact
+        if: ${{ steps.pr.outputs.generate_report == 'true' && hashFiles('reports/**') != '' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: claude-reports-pr-${{ steps.pr.outputs.number }}
+          path: reports/**
+          retention-days: 30

@@ -1,0 +1,65 @@
+name: Periodic Evals
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: Optional eval case id
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    name: Periodic Evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EVALS_TIER: periodic
+      EVALS_MAX_USD: '8'
+      EVALS_CASE_ID: ${{ github.event.inputs.case_id }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Select evals
+        run: pnpm eval:select --json > selected-evals.json
+
+      - name: Run periodic evals
+        run: pnpm test:periodic
+
+      - name: Compare latest evals
+        if: always()
+        run: pnpm eval:compare --json > eval-comparison.json
+
+      - name: Upload eval artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: eval-results
+          path: |
+            selected-evals.json
+            eval-comparison.json
+            ~/.neuma/evals/**
+          retention-days: 90

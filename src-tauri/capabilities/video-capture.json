@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "video-capture",
+  "description": "Minimal permissions for Video Mode native capture controls",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "macos-permissions:default"
+  ]
+}

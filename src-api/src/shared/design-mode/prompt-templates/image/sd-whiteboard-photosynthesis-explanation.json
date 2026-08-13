@@ -1,0 +1,18 @@
+{
+  "id": "sd-whiteboard-photosynthesis-explanation",
+  "surface": "image",
+  "title": "Whiteboard Photosynthesis Explanation",
+  "summary": "This prompt generates a detailed, hand-drawn whiteboard explanation of photosynthesis for a high school biology class. It uses simple icons and clear labels, mimicking a real teacher's drawing to showcase strong knowledg.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A detailed, hand-drawn whiteboard explanation of the process of photosynthesis, designed for a high school biology class. The diagram should use simple icons (a sun, a plant, water droplets, CO2/O2 molecules) and clear, handwritten labels. Arrows should clearly show the flow of energy and matter. The style should be clean and easy to follow, mimicking a real teacher’s whiteboard drawing, showcasing strong knowledge-based visual reasoning and educational application. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360049311_aiw2tn_57462cb7394928f1406090ed7f8a63b9f188c3a2475b057361262f1842e3904b-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

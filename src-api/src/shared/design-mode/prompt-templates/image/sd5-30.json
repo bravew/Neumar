@@ -1,0 +1,17 @@
+{
+  "id": "sd5-30",
+  "surface": "image",
+  "title": "将图1的服装换为图2的服装",
+  "summary": "将图1的服装换为图2的服装",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "将图1的服装换为图2的服装",
+  "previewImageUrl": "https://github.com/user-attachments/assets/6363f997-730e-47ca-bed3-d76e4c071db5",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea6aff2b552957d3c5765"
+  }
+}

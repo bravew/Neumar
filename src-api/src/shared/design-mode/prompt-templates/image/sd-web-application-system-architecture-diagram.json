@@ -1,0 +1,18 @@
+{
+  "id": "sd-web-application-system-architecture-diagram",
+  "surface": "image",
+  "title": "Web Application System Architecture Diagram",
+  "summary": "This prompt generates a high-level system architecture diagram for a modern web application, suitable for stakeholder presentations. It uses icons to represent components and shows data flow, with a clean, professional s.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A high-level system architecture diagram for a modern web application, for a presentation to stakeholders. The diagram should use icons to represent different components like the user’s browser, a load balancer, web servers, a database, and third-party APIs. The connections between them should show the flow of data. The style is clean, professional, and easy to understand, even for a non-technical audience, showcasing the ability to render complex technical information clearly. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359932380_34jgt9_cf89b086154f3db23cb91cf01007b07ff5b0d1d6de917cbdfd872738fc0d5298-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "sd-vibrant-taipei-night-market-scene",
+  "surface": "image",
+  "title": "Vibrant Taipei Night Market Scene",
+  "summary": "This prompt captures the vibrant street life of a Taipei night market, with crowds, steam from food stalls, and chaotic yet beautiful lighting from lanterns. It aims for energy and detail to convey an authentic atmospher.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A photo capturing the vibrant street life of a night market in Taipei. The scene is crowded with people, and the air is filled with steam from food stalls. The market is illuminated by a chaotic but beautiful mix of red lanterns and fluorescent lights. The image should be full of energy and detail, capturing the authentic atmosphere of the location with high scene coherence and rich world knowledge. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360152044_pk5sb6_e9ddfef112bb3b2bd6c55bfd15e05e2b643bb8e136662189eef61b6b7b729ec6-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

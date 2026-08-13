@@ -1,0 +1,18 @@
+{
+  "id": "nb-google-goog-stock-price-tech-city-3d-render",
+  "surface": "image",
+  "title": "Google (GOOG) Stock Price & Tech City 3D Render",
+  "summary": "A vibrant, isometric 3D render depicts a charming miniature city centered around a Google building, surrounded by iconic Google product symbols like YouTube, Android, Maps, Gmail, Drive, and a self-dr.",
+  "category": "3D Miniature / Diorama",
+  "tags": ["nano-banana", "gemini", "3d", "miniature", "diorama"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{User input, default 1:1}\n* Date: {User input, current date}\n* Company name or stock ticker: {User input}\n\n---\n\nCompany Name / Stock Ticker: Google\nDate: 12/3/2025",
+  "previewImageUrl": "https://pbs.twimg.com/media/G7RvpdEWgAALFQZ.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/dotey/status/1996344184840868264",
+    "author": "宝玉"
+  }
+}

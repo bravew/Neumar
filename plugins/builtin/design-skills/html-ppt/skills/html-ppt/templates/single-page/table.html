@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Table</title>
+    <link rel="stylesheet" href="../../assets/fonts.css" />
+    <link rel="stylesheet" href="../../assets/base.css" />
+    <link
+      rel="stylesheet"
+      id="theme-link"
+      href="../../assets/themes/minimal-white.css"
+    />
+    <link rel="stylesheet" href="../../assets/animations/animations.css" />
+    <style>
+      .t {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 16px;
+      }
+      .t th,
+      .t td {
+        padding: 14px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+      .t th {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-3);
+        font-weight: 600;
+      }
+      .t tr:hover td {
+        background: var(--surface-2);
+      }
+      .t td.num {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      .up {
+        color: var(--good);
+      }
+      .dn {
+        color: var(--bad);
+      }
+    </style>
+  </head>
+  <body class="single">
+    <div class="deck">
+      <section class="slide is-active" data-title="Table">
+        <p class="kicker">Comparison · data table</p>
+        <h2 class="h2">Mainstream HTML presentation framework comparison</h2>
+        <div class="card mt-l" style="padding: 4px 12px">
+          <table class="t">
+            <thead>
+              <tr>
+                <th>Framework</th>
+                <th>Learning curve</th>
+                <th>Customization</th>
+                <th class="num">Size</th>
+                <th class="num">GitHub ⭐</th>
+                <th>Best for</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>html-ppt</b></td>
+                <td>Very low</td>
+                <td>★★★★★</td>
+                <td class="num">~80 KB</td>
+                <td class="num">—</td>
+                <td>Fast drafting and theme switching</td>
+              </tr>
+              <tr>
+                <td>reveal.js</td>
+                <td>Low</td>
+                <td>★★★★</td>
+                <td class="num">~450 KB</td>
+                <td class="num">67k</td>
+                <td>Long lectures and interaction</td>
+              </tr>
+              <tr>
+                <td>Slidev</td>
+                <td>Medium</td>
+                <td>★★★★★</td>
+                <td class="num">Requires build</td>
+                <td class="num">31k</td>
+                <td>Developers and technical sharing</td>
+              </tr>
+              <tr>
+                <td>Marp</td>
+                <td>Very low</td>
+                <td>★★</td>
+                <td class="num">~10 MB</td>
+                <td class="num">13k</td>
+                <td>Markdown drafting</td>
+              </tr>
+              <tr>
+                <td>Impress.js</td>
+                <td>Medium</td>
+                <td>★★★</td>
+                <td class="num">~60 KB</td>
+                <td class="num">38k</td>
+                <td>3D presentations</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <script src="../../assets/runtime.js"></script>
+  </body>
+</html>

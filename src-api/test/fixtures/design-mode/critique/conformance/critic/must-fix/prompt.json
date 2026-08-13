@@ -1,0 +1,15 @@
+{
+  "runId": "jury_conformance_critic",
+  "projectId": "design_conformance",
+  "role": "critic",
+  "round": 1,
+  "artifactPath": "artifacts/index.html",
+  "artifactContent": "<main><button>Click</button></main>",
+  "roleScore": {
+    "role": "critic",
+    "score": 5,
+    "evidence": "Primary action copy is ambiguous.",
+    "mustFix": ["Clarify the primary action label."],
+    "quickWins": []
+  }
+}

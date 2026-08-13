@@ -1,0 +1,10 @@
+{
+  "role": "critic",
+  "round": 1,
+  "score": 5,
+  "passes": false,
+  "evidence": "Primary action copy is ambiguous.",
+  "mustFix": ["Clarify the primary action label."],
+  "quickWins": [],
+  "parserWarnings": []
+}

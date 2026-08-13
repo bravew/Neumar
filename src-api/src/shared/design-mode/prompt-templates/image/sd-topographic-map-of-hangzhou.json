@@ -1,0 +1,18 @@
+{
+  "id": "sd-topographic-map-of-hangzhou",
+  "surface": "image",
+  "title": "Topographic Map of Hangzhou",
+  "summary": "This prompt is used to generate a topographic map of Hangzhou, highlighting vegetated areas and urban regions. A red location marker is placed at the center. The overall atmosphere conveys an autumn feeling, with blue la.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "A topographical map of Hangzhou, with a red location marker centered. The map displays vegetated areas and urban regions, conveying an overall autumnal feel, with blue lake water and a soft beige background. The style is realistic, emphasizing delicate lighting effects and rich details.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360434501_816kxa_1765340306930-vmeass-02176534029138615b33ccaa151d3ed7feaaa761bc71c37d6bb0d_0-600x450.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/liu10102525",
+    "author": "nene"
+  }
+}

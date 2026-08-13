@@ -1,0 +1,13 @@
+{
+  "name": "design-system-wired",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for WIRED, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "WIRED",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

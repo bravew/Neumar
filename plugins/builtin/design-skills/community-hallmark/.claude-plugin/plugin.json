@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-community-hallmark",
+  "version": "0.1.0",
+  "description": "Shape a community identity page or campaign surface around shared rituals, values, member stories, and participation paths. Use when the user asks for a community hallmark, member spotlight, chapter page, nonprofit campaign, or values-led community landing page.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

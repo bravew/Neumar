@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-social-carousel",
+  "version": "0.1.0",
+  "description": "A three-card social-media carousel laid out as 1080×1080 squares — three cinematic, on-brand panels with display headlines that connect across the series (\"onwards.\" → \"to the next one.\" → \"looking ahead.\"). Each card has a brand mark, a number / total, a caption, and a \"loop\" affordance. Use when the brief asks for a \"carousel post\", \"social carousel\", \"Instagram carousel\", \"LinkedIn series\", \"X thread cards\", or \"三连发\".",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

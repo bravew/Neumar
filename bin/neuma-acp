@@ -1,0 +1,107 @@
+#!/usr/bin/env node
+/**
+ * neuma-acp — stdio bridge to /acp/ws
+ *
+ * Reads JWT from `~/.neumar/acp.token`, opens a WebSocket to the local
+ * neuma API, and pipes line-delimited JSON-RPC frames between stdin/stdout
+ * and the WS. Designed for IDE clients (Claude Code, Zed) that subprocess
+ * an ACP agent over stdio.
+ */
+
+import { createInterface } from 'node:readline';
+import { createReadStream } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+import WebSocket from 'ws';
+
+const DEFAULT_URL = process.env.NEUMA_ACP_WS ?? 'ws://127.0.0.1:5126/acp/ws';
+const MAX_PENDING_STDIN = Math.max(
+  1,
+  Number(process.env.NEUMA_ACP_MAX_PENDING ?? 1024),
+);
+
+async function readToken() {
+  const tokenPath = join(homedir(), '.neumar', 'acp.token');
+  try {
+    return (await readFile(tokenPath, 'utf8')).trim();
+  } catch {
+    return process.env.NEUMA_ACP_TOKEN ?? '';
+  }
+}
+
+function send(ws, frame) {
+  ws.send(JSON.stringify(frame));
+}
+
+async function main() {
+  const token = await readToken();
+  if (!token) {
+    process.stderr.write(
+      'neuma-acp: no token (set NEUMA_ACP_TOKEN or write ~/.neumar/acp.token)\n',
+    );
+    process.exit(2);
+  }
+
+  const ws = new WebSocket(DEFAULT_URL);
+  let nextId = 1;
+  let authenticated = false;
+  const pendingStdin = [];
+  let pendingPaused = false;
+  let rl;
+
+  ws.on('open', () => {
+    send(ws, {
+      jsonrpc: '2.0',
+      id: nextId++,
+      method: 'authenticate',
+      params: { token },
+    });
+  });
+
+  ws.on('message', (raw) => {
+    const text = raw.toString();
+    process.stdout.write(text + '\n');
+    try {
+      const frame = JSON.parse(text);
+      if (!authenticated && frame?.result?.sub) {
+        authenticated = true;
+        for (const queued of pendingStdin) ws.send(queued);
+        pendingStdin.length = 0;
+        if (pendingPaused) {
+          pendingPaused = false;
+          rl?.resume();
+        }
+      }
+    } catch {
+      // pass through
+    }
+  });
+
+  ws.on('close', () => process.exit(0));
+  ws.on('error', (err) => {
+    process.stderr.write(`neuma-acp: ws error: ${err.message}\n`);
+    process.exit(1);
+  });
+
+  rl = createInterface({ input: process.stdin });
+  rl.on('line', (line) => {
+    if (!line.trim()) return;
+    if (authenticated && ws.readyState === WebSocket.OPEN) {
+      ws.send(line);
+    } else {
+      pendingStdin.push(line);
+      if (pendingStdin.length >= MAX_PENDING_STDIN) {
+        pendingPaused = true;
+        rl.pause();
+      }
+    }
+  });
+  rl.on('close', () => ws.close());
+}
+
+main().catch((err) => {
+  process.stderr.write(`neuma-acp: ${err.message}\n`);
+  process.exit(1);
+});

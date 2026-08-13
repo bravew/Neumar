@@ -1,0 +1,25 @@
+{
+  "id": "gptimage2-house-party-2008-flash",
+  "surface": "image",
+  "title": "2008 House Party Flash Photography Snapshot",
+  "summary": "Hyper-accurate nostalgic candid — harsh direct flash, red-eye, blown highlights, and a kitchen scene full of era-specific details: red Solo cup, Sharpie name tag, flip phone, Facebook watermark.",
+  "category": "Photography / Nostalgia",
+  "tags": [
+    "gpt-image-2",
+    "openai",
+    "photography",
+    "nostalgia",
+    "2000s",
+    "candid",
+    "flash"
+  ],
+  "model": "gpt-image-2",
+  "aspect": "4:3",
+  "prompt": "A photorealistic candid photograph taken with flash at a crowded house party in 2008. The camera angle is slightly tilted, capturing a kitchen scene. In the foreground, a red plastic cup sits on a counter with a Sharpie-written name tag reading 'JASON' in messy capital letters. Behind it, a girl with side-swept bangs and a striped American Apparel tank top is laughing with her eyes closed, holding a flip phone up as if taking a photo of the photographer. On the fridge behind her, a printed paper reads 'NO BEER IN THE FREEZER!!! - Mom' in Arial font, taped with Scotch tape. A digital oven clock in the background shows '11:47' in green LED. The photo has harsh direct flash lighting, red-eye on one person in the background, slightly blown-out highlights, and the warm-yellow cast of a 2008 digital point-and-shoot. The bottom of the image has a subtle Facebook watermark from when it was re-uploaded in 2012. Every text element must be era-accurate and physically correct.",
+  "previewImageUrl": "https://raw.githubusercontent.com/peterRooo/awesome-gpt-image-2-prompts/main/previews/022-raw_20260423_promptgather_prompt_058__main.jpg",
+  "source": {
+    "repo": "peterRooo/awesome-gpt-image-2-prompts",
+    "license": "MIT",
+    "url": "https://github.com/peterRooo/awesome-gpt-image-2-prompts"
+  }
+}

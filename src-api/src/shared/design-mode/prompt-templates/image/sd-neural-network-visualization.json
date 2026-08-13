@@ -1,0 +1,18 @@
+{
+  "id": "sd-neural-network-visualization",
+  "surface": "image",
+  "title": "Neural Network Visualization",
+  "summary": "A clean, high-tech visualization of neural networks and data flow. It uses 3D rendering techniques and a specific color scheme to create a professional illustration suitable for scientific articles or AI technology prese.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Neural network 3D structure data flow visualization, multi-layer neuron nodes (glowing blue spheres) arranged in a matrix, data stream flowing in connecting lines as glowing particle streams, blue-purple tech gradient color scheme (#4A90E2 to #9013FE), translucent glass texture, C4D 3D rendering, popular science illustration level clarity, suitable for AI technical article illustrations, 16:9 horizontal composition",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360268560_ru3u50_1765274988508-6ncxi9-02176527496911399f4740eadd3360aa6250e68d85f7ec7e96f29_0-600x337.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

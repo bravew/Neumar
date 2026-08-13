@@ -1,0 +1,18 @@
+{
+  "id": "sd-mechanical-design-sketch-notes",
+  "surface": "image",
+  "title": "Mechanical Design Sketch Notes",
+  "summary": "This prompt simulates a detailed mechanical design notes page with black line sketches, three-view drawings, dimension annotations, and dense text layout, suitable as academic backgrounds, engineering illustrations, or r.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Black line sketch, {argument name=\"subject name\" default=\"Mechanical Design\"} notes, dense note-style layout, accompanied by orthographic projections, dimensioning, name annotations, and Chinese-English label explanations.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360378310_h8l37v_1765339493312-we5btx-02176533946480475aeae14c82856eca08eecb5e75c0575970b2c_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7569072924162788618?result=%E7%AC%94%E8%AE%B0&type=inspiration&keywordSource=search_history&wordPosition=&enterFrom=home&workDetailType=Image&itemType=9",
+    "author": "米饭和水"
+  }
+}

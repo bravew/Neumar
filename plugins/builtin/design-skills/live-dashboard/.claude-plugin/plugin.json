@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-live-dashboard",
+  "version": "0.1.0",
+  "description": "Notion-style team dashboard rendered as a Live Artifact. A single-page, self-contained HTML dashboard with KPIs, a 7-day sparkline, a real-time activity feed and a linked-database task table — wired to Notion via the external connector catalog. Refreshes on demand and when the artifact is opened. Falls back to seeded mock data when no connector is bound, so it works offline / in screenshots / in the picker preview.",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

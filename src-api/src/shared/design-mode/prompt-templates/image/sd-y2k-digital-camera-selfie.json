@@ -1,0 +1,18 @@
+{
+  "id": "sd-y2k-digital-camera-selfie",
+  "surface": "image",
+  "title": "Y2K Digital Camera Selfie",
+  "summary": "A nostalgic prompt that perfectly recreates the aesthetic of early 2000s digital photography. It captures the lo-fi charm of 2-megapixel CCD sensors with cool blue tones, direct on-camera flash, and timestamp watermarks,.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Millennial digital camera style selfie, deliberate low-resolution feel (simulating 2000s 2-megapixel quality), covered with cool blue-purple filters, overexposed highlights and hard shadows caused by direct front flash, unique color shift and noise of CCD sensors, date watermark \"{argument name=\"date\" default=\"02/12/2025\"}\", grid line decoration, MySpace era social media texture, square 1:1 composition",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360310481_xzf6b0_1765274865448-ih2b3j-021765274852656f8f49430e1e3875ff473008eb96b3a39f292b7_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "design-mode.hero",
+  "kind": "image",
+  "page": "design-mode",
+  "slot": "hero",
+  "route": "/design",
+  "seed": "docs.populated",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "captureProfile": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "deviceScaleFactor": 2,
+    "colorScheme": "dark",
+    "reducedMotion": "reduce",
+    "forcedColors": "none",
+    "recordVideo": {
+      "size": {
+        "width": 1440,
+        "height": 900
+      }
+    }
+  },
+  "theme": "dark",
+  "selectors": {
+    "waitFor": "[data-testid=\"design-entry-view\"]",
+    "masks": [],
+    "steps": []
+  },
+  "capturedAt": "2026-05-09T21:58:26.024Z",
+  "source": "source.png"
+}

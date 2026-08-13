@@ -1,0 +1,18 @@
+{
+  "id": "sd-scientific-plant-cell-illustration",
+  "surface": "image",
+  "title": "Scientific Plant Cell Illustration",
+  "summary": "This prompt generates a detailed, scientific illustration of a plant cell in a modern biology textbook style. It uses a 3D cross-section with clear labels for organelles, requiring accurate, knowledge-based rendering for.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "4:3",
+  "prompt": "A detailed, scientific illustration of a plant cell, in the style of a modern biology textbook. The illustration should be a 3D cross-section, clearly showing and labeling the cell wall, cell membrane, nucleus, chloroplasts, and other organelles. The colors should be clear and distinct for each organelle. This requires accurate, knowledge-based rendering for scientific education. –ar 4:3",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359975492_2deaph_df758e9f5d5ddd765d001220d1412d72984f04eb480958eeb7f9ac08e4275cee-600x450.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "id": "sd5-23",
+  "surface": "image",
+  "title": "In a vertical composition that elongates the frame into a 9:…",
+  "summary": "In a vertical composition that elongates the frame into a 9:16 reverence of form, a young woman of East Asian lineage sits poised upon a painted carousel horse, her presence radiating the dewy freshness of her early twen…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "In a vertical composition that elongates the frame into a 9:16 reverence of form, a young woman of East Asian lineage sits poised upon a painted carousel horse, her presence radiating the dewy freshness of her early twenties. Her figure is slender and athletic, a lithe silhouette defined by the casual drape of a white cropped t-shirt and the rugged texture of frayed blue denim shorts that reveal toned legs and a sculpted midriff. Her skin glows with a porcelain fairness, smooth and luminous under the soft ambient light, enhancing the transcendent allure of her supermodel-like visage. High arched cheekbones and flawless symmetry define her face, where deep, captivating eyes of profound dark hues gaze forward with mesmerizing elegance, accompanied by full, inviting lips curved into a warm, serene smile. She embraces the gilded, spiraling pole of the carousel with both hands, her dark hair falling loosely about her shoulders, anchoring herself amidst the whimsical swirl of the ride. Below her, the white steed with its golden mane and teal saddle offers a fantastical perch, while the background dissolves into a soft blur of amusement park magic, featuring the intricate, painted ceiling of the carousel and the distant, spoked wheel of a Ferris wheel rising against the pale light of the evening sky, all weaving a seamless tapestry of youthful grace and sublime aesthetic harmony. Close up, extra details --ar 9:16",
+  "previewImageUrl": "https://github.com/user-attachments/assets/9823033c-c104-4b2b-9e92-4e2db8355986",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://weshop.ai/tools/seedream-5.0"
+  }
+}

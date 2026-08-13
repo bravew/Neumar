@@ -1,0 +1,18 @@
+{
+  "id": "nb-cute-3d-render-character-pink-hair-girl-with-modern-outfit",
+  "surface": "image",
+  "title": "Cute 3D Render Character: Pink Hair Girl with Modern Outfit",
+  "summary": "A charming 3D rendered character of a young girl with short pink hair and rosy cheeks, wearing a brown crop top and orange loose-fitting pants, accessorized with gold jewelry. She stands with a gentle.",
+  "category": "Character Design",
+  "tags": ["nano-banana", "gemini", "character", "character-design"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"subject\": {\n    \"type\": \"chibi-style 3D character\",\n    \"gender\": \"female\",\n    \"features\": {\n      \"hair\": \"pastel pink bob cut with soft bangs, stylized 3D strands\",\n      \"eyes\": \"large expressive dark eyes, looking upward and to the side\",\n      \"expression\": \"dreamy, slightly surprised, open mouth\",\n      \"skin\": \"fair with soft pink blush on cheeks\",\n      \"accessories\": [\"small gold hoop earrings\", \"delicate gold necklace with heart pendant\"]\n    },\n    \"outfit\": {\n      \"top\": \"tight-fitting dark brown long-sleeved crop top\",\n      \"bottom\": \"high-waisted peach-colored joggers or harem pants\",\n      \"shoes\": \"brown and tan platform sneakers\"\n    }\n  },\n  \"art_style\": {\n    \"type\": \"3D render / C4D / Octane Render\",\n    \"aesthetic\": \"soft claymorphism, smooth textures, toy-like aesthetic\",\n    \"lighting\": \"soft cinematic lighting, warm sunlight, gentle shadows\",\n    \"camera\": \"full body shot, eye-level, shallow depth of field (bokeh)\"\n  },\n  \"environment\": {\n    \"background\": \"blurred Mediterranean-style street, soft orange and cream buildings, arched doorway\",\n    \"color_palette\": [\"pastel pink\", \"peach\", \"warm brown\", \"cream\"]\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/ext_tw_video_thumb/2006343983853875201/pu/img/6EE2b_O67CTgFrhz.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/Just_sharon7/status/2006344057728242177",
+    "author": "Sharon Riley"
+  }
+}

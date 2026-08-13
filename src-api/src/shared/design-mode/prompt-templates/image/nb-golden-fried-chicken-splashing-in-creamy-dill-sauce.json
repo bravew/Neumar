@@ -1,0 +1,18 @@
+{
+  "id": "nb-golden-fried-chicken-splashing-in-creamy-dill-sauce",
+  "surface": "image",
+  "title": "Golden Fried Chicken Splashing in Creamy Dill Sauce",
+  "summary": "A golden-brown, crispy fried chicken drumstick is dramatically splashing into a rich, creamy sauce, creating an exciting, dynamic food photography scene. The sauce, garnished with fresh dill and slice.",
+  "category": "Food & Culinary",
+  "tags": ["nano-banana", "gemini", "food", "culinary"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "3:4",
+  "prompt": "{\n  \"food_photography_series\": {\n    \"subject\": \"Fried Chicken Thigh\",\n    \"technical_specs\": {\n      \"style\": \"Hyper-realistic hero shot\",\n      \"aspect_ratio\": \"3:4\",\n      \"lighting\": \"Cinematic / Studio\"\n    },\n    \"variations\": [\n      {\n        \"theme\": \"Tartar Refresh\",\n        \"sauce\": \"Thick tartar sauce\",\n        \"accents\": [\"capers\", \"dill\", \"chopped pickles\"],\n        \"background\": \"Bright lemon-yellow\",\n        \"prompt\": \"Hyper-realistic hero shot of a fried chicken thigh in midair with thick tartar sauce bursting around it, flecks of capers, dill, and chopped pickles frozen in motion. The sauce flows like creamy waves, dancing around the crispy surface. Bright lemon-yellow background with moody studio backlight creates a gourmet, refreshing tone ultra-detailed commercial look, --ar 3:4\"\n      },\n      {\n        \"theme\": \"White Truffle Luxury\",\n        \"sauce\": \"Creamy white truffle sauce\",\n        \"accents\": [\"shaved mushrooms\", \"fine porcini powder\"],\n        \"background\": \"Warm yellow-beige with soft haze\",\n        \"prompt\": \"Hyper-realistic hero shot of a luxurious fried chicken thigh floating in the center, surrounded by a splash of creamy white truffle sauce, with shaved mushrooms and fine powder of porcini dusting the motion. Golden skin shines under cinematic key light, background in warm yellow-beige hues with soft haze premium gourmet commercial, --ar 3:4\"\n      },\n      {\n        \"theme\": \"Smoked Cheese Indulgence\",\n        \"sauce\": \"Molten smoked cheese fondue\",\n        \"accents\": [\"golden crouton crumble\"],\n        \"background\": \"Creamy yellow with taupe haze\",\n        \"prompt\": \"Hyper-realistic hero shot of a crisp fried chicken thigh surrounded by a molten splash of smoked cheese fondue mid-air, with bits of golden crouton crumble suspended in orbit. Deep lighting creates dimensional drama on the crispy crust. The backdrop blends creamy yellow with taupe haze indulgent cheese-forward visual, --ar 3:4\"\n      },\n      {\n        \"theme\": \"Miso Umami\",\n        \"sauce\": \"Miso butter glaze and umami cream\",\n        \"accents\": [\"toasted seaweed powder\", \"sesame seeds\"],\n        \"background\": \"Muted beige\",\n        \"prompt\": \"Hyper-realistic hero shot of a rich fried chicken thigh hovering mid-air, glazed with miso butter and surrounded by a dynamic splash of umami cream, flecked with toasted seaweed powder and sesame seeds. Dramatic soft shadows sculpt the skin texture. Muted beige background, clean and warm umami-focused food ad, --ar 3:4\"\n      }\n    ]\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9qywcwX0AAVMNb.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/YaseenK7212/status/2007113351197770202",
+    "author": "Yaseen Khan Gul"
+  }
+}

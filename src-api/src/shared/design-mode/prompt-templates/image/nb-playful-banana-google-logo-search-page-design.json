@@ -1,0 +1,18 @@
+{
+  "id": "nb-playful-banana-google-logo-search-page-design",
+  "surface": "image",
+  "title": "Playful Banana Google Logo Search Page Design",
+  "summary": "A vibrant Google search page is displayed within a minimalist web browser interface, featuring the iconic Google logo creatively spelled out with bright yellow bananas. This playful and cheerful desig.",
+  "category": "Logo & Branding",
+  "tags": ["nano-banana", "gemini", "logo", "branding"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "A screenshot of the Google home page with a banana Google doodle, change I'm feeling lucky to be \"Go bananas\". No monkeys.",
+  "previewImageUrl": "https://pbs.twimg.com/media/G6T124XWcAA8eiE.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/NanoBanana/status/1991987708840026131",
+    "author": "Nano Banana Pro"
+  }
+}

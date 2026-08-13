@@ -1,0 +1,13 @@
+{
+  "name": "design-system-superhuman",
+  "version": "0.1.0",
+  "description": "Bundled Open Design package for Superhuman, derived from curated DESIGN.md, tokens.css, and components.html fixtures.",
+  "displayName": "Superhuman",
+  "keywords": ["design-system"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"],
+      "designManifest": "./design-plugin.json"
+    }
+  }
+}

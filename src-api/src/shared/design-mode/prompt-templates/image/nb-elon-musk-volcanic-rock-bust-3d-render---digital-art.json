@@ -1,0 +1,18 @@
+{
+  "id": "nb-elon-musk-volcanic-rock-bust-3d-render---digital-art",
+  "surface": "image",
+  "title": "Elon Musk Volcanic Rock Bust 3D Render - Digital Art",
+  "summary": "The image features a striking 3D render of a bust resembling Elon Musk, crafted from dark, cracked volcanic rock with glowing orange lava seeping through the fissures. The fragmented form and molten i.",
+  "category": "Character Design",
+  "tags": ["nano-banana", "gemini", "character", "character-design"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"task\": \"image_to_image_style_transfer\",\n  \"input_image\": \"{{USER_IMAGE}}\",\n  \"prompt\": \"Reimagine the subject as a hyper-real fragmented volcanic basalt construct, assembled from jagged, sharply defined basalt plates suspended in space. Each fragment is fully separated with clearly visible gaps, never touching or fused. Material detail: deep charcoal-black basalt with layered volcanic textures, rough porous surfaces, chipped edges, fine mineral grain, and realistic surface imperfections. Within the gaps only, a subtle internal glow radiates in rich ember tones—burnt orange, molten amber, hints of crimson and gold—suggesting internal heat without any surface glow, lava flow, or melting. Add natural mineral color variation across the basalt, including graphite greys, cool indigo shadows, iron-red undertones, and faint mineral speckling to enhance realism and depth. Lighting: cinematic studio setup with a cool blue-grey top key light defining form and silhouette, combined with a soft warm under-fill that gently reflects ember colors onto nearby fragments. Shadows are realistic and grounded, with precise ambient occlusion in crevices and natural depth between floating pieces. Background: smooth dark neutral studio grey with a subtle vignette for contrast, no texture or distractions. Composition: centered, straight-on, medium framing with a strong, readable silhouette. Preserve the subject’s exact facial identity, proportions, and anatomy from the input image. Ultra-realistic, high dynamic range, cinematic color grading, sharp focus, 8K clarity.\",\n  \"negative_prompt\": \"lava flow, molten surfaces, surface glow, fantasy creature, demon, exaggerated fire effects, cartoon, stylized art, plastic texture, metal shine, glossy surfaces, merged rocks, fused fragments, blur, noise, low resolution, oversharpening halos, face distortion, deformed anatomy, extra limbs, unreadable silhouette, fog, smoke, text, typography, logo, watermark, signature\",\n  \"output\": {\n    \"aspect_ratio\": \"use_input_aspect_ratio\",\n    \"background\": \"dark_neutral_grey\",\n    \"camera\": {\n      \"angle\": \"straight_on\",\n      \"framing\": \"centered\",\n      \"distance\": \"medium\"\n    }\n  },\n  \"params\": {\n    \"style_strength\": 0.8,\n    \"identity_preservation\": 0.92,\n    \"detail_level\": \"very_high\",\n    \"lighting_preset\": \"cinematic_cool_warm_studio\",\n    \"shadow_intensity\": \"moderate\",\n    \"gap_visibility\": \"clear\",\n    \"internal_glow\": \"subtle_multicolor_ember\",\n    \"color_enrichment\": \"natural_volcanic_mineral_tones\",\n    \"debris_chips\": \"none\",\n    \"no_text\": true\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9Vsl1GbgAAp4XN.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/Sheldon056/status/2005628752802517441",
+    "author": "Duet | AI"
+  }
+}

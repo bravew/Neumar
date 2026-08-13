@@ -1,0 +1,5 @@
+{
+  "flow": "dashboard",
+  "fidelity": "high-fidelity",
+  "targetedEditIds": ["hero-title", "primary-action"]
+}

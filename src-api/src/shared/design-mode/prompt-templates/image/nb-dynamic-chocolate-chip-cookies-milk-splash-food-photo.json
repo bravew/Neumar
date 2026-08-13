@@ -1,0 +1,18 @@
+{
+  "id": "nb-dynamic-chocolate-chip-cookies-milk-splash-food-photo",
+  "surface": "image",
+  "title": "Dynamic Chocolate Chip Cookies & Milk Splash Food Photo",
+  "summary": "A dynamic, photorealistic image captures numerous chocolate chip cookies suspended mid-air, surrounded by energetic splashes and droplets of creamy white milk. The scene conveys movement and freshness.",
+  "category": "Food & Culinary",
+  "tags": ["nano-banana", "gemini", "food", "culinary"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "{\n  \"production_manifest\": {\n    \"metadata\": {\n      \"series_id\": \"CIN-FOOD-2025\",\n      \"aspect_ratio\": \"9:16\",\n      \"resolution_target\": \"8k_uhd\"\n    },\n    \"technical_stack\": {\n      \"hardware\": {\n        \"camera\": \"ARRI Alexa 65\",\n        \"lens_profile\": \"Large format cinematic prime\"\n      },\n      \"film_emulation\": {\n        \"stock\": \"Kodak Portra 400\",\n        \"characteristics\": [\"Fine grain\", \"Natural skin tones\", \"Warm highlights\"]\n      },\n      \"lighting_rig\": {\n        \"style\": \"Cinematic soft glow\",\n        \"atmosphere\": \"Timeless indoor\",\n        \"diffusion\": \"High\"\n      }\n    },\n    \"artistic_direction\": {\n      \"visionary_style\": \"Greta Gerwig\",\n      \"composition_rule\": \"Graphic centered symmetry\",\n      \"physics_engine\": \"Suspended animation / Zero gravity\",\n      \"background_specification\": \"Flat off-white / Studio bone\"\n    },\n    \"variant_registry\": [\n      {\n        \"id\": \"VAR-001\",\n        \"flavor_profile\": \"Dark Chocolate Chip & Oat\",\n        \"tonal_emotion\": \"Playful, cheeky yet chic\",\n        \"ingredients\": {\n          \"primary_solids\": [\"Dark chocolate chip cookies\"],\n          \"fluid_fx\": [\"Oat milk splash\"],\n          \"debris\": [\"Cookie crumbs\"]\n        }\n      },\n      {\n        \"id\": \"VAR-002\",\n        \"flavor_profile\": \"Red Velvet\",\n        \"tonal_emotion\": \"Bold, playful chic\",\n        \"ingredients\": {\n          \"primary_solids\": [\"Red velvet cake pieces\"],\n          \"fluid_fx\": [\"Cream cheese frosting swirls\"],\n          \"debris\": [\"Cocoa dust\", \"Fine red cake crumbs\"]\n        }\n      },\n      {\n        \"id\": \"VAR-003\",\n        \"flavor_profile\": \"Pistachio Macaron\",\n        \"tonal_emotion\": \"Refined, playful chic\",\n        \"ingredients\": {\n          \"primary_solids\": [\"Pistachio macarons\"],\n          \"fluid_fx\": [\"Cream filling swirls\"],\n          \"debris\": [\"Crushed pistachio nuts\"]\n        }\n      },\n      {\n        \"id\": \"VAR-004\",\n        \"flavor_profile\": \"Strawberry Shortcake\",\n        \"tonal_emotion\": \"Sweet, playful yet chic\",\n        \"ingredients\": {\n          \"primary_solids\": [\"Fresh strawberry slices\"],\n          \"fluid_fx\": [\"Whipped cream swirls\"],\n          \"debris\": [\"Shortcake biscuit crumbs\"]\n        }\n      }\n    ]\n  }\n}",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9gZFSGXkAE2jEo.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/YaseenK7212/status/2006381419665281450",
+    "author": "Yaseen Khan Gul"
+  }
+}

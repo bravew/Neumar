@@ -1,0 +1,17 @@
+{
+  "id": "imagen4-jazz-festival-poster",
+  "surface": "image",
+  "title": "Jazz Festival Poster",
+  "summary": "Large-format typographic festival poster with multi-line lineup, gradient backdrop, and stylized silhouette.",
+  "category": "Poster / Typography",
+  "tags": ["imagen-4", "google", "poster", "typography", "music"],
+  "model": "imagen-4",
+  "aspect": "3:4",
+  "prompt": "A large-format typographic poster for a fictional jazz festival. At the top in bold condensed sans-serif: \"{argument name=\"masthead\" default=\"BLUE NOTE SESSIONS\"}\" in {argument name=\"masthead color\" default=\"deep navy\"}. Below in elegant script: \"{argument name=\"subtitle\" default=\"Summer 2026 — Central Park, New York\"}\". The poster lists four performers: \"{argument name=\"act 1\" default=\"Miles Ahead Quintet / Saturday 8PM\"}\" \"{argument name=\"act 2\" default=\"Sarah Chen Trio / Saturday 10PM\"}\" \"{argument name=\"act 3\" default=\"The Monk Revival / Sunday 7PM\"}\" \"{argument name=\"act 4\" default=\"Coltrane Legacy Orchestra / Sunday 9PM\"}\". A stylized {argument name=\"motif\" default=\"golden saxophone\"} silhouette runs vertically along the right edge. Background is a gradient from {argument name=\"gradient top\" default=\"midnight blue\"} to {argument name=\"gradient bottom\" default=\"warm amber\"}. At the bottom in small caps: \"{argument name=\"footer\" default=\"Tickets at bluenote.nyc — All ages welcome\"}\".",
+  "previewImageUrl": "https://replicate.delivery/xezq/067nzLZEe72weka1Ma6D54RRISwRwTlT8EwGJadNiFC9XtKWA/tmp_2g9n1g7.jpg",
+  "source": {
+    "repo": "replicate/google/imagen-4",
+    "license": "platform-example",
+    "url": "https://replicate.com/google/imagen-4/examples"
+  }
+}

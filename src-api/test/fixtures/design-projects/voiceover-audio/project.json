@@ -1,0 +1,34 @@
+{
+  "id": "fixture-voiceover-audio",
+  "title": "Fixture Voiceover Audio",
+  "surface": "audio",
+  "status": "complete",
+  "skillId": "audio-jingle",
+  "designSystemId": "default-freeform",
+  "inspirationDesignSystemIds": [],
+  "craftRefs": ["anti-ai-slop"],
+  "brief": {
+    "script": "A calm launch narration.",
+    "language": "en"
+  },
+  "media": {
+    "model": "openai-tts",
+    "durationSeconds": 12,
+    "voice": "alloy",
+    "audioKind": "voiceover"
+  },
+  "outputs": [
+    {
+      "id": "out-audio-1",
+      "kind": "audio",
+      "path": "artifacts/transcript.txt",
+      "mime": "text/plain",
+      "provider": "speech",
+      "model": "openai-tts",
+      "taskId": "task-audio-1",
+      "createdAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-02T00:00:00.000Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z"
+}

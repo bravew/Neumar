@@ -1,0 +1,18 @@
+{
+  "id": "nb-elegant-script-logo-redesigns-lacoste-tesla-ferrari",
+  "surface": "image",
+  "title": "Elegant Script Logo Redesigns: Lacoste, Tesla, Ferrari",
+  "summary": "A grid of four minimalist design concepts reimagining famous brand logos as elegant, ornate script initial letters on solid colored backgrounds. The top left displays a white 'L' for Lacoste on green,.",
+  "category": "Logo & Branding",
+  "tags": ["nano-banana", "gemini", "logo", "branding"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "A flat, minimalist vector design featuring a highly stylized single letter monogram with the official brand logo below it, representing [BRAND NAME].\n\n**MAIN ELEMENT (THE MONOGRAM):**\nThe center of the design features ONLY the single first letter of \"[BRAND NAME]\". The style is \"Ornamental Vector Typography\" with high calligraphic artistry, mimicking bespoke luxury monograms. This is not a standard font; it is a Highly customized, artistic glyph with elegant flourishes, exaggerated swashes, or ornamental serifs. The lines are clean, precise, and perfectly smooth vector graphics.\n\n**SECONDARY ELEMENT (BRAND IDENTIFIER):**\nDirectly below the main stylized letter, positioned centrally, include the actual, original official logomark or logotype of \"[BRAND NAME]\". This element must be rendered significantly smaller than the main letter above it.\n\n**FINISH & TEXTURE (STRICT):**\nAbsolutely zero texture, zero embossing, zero shadows, and zero gradients anywhere in the image. It must look like a perfectly flat digital illustration or screen print.\n\n**COLOR PALETTE (AI-DRIVEN & HIGH CONTRAST):**\n1.  **Background:** A single, solid, flat color block chosen by the AI to represent the vibe of [BRAND NAME].\n2.  **Main Monogram Color:** A single, solid, flat color that creates a sharp, high contrast against the background.\n3.  **Secondary Logo Color:** The small official logo below must be monochrome. It must be EITHER solid white OR solid dark gray—chosen automatically based on whichever offers the best readability against the chosen background color.",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9WSTeBWoAA1Aa-.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/AmirMushich/status/2005670356745322759",
+    "author": "AmirMušić"
+  }
+}

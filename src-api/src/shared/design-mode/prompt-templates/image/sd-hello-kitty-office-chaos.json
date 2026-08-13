@@ -1,0 +1,18 @@
+{
+  "id": "sd-hello-kitty-office-chaos",
+  "surface": "image",
+  "title": "Hello Kitty Office Chaos",
+  "summary": "A playful and chaotic prompt featuring Hello Kitty. It creates a retro film-style image of the character in an office setting, blending pop culture with a vintage aesthetic.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "h0674kz, hello kitty blowing up the office, retro film style, fine graininess",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360229710_tgjwxf_1765288474005-k41are-0217652884614137b67bbc2a2a9a26108e071e40bb0b084bb4c62_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/leahlibest",
+    "author": "Leah"
+  }
+}

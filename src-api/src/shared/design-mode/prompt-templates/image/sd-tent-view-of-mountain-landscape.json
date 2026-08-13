@@ -1,0 +1,18 @@
+{
+  "id": "sd-tent-view-of-mountain-landscape",
+  "surface": "image",
+  "title": "Tent View of Mountain Landscape",
+  "summary": "This prompt generates a breathtaking photo from inside a tent, looking out at a stunning mountain landscape at dawn. It focuses on framing the view of an alpine lake and snow-capped peaks, blending interior and exterior.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:2",
+  "prompt": "A breathtaking photo from the perspective of someone sitting inside a tent, looking out at a stunning mountain landscape at dawn. The tent opening frames the view of a crystal-clear alpine lake and snow-capped peaks catching the first rays of sun. The interior of the tent is cozy, with a sleeping bag and a metal camping mug. This requires complex spatial understanding and the ability to blend interior and exterior scenes seamlessly. –ar 3:2",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360152223_ecnmvk_9bd9adf33a941d866242521ffec8b0294c759982f041b08601e09f200cc991e2-600x400.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

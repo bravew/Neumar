@@ -1,0 +1,18 @@
+{
+  "id": "sd-minecraft-survival-video-thumbnail",
+  "surface": "image",
+  "title": "Minecraft Survival Video Thumbnail",
+  "summary": "This prompt generates a YouTube thumbnail for a \"Minecraft Survival\" video, showing a player fighting zombies and creepers with a terrifying creeper in the background. It requires knowledge of game aesthetics to create d.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A thumbnail for a “Minecraft Survival” video. The image shows the player’s character, in diamond armor, bravely fighting off a massive horde of zombies and creepers at night. A huge, terrifying Creeper looms in the background, about to explode. The text “I Almost Lost EVERYTHING!” is in a blocky, Minecraft-style font. This requires knowledge of specific game aesthetics and the ability to create dramatic, action-packed scenes. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765369899639_932wt1_image-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

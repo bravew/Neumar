@@ -1,0 +1,18 @@
+{
+  "id": "sd-true-crime-documentary-thumbnail",
+  "surface": "image",
+  "title": "True Crime Documentary Thumbnail",
+  "summary": "This prompt generates a dark and mysterious YouTube thumbnail for a true crime documentary, featuring a moody black and white photo of evidence on a detective's desk. It uses strong atmospheric control to add to the myst.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A dark and mysterious thumbnail for a true crime documentary. The image is a moody, black and white photo of a key piece of evidence (e.g., a letter) on a detective’s desk, illuminated by a single lamp. A large, red question mark is stamped over the image. The YouTuber’s face is not visible, adding to the mystery. The title is in a classic typewriter font. This demonstrates strong control over mood and atmosphere. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359875601_ti4vut_5ebeba4d9fc7284defb13ff5cbdf69102cae60e95aaa7af3bfd9e512b2a79d2f-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,437 @@
+:root {
+  /* Base colors - Warm, muted neutrals to reduce glare */
+  --background: oklch(
+    0.95 0.006 85
+  ); /* Warm light gray, noticeably off-white */
+  --foreground: oklch(0.25 0.015 270); /* Deep navy with better contrast */
+  --card: oklch(0.97 0.005 85); /* Elevated surface, slightly lighter than bg */
+  --card-foreground: oklch(0.25 0.015 270);
+  --popover: oklch(0.97 0.005 85);
+  --popover-foreground: oklch(0.25 0.015 270);
+
+  /* Primary - Warm brand tone, calibrated for WCAG AA+ */
+  --primary: oklch(0.45 0.18 30);
+  --primary-foreground: oklch(0.99 0.005 30);
+
+  /* Secondary - Complementary tone */
+  --secondary: oklch(0.65 0.17 263);
+  --secondary-foreground: oklch(0.99 0.005 263);
+
+  /* Muted - Earthy, warm neutrals to reduce visual fatigue */
+  --muted: oklch(0.92 0.01 85); /* Warm sand/oatmeal tone */
+  --muted-foreground: oklch(0.52 0.015 270); /* Better contrast ratio */
+
+  /* Accent - Subtle, refined */
+  --accent: oklch(0.91 0.015 275);
+  --accent-foreground: oklch(0.25 0.015 270);
+
+  /* Semantic colors */
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(0.99 0.005 25);
+  --success: oklch(0.65 0.17 145); /* AI success/completion states */
+  --success-foreground: oklch(0.99 0.005 145);
+  --warning: oklch(0.75 0.15 75);
+  --warning-foreground: oklch(0.25 0.015 75);
+  --info: oklch(0.62 0.18 240);
+  --info-foreground: oklch(0.99 0.005 240);
+
+  /* AI-specific semantic colors */
+  --ai-processing: oklch(0.68 0.19 275); /* Agent thinking/processing */
+  --ai-processing-foreground: oklch(0.99 0.005 275);
+  --ai-glow: oklch(0.72 0.22 285); /* Subtle neon accent for AI elements */
+  --ai-response: oklch(0.92 0.014 275); /* AI message background */
+  --ai-response-foreground: oklch(0.25 0.015 270);
+  --user-message: oklch(0.93 0.01 85); /* User message background */
+  --user-message-foreground: oklch(0.25 0.015 270);
+
+  /* Borders and inputs */
+  --border: oklch(0.88 0.012 85); /* Warmer, softer borders */
+  --input: oklch(0.88 0.012 85);
+  --ring: oklch(0.45 0.18 30);
+
+  /* Charts - Harmonious, accessible palette */
+  --chart-1: oklch(0.45 0.18 30);
+  --chart-2: oklch(0.65 0.17 263);
+  --chart-3: oklch(0.58 0.24 286);
+  --chart-4: oklch(0.68 0.19 145);
+  --chart-5: oklch(0.62 0.18 45);
+
+  /* Sidebar - Slightly tinted for visual hierarchy */
+  --sidebar: oklch(0.93 0.008 85);
+  --sidebar-foreground: oklch(0.25 0.015 270);
+  --sidebar-primary: oklch(0.45 0.18 30);
+  --sidebar-primary-foreground: oklch(0.99 0.005 275);
+  --sidebar-accent: oklch(0.97 0.005 85);
+  --sidebar-accent-foreground: oklch(0.25 0.015 270);
+  --sidebar-border: oklch(0.88 0.012 85);
+  --sidebar-ring: oklch(0.45 0.18 30);
+
+  /* Typography */
+  --font-sans:
+    'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Inter', system-ui, sans-serif;
+  --font-mono: JetBrains Mono, 'Fira Code', monospace;
+
+  /* Border radius - Modern, balanced */
+  --radius: 0.75rem;
+
+  /* DesignMode token aliases — mirror design-system sidecar names */
+  --bg: var(--background);
+  --surface: var(--card);
+  --surface-warm: var(--muted);
+  --fg: var(--foreground);
+  --fg-2: var(--card-foreground);
+  --meta: var(--muted-foreground);
+  --accent-on: var(--primary-foreground);
+  --accent-hover: color-mix(in oklab, var(--primary), black 8%);
+  --accent-active: color-mix(in oklab, var(--primary), black 14%);
+  --warn: var(--warning);
+  --danger: var(--destructive);
+  --font-display: var(--font-sans);
+  --font-body: var(--font-sans);
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 3rem;
+  --text-4xl: 4rem;
+  --leading-body: 1.5;
+  --leading-tight: 1.2;
+  --tracking-display: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-20: 5rem;
+  --section-y-desktop: 5rem;
+  --section-y-tablet: 3rem;
+  --section-y-phone: 2rem;
+  --elev-flat: none;
+  --elev-ring: 0 0 0 1px var(--border);
+  --elev-raised: var(--shadow-sm);
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ring), transparent 70%);
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --container-max: 75rem;
+  --container-gutter-desktop: 1.5rem;
+  --container-gutter-tablet: 1rem;
+  --container-gutter-phone: 0.75rem;
+
+  /* Adaptive shadow system - Warmer, softer shadows */
+  --shadow-color: #3d1a00;
+  --shadow-2xs: 0px 1px 2px 0px oklch(0.35 0.05 270 / 0.04);
+  --shadow-xs: 0px 1px 3px 0px oklch(0.35 0.05 270 / 0.05);
+  --shadow-sm:
+    0px 2px 4px -1px oklch(0.35 0.05 270 / 0.04),
+    0px 4px 8px -2px oklch(0.35 0.05 270 / 0.06);
+  --shadow:
+    0px 4px 8px -2px oklch(0.35 0.05 270 / 0.05),
+    0px 8px 16px -4px oklch(0.35 0.05 270 / 0.08);
+  --shadow-md:
+    0px 8px 16px -4px oklch(0.35 0.05 270 / 0.06),
+    0px 12px 24px -6px oklch(0.35 0.05 270 / 0.1);
+  --shadow-lg:
+    0px 12px 24px -6px oklch(0.35 0.05 270 / 0.08),
+    0px 20px 32px -8px oklch(0.35 0.05 270 / 0.12);
+  --shadow-xl:
+    0px 20px 32px -8px oklch(0.35 0.05 270 / 0.1),
+    0px 32px 48px -12px oklch(0.35 0.05 270 / 0.14);
+  --shadow-2xl:
+    0px 32px 48px -12px oklch(0.35 0.05 270 / 0.12),
+    0px 48px 64px -16px oklch(0.35 0.05 270 / 0.18);
+
+  /* AI glow effect for special elements */
+  --glow-ai:
+    0px 0px 8px 0px oklch(0.72 0.22 285 / 0.4),
+    0px 0px 16px 0px oklch(0.72 0.22 285 / 0.2);
+
+  /* Typography tracking */
+  --tracking-normal: 0rem;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  /* macOS Sequoia dark mode window background (NSColor.windowBackgroundColor ≈ #323232) */
+  --background: oklch(
+    0.26 0.004 270
+  ); /* macOS dark neutral gray, subtle cool hint */
+  --foreground: oklch(0.92 0.008 270); /* Bright, readable text */
+  --card: oklch(0.3 0.006 270); /* Elevated surface */
+  --card-foreground: oklch(0.92 0.008 270);
+  --popover: oklch(0.28 0.006 270);
+  --popover-foreground: oklch(0.92 0.008 270);
+
+  /* Primary - Brighter, more vibrant in dark mode */
+  --primary: oklch(0.65 0.16 30);
+  --primary-foreground: oklch(0.15 0.015 30);
+
+  /* Secondary */
+  --secondary: oklch(0.62 0.18 263);
+  --secondary-foreground: oklch(0.15 0.015 270);
+
+  /* Muted - Better contrast for readability */
+  --muted: oklch(0.34 0.008 270);
+  --muted-foreground: oklch(0.72 0.01 270); /* WCAG AA+ compliant */
+
+  /* Accent - Subtle elevation */
+  --accent: oklch(0.36 0.012 275);
+  --accent-foreground: oklch(0.92 0.008 270);
+
+  /* Semantic colors - Calibrated for dark backgrounds */
+  --destructive: oklch(0.62 0.24 25);
+  --destructive-foreground: oklch(0.98 0.008 25);
+  --success: oklch(0.68 0.19 145);
+  --success-foreground: oklch(0.15 0.015 145);
+  --warning: oklch(0.72 0.18 75);
+  --warning-foreground: oklch(0.15 0.015 75);
+  --info: oklch(0.65 0.2 240);
+  --info-foreground: oklch(0.15 0.015 240);
+
+  /* AI-specific colors - Enhanced glow in dark mode */
+  --ai-processing: oklch(0.72 0.22 275);
+  --ai-processing-foreground: oklch(0.15 0.015 270);
+  --ai-glow: oklch(0.78 0.24 285); /* Brighter neon for visibility */
+  --ai-response: oklch(0.3 0.01 275); /* Distinct AI message area */
+  --ai-response-foreground: oklch(0.92 0.008 270);
+  --user-message: oklch(0.32 0.008 85); /* Warm user message area */
+  --user-message-foreground: oklch(0.92 0.008 270);
+
+  /* Borders and inputs - Subtle but visible */
+  --border: oklch(0.38 0.01 270);
+  --input: oklch(0.38 0.01 270);
+  --ring: oklch(0.65 0.16 30);
+
+  /* Charts - Vibrant, distinguishable in dark mode */
+  --chart-1: oklch(0.65 0.16 30);
+  --chart-2: oklch(0.62 0.18 263);
+  --chart-3: oklch(0.68 0.24 286);
+  --chart-4: oklch(0.68 0.19 145);
+  --chart-5: oklch(0.65 0.2 45);
+
+  /* Sidebar - Slightly recessed from background for hierarchy */
+  --sidebar: oklch(0.24 0.006 270);
+  --sidebar-foreground: oklch(0.92 0.008 270);
+  --sidebar-primary: oklch(0.65 0.16 30);
+  --sidebar-primary-foreground: oklch(0.15 0.015 270);
+  --sidebar-accent: oklch(0.32 0.008 270);
+  --sidebar-accent-foreground: oklch(0.92 0.008 270);
+  --sidebar-border: oklch(0.38 0.01 270);
+  --sidebar-ring: oklch(0.65 0.16 30);
+
+  /* Typography - Same as light mode */
+  --font-sans:
+    'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Inter', system-ui, sans-serif;
+  --font-mono: JetBrains Mono, 'Fira Code', monospace;
+
+  /* Border radius */
+  --radius: 0.75rem;
+
+  /* Dark mode shadow system - True black shadows with subtle glow */
+  --shadow-color: #000000;
+  --shadow-2xs: 0px 1px 2px 0px oklch(0 0 0 / 0.3);
+  --shadow-xs: 0px 1px 3px 0px oklch(0 0 0 / 0.4);
+  --shadow-sm:
+    0px 2px 4px -1px oklch(0 0 0 / 0.4), 0px 4px 8px -2px oklch(0 0 0 / 0.5);
+  --shadow:
+    0px 4px 8px -2px oklch(0 0 0 / 0.5), 0px 8px 16px -4px oklch(0 0 0 / 0.6);
+  --shadow-md:
+    0px 8px 16px -4px oklch(0 0 0 / 0.6), 0px 12px 24px -6px oklch(0 0 0 / 0.7);
+  --shadow-lg:
+    0px 12px 24px -6px oklch(0 0 0 / 0.7), 0px 20px 32px -8px oklch(0 0 0 / 0.8);
+  --shadow-xl:
+    0px 20px 32px -8px oklch(0 0 0 / 0.8),
+    0px 32px 48px -12px oklch(0 0 0 / 0.85);
+  --shadow-2xl:
+    0px 32px 48px -12px oklch(0 0 0 / 0.85),
+    0px 48px 64px -16px oklch(0 0 0 / 0.9);
+
+  /* AI glow effect - More pronounced in dark mode */
+  --glow-ai:
+    0px 0px 12px 0px oklch(0.78 0.24 285 / 0.6),
+    0px 0px 24px 0px oklch(0.78 0.24 285 / 0.3),
+    0px 0px 36px 0px oklch(0.78 0.24 285 / 0.15);
+}
+
+/* Warm background style - Earthy cream/beige tones for reduced eye strain */
+.bg-warm:not(.dark) {
+  --background: oklch(0.98 0.015 75); /* Warm sand */
+  --card: oklch(0.99 0.01 75);
+  --popover: oklch(0.99 0.01 75);
+  --muted: oklch(0.94 0.022 75); /* Clay/terracotta hint */
+  --border: oklch(0.88 0.025 75);
+  --input: oklch(0.88 0.025 75);
+  --sidebar: oklch(0.96 0.018 75);
+  --sidebar-accent: oklch(0.99 0.01 75);
+  --sidebar-border: oklch(0.88 0.025 75);
+}
+
+.bg-warm.dark {
+  --background: oklch(
+    0.26 0.012 60
+  ); /* Warm dark brown, macOS-level lightness */
+  --card: oklch(0.3 0.01 60);
+  --popover: oklch(0.28 0.012 60);
+  --muted: oklch(0.34 0.012 60);
+  --border: oklch(0.38 0.015 60);
+  --input: oklch(0.38 0.015 60);
+  --sidebar: oklch(0.24 0.01 60);
+  --sidebar-accent: oklch(0.32 0.012 60);
+  --sidebar-border: oklch(0.38 0.015 60);
+}
+
+/* Cool background style - Calming blue-gray tones */
+.bg-cool:not(.dark) {
+  --background: oklch(0.98 0.01 240); /* Cool mist */
+  --card: oklch(0.99 0.006 240);
+  --popover: oklch(0.99 0.006 240);
+  --muted: oklch(0.94 0.015 240); /* Stone gray */
+  --border: oklch(0.88 0.018 240);
+  --input: oklch(0.88 0.018 240);
+  --sidebar: oklch(0.96 0.012 240);
+  --sidebar-accent: oklch(0.99 0.006 240);
+  --sidebar-border: oklch(0.88 0.018 240);
+}
+
+.bg-cool.dark {
+  --background: oklch(
+    0.26 0.008 240
+  ); /* Cool blue-gray, macOS-level lightness */
+  --card: oklch(0.3 0.008 240);
+  --popover: oklch(0.28 0.008 240);
+  --muted: oklch(0.34 0.008 240);
+  --border: oklch(0.38 0.01 240);
+  --input: oklch(0.38 0.01 240);
+  --sidebar: oklch(0.24 0.008 240);
+  --sidebar-accent: oklch(0.32 0.01 240);
+  --sidebar-border: oklch(0.38 0.01 240);
+}
+
+@theme inline {
+  /* Base colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* DesignMode sidecar token bridge */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-warm: var(--surface-warm);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-meta: var(--meta);
+  --color-accent-on: var(--accent-on);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+
+  /* Semantic colors */
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* AI-specific colors */
+  --color-ai-processing: var(--ai-processing);
+  --color-ai-processing-foreground: var(--ai-processing-foreground);
+  --color-ai-glow: var(--ai-glow);
+  --color-ai-response: var(--ai-response);
+  --color-ai-response-foreground: var(--ai-response-foreground);
+  --color-user-message: var(--user-message);
+  --color-user-message-foreground: var(--user-message-foreground);
+
+  /* Borders and inputs */
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Charts */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Typography */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+
+  /* DesignMode spacing aliases */
+  --spacing-space-1: var(--space-1);
+  --spacing-space-2: var(--space-2);
+  --spacing-space-3: var(--space-3);
+  --spacing-space-4: var(--space-4);
+  --spacing-space-5: var(--space-5);
+  --spacing-space-6: var(--space-6);
+  --spacing-space-8: var(--space-8);
+  --spacing-space-12: var(--space-12);
+  --spacing-space-20: var(--space-20);
+
+  /* Border radius - Modern, balanced scale */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  /* Shadow system */
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+
+  /* AI glow effect */
+  --glow-ai: var(--glow-ai);
+
+  /* Typography tracking */
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+}
+
+body {
+  letter-spacing: var(--tracking-normal);
+}

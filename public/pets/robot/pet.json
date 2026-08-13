@@ -1,0 +1,11 @@
+{
+  "id": "robot",
+  "displayName": "Robot",
+  "description": "A small friendly white robot with cyan screen eyes.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "robot", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/robot-openpets",
+  "category": "western"
+}

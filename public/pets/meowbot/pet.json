@@ -1,0 +1,11 @@
+{
+  "id": "meowbot",
+  "displayName": "Meowbot",
+  "description": "A silver cat-shaped robot with green screen eyes.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "robot", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/meowbot-openpets",
+  "category": "western"
+}

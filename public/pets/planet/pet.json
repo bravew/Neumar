@@ -1,0 +1,10 @@
+{
+  "id": "planet",
+  "displayName": "Planet",
+  "description": "A small purple pixel planet with a blue ring.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "space", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/planet-openpets"
+}

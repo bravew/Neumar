@@ -1,0 +1,18 @@
+{
+  "id": "sd-workplace-posture-safety-guide",
+  "surface": "image",
+  "title": "Workplace Posture Safety Guide",
+  "summary": "This prompt creates a visual safety guide for correct desk posture to avoid back pain. It uses simple, clear figures with checkmarks and X-marks, suitable for universally understandable corporate training materials.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "3:4",
+  "prompt": "A visual safety guide for a workplace, illustrating the correct posture for sitting at a desk to avoid back pain. The infographic should show two figures: one in an incorrect, slouched posture with red X-marks, and one in a correct, ergonomic posture with green check-marks. The style should be simple, clear, and universally understandable, suitable for corporate training materials. –ar 3:4",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765359948609_2vso37_0490ff1e27881908c2f57279ed53cb0683a6246fe993c76ed401e66f57f0caac-600x800.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "design-skill-critique",
+  "version": "0.1.0",
+  "description": "Run a 5-dimension expert design review on any HTML artifact in the project — Philosophy / Visual hierarchy / Detail / Functionality / Innovation, each scored 0–10. Outputs a single self-contained HTML report with a radar chart, evidence-backed scores, and three lists: Keep / Fix / Quick-wins. Use when the brief asks for a \"design review\", \"design critique\", \"5 维度评审\", \"design audit\", or \"what's wrong with my design\".",
+  "keywords": ["design-skill"],
+  "metadata": {
+    "neuma": {
+      "surfaces": ["design"]
+    }
+  }
+}

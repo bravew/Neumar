@@ -1,0 +1,17 @@
+{
+  "id": "sd5-04",
+  "surface": "image",
+  "title": "A topographical map of Hangzhou, with a red location marker…",
+  "summary": "A topographical map of Hangzhou, with a red location marker centered. The map displays vegetated areas and urban regions, conveying an overall autumnal feel, with blue lake water and a soft beige background. The style is…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "A topographical map of Hangzhou, with a red location marker centered. The map displays vegetated areas and urban regions, conveying an overall autumnal feel, with blue lake water and a soft beige background. The style is realistic, emphasizing delicate lighting effects and rich details.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/6e27c4c3-7a79-47e5-bfb7-efced4f711db",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=698ef5c9f2b552957d3c51e1"
+  }
+}

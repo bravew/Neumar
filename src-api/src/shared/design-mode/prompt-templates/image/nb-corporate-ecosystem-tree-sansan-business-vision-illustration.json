@@ -1,0 +1,18 @@
+{
+  "id": "nb-corporate-ecosystem-tree-sansan-business-vision-illustration",
+  "surface": "image",
+  "title": "Corporate Ecosystem Tree: Sansan Business Vision Illustration",
+  "summary": "This conceptual illustration visualizes a company's business ecosystem as a tree, with core concepts like 'Premise', 'Mission', 'Vision', and 'Values' forming the trunk, and branches representing diff.",
+  "category": "Logo & Branding",
+  "tags": ["nano-banana", "gemini", "logo", "branding"],
+  "model": "gemini-2.5-flash-image",
+  "aspect": "1:1",
+  "prompt": "要怎么prompt才能让AI达到这种水平？",
+  "previewImageUrl": "https://pbs.twimg.com/media/G9AHYwMb0AIparU.jpg",
+  "source": {
+    "repo": "antifragile0/Awesome-Nano-Banana-Prompts",
+    "license": "MIT",
+    "url": "https://x.com/JefferyTatsuya/status/2004110025313411479",
+    "author": "Jeffery Kaneda　金田達也"
+  }
+}

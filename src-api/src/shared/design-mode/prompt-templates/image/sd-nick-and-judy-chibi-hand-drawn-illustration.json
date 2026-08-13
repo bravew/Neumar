@@ -1,0 +1,18 @@
+{
+  "id": "sd-nick-and-judy-chibi-hand-drawn-illustration",
+  "surface": "image",
+  "title": "Nick and Judy Chibi Hand-Drawn Illustration",
+  "summary": "This cute chibi hand-drawn illustration prompt depicts Nick and Judy peeking out from behind a door, ideal for stickers, avatars, or childlike illustration designs.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "This is a Q-version hand-drawn illustration of the classic character duo from the Disney animated movie \"Zootopia\"—Nick the fox and Judy the rabbit. In the image, Nick lies on top of Judy, and they poke their heads out from behind a door together. There are two heart elements beside Judy. The overall style is cute and playful, fully demonstrating the tacit understanding and cuteness of this partner pair, full of a warm atmosphere.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360360278_3xdcvi_1765339507274-m3vaqc-0217653394969647ed3dd5a26da08a73b6b7a288310809223b101_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7575159058236312859?workDetailType=Image&itemType=9",
+    "author": "清溪"
+  }
+}

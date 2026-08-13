@@ -1,0 +1,13 @@
+{
+  "name": "event-recap",
+  "version": "1.0.0",
+  "description": "Turn event footage and photos into a clean recap with pacing, titles, b-roll, and music.",
+  "displayName": "Event Recap",
+  "license": "MIT",
+  "metadata": {
+    "neuma": {
+      "surfaces": ["video"],
+      "videoManifest": "video-plugin.json"
+    }
+  }
+}

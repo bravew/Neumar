@@ -1,0 +1,26 @@
+{
+  "id": "veo31-rainy-bus-window-melancholy",
+  "surface": "video",
+  "title": "Rainy Night Bus Window — Melancholy Portrait",
+  "summary": "Close-up with very shallow depth of field: a young woman gazes out a rain-streaked bus window at passing city lights, her reflection faintly doubled in the glass — cool blue tones, moody and cinematic.",
+  "category": "Cinematic / Drama",
+  "tags": [
+    "veo-3.1",
+    "google",
+    "cinematic",
+    "portrait",
+    "drama",
+    "night",
+    "rain"
+  ],
+  "model": "veo-3.1",
+  "aspect": "16:9",
+  "prompt": "Close-up with very shallow depth of field, a young woman's face, looking out a bus window at the passing city lights with her reflection faintly visible on the glass, inside a bus at night during a rainstorm, melancholic mood with cool blue tones, moody, cinematic.",
+  "previewImageUrl": "https://storage.googleapis.com/gweb-cloudblog-publish/images/3_TL625oS.max-1900x1900.png",
+  "source": {
+    "repo": "google/veo",
+    "license": "platform-example",
+    "author": "Google DeepMind",
+    "url": "https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-veo-3-1"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "composition": "title-card",
+  "durationSeconds": 4,
+  "renderer": "hyperframes-html"
+}

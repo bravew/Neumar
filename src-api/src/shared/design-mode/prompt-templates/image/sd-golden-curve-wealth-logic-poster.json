@@ -1,0 +1,18 @@
+{
+  "id": "sd-golden-curve-wealth-logic-poster",
+  "surface": "image",
+  "title": "Golden Curve Wealth Logic Poster",
+  "summary": "This prompt generates a professional finance and economics cover image with a deep blue background and a rising golden curve, ideal for financial articles, course covers, or business presentations.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "Deep blue elegant background, a steadily rising golden chart curve cuts through the scene, with a glowing coin icon at the tip of the curve. Main title \"{argument name=\"main title\" default=\"[Wealth Logic]\"}\" uses exquisite golden serif font. Subtitle \"{argument name=\"subtitle\" default=\"[Economics that ordinary people can understand]\"}\" is in white thin font, arranged directly below the main title, appearing professional and credible.",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360390202_td5qct_1765339443943-9svsin-021765339430962f8f49430e1e3875ff473008eb96b3a3922f1fc_0-600x600.jpg",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://jimeng.jianying.com/ai-tool/work-detail/7564047604653280550?result=%E5%85%AC%E4%BC%97%E5%8F%B7%E5%B0%81%E9%9D%A2&type=inspiration&keywordSource=input&wordPosition=&enterFrom=home&workDetailType=Image&itemType=9",
+    "author": "MASHU"
+  }
+}

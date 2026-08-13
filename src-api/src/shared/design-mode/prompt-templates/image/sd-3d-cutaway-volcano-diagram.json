@@ -1,0 +1,18 @@
+{
+  "id": "sd-3d-cutaway-volcano-diagram",
+  "surface": "image",
+  "title": "3D Cutaway Volcano Diagram",
+  "summary": "This prompt generates a 3D cutaway diagram of a volcano, showing its internal structure with clear labels for magma chamber, conduit, etc. It uses a clean, technical illustration style with realistic textures, suitable f.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "16:9",
+  "prompt": "A 3D cutaway diagram of a volcano, showing its internal structure. The diagram should clearly label the magma chamber, conduit, throat, crater, and layers of ash and lava. The style should be a clean, technical illustration, with realistic textures for the rock and magma. This demonstrates the ability to generate accurate, science-based visuals for educational purposes, requiring strong spatial and scientific reasoning. –ar 16:9",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360021554_hz6eqa_15384c7a700e2f6caf11a1ae450c9b4f2fa7259b6bd2aab631cd7ddbdea697bb-600x337.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

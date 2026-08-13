@@ -1,0 +1,11 @@
+{
+  "id": "prickle",
+  "displayName": "Prickle",
+  "description": "A tiny potted cactus with a pink flower.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "plant", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/prickle-openpets",
+  "category": "western"
+}

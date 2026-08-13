@@ -1,0 +1,17 @@
+{
+  "id": "sd5-16",
+  "surface": "image",
+  "title": "An anthropomorphic little rabbit, presented in the visual st…",
+  "summary": "An anthropomorphic little rabbit, presented in the visual style of a daily snapshot, the photo has no clear subject or composition sense, and has slight motion blur. The protagonist occupies the center of the frame, a se…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "1:1",
+  "prompt": "An anthropomorphic little rabbit, presented in the visual style of a daily snapshot, the photo has no clear subject or composition sense, and has slight motion blur. The protagonist occupies the center of the frame, a selfie headshot, with a world-weary expression on its face, wearing a badge with its own headshot around its neck. The background is an office scene, with a graphic design page on the computer screen next to it, creating a mundane yet unique atmosphere.",
+  "previewImageUrl": "https://github.com/user-attachments/assets/8ce242d3-622d-4042-b1d2-15285ff9e197",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=698ef54df2b552957d3c51c2"
+  }
+}

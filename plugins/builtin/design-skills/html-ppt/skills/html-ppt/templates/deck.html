@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="minimal-white">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>html-ppt · Deck</title>
+    <link rel="stylesheet" href="../assets/fonts.css" />
+    <link rel="stylesheet" href="../assets/base.css" />
+    <link
+      rel="stylesheet"
+      id="theme-link"
+      href="../assets/themes/minimal-white.css"
+    />
+    <link rel="stylesheet" href="../assets/animations/animations.css" />
+  </head>
+  <body
+    data-themes="minimal-white,editorial-serif,soft-pastel,arctic-cool,sunset-warm,catppuccin-mocha,tokyo-night,aurora,xiaohongshu-white,neo-brutalism"
+    data-theme-base="../assets/themes/"
+  >
+    <div class="deck">
+      <!-- 1. Cover -->
+      <section class="slide" data-title="Cover">
+        <p class="kicker">html-ppt · 2026</p>
+        <h1 class="h1 anim-fade-up" data-anim="fade-up">
+          Use templates, <span class="gradient-text">switch themes</span
+          ><br />and present anything
+        </h1>
+        <p class="lede">24 themes · 30 layouts · 25 animations · zero build</p>
+        <div class="deck-footer">
+          <span class="dim2">lewis</span
+          ><span class="slide-number" data-current="1" data-total="6"></span>
+        </div>
+        <div class="notes">
+          This is a minimal working deck. Copy it as the starting point for a
+          new deck.
+        </div>
+      </section>
+
+      <!-- 2. TOC -->
+      <section class="slide" data-title="Contents">
+        <p class="kicker">Agenda</p>
+        <h2 class="h2">We will cover three things</h2>
+        <div class="g3 mt-l anim-stagger-list grid" data-anim-target>
+          <div class="card">
+            <h4>01 · Tokens</h4>
+            <p class="dim">
+              Move color, typography, and radius into CSS variables.
+            </p>
+          </div>
+          <div class="card">
+            <h4>02 · Layouts</h4>
+            <p class="dim">30 reusable single-page layouts.</p>
+          </div>
+          <div class="card">
+            <h4>03 · Runtime</h4>
+            <p class="dim">
+              Keyboard-driven navigation and T-key theme switching.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Stat -->
+      <section class="slide center tc" data-title="Stat">
+        <div>
+          <p class="kicker">Result</p>
+          <div style="font-size: 220px; font-weight: 900; line-height: 1">
+            <span class="counter gradient-text" data-to="92">0</span
+            ><span class="gradient-text">%</span>
+          </div>
+          <h3>of preparation time saved</h3>
+        </div>
+      </section>
+
+      <!-- 4. Two column -->
+      <section class="slide" data-title="Tokens">
+        <p class="kicker">Under the hood</p>
+        <h2 class="h2">Changing theme means changing one set of variables</h2>
+        <div class="g2 mt-l grid">
+          <div class="card">
+            <h4>Semantic variables</h4>
+            <p class="dim">
+              Write <code>var(--surface)</code>, not raw color values.
+            </p>
+          </div>
+          <div class="card">
+            <h4>One-key switching</h4>
+            <p class="dim">
+              Press T to cycle every theme and update every slide together.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. CTA -->
+      <section class="slide center tc" data-title="CTA">
+        <div>
+          <p class="kicker">Your turn</p>
+          <h1 class="h1 anim-rise-in" data-anim="rise-in">Start your deck</h1>
+          <p class="lede" style="margin: 16px auto">
+            Press ← → to navigate · T theme · A animation · F fullscreen · O
+            overview · S notes
+          </p>
+        </div>
+      </section>
+
+      <!-- 6. Thanks -->
+      <section class="slide center tc" data-title="Thanks">
+        <h1 class="h1" style="font-size: 160px; line-height: 1">
+          <span class="gradient-text">Thanks</span>
+        </h1>
+        <p class="lede">lewis · sudolewis@gmail.com</p>
+      </section>
+    </div>
+    <script src="../assets/runtime.js"></script>
+  </body>
+</html>

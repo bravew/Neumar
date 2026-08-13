@@ -1,0 +1,17 @@
+{
+  "id": "sd5-20",
+  "surface": "image",
+  "title": "A heartwarming, candid photo of a golden retriever puppy pla…",
+  "summary": "A heartwarming, candid photo of a golden retriever puppy playing in a field of autumn leaves. The puppy is mid-jump, with leaves flying around it, and has a joyful expression on its face. The afternoon sun should create…",
+  "category": "Seedream 5.0",
+  "tags": ["seedream", "bytedance", "seedream-5.0"],
+  "model": "seedream-5.0",
+  "aspect": "3:2",
+  "prompt": "A heartwarming, candid photo of a golden retriever puppy playing in a field of autumn leaves. The puppy is mid-jump, with leaves flying around it, and has a joyful expression on its face. The afternoon sun should create a beautiful golden backlight, making the scene warm and magical. The focus should be perfectly on the puppy’s eyes, capturing its playful spirit. This demonstrates the ability to render dynamic action and emotion in animals. –ar 3:2",
+  "previewImageUrl": "https://github.com/user-attachments/assets/3b714358-e18d-4c41-9018-6bf695cecdd1",
+  "source": {
+    "repo": "weshopai/awesome-seedream-5.0-prompts",
+    "license": "community",
+    "url": "https://www.weshop.ai/bestexamples/llm/seedream-5.0?id=699ea699f2b552957d3c575d"
+  }
+}

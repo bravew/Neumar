@@ -1,0 +1,18 @@
+{
+  "id": "sd-vintage-vinyl-records-collection",
+  "surface": "image",
+  "title": "Vintage Vinyl Records Collection",
+  "summary": "This prompt generates a photo of a collection of vintage vinyl records on a wooden floor, with a record player. It aims for warm, nostalgic lighting to evoke a love for music and the tangible experience of listening to r.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "A photo of a collection of vintage vinyl records scattered on a wooden floor, with a record player in the corner. The focus is on the cover art of a few iconic albums. The lighting is warm and nostalgic, with a slight vignette effect. The image should evoke a love for music and the tangible experience of listening to records, demonstrating knowledge of cultural artifacts. –ar 1:1",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360124674_xzhr1p_7d16592f8f1aa02223f82ae42795ae66da069e1af33fe9e63371d52dd47b894c-600x600.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}

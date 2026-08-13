@@ -1,0 +1,29 @@
+{
+  "id": "fixture-markdown-doc",
+  "title": "Fixture Markdown Doc",
+  "surface": "document",
+  "status": "complete",
+  "skillId": "blog-post",
+  "designSystemId": "editorial",
+  "inspirationDesignSystemIds": [],
+  "craftRefs": ["anti-ai-slop", "typography"],
+  "brief": {
+    "audience": "product leaders",
+    "format": "markdown"
+  },
+  "media": {},
+  "outputs": [
+    {
+      "id": "out-doc-1",
+      "kind": "document",
+      "path": "artifacts/document.md",
+      "mime": "text/markdown",
+      "provider": "agent-file-edit",
+      "model": "fixture",
+      "taskId": "task-doc-1",
+      "createdAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "createdAt": "2026-05-02T00:00:00.000Z",
+  "updatedAt": "2026-05-02T00:00:00.000Z"
+}

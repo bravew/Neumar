@@ -1,0 +1,11 @@
+{
+  "id": "nori",
+  "displayName": "Nori",
+  "description": "A tiny smiling salmon sushi companion.",
+  "spritesheetPath": "spritesheet.webp",
+  "author": "OpenPets",
+  "tags": ["original", "food", "animated"],
+  "source": "openpets-originals",
+  "sourceUrl": "https://openpets.dev/pets/nori-openpets",
+  "category": "western"
+}

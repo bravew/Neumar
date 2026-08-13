@@ -1,0 +1,1 @@
+{"taskId":"task-doc-1","projectId":"fixture-markdown-doc","surface":"document","model":"fixture","state":"done","startedAt":"2026-05-02T00:00:00.000Z","endedAt":"2026-05-02T00:00:00.000Z","durationMs":1,"progressLines":["wrote artifacts/document.md"],"providerError":null,"usedStubFallback":false}

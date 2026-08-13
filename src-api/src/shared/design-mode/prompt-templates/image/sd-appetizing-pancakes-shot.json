@@ -1,0 +1,18 @@
+{
+  "id": "sd-appetizing-pancakes-shot",
+  "surface": "image",
+  "title": "Appetizing Pancakes Shot",
+  "summary": "This prompt creates an extremely appetizing close-up of fluffy pancakes for a food blogger's social media. It emphasizes warm lighting, sharp focus on texture, and hyper-realistic food rendering to make the dish irresist.",
+  "category": "Seedream 4.5",
+  "tags": ["seedream", "bytedance", "seedream-4.5"],
+  "model": "seedream-4.5",
+  "aspect": "1:1",
+  "prompt": "An extremely appetizing, close-up shot of a stack of fluffy pancakes for a food blogger’s social media. The pancakes are drizzled with maple syrup, topped with a pat of melting butter, and garnished with fresh blueberries and raspberries. Steam should be gently rising from the stack. The lighting should be warm and inviting, making the dish look irresistible. The focus is sharp on the texture of the pancakes and the glistening syrup, showcasing hyper-realistic food rendering. –ar 1:1",
+  "previewImageUrl": "https://cms-assets.youmind.com/media/1765360185212_vl0ce8_70017eedaaad9b54e0a49da5a3b8b7de1af4e256b97a1ba157b7b884114968ba-600x600.png",
+  "source": {
+    "repo": "YouMind-OpenLab/awesome-seedream-4.5",
+    "license": "CC-BY-4.0",
+    "url": "https://x.com/jaredliu_bravo",
+    "author": "Jared Liu"
+  }
+}
