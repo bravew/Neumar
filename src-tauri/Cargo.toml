@@ -1,6 +1,6 @@
 [package]
 name = "neumar"
-version = "26.8.9"
+version = "26.8.19"
 description = "A desktop AI agent application that works tirelessly like a bull and horse to execute tasks through natural language."
 authors = ["you"]
 edition = "2021"
