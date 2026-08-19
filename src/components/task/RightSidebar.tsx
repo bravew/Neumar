@@ -640,12 +640,26 @@ function CollapsibleSection({
 }) {
   const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  // defaultExpanded often starts false (content loads async, e.g. workspace
+  // file listing) then flips true once content arrives — useState only reads
+  // it at mount, so without this the section stays collapsed forever. Track
+  // manual toggles so this auto-expand doesn't fight a user who collapsed it.
+  const userToggledRef = useRef(false);
+  useEffect(() => {
+    if (defaultExpanded && !userToggledRef.current) {
+      setIsExpanded(true);
+    }
+  }, [defaultExpanded]);
+  const toggleExpanded = useCallback(() => {
+    userToggledRef.current = true;
+    setIsExpanded((prev) => !prev);
+  }, []);
 
   return (
     <div className="border-border/50 border-b">
       <div className="hover:bg-accent/30 flex w-full items-center justify-between px-4 py-3 transition-colors">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={toggleExpanded}
           className="flex flex-1 cursor-pointer items-center text-left"
         >
           <span className="text-foreground text-sm font-medium">{title}</span>
@@ -653,7 +667,7 @@ function CollapsibleSection({
         <div className="flex items-center gap-1">
           {headerAction}
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={toggleExpanded}
             className="text-muted-foreground hover:text-foreground cursor-pointer p-0.5 transition-colors"
             aria-label={isExpanded ? t.task.collapse : t.task.expand}
           >
