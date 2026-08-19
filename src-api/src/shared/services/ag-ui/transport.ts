@@ -38,9 +38,15 @@ export function runDetachedPipeline(
       for await (const event of events) {
         const seq = (event as BaseEvent & { seq?: number }).seq;
         if (typeof seq === 'number') lastSeq = Math.max(lastSeq, seq);
+        // persister.handleEvent() creates the parent agent_runs row on
+        // RUN_STARTED (via ensureRootRunRow) — it MUST run before
+        // journalAGUIEvent(), which inserts a child agent_run_events row
+        // referencing that run_id by FK. Journaling first on a brand-new
+        // run's first event violates the FK before the parent row exists,
+        // crashing the whole detached pipeline before any work streams back.
+        persister.handleEvent(event);
         if (context?.runId) journalAGUIEvent(context.runId, event);
         taskEventBus.publish(busKey, event);
-        persister.handleEvent(event);
 
         const evtType = (event as { type?: string }).type;
         if (
@@ -64,9 +70,12 @@ export function runDetachedPipeline(
         timestamp: Date.now(),
         seq: lastSeq + 1,
       } as BaseEvent;
+      // Same ordering requirement as above — persister.handleEvent() must
+      // run first in case the generator threw before yielding any event
+      // (no agent_runs row created yet).
+      persister.handleEvent(errorEvent);
       if (context?.runId) journalAGUIEvent(context.runId, errorEvent);
       taskEventBus.publish(busKey, errorEvent);
-      persister.handleEvent(errorEvent);
       onTerminal?.();
     }
   })();

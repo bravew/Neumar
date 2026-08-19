@@ -21,7 +21,12 @@ import { runDetachedPipeline } from '@/shared/services/ag-ui/transport';
 describe('runDetachedPipeline', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('journals before publishing and applying side effects', async () => {
+  it('persists before journaling, so the run row exists before its FK-dependent event row', async () => {
+    // persister.handleEvent() creates the parent agent_runs row on
+    // RUN_STARTED (ensureRootRunRow); journalAGUIEvent() inserts a child
+    // agent_run_events row that references run_id by FK. Journaling before
+    // persisting on a run's first event violated that FK and crashed the
+    // whole detached pipeline before any work ever streamed back.
     const calls: string[] = [];
     mocks.journal.mockImplementation(() => calls.push('journal'));
     mocks.publish.mockImplementation(() => calls.push('publish'));
@@ -43,7 +48,7 @@ describe('runDetachedPipeline', () => {
       { threadId: 'project-1', runId: 'run-1' },
     );
 
-    expect(calls).toEqual(['journal', 'publish', 'persist']);
+    expect(calls).toEqual(['persist', 'journal', 'publish']);
   });
 
   it('journals one sequenced terminal error when the source throws', async () => {
