@@ -28,6 +28,7 @@ import {
 } from '@/shared/lib/provenance';
 import type { ArtifactKind } from '@/shared/types/artifact';
 import { parseGenUIEnvelope } from '@/shared/types/gen-ui';
+import { parseStructuredEnvelope } from '@/shared/utils/structured-envelope';
 
 import {
   InlineChatDocument,
@@ -577,7 +578,21 @@ export function MessageBubble({
   const isReasoning = message.role === 'reasoning';
   const isAssistant = !isUser && !isReasoning && message.role !== 'tool';
   // Strip the [ATTACHED FILES...] prefix from display.
-  const displayContent = message.content?.replace(ATTACHED_FILES_PREFIX_RE, '');
+  const rawDisplayContent = message.content?.replace(
+    ATTACHED_FILES_PREFIX_RE,
+    '',
+  );
+  // Some models answer with a structured envelope
+  // (```json {"type":"direct_answer","answer":"..."}```). Unwrap it to the
+  // prose answer, otherwise the fenced JSON renders as a code block and the
+  // reply looks empty. Mirrors MessageItem.tsx on the v1 route.
+  const structuredEnvelope = isAssistant
+    ? parseStructuredEnvelope(rawDisplayContent || '')
+    : null;
+  const displayContent =
+    structuredEnvelope?.type === 'direct_answer'
+      ? structuredEnvelope.answer
+      : rawDisplayContent;
   const genUI = isAssistant ? parseGenUIEnvelope(displayContent) : null;
   const displayContentForArtifacts = genUI ? undefined : displayContent;
   const inlineArtifacts =
