@@ -7,6 +7,7 @@ import {
 } from '@/components/task/TaskV2MessageBubble.types';
 import { API_BASE_URL } from '@/config';
 import { createFile, getFilesByTaskId } from '@/shared/db';
+import { computeSessionFolder } from '@/shared/lib/session';
 
 import { extractAndSaveFiles, getFileTypeFromPath } from './agent-files';
 
@@ -31,21 +32,33 @@ function flattenFiles(entries: ReaddirEntry[] | undefined): ReaddirEntry[] {
 }
 
 /**
- * Scans `<workingDir>/output` for media files and registers any not already
- * known. Tool output text-scanning (extractAndSaveFiles below) can't reliably
- * recover a correct path when a command `cd`s into a subdirectory before
- * writing relative filenames (e.g. yt-dlp's `Destination: <file>.mp3` line) —
- * the real filesystem, read the same way the Workspace panel already reads
- * it, is the only reliable source of truth for those.
+ * Scans `<sessionFolder>/output` for media files and registers any not
+ * already known. Tool output text-scanning (extractAndSaveFiles below)
+ * can't reliably recover a correct path when a command `cd`s into a
+ * subdirectory before writing relative filenames (e.g. yt-dlp's
+ * `Destination: <file>.mp3` line) — the real filesystem, read the same way
+ * the Workspace panel already reads it, is the only reliable source of
+ * truth for those.
+ *
+ * `workingDir` (task.work_dir) is frequently empty — it's only backfilled
+ * once the agent stream happens to emit a `session` event with a cwd, which
+ * doesn't always happen — so this resolves the same default session-folder
+ * convention `computeSessionFolder` already uses elsewhere in the app
+ * (`~/<APP_DATA_DIR>/sessions/session-<taskId>`) rather than requiring it.
  */
-async function scanOutputDirectory(taskId: string, workingDir: string) {
+async function scanOutputDirectory(
+  taskId: string,
+  workingDir: string | undefined,
+) {
   try {
+    const sessionFolder = await computeSessionFolder(taskId, workingDir);
+    if (!sessionFolder) return;
     const known = new Set((await getFilesByTaskId(taskId)).map((f) => f.path));
     const res = await fetch(`${API_BASE_URL}/files/readdir`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        path: `${workingDir.replace(/\/+$/, '')}/output`,
+        path: `${sessionFolder}/output`,
         maxDepth: 5,
       }),
       signal: AbortSignal.timeout(8_000),
@@ -142,7 +155,7 @@ export function useV2FileExtraction(
     wasRunning: isRunning,
   });
   useEffect(() => {
-    if (!taskId || !workingDir || isRunning) {
+    if (!taskId || isRunning) {
       scanStateRef.current.wasRunning = isRunning;
       return;
     }
