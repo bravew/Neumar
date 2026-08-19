@@ -19,6 +19,7 @@ import {
   MessageBubble,
   ToolCallGroup,
 } from '@/components/task/TaskV2MessageBubble';
+import { getToolName } from '@/components/task/TaskV2MessageBubble.types';
 import { UserMessageBubble } from '@/components/task/UserMessageBubble';
 import { getSettings } from '@/shared/db/settings';
 import type { TaskPlan } from '@/shared/hooks/agent-types';
@@ -78,9 +79,20 @@ export function groupMessages(
   const items: GroupedItem[] = [];
   let planInserted = false;
   let i = 0;
+  // Set right after a tool-group containing an AskUserQuestion call; consumed
+  // by the very next message. AskUserQuestionCard already renders that
+  // answer inline as its "answered" state, so the plain user bubble here
+  // would just duplicate it.
+  let awaitingQuestionAnswer = false;
 
   while (i < messages.length) {
     const msg = messages[i];
+    const wasAwaitingQuestionAnswer = awaitingQuestionAnswer;
+    awaitingQuestionAnswer = false;
+    if (wasAwaitingQuestionAnswer && msg.role === 'user') {
+      i++;
+      continue;
+    }
 
     // Insert plan card after the first user message
     if (!planInserted && pendingPlan && msg.role === 'user') {
@@ -149,6 +161,9 @@ export function groupMessages(
         key: `tg-${msg.id}`,
         toolCalls: grouped,
       });
+      awaitingQuestionAnswer = grouped.some(
+        (tc) => getToolName(tc) === 'AskUserQuestion',
+      );
       i = j;
       continue;
     }
