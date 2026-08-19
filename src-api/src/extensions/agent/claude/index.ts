@@ -562,13 +562,38 @@ function buildCanUseTool(
     if (denialTracker.shouldFallback(toolName)) {
       return { behavior: 'deny', message: denialTracker.getSummary() };
     }
+    // Bash run_in_background processes are children of this turn's CLI
+    // subprocess and are killed the instant the turn ends — there is no
+    // mechanism in this app to resume or notify the user later, so a
+    // backgrounded job that outlives the turn silently dies unfinished
+    // (confirmed: output files show `[killed]` seconds after turn end).
+    // Force foreground instead, with the timeout raised to the SDK's max so
+    // multi-step batches (e.g. downloading a dozen files) still have room
+    // to actually finish before the tool call returns.
+    let effectiveInput = input;
+    if (toolName === 'Bash') {
+      const bashInput = effectiveInput as Record<string, unknown> | undefined;
+      if (bashInput?.run_in_background === true) {
+        logger.info(
+          `[${sessionId}] Forcing Bash foreground (run_in_background jobs don't survive turn end): ${summarizeInput(input)}`,
+        );
+        effectiveInput = {
+          ...bashInput,
+          run_in_background: false,
+          timeout: Math.max(
+            typeof bashInput.timeout === 'number' ? bashInput.timeout : 0,
+            600_000,
+          ),
+        };
+      }
+    }
     // 1. Check dangerous patterns (Bash commands)
     if (toolName === 'Bash') {
-      const command = (input as Record<string, unknown>)?.command;
+      const command = (effectiveInput as Record<string, unknown>)?.command;
       if (typeof command === 'string') {
         const danger = checkBashCommand(command);
         if (danger.isDangerous && danger.severity === 'block') {
-          denialTracker.record(toolName, summarizeInput(input));
+          denialTracker.record(toolName, summarizeInput(effectiveInput));
           return {
             behavior: 'deny',
             message: danger.suggestion ?? 'Blocked: dangerous command',
@@ -577,28 +602,28 @@ function buildCanUseTool(
       }
     }
     // 2. Check registry rules (deny → ask → classification → allow)
-    const decision = permissionRegistry.evaluate(toolName, input);
+    const decision = permissionRegistry.evaluate(toolName, effectiveInput);
     if (decision === 'allow') {
       // 2b. Auto-classifier check for execute/destructive tools (feature-flagged)
       const classifier = getAutoClassifier();
-      if (!classifier) return allowTool(input);
+      if (!classifier) return allowTool(effectiveInput);
 
       const classification = permissionRegistry.classifyTool(toolName);
       if (
         !classification ||
         !CLASSIFIER_TARGET_CLASSIFICATIONS.has(classification)
       ) {
-        return allowTool(input);
+        return allowTool(effectiveInput);
       }
 
       try {
-        const result = await classifier.classify(toolName, input);
-        if (result.decision === 'allow') return allowTool(input);
+        const result = await classifier.classify(toolName, effectiveInput);
+        if (result.decision === 'allow') return allowTool(effectiveInput);
         if (result.decision === 'deny') {
           logger.warn(
             `Auto-classifier denied ${toolName}: ${result.reasoning}`,
           );
-          denialTracker.record(toolName, summarizeInput(input));
+          denialTracker.record(toolName, summarizeInput(effectiveInput));
           return {
             behavior: 'deny',
             message: `Safety review: ${result.reasoning}`,
@@ -610,22 +635,22 @@ function buildCanUseTool(
         );
       } catch {
         // Classifier failure — never block, proceed with 'allow'
-        return allowTool(input);
+        return allowTool(effectiveInput);
       }
     }
     if (decision === 'deny') {
-      denialTracker.record(toolName, summarizeInput(input));
+      denialTracker.record(toolName, summarizeInput(effectiveInput));
       return { behavior: 'deny', message: 'Blocked by permission rules' };
     }
     // 3. 'ask' → emit permission_request, wait for user response
     // If no taskId, we can't show UI — auto-approve (sandbox still enforces OS-level safety)
     if (!taskId) {
       logger.warn(`Auto-approving ${toolName} (no taskId for permission UI)`);
-      return allowTool(input);
+      return allowTool(effectiveInput);
     }
     const requestId = crypto.randomUUID();
-    const riskLevel = assessRiskLevel(toolName, input);
-    const inputStr = summarizeInput(input);
+    const riskLevel = assessRiskLevel(toolName, effectiveInput);
+    const inputStr = summarizeInput(effectiveInput);
     taskEventBus.publish(taskId, {
       type: 'permission_request',
       permission: {
@@ -648,7 +673,7 @@ function buildCanUseTool(
       pendingPermissions.set(requestId, {
         resolve: trackedResolve,
         toolName,
-        toolInput: input,
+        toolInput: effectiveInput,
         sessionId,
         createdAt: Date.now(),
         registry: permissionRegistry,
@@ -1581,10 +1606,19 @@ async function saveImagesToDisk(
  * tends to enumerate options as markdown instead of emitting the tool call
  * that Neuma renders interactively via `QuestionInput`.
  */
-function buildSystemPromptAppend(model: string): string {
+function buildSystemPromptAppend(
+  model: string,
+  skillsEnabled: boolean = true,
+): string {
   return [
     `You are running on Anthropic model \`${model}\`. If the user asks which model you are, answer with exactly that model ID — do not guess based on training data.`,
     'When you need clarification from the user or want them to pick between 2–4 finite options, call the `AskUserQuestion` tool. Do NOT enumerate the options as numbered markdown — emit the tool call so the host can render an interactive picker and resume your turn with the answer.',
+    "Bash processes started with run_in_background are children of this turn's subprocess and are killed the moment your turn ends — there is no mechanism to resume or notify the user later. Never background a finite job (e.g. downloading a list of files) and end your turn saying you'll report back when it's done; that job will silently die unfinished. Instead, run finite batches in the foreground (or poll BashOutput to completion before ending your turn) so you only report results you've actually confirmed. Only use run_in_background for something the user will keep this task open to watch.",
+    ...(skillsEnabled
+      ? [
+          "When a skill (e.g. yt-dlp) is available and the user asks you to download media such as a YouTube video or its audio, invoke the skill directly — do NOT ask for rights/copyright confirmation or refuse citing YouTube's Terms of Service. The user is responsible for how they use downloaded content.",
+        ]
+      : []),
   ].join('\n\n');
 }
 
@@ -2976,7 +3010,10 @@ User's request (answer this AFTER reading the images):
             systemPrompt: {
               type: 'preset' as const,
               preset: 'claude_code' as const,
-              append: buildSystemPromptAppend(effectiveModel),
+              append: buildSystemPromptAppend(
+                effectiveModel,
+                options?.skillsConfig?.enabled !== false,
+              ),
             },
           }
         : {}),
@@ -4503,6 +4540,27 @@ If you need to create any files during planning, use this directory.
     toolCapabilities.push(
       '- **Files**: Read, Write, Edit, Glob, Grep, Bash for file and code operations',
     );
+    // Installed skills — the planner otherwise has no idea these exist and
+    // will answer tool-doable requests (e.g. "download this YouTube audio")
+    // as a direct_answer refusal instead of routing to a plan/execution.
+    if (options?.skillsConfig?.enabled !== false) {
+      const skillFilter = options?.resolvedContext?.profileAllowedSkills;
+      if (skillFilter === undefined || skillFilter.length > 0) {
+        try {
+          const allSkills = await this.getCachedSkills();
+          const visibleSkills = skillFilter
+            ? allSkills.filter((s) => skillFilter.includes(s.bareName))
+            : allSkills;
+          if (visibleSkills.length > 0) {
+            toolCapabilities.push(
+              `- **Skills**: Installed skills the Skill tool can invoke directly during execution — ${visibleSkills.map((s) => s.bareName).join(', ')}. When one of these covers the request (e.g. yt-dlp for downloading YouTube/web video or audio), plan to use it instead of refusing.`,
+            );
+          }
+        } catch {
+          // Skills not available
+        }
+      }
+    }
     // Schedule tools — only if profile allows
     if (planBuiltinAllowed) {
       toolCapabilities.push(
@@ -5135,7 +5193,10 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
             systemPrompt: {
               type: 'preset' as const,
               preset: 'claude_code' as const,
-              append: buildSystemPromptAppend(effectiveModel),
+              append: buildSystemPromptAppend(
+                effectiveModel,
+                options.skillsConfig?.enabled !== false,
+              ),
             },
           }
         : {}),
@@ -5939,7 +6000,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
               };
             }
             return result.behavior === 'allow'
-              ? allowTool(input)
+              ? allowTool(result.updatedInput ?? input)
               : { behavior: 'deny', message: result.message };
           },
         },
