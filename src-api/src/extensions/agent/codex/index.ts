@@ -250,6 +250,11 @@ function buildThreadOptions(args: {
   return {
     workingDirectory: args.sessionCwd,
     sandboxMode: args.sandboxEnabled ? 'danger-full-access' : 'workspace-write',
+    // `workspace-write` denies outbound network by default, which fails any
+    // fetching tool (yt-dlp, curl) with DNS resolution errors rather than a
+    // permission error. Grant network explicitly while keeping the filesystem
+    // restriction that `workspace-write` provides.
+    networkAccessEnabled: true,
     skipGitRepoCheck: true,
     approvalPolicy: 'never',
     ...(args.reasoningEffort

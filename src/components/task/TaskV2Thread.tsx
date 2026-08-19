@@ -38,6 +38,7 @@ import { useRateLimit } from '@/shared/hooks/useRateLimit';
 import { useRunError } from '@/shared/hooks/useRunError';
 import { useSubAgents } from '@/shared/hooks/useSubAgents';
 import { useThreadSync } from '@/shared/hooks/useThreadSync';
+import { useV2FileExtraction } from '@/shared/hooks/useV2FileExtraction';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { useBranchStore } from '@/shared/stores/branch-store';
 import { useThreadStore } from '@/shared/stores/thread-store';
@@ -328,6 +329,10 @@ export function TaskV2Thread({
     (s) => s.threads[taskId ?? '']?.isRunning ?? false,
   );
   const effectiveIsRunning = (agent.isRunning || zustandIsRunning) && !runError;
+
+  // Register tool-created files (Bash/Skill/etc.) into the Library so they
+  // render inline via LocalOutputArtifactPreviews — see useV2FileExtraction.
+  useV2FileExtraction(taskId, messages, workDir, effectiveIsRunning);
 
   // Permission handling — only subscribes to SSE when agent is running
   const { permissionRequests, respond: handlePermissionRespond } =

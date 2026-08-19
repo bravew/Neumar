@@ -48,6 +48,7 @@ import { AILoadingIndicator } from '@/components/ui/AILoadingIndicator';
 import { API_BASE_URL } from '@/config';
 import type { AgentMessage } from '@/shared/hooks/useAgent';
 import { useTraceStream } from '@/shared/hooks/useTraceStream';
+import { computeSessionFolder } from '@/shared/lib/session';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -640,12 +641,26 @@ function CollapsibleSection({
 }) {
   const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  // defaultExpanded often starts false (content loads async, e.g. workspace
+  // file listing) then flips true once content arrives — useState only reads
+  // it at mount, so without this the section stays collapsed forever. Track
+  // manual toggles so this auto-expand doesn't fight a user who collapsed it.
+  const userToggledRef = useRef(false);
+  useEffect(() => {
+    if (defaultExpanded && !userToggledRef.current) {
+      setIsExpanded(true);
+    }
+  }, [defaultExpanded]);
+  const toggleExpanded = useCallback(() => {
+    userToggledRef.current = true;
+    setIsExpanded((prev) => !prev);
+  }, []);
 
   return (
     <div className="border-border/50 border-b">
       <div className="hover:bg-accent/30 flex w-full items-center justify-between px-4 py-3 transition-colors">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={toggleExpanded}
           className="flex flex-1 cursor-pointer items-center text-left"
         >
           <span className="text-foreground text-sm font-medium">{title}</span>
@@ -653,7 +668,7 @@ function CollapsibleSection({
         <div className="flex items-center gap-1">
           {headerAction}
           <button
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={toggleExpanded}
             className="text-muted-foreground hover:text-foreground cursor-pointer p-0.5 transition-colors"
             aria-label={isExpanded ? t.task.collapse : t.task.expand}
           >
@@ -1036,14 +1051,50 @@ export function RightSidebar({
     version: number;
   } | null>(null);
 
+  // `workingDir` (task.work_dir) is frequently empty — it's only backfilled
+  // once the agent stream happens to emit a `session` event with a cwd,
+  // which doesn't always happen. Fall back to the same default session-
+  // folder convention `computeSessionFolder` uses elsewhere in the app
+  // instead of leaving this panel stuck on "waiting" for a task that
+  // already finished and has real output on disk.
+  const [effectiveWorkingDir, setEffectiveWorkingDir] = useState<
+    string | undefined
+  >(workingDir);
+  useEffect(() => {
+    if (workingDir) {
+      setEffectiveWorkingDir(workingDir);
+      return;
+    }
+    if (!taskId) {
+      setEffectiveWorkingDir(undefined);
+      return;
+    }
+    let cancelled = false;
+    void computeSessionFolder(taskId, workingDir).then((resolved) => {
+      if (!cancelled) setEffectiveWorkingDir(resolved ?? undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [workingDir, taskId]);
+
   // Load files from working directory via API
-  // Refresh when workingDir changes, artifacts change, or files are added (e.g., attachments)
+  // Refresh when effectiveWorkingDir changes, artifacts change, or files are added (e.g., attachments)
   useEffect(() => {
     let cancelled = false;
     let loadingTimeoutId: NodeJS.Timeout | null = null;
 
     async function loadWorkingFiles() {
-      if (!workingDir || !workingDir.startsWith('/')) {
+      // Accept `~`-prefixed paths too — expandPath() only expands in Tauri;
+      // in the browser it returns the path unchanged, but the backend
+      // /files/readdir endpoint expands `~` itself, so this is still valid.
+      if (
+        !effectiveWorkingDir ||
+        !(
+          effectiveWorkingDir.startsWith('/') ||
+          effectiveWorkingDir.startsWith('~')
+        )
+      ) {
         setWorkingFiles([]);
         setLoadingFiles(false);
         setWorkingDirError(null);
@@ -1054,7 +1105,7 @@ export function RightSidebar({
       const cache = workingDirCacheRef.current;
       if (
         cache &&
-        cache.dir === workingDir &&
+        cache.dir === effectiveWorkingDir &&
         cache.version === filesVersion &&
         cache.files.length > 0
       ) {
@@ -1077,7 +1128,7 @@ export function RightSidebar({
       }, 8000);
 
       try {
-        const result = await readDirViaApi(workingDir);
+        const result = await readDirViaApi(effectiveWorkingDir);
         if (cancelled) return;
 
         // Check for errors
@@ -1098,7 +1149,7 @@ export function RightSidebar({
         } else {
           // Update cache
           workingDirCacheRef.current = {
-            dir: workingDir,
+            dir: effectiveWorkingDir,
             files: result.files,
             version: filesVersion,
           };
@@ -1141,7 +1192,7 @@ export function RightSidebar({
         clearTimeout(loadingTimeoutId);
       }
     };
-  }, [workingDir, filesVersion]);
+  }, [effectiveWorkingDir, filesVersion]);
 
   // Get used skill names from messages (memoized to avoid recalculating on every render)
   const usedSkillNames = useMemo(
@@ -1307,9 +1358,9 @@ export function RightSidebar({
                 {t.task.outputFolder || 'Output'}
               </span>
             </button>
-            {workingDir && (
+            {effectiveWorkingDir && (
               <button
-                onClick={() => handleOpenFolder(workingDir)}
+                onClick={() => handleOpenFolder(effectiveWorkingDir)}
                 className="text-muted-foreground hover:text-foreground ml-auto p-0.5 transition-colors"
                 title={t.task.openInFinder}
               >
@@ -1319,7 +1370,7 @@ export function RightSidebar({
           </div>
           {outputExpanded && (
             <>
-              {!workingDir ? (
+              {!effectiveWorkingDir ? (
                 <p className="text-muted-foreground py-1 text-sm">
                   {t.task.waitingForTask}
                 </p>

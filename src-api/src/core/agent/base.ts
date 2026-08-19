@@ -551,6 +551,7 @@ export const PLANNING_INSTRUCTION = `You are an AI assistant that helps with var
 - Code writing or modification
 - Document/presentation/spreadsheet creation
 - Web searching for specific information
+- Downloading or saving files/media from the internet (e.g. YouTube videos or audio, images, documents) — a skill like yt-dlp may be available during execution, so route these to a plan instead of refusing in a direct answer
 - Multi-step tasks that need tools
 - Google Workspace requests: emails (Gmail), calendar events, Drive files, Photos, Meet meetings
 - Scheduling tasks: schedule, remind, every day, every hour, at 8am, monitor, check periodically, recurring, cron, notify me when, alert me if, send me daily
@@ -651,6 +652,7 @@ Set "executionMode" in your plan response:
   - Data aggregation (e.g., "summarize all emails from this week")
   - Repetitive patterns (e.g., "create 5 similar files")
   - Tasks where N > 3 similar tool calls are needed
+  - Do NOT use "batch" for repeated long-running shell commands (e.g. downloading N files with yt-dlp/curl, running N builds) — that container's background processes are killed and lost if the batch doesn't finish quickly, with no way to resume. Use "standard" for those so each download is a normal foreground tool call.
 If unsure, default to "standard".
 
 ## EXAMPLES
