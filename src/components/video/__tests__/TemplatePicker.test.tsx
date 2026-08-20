@@ -144,7 +144,7 @@ describe('TemplatePicker', () => {
       screen.getByTestId('template-poster-frame-clean-title'),
     ).toHaveAttribute(
       'src',
-      'http://127.0.0.1:5126/video/html-gallery/frame-clean-title/asset?path=preview.png',
+      'http://localhost:5126/video/html-gallery/frame-clean-title/asset?path=preview.png',
     );
     expect(
       fetchSpy.mock.calls.some(([url]) =>

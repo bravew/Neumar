@@ -317,7 +317,13 @@ export function InlineChatImage({
 }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
-  if (!src) return null;
+  const [failed, setFailed] = useState(false);
+  // Media referenced in chat history can be deleted after the message was
+  // sent (e.g. an agent cleaning up scratch preview frames once the final
+  // artifact is done). Unmount entirely on load failure rather than just
+  // hiding the <img> — otherwise the provenance badge below is left floating
+  // over nothing.
+  if (!src || failed) return null;
   return (
     <>
       <div className="group/image relative my-3 inline-block">
@@ -326,9 +332,7 @@ export function InlineChatImage({
           alt={alt}
           className="max-h-80 w-auto cursor-zoom-in rounded-lg object-contain"
           onClick={() => setOpen(true)}
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = 'none';
-          }}
+          onError={() => setFailed(true)}
           title={t.task.lightboxViewFull}
         />
         <MediaProvenanceBadge provenance={provenance} variant="overlay" />
@@ -357,7 +361,10 @@ export function InlineChatVideo({
 }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
-  if (!src) return null;
+  const [failed, setFailed] = useState(false);
+  // See InlineChatImage: unmount entirely (not just hide the element) so a
+  // deleted source file doesn't leave the provenance badge floating alone.
+  if (!src || failed) return null;
   return (
     <>
       <div className="group/video relative my-3 inline-block">
@@ -366,9 +373,7 @@ export function InlineChatVideo({
           controls
           className="max-h-80 w-auto rounded-lg"
           preload="metadata"
-          onError={(e) => {
-            (e.currentTarget as HTMLVideoElement).style.display = 'none';
-          }}
+          onError={() => setFailed(true)}
         />
         <button
           className="absolute top-2 right-2 rounded-full bg-black/50 p-1.5 text-white opacity-0 transition-opacity group-hover/video:opacity-100"

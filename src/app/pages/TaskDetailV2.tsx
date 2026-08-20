@@ -10,16 +10,14 @@ import type { Artifact } from '@/components/artifacts/types';
 import { getArtifactTypeFromExt } from '@/components/artifacts/utils';
 import { SidebarProvider } from '@/components/layout';
 import { LeftSidebar } from '@/components/layout/left-sidebar';
-import {
-  dbMessagesToAGUI,
-  InitialMessageSender,
-} from '@/components/task/InitialMessageSender';
+import { InitialMessageSender } from '@/components/task/InitialMessageSender';
 import type {
   LocationState,
   ProfileDisplayInfo,
 } from '@/components/task/InitialMessageSender';
 import { RightSidebar } from '@/components/task/RightSidebar';
 import { TaskV2Header } from '@/components/task/TaskV2Header';
+import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble.types';
 import { TaskV2Thread } from '@/components/task/TaskV2Thread';
 import { ResizeHandle } from '@/components/ui/resize-handle';
 import type { MediaVersion } from '@/components/workspace';
@@ -39,6 +37,7 @@ import { useTaskModelSelector } from '@/shared/hooks/useTaskModelSelector';
 import { useV2Artifacts } from '@/shared/hooks/useV2Artifacts';
 import { useV2TaskLoader } from '@/shared/hooks/useV2TaskLoader';
 import { useVitePreview } from '@/shared/hooks/useVitePreview';
+import { dbMessagesToAGUI } from '@/shared/lib/message-tree';
 import { setActiveTaskThread } from '@/shared/lib/notifications';
 import { AgUiProvider } from '@/shared/providers/agui-provider';
 import {
@@ -100,8 +99,11 @@ export function TaskDetailV2Page() {
   );
 
   // Load history from DB — independent of CopilotKit agent lifecycle.
-  type HistoryMsg = { id: string; role: 'user' | 'assistant'; content: string };
-  const [historyMessages, setHistoryMessages] = useState<HistoryMsg[]>([]);
+  // Uses the full-fidelity converter (message-tree), which rebuilds toolCalls
+  // and tool-result messages. The lightweight one in InitialMessageSender
+  // keeps only prose, which left replayed threads as a wall of narration with
+  // no tool calls to group.
+  const [historyMessages, setHistoryMessages] = useState<AGUIMessage[]>([]);
   // V1-format messages for RightSidebar (tools, skills, output extraction)
   const [v1Messages, setV1Messages] = useState<AgentMessage[]>([]);
   const hasPrompt = !!(location.state as LocationState | null)?.prompt;

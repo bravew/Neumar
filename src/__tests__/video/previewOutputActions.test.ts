@@ -30,7 +30,7 @@ describe('preview output actions', () => {
     await openRenderedOutput(project, output);
 
     expect(openSpy).toHaveBeenCalledWith(
-      'http://127.0.0.1:5126/video/projects/project-1/output?aspectRatio=16%3A9&v=2026-06-15T02%3A23%3A13.707Z',
+      'http://localhost:5126/video/projects/project-1/output?aspectRatio=16%3A9&v=2026-06-15T02%3A23%3A13.707Z',
       '_blank',
       'noopener,noreferrer',
     );
@@ -47,7 +47,7 @@ describe('preview output actions', () => {
 
   it('builds output URLs without optional params when no output is selected', () => {
     expect(renderedOutputUrl(videoProject())).toBe(
-      'http://127.0.0.1:5126/video/projects/project-1/output',
+      'http://localhost:5126/video/projects/project-1/output',
     );
   });
 });

@@ -77,7 +77,7 @@ describe('BUILTIN_PETS', () => {
       id: 'my-custom-pet',
       name: 'My Custom Pet',
       spritesheetUrl:
-        'http://127.0.0.1:5126/pets/custom/my-custom-pet/spritesheet',
+        'http://localhost:5126/pets/custom/my-custom-pet/spritesheet',
       atlasLayout: PET_ATLAS_LAYOUT,
     });
   });

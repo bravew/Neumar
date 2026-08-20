@@ -28,9 +28,23 @@ export interface AGUIMessage {
   attachments?: string;
 }
 
+/**
+ * One line inside a collapsed activity group — either a narration snippet the
+ * agent emitted between tool calls, or a tool call itself. Kept in emission
+ * order so the expanded view reads as a timeline.
+ */
+export type ActivityEntry =
+  | { kind: 'note'; id: string; text: string }
+  | { kind: 'tool'; tc: AGUIToolCall };
+
 /** Extract tool name from either nested or flat format */
 export function getToolName(tc: AGUIToolCall): string {
   return tc.function?.name ?? tc.name ?? 'tool';
+}
+
+/** Drop the `mcp__<server>__` prefix so headers stay readable. */
+export function shortToolName(name: string): string {
+  return name.replace(/^mcp__[^_]+__/, '');
 }
 
 /** Extract tool args from either nested or flat format */

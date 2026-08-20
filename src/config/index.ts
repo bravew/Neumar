@@ -30,7 +30,7 @@ export const API_PORT = import.meta.env.PROD ? 2620 : 5126;
 /**
  * API base URL
  */
-export const API_BASE_URL = `http://127.0.0.1:${API_PORT}`;
+export const API_BASE_URL = `http://localhost:${API_PORT}`;
 
 /**
  * Companion site API base URL for hosted prompt repositories.

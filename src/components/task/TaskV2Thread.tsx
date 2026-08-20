@@ -39,6 +39,7 @@ import { useRunError } from '@/shared/hooks/useRunError';
 import { useSubAgents } from '@/shared/hooks/useSubAgents';
 import { useThreadSync } from '@/shared/hooks/useThreadSync';
 import { useV2FileExtraction } from '@/shared/hooks/useV2FileExtraction';
+import { toAgentSeedMessages } from '@/shared/lib/message-tree';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { useBranchStore } from '@/shared/stores/branch-store';
 import { useThreadStore } from '@/shared/stores/thread-store';
@@ -67,7 +68,7 @@ export function TaskV2Thread({
 }: {
   attachmentMapRef?: React.RefObject<Map<string, MessageAttachment[]>>;
   taskId?: string;
-  historyMessages?: Array<{ id: string; role: string; content: string }>;
+  historyMessages?: AGUIMessage[];
   modelConfig?: Record<string, unknown>;
   /** Mutable ref the parent can use to call handleSubmit (for workspace inline reply). */
   onSubmitRef?: React.MutableRefObject<((text: string) => void) | null>;
@@ -214,13 +215,11 @@ export function TaskV2Thread({
         }).catch(() => {});
       }
 
-      // Seed agent with history so the display doesn't flip from
-      // historyMessages to an empty agentMessages when the first reply is sent.
+      // Seed agent with history (prose turns only) so the display doesn't flip
+      // from historyMessages to empty agentMessages on the first reply.
       if (a.messages.length === 0 && historyMessagesRef.current?.length) {
-        for (const msg of historyMessagesRef.current) {
-          a.addMessage(
-            msg as { id: string; role: 'user' | 'assistant'; content: string },
-          );
+        for (const msg of toAgentSeedMessages(historyMessagesRef.current)) {
+          a.addMessage(msg);
         }
       }
 
@@ -548,25 +547,12 @@ function VirtuosoMessageList({
   }, [messages, scrollToBottom]);
 
   // Stable render context — read from ref to avoid stale closures in Virtuoso itemContent
-  const renderContextRef = useRef<GroupedItemRenderContext>({
+  const renderContext: GroupedItemRenderContext = {
     thinkingLabel,
     attachmentMap,
     messages,
     allArtifacts,
-    onSendMessage,
-    onApprovePlan,
-    onRejectPlan,
-    onCancelTool,
-    onEditMessage,
-    onRegenerate,
-    onForkFromHere,
-    onBranchNavigate,
-  });
-  renderContextRef.current = {
-    thinkingLabel,
-    attachmentMap,
-    messages,
-    allArtifacts,
+    isRunning,
     onSendMessage,
     onApprovePlan,
     onRejectPlan,
@@ -576,6 +562,8 @@ function VirtuosoMessageList({
     onForkFromHere,
     onBranchNavigate,
   };
+  const renderContextRef = useRef(renderContext);
+  renderContextRef.current = renderContext;
 
   const itemContent = useCallback(
     (_index: number, item: GroupedItem) =>
