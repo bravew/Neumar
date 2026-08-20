@@ -17,6 +17,7 @@ import {
   getAgentRunsByTaskId,
   getFilesByTaskId,
   getTask,
+  updateTask,
 } from '@/shared/db/operations';
 import { buildExecutionDiagnostics } from '@/shared/observability/execution-diagnostics';
 import { listTraceEvents } from '@/shared/observability/trace';
@@ -98,6 +99,21 @@ describe('AGUIEventPersister persistence', () => {
     expect(getFilesByTaskId(taskId).map((file) => file.path)).toEqual([
       outputPath,
     ]);
+  });
+
+  it('resets an errored task to running when a new run starts', () => {
+    const { sessionCwd, taskId, workspaceRoot } = createTaskFixture();
+    updateTask(taskId, { status: 'error' });
+    const persister = new AGUIEventPersister(
+      taskId,
+      'run-retry',
+      workspaceRoot,
+      sessionCwd,
+    );
+
+    persister.handleEvent({ type: EventType.RUN_STARTED } as never);
+
+    expect(getTask(taskId)?.status).toBe('running');
   });
 
   it('keeps explicitly saved files even when they are outside output directories', () => {

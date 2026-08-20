@@ -2,6 +2,7 @@ import type { Artifact } from '@/components/artifacts/types';
 import type { MediaAsset } from '@/shared/lib/provenance';
 
 const INLINE_OUTPUT_TYPES = new Set(['image', 'video', 'audio']);
+const RENDER_FRAME_NAME_RE = /^frame_(?:%0?\d*d|\d+)\.(?:png|jpe?g|webp)$/i;
 
 export interface OutputPreviewGroup {
   key: string;
@@ -22,6 +23,9 @@ export function getPreviewableOutputArtifacts(artifacts: Artifact[] = []) {
   for (const artifact of artifacts) {
     if (!artifact.isOutput || !artifact.path) continue;
     if (!INLINE_OUTPUT_TYPES.has(artifact.type)) continue;
+    if (artifact.type === 'image' && RENDER_FRAME_NAME_RE.test(artifact.name)) {
+      continue;
+    }
     const key = artifact.path;
     if (seen.has(key)) continue;
     seen.add(key);

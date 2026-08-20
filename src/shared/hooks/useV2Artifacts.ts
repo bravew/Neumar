@@ -11,6 +11,7 @@ import type { LibraryFile } from '@/shared/db/types';
 import {
   inferTaskFileRunId,
   isPromotedInputPath,
+  isTaskOwnedFilePath,
   libraryFileToTaskFile,
 } from '@/shared/lib/task-files';
 import { useTaskFiles, useThreadStore } from '@/shared/stores/thread-store';
@@ -120,8 +121,11 @@ export function useV2Artifacts(taskId: string): Artifact[] {
   const hasFileIndex = useThreadStore((s) => s.threads[taskId] !== undefined);
 
   const cachedArtifacts = useMemo(
-    () => cachedFiles.map(taskFileToArtifact),
-    [cachedFiles],
+    () =>
+      cachedFiles
+        .filter((file) => isTaskOwnedFilePath(file.path, taskId))
+        .map(taskFileToArtifact),
+    [cachedFiles, taskId],
   );
 
   useEffect(() => {
@@ -132,8 +136,11 @@ export function useV2Artifacts(taskId: string): Artifact[] {
       try {
         const files = await getFilesByTaskId(taskId);
         if (!cancelled) {
-          setFiles(taskId, files.map(libraryFileToTaskFile));
-          setArtifacts(files.map(libraryFileToArtifact));
+          const ownedFiles = files.filter((file) =>
+            isTaskOwnedFilePath(file.path, taskId),
+          );
+          setFiles(taskId, ownedFiles.map(libraryFileToTaskFile));
+          setArtifacts(ownedFiles.map(libraryFileToArtifact));
         }
       } catch {
         // non-critical — artifacts panel is optional

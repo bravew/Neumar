@@ -62,6 +62,7 @@ export function useRunError(
         if (!res.ok) return;
         const data = (await res.json()) as {
           isRunning?: boolean;
+          taskStatus?: 'running' | 'completed' | 'error' | 'stopped';
           messages?: Array<{
             role: string;
             content?: string;
@@ -84,13 +85,13 @@ export function useRunError(
               !m.isError,
           );
 
-          if (errorMsg) {
+          if (errorMsg || data.taskStatus === 'error') {
             try {
               agentRef.current.abortRun();
             } catch {
               /* */
             }
-            setRunError(errorMsg.content!);
+            setRunError(errorMsg?.content || agentRunFailedLabel);
           } else if (!hasRealContent) {
             try {
               agentRef.current.abortRun();
