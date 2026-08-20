@@ -21,6 +21,7 @@ import type { Message, Session, Task } from '@/shared/db';
 const agentMocks = vi.hoisted(() => ({
   addMessage: vi.fn(),
   runAgent: vi.fn().mockResolvedValue(undefined),
+  setMessages: vi.fn(),
 }));
 
 vi.mock('@copilotkit/react-core/v2', () => ({
@@ -28,6 +29,7 @@ vi.mock('@copilotkit/react-core/v2', () => ({
     agent: {
       addMessage: agentMocks.addMessage,
       runAgent: agentMocks.runAgent,
+      setMessages: agentMocks.setMessages,
     },
   }),
   useCopilotKit: () => ({
@@ -76,6 +78,10 @@ describe('InitialMessageSender', () => {
         type: 'user',
         content: 'Draft a launch plan',
       }),
+    );
+    expect(agentMocks.setMessages).toHaveBeenCalledWith([]);
+    expect(agentMocks.setMessages.mock.invocationCallOrder[0]).toBeLessThan(
+      agentMocks.addMessage.mock.invocationCallOrder[0],
     );
     expect(screen.getByTestId('location-state')).toHaveTextContent('null');
   });

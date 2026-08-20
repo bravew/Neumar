@@ -288,6 +288,9 @@ export function InitialMessageSender({
 
       // Use agentRef to avoid stale closure after async await
       const a = agentRef.current;
+      // CopilotKit keeps one agent instance across keyed task providers. A new
+      // task must not inherit the previous task's transcript.
+      a.setMessages([]);
       a.addMessage({ id: msgId, role: 'user', content: prompt });
       const additionalDirs = locState?.additionalWorkDirs;
       const assigneeProfileId = locState?.assigneeProfileId;

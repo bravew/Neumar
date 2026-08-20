@@ -7,7 +7,11 @@ export function appendOutputArtifactsItem(
   items: GroupedItem[],
   artifacts: Artifact[] | undefined,
 ): GroupedItem[] {
-  const outputArtifacts = getPreviewableOutputArtifacts(artifacts ?? []);
+  const previewableArtifacts = getPreviewableOutputArtifacts(artifacts ?? []);
+  const outputArtifacts = selectReferencedDeliverables(
+    items,
+    previewableArtifacts,
+  );
   if (outputArtifacts.length === 0) return items;
   return [
     ...items,
@@ -17,4 +21,23 @@ export function appendOutputArtifactsItem(
       artifacts: outputArtifacts,
     },
   ];
+}
+
+function selectReferencedDeliverables(
+  items: GroupedItem[],
+  artifacts: Artifact[],
+): Artifact[] {
+  const finalAnswer = items
+    .filter((item) => item.type === 'message' && item.msg.role === 'assistant')
+    .map((item) => (item.type === 'message' ? item.msg.content : ''))
+    .join('\n');
+
+  if (!finalAnswer) return artifacts;
+
+  const referenced = artifacts.filter(
+    (artifact) =>
+      (artifact.path && finalAnswer.includes(artifact.path)) ||
+      finalAnswer.includes(artifact.name),
+  );
+  return referenced.length > 0 ? referenced : artifacts;
 }

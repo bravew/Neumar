@@ -42,7 +42,10 @@ import { useV2FileExtraction } from '@/shared/hooks/useV2FileExtraction';
 import { toAgentSeedMessages } from '@/shared/lib/message-tree';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { useBranchStore } from '@/shared/stores/branch-store';
-import { useThreadStore } from '@/shared/stores/thread-store';
+import {
+  useThreadHydration,
+  useThreadStore,
+} from '@/shared/stores/thread-store';
 import { randomUUID } from '@/shared/utils/uuid';
 
 const EMPTY_MESSAGES: unknown[] = []; // Stable selector fallback.
@@ -141,14 +144,17 @@ export function TaskV2Thread({
   const cachedMessages = useThreadStore(
     (s) => s.threads[taskId ?? '']?.messages ?? EMPTY_MESSAGES,
   ) as AGUIMessage[];
+  const hydrationState = useThreadHydration(taskId);
   const messages = useMemo(
     () =>
-      agentMessages.length > 0
-        ? agentMessages
-        : cachedMessages.length > 0
-          ? cachedMessages
-          : ((historyMessages ?? []) as AGUIMessage[]),
-    [agentMessages, cachedMessages, historyMessages],
+      hydrationState === 'pending'
+        ? []
+        : agentMessages.length > 0
+          ? agentMessages
+          : cachedMessages.length > 0
+            ? cachedMessages
+            : ((historyMessages ?? []) as AGUIMessage[]),
+    [agentMessages, cachedMessages, historyMessages, hydrationState],
   );
 
   // Bridge ChatInput's onSubmit to CopilotKit headless agent.

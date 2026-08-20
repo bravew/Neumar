@@ -1,6 +1,8 @@
 import type { LibraryFile } from '@/shared/db/types';
 import type { TaskFile } from '@/shared/stores/thread-store';
 
+const SESSION_TASK_PATH_RE = /[\\/]sessions[\\/]session-([^\\/]+)(?:[\\/]|$)/i;
+
 export function libraryFileToTaskFile(file: LibraryFile): TaskFile {
   const role = isPromotedInputPath(file.path) ? 'input' : undefined;
   return {
@@ -25,6 +27,15 @@ export function inferTaskFileRunId(
 
 export function isPromotedInputPath(path: string | undefined): boolean {
   return /[\\/]output[\\/][^\\/]+[\\/]inputs[\\/]/i.test(path ?? '');
+}
+
+/** Rejects persisted file rows whose session path belongs to another task. */
+export function isTaskOwnedFilePath(
+  path: string | undefined,
+  taskId: string,
+): boolean {
+  const pathTaskId = path?.match(SESSION_TASK_PATH_RE)?.[1];
+  return pathTaskId === undefined || pathTaskId === taskId;
 }
 
 export function libraryFileTypeToTaskFileKind(

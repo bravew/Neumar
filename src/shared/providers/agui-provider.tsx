@@ -165,6 +165,7 @@ function AgUiProviderInner({
   // Brand-new tasks still get an empty hydrated cache entry so re-entry is deterministic.
   useEffect(() => {
     if (isNewTask) {
+      agent.setMessages([]);
       hydrateFromDB(threadId, [], false, { files: [] });
       return;
     }
@@ -186,6 +187,9 @@ function AgUiProviderInner({
           setHydrationState(threadId, 'error');
           return;
         }
+        agent.setMessages(
+          history.messages as Parameters<typeof agent.setMessages>[0],
+        );
         hydrateFromDB(threadId, history.messages, history.isRunning, {
           files: history.files ?? (await fetchTaskFiles(threadId, ctrl.signal)),
         });
@@ -197,7 +201,7 @@ function AgUiProviderInner({
     })();
 
     return () => ctrl.abort();
-  }, [threadId, isNewTask, hydrateFromDB, setHydrationState]);
+  }, [agent, threadId, isNewTask, hydrateFromDB, setHydrationState]);
 
   // Mirror active CopilotKit messages into Zustand on every mutation. The
   // active agent remains authoritative while mounted; the store becomes an

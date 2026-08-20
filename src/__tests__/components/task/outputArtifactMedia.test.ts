@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Artifact } from '@/components/artifacts/types';
-import { filterOutputArtifactMedia } from '@/components/task/outputArtifactMedia';
+import {
+  filterOutputArtifactMedia,
+  getPreviewableOutputArtifacts,
+} from '@/components/task/outputArtifactMedia';
 
 function imageArtifact(overrides: Partial<Artifact>): Artifact {
   return {
@@ -75,5 +78,32 @@ describe('filterOutputArtifactMedia', () => {
     );
 
     expect(filtered.pdfs).toEqual([{ path: documentPath }]);
+  });
+});
+
+describe('getPreviewableOutputArtifacts', () => {
+  it('keeps final media but omits render-frame sequences from chat', () => {
+    const artifacts = [
+      imageArtifact({
+        id: 'frame-1',
+        name: 'frame_0001.png',
+        path: '/tmp/session/output/agent_system_frames_2/frame_0001.png',
+      }),
+      imageArtifact({
+        id: 'frame-pattern',
+        name: 'frame_%04d.png',
+        path: '/tmp/session/output/agent_system_frames_2/frame_%04d.png',
+      }),
+      imageArtifact({
+        id: 'video-1',
+        name: 'agent-system-illustration.mp4',
+        path: '/tmp/session/output/agent-system-illustration.mp4',
+        type: 'video',
+      }),
+    ];
+
+    expect(getPreviewableOutputArtifacts(artifacts).map((a) => a.name)).toEqual(
+      ['agent-system-illustration.mp4'],
+    );
   });
 });
