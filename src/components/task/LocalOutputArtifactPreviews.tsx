@@ -36,6 +36,20 @@ export function LocalOutputArtifactPreviews({
     setFailedKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   }, []);
 
+  // A failure is only about the file behind one key at one moment. When the
+  // artifact set itself changes, a path that failed before may now resolve
+  // (re-rendered output written to the same path), so drop the record and let
+  // it load again. Keyed on the joined keys — not the array identity, which is
+  // a fresh reference on every parent render — and a no-op when already empty,
+  // so this can't loop.
+  const artifactKeySignature = useMemo(
+    () => artifacts.map(artifactKey).join('\u0000'),
+    [artifacts],
+  );
+  useEffect(() => {
+    setFailedKeys((prev) => (prev.size === 0 ? prev : new Set()));
+  }, [artifactKeySignature]);
+
   const visibleGroups = useMemo(
     () =>
       groups

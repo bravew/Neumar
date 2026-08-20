@@ -110,12 +110,17 @@ export function ActivityGroup({
   );
 
   const { errorCount, pendingCount } = useMemo(() => {
+    // Index the thread's tool results once — a turn-wide group holds dozens of
+    // calls, and scanning `allMessages` per call is quadratic on long threads.
+    const resultByToolCallId = new Map<string, AGUIMessage>();
+    for (const m of allMessages) {
+      if (m.role === 'tool' && m.toolCallId)
+        resultByToolCallId.set(m.toolCallId, m);
+    }
     let errors = 0;
     let pending = 0;
     for (const tc of toolCalls) {
-      const result = allMessages.find(
-        (m) => m.role === 'tool' && m.toolCallId === tc.id,
-      );
+      const result = resultByToolCallId.get(tc.id);
       if (!result) pending++;
       else if (result.isError || isToolResultError(result.content)) errors++;
     }
@@ -152,6 +157,7 @@ export function ActivityGroup({
   return (
     <div className="border-border/40 bg-muted/20 my-2 overflow-hidden rounded-lg border">
       <button
+        type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
         className="hover:bg-muted/40 flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-xs transition-colors"

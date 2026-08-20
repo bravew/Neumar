@@ -98,13 +98,6 @@ export function findForkPoints(allMessages: Message[]): ForkPoint[] {
 }
 
 /**
- * Convert projected DB messages into AGUIMessage[] for display.
- *
- * This is a simplified frontend version of the backend's `dbMessagesToFullAGUI`.
- * It handles user messages, text (assistant) messages, and tool use/result messages.
- * Thinking blocks are skipped. Consecutive text blocks are merged.
- */
-/**
  * Narrow rehydrated history down to what CopilotKit's `addMessage` accepts.
  *
  * The display path wants tool calls and tool results; the agent seed path
@@ -128,6 +121,13 @@ export function toAgentSeedMessages(
   return out;
 }
 
+/**
+ * Convert projected DB messages into AGUIMessage[] for display.
+ *
+ * This is a simplified frontend version of the backend's `dbMessagesToFullAGUI`.
+ * It handles user messages, text (assistant) messages, and tool use/result messages.
+ * Thinking blocks are skipped. Consecutive text blocks are merged.
+ */
 export function dbMessagesToAGUI(messages: Message[]): AGUIMessage[] {
   const result: AGUIMessage[] = [];
   const seenUserContent = new Set<string>();
