@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## [26.8.20] - 2026-08-20
+
+### Added
+
+- **task-v2**: collapse each agent turn into one activity group
+
+### Fixed
+
+- **task**: make local media previews resilient to load errors
+- **task-v2**: address PR review findings on activity groups
+- pin transitive deps to clear high-severity npm audit findings
+- clear high-severity npm audit findings in transitive deps
+
 ## [26.8.19] - 2026-08-19
 
 ### Added

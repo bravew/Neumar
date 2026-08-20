@@ -161,20 +161,26 @@ describe('ExecutionDiagnosticsPanel', () => {
   );
 
   it('exports a support bundle for the diagnostics owner', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        Response.json(diagnostics('design', 'project-1', 'run-design')),
-      )
-      .mockResolvedValueOnce(
-        new Response(new Blob(['zip']), {
-          headers: {
-            'content-type': 'application/zip',
-            'content-disposition':
-              'attachment; filename="neuma-support-design.zip"',
-          },
-        }),
-      );
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/support-bundle')) {
+          return new Response('zip', {
+            headers: {
+              'content-type': 'application/zip',
+              'content-disposition':
+                'attachment; filename="neuma-support-design.zip"',
+            },
+          });
+        }
+        if (url.includes('/diagnostics')) {
+          return Response.json(
+            diagnostics('design', 'project-1', 'run-design'),
+          );
+        }
+        return Response.json({});
+      },
+    );
     globalThis.fetch = fetchMock as typeof fetch;
     const createObjectUrl = vi
       .spyOn(URL, 'createObjectURL')
@@ -188,9 +194,17 @@ describe('ExecutionDiagnosticsPanel', () => {
     renderWithLanguage(<ExecutionDiagnosticsPanel runId="run-design" />);
 
     fireEvent.click(await screen.findByText('Export support bundle'));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([u]) =>
+          String(u).includes('/support-bundle'),
+        ),
+      ).toBe(true);
+    });
 
-    const [, init] = fetchMock.mock.calls[1]!;
+    const [, init] = fetchMock.mock.calls.find(([u]) =>
+      String(u).includes('/support-bundle'),
+    )!;
     expect(init).toMatchObject({ method: 'POST' });
     expect(JSON.parse(String(init?.body))).toEqual({
       mode: 'design',

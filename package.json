@@ -1,15 +1,15 @@
 {
   "name": "neumar",
-  "version": "26.8.19",
+  "version": "26.8.20",
   "private": true,
+  "homepage": "https://github.com/bravew/Neumar#readme",
+  "bugs": {
+    "url": "https://github.com/bravew/Neumar/issues"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bravew/Neumar.git"
-  },
-  "homepage": "https://github.com/bravew/Neumar#readme",
-  "bugs": {
-    "url": "https://github.com/bravew/Neumar/issues"
   },
   "type": "module",
   "scripts": {
