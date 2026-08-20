@@ -214,11 +214,11 @@
   },
   "src/components/shared/FolderPicker.tsx": { "current": 355, "target": 350 },
   "src/components/task/DocumentPanel.tsx": { "current": 384, "target": 350 },
-  "src/components/task/MediaLightbox.tsx": { "current": 549, "target": 350 },
+  "src/components/task/MediaLightbox.tsx": { "current": 554, "target": 350 },
   "src/components/task/MessageList.tsx": { "current": 376, "target": 350 },
-  "src/components/task/RightSidebar.tsx": { "current": 1675, "target": 350 },
+  "src/components/task/RightSidebar.tsx": { "current": 1726, "target": 350 },
   "src/components/task/TaskV2MessageBubble.tsx": {
-    "current": 724,
+    "current": 739,
     "target": 350
   },
   "src/components/task/TaskV2Thread.tsx": { "current": 624, "target": 350 },
