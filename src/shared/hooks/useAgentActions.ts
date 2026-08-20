@@ -3,8 +3,10 @@ import type { RefObject } from 'react';
 
 import type { AbstractAgent } from '@ag-ui/client';
 
+import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble.types';
 import { API_BASE_URL } from '@/config';
 import { createMessage } from '@/shared/db';
+import { toAgentSeedMessages } from '@/shared/lib/message-tree';
 import { randomUUID } from '@/shared/utils/uuid';
 
 /** Abort agent run and notify the backend. Shared by useAgentActions and useBranchActions. */
@@ -30,9 +32,7 @@ export function stopAgentRun(
 export function useAgentActions(
   agentRef: RefObject<AbstractAgent>,
   taskIdRef: RefObject<string | undefined>,
-  historyMessagesRef: RefObject<
-    Array<{ id: string; role: string; content: string }> | undefined
-  >,
+  historyMessagesRef: RefObject<AGUIMessage[] | undefined>,
   forceRender: () => void,
   // Optional refs forwarded to runAgent() when an answer arrives for an
   // already-ended turn (e.g., Codex's `neuma:ask_user_question` bridge).
@@ -83,10 +83,8 @@ export function useAgentActions(
       // Seed agent with history so the thread doesn't lose visible messages
       // when the first inline answer is sent.
       if (a.messages.length === 0 && historyMessagesRef.current?.length) {
-        for (const msg of historyMessagesRef.current) {
-          a.addMessage(
-            msg as { id: string; role: 'user' | 'assistant'; content: string },
-          );
+        for (const msg of toAgentSeedMessages(historyMessagesRef.current)) {
+          a.addMessage(msg);
         }
       }
 

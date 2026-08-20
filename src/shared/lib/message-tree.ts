@@ -104,6 +104,30 @@ export function findForkPoints(allMessages: Message[]): ForkPoint[] {
  * It handles user messages, text (assistant) messages, and tool use/result messages.
  * Thinking blocks are skipped. Consecutive text blocks are merged.
  */
+/**
+ * Narrow rehydrated history down to what CopilotKit's `addMessage` accepts.
+ *
+ * The display path wants tool calls and tool results; the agent seed path
+ * wants only prose turns — pushing `role: 'tool'` or empty tool-call carriers
+ * into the runtime corrupts its message list.
+ */
+export function toAgentSeedMessages(
+  messages: AGUIMessage[],
+): Array<{ id: string; role: 'user' | 'assistant'; content: string }> {
+  const out: Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+  }> = [];
+  for (const m of messages) {
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    const content = m.content?.trim();
+    if (!content) continue;
+    out.push({ id: m.id, role: m.role, content: m.content as string });
+  }
+  return out;
+}
+
 export function dbMessagesToAGUI(messages: Message[]): AGUIMessage[] {
   const result: AGUIMessage[] = [];
   const seenUserContent = new Set<string>();

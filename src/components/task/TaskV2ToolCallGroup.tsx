@@ -18,7 +18,7 @@ import { PollingLine, ToolCallLine } from './TaskV2ToolCallItems';
  * found`, or Claude's own `<tool_use_error>` wrapper. Good enough to flag a
  * failure without false-positives for normal output mentioning "error".
  */
-function isToolResultError(content: string | undefined): boolean {
+export function isToolResultError(content: string | undefined): boolean {
   if (!content) return false;
   const head = content.slice(0, 256);
   return (
