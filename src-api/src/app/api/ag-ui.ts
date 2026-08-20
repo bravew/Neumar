@@ -1329,6 +1329,7 @@ agui.get('/history/:taskId', async (c) => {
   const taskId = parsed.data;
   const dbMessages = getMessagesByTaskId(taskId);
   const aguiMessages = dbMessagesToFullAGUI(dbMessages);
+  const taskStatus = getTask(taskId)?.status;
   const activeBusKey = activeRunBusKeys.get(taskId);
   const activeRunContext =
     activeBusKey && taskEventBus.isTaskActive(activeBusKey)
@@ -1339,6 +1340,7 @@ agui.get('/history/:taskId', async (c) => {
     messages: aguiMessages,
     files,
     isRunning: activeBusKey ? taskEventBus.isTaskActive(activeBusKey) : false,
+    taskStatus,
   });
 });
 

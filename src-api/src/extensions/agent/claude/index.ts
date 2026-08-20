@@ -233,6 +233,7 @@ import { safeAsyncGenerator } from '@/shared/utils/stream-cleanup';
 import { ContainerManager, executePTC } from './ptc';
 import { adaptMcpTools } from './ptc-adapter';
 import type { ToolHandler } from './ptc-types';
+import { hasClaudeSdkStalled } from './stall-policy';
 
 /**
  * Whether built-in MCP servers should be registered for this profile.
@@ -700,9 +701,6 @@ const PLANNING_HEARTBEAT_MS = 3_000;
 
 /** Log a warning if no SDK message received for this long during planning */
 const PLANNING_STALL_WARN_MS = 30_000;
-
-/** Abort planning if no SDK message received for this long (subprocess likely hung) */
-const PLANNING_STALL_ABORT_MS = 120_000;
 
 /**
  * Merges an async iterable with periodic heartbeats using Promise.race.
@@ -3808,7 +3806,7 @@ User's request (answer this AFTER reading the images):
 
           if (typeof raw === 'object' && raw !== null && '_heartbeat' in raw) {
             const stallMs = Date.now() - lastSdkMessageTime;
-            if (stallMs >= PLANNING_STALL_ABORT_MS) {
+            if (hasClaudeSdkStalled(stallMs)) {
               queryStalled = true;
               logger.error(
                 `[Claude ${session.id}] Direct run stalled ${Math.round(stallMs / 1000)}s — aborting (${sdkMessageCount} SDK msgs)`,
@@ -4759,7 +4757,7 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
 
           if (typeof raw === 'object' && raw !== null && '_heartbeat' in raw) {
             const stallMs = Date.now() - lastPlanMsgTime;
-            if (stallMs >= PLANNING_STALL_ABORT_MS) {
+            if (hasClaudeSdkStalled(stallMs)) {
               logger.error(
                 `[Claude ${session.id}] Planning stalled ${Math.round(stallMs / 1000)}s — aborting (${planMsgCount} msgs, response=${fullResponse.length} chars)`,
               );

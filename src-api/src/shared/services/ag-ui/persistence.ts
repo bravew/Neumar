@@ -29,6 +29,7 @@ import {
   updateAgentRunAttempt,
   updateAgentRunDelivery,
   updateTask,
+  updateTaskHeartbeat,
 } from '@/shared/db/operations';
 import {
   createTraceArtifactReference,
@@ -303,6 +304,10 @@ export class AGUIEventPersister {
     try {
       switch (event.type) {
         case EventType.RUN_STARTED: {
+          if (this.mode === 'task') {
+            updateTask(this.taskId, { status: 'running' });
+            updateTaskHeartbeat(this.taskId);
+          }
           this.ensureRootRunRow();
           this.rootTraceEventId = this.runId ?? crypto.randomUUID();
           recordTraceEvent({
