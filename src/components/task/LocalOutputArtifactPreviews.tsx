@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getStreamUrl } from '@/components/artifacts/media-loader';
 import type { Artifact } from '@/components/artifacts/types';
@@ -7,6 +7,10 @@ import { useLanguage } from '@/shared/providers/language-provider';
 
 import { MediaLightbox } from './MediaLightbox';
 import { getOutputPreviewGroups } from './outputArtifactMedia';
+
+function artifactKey(artifact: Artifact): string {
+  return artifact.path ?? artifact.id;
+}
 
 export function LocalOutputArtifactPreviews({
   artifacts,
@@ -19,13 +23,42 @@ export function LocalOutputArtifactPreviews({
     null,
   );
   const revision = useOutputArtifactRevision(groups.length > 0);
+  // Output artifacts are tracked once (e.g. from a tool call) and never
+  // re-synced against the filesystem, so a scratch file the agent later
+  // deletes (spot-check frames, cleanup after a final render) stays in this
+  // list forever. Track load failures here and drop those entries — and any
+  // group/wrapper left empty as a result — instead of showing a broken
+  // thumbnail or an empty bordered box.
+  const [failedKeys, setFailedKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const markFailed = useCallback((key: string) => {
+    setFailedKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+  }, []);
 
-  if (groups.length === 0) return null;
+  const visibleGroups = useMemo(
+    () =>
+      groups
+        .map((group) => ({
+          ...group,
+          outputs: group.outputs.filter((a) => !failedKeys.has(artifactKey(a))),
+          sourceAttachments: group.sourceAttachments.filter(
+            (a) => !failedKeys.has(artifactKey(a)),
+          ),
+        }))
+        .filter(
+          (group) =>
+            group.outputs.length > 0 || group.sourceAttachments.length > 0,
+        ),
+    [groups, failedKeys],
+  );
+
+  if (visibleGroups.length === 0) return null;
 
   return (
     <div className="border-ai-response rounded-xl border-l-2 pl-3">
       <div className="flex max-w-full flex-col gap-2">
-        {groups.map((group) => (
+        {visibleGroups.map((group) => (
           <div
             key={group.key}
             className={cn(
@@ -37,10 +70,11 @@ export function LocalOutputArtifactPreviews({
             <div className="flex max-w-full flex-col gap-2">
               {group.outputs.map((artifact) => (
                 <InlineOutputArtifact
-                  key={artifact.path ?? artifact.id}
+                  key={artifactKey(artifact)}
                   artifact={artifact}
                   revision={revision}
                   onOpen={() => setLightboxArtifact(artifact)}
+                  onError={() => markFailed(artifactKey(artifact))}
                 />
               ))}
             </div>
@@ -52,11 +86,12 @@ export function LocalOutputArtifactPreviews({
                 <div className="flex flex-col gap-2">
                   {group.sourceAttachments.map((artifact) => (
                     <InlineOutputArtifact
-                      key={artifact.path ?? artifact.id}
+                      key={artifactKey(artifact)}
                       artifact={artifact}
                       revision={revision}
                       compact
                       onOpen={() => setLightboxArtifact(artifact)}
+                      onError={() => markFailed(artifactKey(artifact))}
                     />
                   ))}
                 </div>
@@ -82,11 +117,13 @@ function InlineOutputArtifact({
   revision,
   compact,
   onOpen,
+  onError,
 }: {
   artifact: Artifact;
   revision: number;
   compact?: boolean;
   onOpen: () => void;
+  onError: () => void;
 }) {
   const src = artifact.path ? getStreamUrl(artifact.path, revision) : '';
 
@@ -103,6 +140,7 @@ function InlineOutputArtifact({
           aria-label={artifact.name}
           controls
           preload="metadata"
+          onError={onError}
         />
         <figcaption className="text-muted-foreground mt-1 truncate text-xs">
           {artifact.name}
@@ -121,6 +159,7 @@ function InlineOutputArtifact({
           controls
           preload="metadata"
           className="w-full"
+          onError={onError}
         />
         <figcaption className="text-muted-foreground mt-1 truncate text-xs">
           {artifact.name}
@@ -144,6 +183,7 @@ function InlineOutputArtifact({
             'border-border/70 bg-muted max-w-full rounded-lg border object-contain',
             compact ? 'max-h-28' : 'max-h-80',
           )}
+          onError={onError}
         />
       </button>
       <figcaption className="text-muted-foreground mt-1 truncate text-xs">
