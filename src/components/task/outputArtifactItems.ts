@@ -1,7 +1,10 @@
 import type { Artifact } from '@/components/artifacts/types';
 
-import type { GroupedItem } from './GroupedMessageList';
+import type { GroupedItem } from './groupMessages';
 import { getPreviewableOutputArtifacts } from './outputArtifactMedia';
+
+const REFERENCE_PREFIX = String.raw`(^|[\s([{"'\x60])`;
+const REFERENCE_SUFFIX = String.raw`(?=$|[\s)\]},"'\x60.:;!?])`;
 
 export function appendOutputArtifactsItem(
   items: GroupedItem[],
@@ -27,17 +30,31 @@ function selectReferencedDeliverables(
   items: GroupedItem[],
   artifacts: Artifact[],
 ): Artifact[] {
-  const finalAnswer = items
-    .filter((item) => item.type === 'message' && item.msg.role === 'assistant')
-    .map((item) => (item.type === 'message' ? item.msg.content : ''))
-    .join('\n');
+  const finalAnswer = getFinalAssistantAnswer(items);
 
   if (!finalAnswer) return artifacts;
 
   const referenced = artifacts.filter(
     (artifact) =>
-      (artifact.path && finalAnswer.includes(artifact.path)) ||
-      finalAnswer.includes(artifact.name),
+      (artifact.path && hasExactReference(finalAnswer, artifact.path)) ||
+      hasExactReference(finalAnswer, artifact.name),
   );
   return referenced.length > 0 ? referenced : artifacts;
+}
+
+function getFinalAssistantAnswer(items: GroupedItem[]): string | undefined {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item.type === 'message' && item.msg.role === 'assistant') {
+      return item.msg.content;
+    }
+  }
+  return undefined;
+}
+
+function hasExactReference(content: string, reference: string): boolean {
+  const escaped = reference.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${REFERENCE_PREFIX}${escaped}${REFERENCE_SUFFIX}`).test(
+    content,
+  );
 }

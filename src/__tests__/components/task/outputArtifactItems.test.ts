@@ -22,6 +22,15 @@ describe('appendOutputArtifactsItem', () => {
     const items: GroupedItem[] = [
       {
         type: 'message',
+        key: 'draft',
+        msg: {
+          id: 'draft',
+          role: 'assistant',
+          content: `Draft render: [agent-system-illustration.mp4](${ORIGINAL_PATH})`,
+        },
+      },
+      {
+        type: 'message',
         key: 'answer',
         msg: {
           id: 'answer',
@@ -34,6 +43,31 @@ describe('appendOutputArtifactsItem', () => {
     const result = appendOutputArtifactsItem(items, [
       video('original', ORIGINAL_PATH),
       video('final', FINAL_PATH),
+    ]);
+
+    expect(result.at(-1)).toMatchObject({
+      type: 'output-artifacts',
+      artifacts: [{ id: 'final' }],
+    });
+  });
+
+  it('does not match an output whose name is only a substring of the final deliverable', () => {
+    const items: GroupedItem[] = [
+      {
+        type: 'message',
+        key: 'answer',
+        msg: {
+          id: 'answer',
+          role: 'assistant',
+          content:
+            'Final deliverable: [final-report.mp4](/tmp/output/final-report.mp4)',
+        },
+      },
+    ];
+
+    const result = appendOutputArtifactsItem(items, [
+      video('partial', '/tmp/output/report.mp4'),
+      video('final', '/tmp/output/final-report.mp4'),
     ]);
 
     expect(result.at(-1)).toMatchObject({

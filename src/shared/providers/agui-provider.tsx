@@ -164,8 +164,9 @@ function AgUiProviderInner({
   // On mount and thread switch: fetch full history from backend and populate Zustand cache.
   // Brand-new tasks still get an empty hydrated cache entry so re-entry is deterministic.
   useEffect(() => {
+    agent.setMessages([]);
+
     if (isNewTask) {
-      agent.setMessages([]);
       hydrateFromDB(threadId, [], false, { files: [] });
       return;
     }
@@ -179,22 +180,30 @@ function AgUiProviderInner({
           signal: ctrl.signal,
         });
         if (!res.ok) {
-          setHydrationState(threadId, 'error');
+          if (!ctrl.signal.aborted) {
+            setHydrationState(threadId, 'error');
+          }
           return;
         }
         const history = parseHistoryResponse(await res.json());
         if (!history) {
-          setHydrationState(threadId, 'error');
+          if (!ctrl.signal.aborted) {
+            setHydrationState(threadId, 'error');
+          }
           return;
         }
+        const files =
+          history.files ?? (await fetchTaskFiles(threadId, ctrl.signal));
+        if (ctrl.signal.aborted) return;
+
         agent.setMessages(
           history.messages as Parameters<typeof agent.setMessages>[0],
         );
         hydrateFromDB(threadId, history.messages, history.isRunning, {
-          files: history.files ?? (await fetchTaskFiles(threadId, ctrl.signal)),
+          files,
         });
       } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
+        if (!ctrl.signal.aborted && (error as Error).name !== 'AbortError') {
           setHydrationState(threadId, 'error');
         }
       }
