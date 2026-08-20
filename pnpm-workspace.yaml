@@ -59,12 +59,36 @@ overrides:
   # GHSA-vxpw-j846-p89q — discord.js pins undici 6.24.1; force patched 6.x.
   # Raised 2026-08-08: 6.27.0 itself gained 3 moderate advisories (response
   # desync, CRLF injection, cookie injection) fixed at 6.28.0.
-  'undici@>=6.0.0 <6.28.0': '6.28.0'
+  # Widened 2026-08-20 (GHSA-vrm6-8vpv-qv8q, GHSA-v9p9-hfj2-hcw8) — the
+  # @ai-sdk/google-vertex branch of @copilotkit/runtime pulls an older
+  # @ai-sdk/provider-utils@3.x that depends on undici@^5.29.0 directly, which
+  # is outside the >=6.0.0 floor above but still matches these advisories'
+  # vulnerable range. Vertex is transitive-only (unused by this app), so the
+  # major bump to 6.28.0 has no reachable code path to regress.
+  'undici@<6.28.0': '6.28.0'
+  # GHSA-xcpc-8h2w-3j85 — adm-zip 4GB zip-bomb memory allocation, bundled by
+  # onnxruntime-node (unpacks native binaries at install time).
+  adm-zip: '^0.6.0'
+  # GHSA-f88m-g3jw-g9cj — sharp <0.35.0 inherits libvips CVE-2026-33327/28/
+  # 35590/35591. @huggingface/transformers and hyperframes both pin
+  # ^0.34.5; neumar-api already runs 0.35.3 directly, so this just collapses
+  # the duplicate resolution onto the version already exercised here.
+  sharp: '^0.35.3'
   # GHSA-w5hq-g745-h8pq — CopilotKit runtime still allows vulnerable uuid 10.
   'uuid@10.0.0': '11.1.1'
   # 2026-08-08: node-tar critical DoS (GHSA-23hp-3jrh-7fpw) + 3 more advisories
   # in @yao-pkg/pkg's bundled tar; pin to the patched line until pkg vendors it.
   '@yao-pkg/pkg>tar': '^7.5.21'
+  # 2026-08-20: GHSA-7p8r-x3mc-p8w7 + GHSA-4c8g-83qw-93j6 (fast-uri host
+  # confusion via backslash authority / failed IDN canonicalization) —
+  # transitive via ajv/ajv-formats under @modelcontextprotocol/sdk.
+  fast-uri: '^3.1.5'
+  # GHSA-mwp4-54f8-5fhr (ip-address leading-zero octet SSRF bypass) —
+  # transitive via express-rate-limit under @modelcontextprotocol/sdk.
+  ip-address: '^10.3.1'
+  # GHSA-5p4m-2wfm-xmqj (js-yaml quadratic CPU on !!omap) — transitive via
+  # cosmiconfig under @remotion/cli's @svgr/core and @remotion/tailwind.
+  js-yaml: '^4.3.1'
 
 peerDependencyRules:
   allowedVersions:
