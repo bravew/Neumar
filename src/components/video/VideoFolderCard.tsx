@@ -63,6 +63,8 @@ export function VideoFolderCard({
     '{count}',
     String(qaWarningCount),
   );
+  const renderStatusLabels: Readonly<Record<string, string>> =
+    t.video.entry.renderStatuses;
 
   return (
     <article
@@ -90,6 +92,7 @@ export function VideoFolderCard({
         checked={selected}
         onChange={onSelectToggle}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
         className="accent-primary absolute top-2 left-2 z-20 size-4"
         aria-label={t.video.entry.selectProject.replace('{name}', project.name)}
       />
@@ -182,7 +185,9 @@ export function VideoFolderCard({
           <span className="truncate">
             {t.video.templates[project.template]}
           </span>
-          <span className="shrink-0">{project.renderStatus}</span>
+          <span className="shrink-0">
+            {renderStatusLabels[project.renderStatus] ?? project.renderStatus}
+          </span>
         </div>
       </div>
     </article>

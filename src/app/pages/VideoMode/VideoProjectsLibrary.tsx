@@ -64,6 +64,8 @@ export function VideoProjectsLibrary({
   );
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const renderStatusLabels: Readonly<Record<string, string>> =
+    t.video.entry.renderStatuses;
 
   useEffect(() => {
     const projectIds = new Set(projects.map((project) => project.id));
@@ -108,7 +110,7 @@ export function VideoProjectsLibrary({
           <option value="all">{t.video.entry.allStatuses}</option>
           {renderStatusOptions.map((value) => (
             <option key={value} value={value}>
-              {value}
+              {renderStatusLabels[value] ?? value}
             </option>
           ))}
         </select>

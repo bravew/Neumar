@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { ArrowLeft, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,6 +23,7 @@ export function ProjectStepperLeading({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project.name);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const renameLabel = t.video.entry.renameDialogTitle;
 
   const beginRename = () => {
@@ -30,11 +31,13 @@ export function ProjectStepperLeading({
     setEditing(true);
   };
   const submitRename = async () => {
+    if (savingRef.current) return;
     const next = name.trim();
     if (!next || next === project.name) {
       setEditing(false);
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       await onRename(next);
@@ -47,6 +50,7 @@ export function ProjectStepperLeading({
         ),
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

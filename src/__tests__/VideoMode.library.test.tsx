@@ -56,6 +56,7 @@ describe('VideoMode project library', () => {
     });
 
     expect(await screen.findByText('Podcast Teaser')).toBeVisible();
+    expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
     const cards = () => [...view.container.querySelectorAll('article')];
     expect(view.container.querySelector('article video')).toHaveAttribute(
       'src',
@@ -161,6 +162,24 @@ describe('VideoMode project library', () => {
 
     await user.click(recapCard!);
     expect(screen.getByText('1 selected')).toBeVisible();
+  });
+
+  it('lets keyboard users enter selection mode through a project checkbox', async () => {
+    const user = userEvent.setup();
+    mockVideoProjects();
+    renderWithProviders(<VideoModeRoute />, { initialEntries: ['/video'] });
+
+    const checkbox = await screen.findByRole('checkbox', {
+      name: 'Select Launch Reel',
+    });
+    checkbox.focus();
+    await user.keyboard(' ');
+
+    expect(checkbox).toBeChecked();
+    expect(screen.getByText('1 selected')).toBeVisible();
+    expect(
+      screen.getByRole('heading', { name: 'Video projects' }),
+    ).toBeVisible();
   });
 
   it('removes successful projects and keeps failures after a partial delete', async () => {
