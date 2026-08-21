@@ -2,7 +2,8 @@ name: Claude - Diff-Aware PR Reviewer
 
 # ABOUT THIS WORKFLOW
 # - Purpose: Generate a thorough, diff-aware code review for PRs with inline comments and summary.
-# - Trigger: Manual via workflow_dispatch only (automatic pull_request trigger disabled by default).
+# - Trigger: Manual — workflow_dispatch, commenting "@review" on a PR, or adding the "review" label.
+#   (Automatic pull_request trigger on every open/sync is disabled by default — see the `on:` block.)
 # - Outputs: A single sticky summary comment (updated in-place) + optional inline comments + optional report artifact.
 # - Docs: https://github.com/anthropics/claude-code-action
 #
@@ -35,11 +36,16 @@ name: Claude - Diff-Aware PR Reviewer
 # - This workflow does not modify source code. It only posts comments and writes reports.
 
 on:
-  # Automatic pull_request trigger disabled by default. Uncomment the two
-  # lines below to restore auto-review on PR open/sync/reopen. Until then,
-  # run manually via workflow_dispatch (Actions tab or `gh workflow run`).
+  # Automatic pull_request trigger on every open/sync is disabled by default.
+  # Uncomment the two lines below to restore it. Until then, trigger a review
+  # by: workflow_dispatch (Actions tab or `gh workflow run`), commenting
+  # "@review" on the PR, or adding the "review" label.
   # pull_request:
   #   types: [opened, synchronize, reopened, ready_for_review, unlabeled]
+  pull_request:
+    types: [labeled]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -79,21 +85,33 @@ permissions:
 # Prevent multiple reviews running simultaneously for the same PR
 # Cancels in-progress reviews when new commits are pushed
 concurrency:
-  group: pr-review-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+  group: pr-review-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   review:
     runs-on: ubuntu-latest
-    # Skip for draft PRs, automated dependency update bots, and PRs with "skip AI review" label
-    # Trigger immediately when "skip AI review" label is removed
+    # Runs on: workflow_dispatch, adding the "review" label, or a
+    # collaborator commenting "@review" on the PR. Skips automated
+    # dependency-update bots and PRs carrying the "skip AI review" label.
     if: |
-      (github.event_name == 'workflow_dispatch' || !github.event.pull_request.draft) &&
       !contains(github.actor, 'dependabot') &&
       !contains(github.actor, 'renovate') &&
       (
-        (github.event.action == 'unlabeled' && github.event.label.name == 'skip AI review') ||
-        (github.event.action != 'unlabeled' && !contains(github.event.pull_request.labels.*.name, 'skip AI review'))
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'pull_request' &&
+          github.event.action == 'labeled' &&
+          github.event.label.name == 'review' &&
+          !contains(github.event.pull_request.labels.*.name, 'skip AI review')
+        ) ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.pull_request != null &&
+          contains(github.event.comment.body, '@review') &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+          !contains(github.event.issue.labels.*.name, 'skip AI review')
+        )
       )
     steps:
       - name: Checkout repository
@@ -109,10 +127,14 @@ jobs:
           INPUT_PR_NUMBER: ${{ inputs.pr_number }}
           INPUT_GENERATE_REPORT: ${{ inputs.generate_report }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "number=$INPUT_PR_NUMBER" >> $GITHUB_OUTPUT
             echo "generate_report=$INPUT_GENERATE_REPORT" >> $GITHUB_OUTPUT
+          elif [ "$EVENT_NAME" = "issue_comment" ]; then
+            echo "number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+            echo "generate_report=false" >> $GITHUB_OUTPUT
           else
             echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
             echo "generate_report=false" >> $GITHUB_OUTPUT
@@ -169,8 +191,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # track_progress not supported for unlabeled events
-          track_progress: ${{ github.event.action != 'unlabeled' }}
+          track_progress: true
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ steps.pr.outputs.number }}
