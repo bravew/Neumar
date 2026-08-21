@@ -21,7 +21,7 @@ name: Claude - Diff-Aware PR Reviewer
 # - Update the prompt sections to match your team's review style.
 # - Use track_progress: true for visual progress during long reviews.
 # - Override CLAUDE_MODEL via workflow_dispatch input or set in repository variables
-#   (defaults to claude-sonnet-4-5-20250929) https://platform.claude.com/docs/en/about-claude/models/overview
+#   (defaults to claude-sonnet-5) https://platform.claude.com/docs/en/about-claude/models/overview
 # - Enable extended thinking via workflow_dispatch input for deeper analysis (use_extended_thinking=true)
 # - Enable inline comments via workflow_dispatch input or repository variable (enable_inline_comments=true)
 #
@@ -52,7 +52,7 @@ on:
         description: Generate markdown report artifact (true/false)
         default: 'true'
       claude_model:
-        description: Claude model to use (e.g., claude-opus-4-5-20251101, https://platform.claude.com/docs/en/about-claude/models/overview)
+        description: Claude model to use (e.g., claude-opus-5, https://platform.claude.com/docs/en/about-claude/models/overview)
         required: false
       use_extended_thinking:
         description: Enable extended thinking for deeper analysis (true/false)
@@ -65,7 +65,7 @@ on:
 
 # Environment variables (can be overridden via workflow_dispatch or repository settings)
 env:
-  CLAUDE_MODEL: ${{ github.event.inputs.claude_model || vars.CLAUDE_MODEL || 'claude-sonnet-4-6' }}
+  CLAUDE_MODEL: ${{ github.event.inputs.claude_model || vars.CLAUDE_MODEL || 'claude-sonnet-5' }}
   ENABLE_EXTENDED_THINKING: ${{ github.event.inputs.use_extended_thinking || vars.ENABLE_EXTENDED_THINKING || 'false' }}
   ENABLE_INLINE_COMMENTS: ${{ github.event.inputs.enable_inline_comments || vars.ENABLE_INLINE_COMMENTS || 'false' }}
 
@@ -164,7 +164,7 @@ jobs:
           chmod +x post-review.sh
 
       - name: Claude Code Review
-        uses: anthropics/claude-code-action@3ac52d0da9f8ec9ca7b4dc23bb477e36ef9c77a9 # v1
+        uses: anthropics/claude-code-action@3f854a8fb5146b39d5cbf8b57f70d80810e1366f # v1 (v1.0.198)
         env:
           GH_TOKEN: ${{ github.token }}
         with:
