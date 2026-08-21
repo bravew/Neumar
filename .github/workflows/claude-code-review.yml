@@ -2,7 +2,7 @@ name: Claude - Diff-Aware PR Reviewer
 
 # ABOUT THIS WORKFLOW
 # - Purpose: Generate a thorough, diff-aware code review for PRs with inline comments and summary.
-# - Trigger: Automatic on PR open/sync OR manual via workflow_dispatch.
+# - Trigger: Manual via workflow_dispatch only (automatic pull_request trigger disabled by default).
 # - Outputs: A single sticky summary comment (updated in-place) + optional inline comments + optional report artifact.
 # - Docs: https://github.com/anthropics/claude-code-action
 #
@@ -35,8 +35,11 @@ name: Claude - Diff-Aware PR Reviewer
 # - This workflow does not modify source code. It only posts comments and writes reports.
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, unlabeled]
+  # Automatic pull_request trigger disabled by default. Uncomment the two
+  # lines below to restore auto-review on PR open/sync/reopen. Until then,
+  # run manually via workflow_dispatch (Actions tab or `gh workflow run`).
+  # pull_request:
+  #   types: [opened, synchronize, reopened, ready_for_review, unlabeled]
   workflow_dispatch:
     inputs:
       pr_number:
