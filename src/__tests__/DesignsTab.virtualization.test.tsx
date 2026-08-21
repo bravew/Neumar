@@ -153,7 +153,7 @@ describe('DesignsTab virtualization interactions', () => {
     );
     await waitFor(() =>
       expect(
-        document.querySelector('[data-card-index="1"] [tabindex="0"]'),
+        view.container.querySelector('[data-card-index="1"] [tabindex="0"]'),
       ).not.toBeNull(),
     );
   });
