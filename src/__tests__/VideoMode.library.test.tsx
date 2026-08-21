@@ -60,7 +60,7 @@ describe('VideoMode project library', () => {
     expect(
       view.container.querySelector<HTMLElement>('[class*="auto-fill"]')
         ?.className,
-    ).toContain('22rem');
+    ).toContain('352px');
     const cards = () => [...view.container.querySelectorAll('article')];
     expect(view.container.querySelector('article video')).toHaveAttribute(
       'src',
