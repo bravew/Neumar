@@ -17,6 +17,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 const GRID_CLASS = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3';
+const GRID_GAP_PX = 12;
 const VIRTUALIZE_THRESHOLD = 60;
 
 export interface VirtualCardGridHandle {
@@ -33,6 +34,8 @@ interface VirtualCardGridProps<T> {
   gridClassName?: string;
   mediumBreakpoint?: number;
   largeBreakpoint?: number;
+  minColumnWidth?: number;
+  maxColumnWidth?: number;
   getScrollElement?: () => HTMLElement | null;
   apiRef?: MutableRefObject<VirtualCardGridHandle | null>;
 }
@@ -45,6 +48,8 @@ export function VirtualCardGrid<T>({
   gridClassName = GRID_CLASS,
   mediumBreakpoint = 640,
   largeBreakpoint = 1024,
+  minColumnWidth,
+  maxColumnWidth,
   getScrollElement,
   apiRef,
 }: VirtualCardGridProps<T>) {
@@ -57,6 +62,8 @@ export function VirtualCardGrid<T>({
         gridClassName={gridClassName}
         mediumBreakpoint={mediumBreakpoint}
         largeBreakpoint={largeBreakpoint}
+        minColumnWidth={minColumnWidth}
+        maxColumnWidth={maxColumnWidth}
         apiRef={apiRef}
       />
     );
@@ -69,6 +76,8 @@ export function VirtualCardGrid<T>({
       rowEstimate={rowEstimate}
       mediumBreakpoint={mediumBreakpoint}
       largeBreakpoint={largeBreakpoint}
+      minColumnWidth={minColumnWidth}
+      maxColumnWidth={maxColumnWidth}
       getScrollElement={getScrollElement}
       apiRef={apiRef}
     />
@@ -82,6 +91,7 @@ function PlainGrid<T>({
   gridClassName = GRID_CLASS,
   mediumBreakpoint = 640,
   largeBreakpoint = 1024,
+  minColumnWidth,
   apiRef,
 }: VirtualCardGridProps<T>) {
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -96,6 +106,7 @@ function PlainGrid<T>({
           element.clientWidth,
           mediumBreakpoint,
           largeBreakpoint,
+          minColumnWidth,
         ),
       );
     update();
@@ -106,7 +117,7 @@ function PlainGrid<T>({
     const observer = new ResizeObserver(update);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [largeBreakpoint, mediumBreakpoint]);
+  }, [largeBreakpoint, mediumBreakpoint, minColumnWidth]);
 
   useEffect(() => {
     if (!apiRef) return;
@@ -139,7 +150,14 @@ function columnCountForWidth(
   width: number,
   mediumBreakpoint: number,
   largeBreakpoint: number,
+  minColumnWidth?: number,
 ) {
+  if (minColumnWidth) {
+    return Math.max(
+      1,
+      Math.floor((width + GRID_GAP_PX) / (minColumnWidth + GRID_GAP_PX)),
+    );
+  }
   if (width >= largeBreakpoint) return 3;
   if (width >= mediumBreakpoint) return 2;
   return 1;
@@ -152,6 +170,8 @@ function VirtualGrid<T>({
   rowEstimate,
   mediumBreakpoint = 640,
   largeBreakpoint = 1024,
+  minColumnWidth,
+  maxColumnWidth,
   getScrollElement,
   apiRef,
 }: VirtualCardGridProps<T> & { rowEstimate: number }) {
@@ -174,10 +194,16 @@ function VirtualGrid<T>({
     initialRect: { width: 900, height: 700 },
   });
 
-  const gridStyle = useMemo<CSSProperties>(
-    () => ({ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }),
-    [columnCount],
-  );
+  const gridStyle = useMemo<CSSProperties>(() => {
+    const maxWidth = maxColumnWidth
+      ? columnCount * maxColumnWidth + (columnCount - 1) * GRID_GAP_PX
+      : undefined;
+    return {
+      gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+      maxWidth,
+      width: '100%',
+    };
+  }, [columnCount, maxColumnWidth]);
 
   useEffect(() => {
     const element = parentRef.current;
@@ -188,6 +214,7 @@ function VirtualGrid<T>({
           element.clientWidth,
           mediumBreakpoint,
           largeBreakpoint,
+          minColumnWidth,
         ),
       );
     update();
@@ -198,7 +225,7 @@ function VirtualGrid<T>({
     const observer = new ResizeObserver(update);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [largeBreakpoint, mediumBreakpoint]);
+  }, [largeBreakpoint, mediumBreakpoint, minColumnWidth]);
 
   useEffect(() => {
     if (!apiRef) return;

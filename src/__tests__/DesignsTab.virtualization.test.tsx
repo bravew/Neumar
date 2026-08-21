@@ -96,7 +96,7 @@ describe('DesignsTab virtualization interactions', () => {
     await user.click(screen.getAllByLabelText('Select project')[0]!);
 
     const grid = screen.getByTestId('virtual-card-grid');
-    grid.scrollTop = 13_000;
+    grid.scrollTop = Math.floor(100 / 3) * 265;
     fireEvent.scroll(grid);
     let target: HTMLElement | null = null;
     await waitFor(() => {
@@ -118,7 +118,7 @@ describe('DesignsTab virtualization interactions', () => {
 
     for (let index = 0; index < 12; index += 1) {
       fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
-      const expectedIndex = (index + 1) * 2;
+      const expectedIndex = (index + 1) * 3;
       await waitFor(() =>
         expect(
           document.activeElement?.closest('[data-card-index]'),

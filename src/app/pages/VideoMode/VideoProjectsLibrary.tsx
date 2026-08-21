@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Search } from 'lucide-react';
 
+import { RESPONSIVE_PROJECT_GRID_CLASS } from '@/components/library/responsive-project-grid';
 import { Button } from '@/components/ui/button';
 import { VideoFolderCard } from '@/components/video/VideoFolderCard';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -145,7 +146,7 @@ export function VideoProjectsLibrary({
       </div>
 
       {visibleProjects.length > 0 ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className={RESPONSIVE_PROJECT_GRID_CLASS}>
           {visibleProjects.map((project) => (
             <VideoFolderCard
               key={project.id}

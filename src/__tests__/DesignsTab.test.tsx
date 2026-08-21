@@ -53,6 +53,9 @@ describe('DesignsTab cards', () => {
     );
 
     const preview = await screen.findByTitle('Project design_card_1 preview');
+    expect(
+      document.querySelector<HTMLElement>('[class*="auto-fill"]')?.className,
+    ).toContain('22rem');
     expect(preview).toHaveAttribute('sandbox', SANDBOX_ATTR);
     expect(preview.closest('.pointer-events-none')).toBeTruthy();
 
