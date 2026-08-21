@@ -57,6 +57,10 @@ describe('VideoMode project library', () => {
 
     expect(await screen.findByText('Podcast Teaser')).toBeVisible();
     expect(screen.getAllByText('Completed').length).toBeGreaterThan(0);
+    expect(
+      view.container.querySelector<HTMLElement>('[class*="auto-fill"]')
+        ?.className,
+    ).toContain('352px');
     const cards = () => [...view.container.querySelectorAll('article')];
     expect(view.container.querySelector('article video')).toHaveAttribute(
       'src',

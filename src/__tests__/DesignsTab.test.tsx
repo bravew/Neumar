@@ -39,7 +39,7 @@ describe('DesignsTab cards', () => {
     const onRename = vi.fn();
     const onDelete = vi.fn();
 
-    renderWithProviders(
+    const view = renderWithProviders(
       <DesignsTab
         projects={[
           projectFixture('design_card_1'),
@@ -53,6 +53,10 @@ describe('DesignsTab cards', () => {
     );
 
     const preview = await screen.findByTitle('Project design_card_1 preview');
+    expect(
+      view.container.querySelector<HTMLElement>('[class*="auto-fill"]')
+        ?.className,
+    ).toContain('352px');
     expect(preview).toHaveAttribute('sandbox', SANDBOX_ATTR);
     expect(preview.closest('.pointer-events-none')).toBeTruthy();
 

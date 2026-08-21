@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 
 import { GalleryFilters } from '@/components/design/GalleryFilters';
 import {
+  PROJECT_CARD_MAX_WIDTH_PX,
+  PROJECT_CARD_MIN_WIDTH_PX,
+  RESPONSIVE_PROJECT_GRID_CLASS,
+} from '@/components/library/responsive-project-grid';
+import {
   VirtualCardGrid,
   type VirtualCardGridHandle,
 } from '@/components/library/VirtualCardGrid';
@@ -226,9 +231,9 @@ export function DesignsTab({
         <VirtualCardGrid
           items={filtered}
           getKey={(project) => project.id}
-          gridClassName="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
-          mediumBreakpoint={768}
-          largeBreakpoint={1280}
+          gridClassName={RESPONSIVE_PROJECT_GRID_CLASS}
+          minColumnWidth={PROJECT_CARD_MIN_WIDTH_PX}
+          maxColumnWidth={PROJECT_CARD_MAX_WIDTH_PX}
           rowEstimate={265}
           apiRef={gridApiRef}
           renderItem={(project, index) => (
