@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type SyntheticEvent, useState } from 'react';
 
 import {
   AlertTriangle,
@@ -21,12 +21,18 @@ import type { VideoProjectListItem } from '@/shared/types/video';
 
 export function VideoFolderCard({
   project,
+  selectionMode,
+  selected,
+  onSelectToggle,
   onOpen,
   onRename,
   onDelete,
   onOpenFolder,
 }: {
   project: VideoProjectListItem;
+  selectionMode: boolean;
+  selected: boolean;
+  onSelectToggle: () => void;
   onOpen: () => void;
   onRename: () => void;
   onDelete: () => void;
@@ -38,11 +44,12 @@ export function VideoFolderCard({
         project.id,
       )}/poster?v=${encodeURIComponent(project.updatedAt)}`
     : undefined;
-  const videoSrc = project.posterPath
-    ? `${API_BASE_URL}/video/projects/${encodeURIComponent(
-        project.id,
-      )}/output?v=${encodeURIComponent(project.updatedAt)}`
-    : undefined;
+  const videoSrc =
+    project.posterPath || project.hasOutput
+      ? `${API_BASE_URL}/video/projects/${encodeURIComponent(
+          project.id,
+        )}/output?v=${encodeURIComponent(project.updatedAt)}`
+      : undefined;
   const [hoverPlaying, setHoverPlaying] = useState(false);
   const handleHoverStart = () => {
     if (!videoSrc) return;
@@ -59,13 +66,18 @@ export function VideoFolderCard({
 
   return (
     <article
-      className="group border-border bg-card hover:border-primary/30 relative cursor-pointer overflow-hidden rounded-lg border transition-all hover:shadow-xs"
-      onClick={onOpen}
-      onDoubleClick={onOpen}
+      className={`group bg-card relative cursor-pointer overflow-hidden rounded-lg border transition-all hover:shadow-xs ${
+        selected
+          ? 'border-primary ring-primary/20 ring-2'
+          : 'border-border hover:border-primary/30'
+      }`}
+      onClick={selectionMode ? onSelectToggle : onOpen}
+      onDoubleClick={selectionMode ? undefined : onOpen}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          onOpen();
+          if (selectionMode) onSelectToggle();
+          else onOpen();
         }
       }}
       onMouseEnter={handleHoverStart}
@@ -73,9 +85,17 @@ export function VideoFolderCard({
       tabIndex={0}
       role="button"
     >
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onSelectToggle}
+        onClick={(event) => event.stopPropagation()}
+        className="accent-primary absolute top-2 left-2 z-20 size-4"
+        aria-label={t.video.entry.selectProject.replace('{name}', project.name)}
+      />
       {qaWarningCount > 0 ? (
         <span
-          className="bg-destructive text-destructive-foreground absolute top-2 left-2 z-10 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium"
+          className="bg-destructive text-destructive-foreground absolute top-2 left-9 z-10 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium"
           title={qaLabel}
           aria-label={qaLabel}
         >
@@ -137,6 +157,18 @@ export function VideoFolderCard({
             />
           ) : null}
         </div>
+      ) : videoSrc ? (
+        <div className="bg-muted relative aspect-video w-full">
+          <video
+            src={videoSrc}
+            muted
+            playsInline
+            preload="metadata"
+            aria-hidden="true"
+            onLoadedMetadata={seekVideoPreviewFrame}
+            className="absolute inset-0 size-full object-cover"
+          />
+        </div>
       ) : (
         <div className="bg-muted text-muted-foreground flex aspect-video w-full items-center justify-center">
           <Clapperboard className="size-7" />
@@ -155,4 +187,11 @@ export function VideoFolderCard({
       </div>
     </article>
   );
+}
+
+function seekVideoPreviewFrame(event: SyntheticEvent<HTMLVideoElement>) {
+  const video = event.currentTarget;
+  if (Number.isFinite(video.duration) && video.duration > 0) {
+    video.currentTime = Math.min(0.1, video.duration / 10);
+  }
 }

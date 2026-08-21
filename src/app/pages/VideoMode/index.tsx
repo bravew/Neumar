@@ -13,7 +13,6 @@ import {
   type NewVideoProjectDefaults,
 } from '@/components/video/NewVideoProjectForm';
 import { openVideoProjectFolder } from '@/components/video/openVideoProjectFolder';
-import { VideoFolderCard } from '@/components/video/VideoFolderCard';
 import type { CreativeIntentId } from '@/shared/creative-workflow';
 import { DEFAULT_MODES_SETTINGS, useSetting } from '@/shared/db/settings';
 import { usePluginLaunch } from '@/shared/hooks/usePluginLaunch';
@@ -31,6 +30,7 @@ import {
   DeleteProjectDialog,
   RenameProjectDialog,
 } from './VideoProjectEntryDialogs';
+import { VideoProjectsLibrary } from './VideoProjectsLibrary';
 
 export function VideoModeRoute() {
   const { t } = useLanguage();
@@ -44,8 +44,8 @@ export function VideoModeRoute() {
     null,
   );
   const [renameValue, setRenameValue] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<VideoProjectListItem | null>(
-    null,
+  const [deleteTargets, setDeleteTargets] = useState<VideoProjectListItem[]>(
+    [],
   );
   const [busy, setBusy] = useState(false);
   const [newProjectDefaults, setNewProjectDefaults] = useState<
@@ -106,6 +106,9 @@ export function VideoModeRoute() {
         template: project.template,
         updatedAt: project.updatedAt,
         renderStatus: project.render?.status ?? 'idle',
+        hasOutput: Boolean(
+          project.render?.outputPath || project.outputs?.length,
+        ),
       },
       ...prev,
     ]);
@@ -226,21 +229,52 @@ export function VideoModeRoute() {
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    const target = deleteTarget;
+    if (deleteTargets.length === 0) return;
+    const targets = deleteTargets;
     setBusy(true);
     try {
-      await deleteVideoProject(target.id);
-      setProjects((prev) => prev.filter((item) => item.id !== target.id));
-      toast.success(t.video.entry.deleteSuccess.replace('{name}', target.name));
-      setDeleteTarget(null);
-    } catch (err) {
-      toast.error(
-        t.video.entry.deleteFailed.replace(
-          '{message}',
-          err instanceof Error ? err.message : String(err),
-        ),
+      const results = await Promise.allSettled(
+        targets.map((target) => deleteVideoProject(target.id)),
       );
+      const deletedIds = new Set(
+        targets
+          .filter((_, index) => results[index]?.status === 'fulfilled')
+          .map((target) => target.id),
+      );
+      const failedResults = results.filter(
+        (result): result is PromiseRejectedResult =>
+          result.status === 'rejected',
+      );
+      if (deletedIds.size > 0) {
+        setProjects((prev) => prev.filter((item) => !deletedIds.has(item.id)));
+      }
+      if (failedResults.length > 0 && deletedIds.size > 0) {
+        toast.error(
+          t.video.entry.bulkDeletePartial
+            .replace('{deleted}', String(deletedIds.size))
+            .replace('{failed}', String(failedResults.length)),
+        );
+      } else if (failedResults.length > 0) {
+        const reason = failedResults[0].reason;
+        toast.error(
+          t.video.entry.deleteFailed.replace(
+            '{message}',
+            reason instanceof Error ? reason.message : String(reason),
+          ),
+        );
+      } else if (targets.length === 1) {
+        toast.success(
+          t.video.entry.deleteSuccess.replace('{name}', targets[0].name),
+        );
+      } else {
+        toast.success(
+          t.video.entry.bulkDeleteSuccess.replace(
+            '{count}',
+            String(deletedIds.size),
+          ),
+        );
+      }
+      setDeleteTargets([]);
     } finally {
       setBusy(false);
     }
@@ -328,21 +362,16 @@ export function VideoModeRoute() {
                 {error}
               </div>
             ) : projects.length > 0 ? (
-              <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {projects.map((project) => (
-                  <VideoFolderCard
-                    key={project.id}
-                    project={project}
-                    onOpen={() => navigate(`/video/${project.id}`)}
-                    onRename={() => {
-                      setRenameTarget(project);
-                      setRenameValue(project.name);
-                    }}
-                    onDelete={() => setDeleteTarget(project)}
-                    onOpenFolder={() => void openProjectFolder(project.id)}
-                  />
-                ))}
-              </div>
+              <VideoProjectsLibrary
+                projects={projects}
+                onOpen={(project) => navigate(`/video/${project.id}`)}
+                onRename={(project) => {
+                  setRenameTarget(project);
+                  setRenameValue(project.name);
+                }}
+                onDelete={setDeleteTargets}
+                onOpenFolder={(project) => void openProjectFolder(project.id)}
+              />
             ) : (
               <div className="flex flex-1 items-center justify-center">
                 <div className="max-w-lg text-center">
@@ -374,13 +403,14 @@ export function VideoModeRoute() {
         onSubmit={() => void submitRename()}
       />
       <DeleteProjectDialog
-        open={Boolean(deleteTarget)}
-        projectName={deleteTarget?.name ?? ''}
+        open={deleteTargets.length > 0}
+        projectCount={deleteTargets.length}
+        projectName={deleteTargets[0]?.name ?? ''}
         busy={busy}
         labels={t.video.entry}
         commonLabels={t.common}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
+          if (!open) setDeleteTargets([]);
         }}
         onConfirm={() => void confirmDelete()}
       />

@@ -7,7 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { videoRoutes } from '@/app/api/video';
 
 import { closeDatabase } from '@/shared/db';
-import { createProject, writeProject } from '@/shared/video/store';
+import {
+  createProject,
+  listProjects,
+  writeProject,
+} from '@/shared/video/store';
 
 describe('video output routes', () => {
   let firstWorkDir: string;
@@ -76,5 +80,38 @@ describe('video output routes', () => {
     expect(decodeURIComponent(poster.headers.get('location') ?? '')).toContain(
       path.join(firstWorkDir, posterPath),
     );
+  });
+
+  it('marks legacy rendered projects as previewable without a poster', async () => {
+    const project = await createProject({
+      name: 'Legacy output',
+      template: 'slideshow',
+    });
+    const outputPath = `videos/${project.id}/out.mp4`;
+    await writeProject({
+      ...project,
+      render: {
+        status: 'done',
+        outputPath,
+        progress: 100,
+        updatedAt: '2026-05-19T02:17:44.867Z',
+      },
+      outputs: [
+        {
+          aspectRatio: '16:9',
+          path: outputPath,
+          durationSec: 5,
+          fileSize: 4_011_216,
+          codec: 'h264',
+        },
+      ],
+    });
+
+    const listed = await listProjects();
+
+    expect(listed.find((item) => item.id === project.id)).toMatchObject({
+      hasOutput: true,
+      posterPath: undefined,
+    });
   });
 });

@@ -247,7 +247,15 @@ export function ProjectEditor({
           setWorkflowSideRailTab(null);
           setStep(step);
         }}
-        leading={<ProjectStepperLeading project={project} onBack={onBack} />}
+        leading={
+          <ProjectStepperLeading
+            project={project}
+            onBack={onBack}
+            onRename={(name) =>
+              actions.patchProject({ name }).then(() => undefined)
+            }
+          />
+        }
         trailing={
           <ProjectStepperTrailing
             timelineRoute={timelineRoute}

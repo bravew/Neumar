@@ -91,6 +91,7 @@ export interface VideoProjectListItem {
   template: VideoTemplateId;
   updatedAt: string;
   renderStatus: string;
+  hasOutput: boolean;
   posterPath?: string;
   qaWarningCount?: number;
 }

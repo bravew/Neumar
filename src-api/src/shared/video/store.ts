@@ -107,6 +107,7 @@ export interface VideoProjectListItem {
   template: TemplateId;
   updatedAt: string;
   renderStatus: string;
+  hasOutput: boolean;
   posterPath?: string;
   qaWarningCount?: number;
 }
@@ -586,6 +587,7 @@ export async function listProjects(): Promise<VideoProjectListItem[]> {
         template: row.template,
         updatedAt: row.updated_at,
         renderStatus: row.render_status,
+        hasOutput: summary.hasOutput,
         posterPath: summary.posterPath,
         qaWarningCount: summary.qaWarningCount,
       };
@@ -607,19 +609,24 @@ export async function getProject(projectId: string): Promise<VideoProject> {
   return migrated;
 }
 
-async function readProjectOutputSummary(
-  projectId: string,
-): Promise<{ posterPath?: string; qaWarningCount: number }> {
+async function readProjectOutputSummary(projectId: string): Promise<{
+  hasOutput: boolean;
+  posterPath?: string;
+  qaWarningCount: number;
+}> {
   try {
     const raw = await fs.readFile(getVideoProjectJsonPath(projectId), 'utf8');
-    const project = JSON.parse(raw) as Pick<VideoProject, 'outputs'>;
+    const project = JSON.parse(raw) as Pick<VideoProject, 'outputs' | 'render'>;
     const outputs = project.outputs ?? [];
     return {
+      hasOutput:
+        outputs.some((output) => Boolean(output.path)) ||
+        Boolean(project.render?.outputPath),
       posterPath: outputs.find((output) => output.posterPath)?.posterPath,
       qaWarningCount: countQaWarnings(outputs),
     };
   } catch {
-    return { qaWarningCount: 0 };
+    return { hasOutput: false, qaWarningCount: 0 };
   }
 }
 

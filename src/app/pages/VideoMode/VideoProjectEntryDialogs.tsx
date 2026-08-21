@@ -18,6 +18,8 @@ interface RenameDialogLabels {
 }
 
 interface DeleteDialogLabels {
+  bulkDeleteDialogBody: string;
+  bulkDeleteDialogTitle: string;
   delete: string;
   deleteDialogBody: string;
   deleteDialogTitle: string;
@@ -39,6 +41,7 @@ interface DeleteProjectDialogProps {
   commonLabels: Pick<CommonDialogLabels, 'cancel'>;
   labels: DeleteDialogLabels;
   open: boolean;
+  projectCount: number;
   projectName: string;
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
@@ -97,6 +100,7 @@ export function DeleteProjectDialog({
   commonLabels,
   labels,
   open,
+  projectCount,
   projectName,
   onConfirm,
   onOpenChange,
@@ -105,9 +109,18 @@ export function DeleteProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{labels.deleteDialogTitle}</DialogTitle>
+          <DialogTitle>
+            {projectCount > 1
+              ? labels.bulkDeleteDialogTitle
+              : labels.deleteDialogTitle}
+          </DialogTitle>
           <DialogDescription>
-            {labels.deleteDialogBody.replace('{name}', projectName)}
+            {projectCount > 1
+              ? labels.bulkDeleteDialogBody.replace(
+                  '{count}',
+                  String(projectCount),
+                )
+              : labels.deleteDialogBody.replace('{name}', projectName)}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
