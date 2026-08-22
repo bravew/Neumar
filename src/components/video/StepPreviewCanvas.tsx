@@ -40,6 +40,10 @@ import { RenderQueuePanel } from './RenderQueuePanel';
 import { Timeline } from './timeline/Timeline';
 import type { TimelineSceneSelectionSource } from './timeline/TimelineTypes';
 import { useTimelineUiStore } from './timeline/useTimelineUiStore';
+import {
+  INSPECTOR_PANEL_DEFAULT_SIZE,
+  useAutoExpandInspectorPanel,
+} from './useAutoExpandInspectorPanel';
 
 interface StepPreviewCanvasProps {
   project: VideoProject;
@@ -92,6 +96,7 @@ export function StepPreviewCanvas({
   const hasTimelinePreview = Boolean(project.timeline || scenes.length);
   const previewRef = useRef<RemotionPreviewHandle | null>(null);
   const previewContainerRef = useRef<HTMLDivElement | null>(null);
+  const inspectorPanelRef = useAutoExpandInspectorPanel();
   const playheadMs = useTimelineUiStore((state) => state.playheadMs);
   const playheadUpdateSource = useTimelineUiStore(
     (state) => state.playheadUpdateSource,
@@ -285,7 +290,8 @@ export function StepPreviewCanvas({
             <ResizeHandle id="preview-inspector-handle" />
             <Panel
               id="inspector"
-              defaultSize="28%"
+              panelRef={inspectorPanelRef}
+              defaultSize={INSPECTOR_PANEL_DEFAULT_SIZE}
               minSize="16%"
               maxSize="42%"
               collapsible
