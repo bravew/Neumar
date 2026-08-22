@@ -5,7 +5,9 @@ import { toast } from 'sonner';
 import type { VideoProjectEditorActions } from '../editorTypes';
 
 interface AddLocalFilesLabels {
+  attachQueuedToast: string;
   attachSucceededToast: string;
+  attachPartialToast: string;
   materializeFailed: string;
 }
 
@@ -14,6 +16,12 @@ interface AddLocalFilesLabels {
  * assets. We upload the bytes (rather than attach by path) so files from
  * anywhere on disk work — path-attach is confined to the workspace root and
  * would reject them.
+ *
+ * Files go up one request at a time. A single multipart request carrying every
+ * pick is buffered whole in the API process, so selecting a few 4K clips
+ * (hundreds of MB each) blew past the server's memory budget and the upload
+ * never came back. One request per file also means a bad file fails alone
+ * instead of taking the whole selection down with it.
  */
 export function useAddLocalFiles(
   actions: VideoProjectEditorActions,
@@ -39,19 +47,50 @@ export function useAddLocalFiles(
       input.value = '';
       if (files.length === 0) return;
       setAddingFiles(true);
-      try {
-        await actions.uploadAssets(files);
-        toast.success(
-          labels.attachSucceededToast.replace('{count}', String(files.length)),
+      if (files.length > 1) {
+        toast.info(
+          labels.attachQueuedToast.replace('{count}', String(files.length)),
         );
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        toast.error(labels.materializeFailed.replace('{message}', message));
+      }
+      let succeeded = 0;
+      let firstError: string | null = null;
+      try {
+        for (const file of files) {
+          try {
+            await actions.uploadAssets([file]);
+            succeeded += 1;
+          } catch (error) {
+            firstError ??=
+              error instanceof Error ? error.message : String(error);
+          }
+        }
+        const failed = files.length - succeeded;
+        if (failed === 0) {
+          toast.success(
+            labels.attachSucceededToast.replace('{count}', String(succeeded)),
+          );
+        } else if (succeeded === 0) {
+          toast.error(
+            labels.materializeFailed.replace('{message}', firstError ?? ''),
+          );
+        } else {
+          toast.warning(
+            labels.attachPartialToast
+              .replace('{succeeded}', String(succeeded))
+              .replace('{failed}', String(failed)),
+          );
+        }
       } finally {
         setAddingFiles(false);
       }
     },
-    [actions, labels.attachSucceededToast, labels.materializeFailed],
+    [
+      actions,
+      labels.attachPartialToast,
+      labels.attachQueuedToast,
+      labels.attachSucceededToast,
+      labels.materializeFailed,
+    ],
   );
 
   return { fileInputRef, addingFiles, openFilePicker, handleFilesSelected };

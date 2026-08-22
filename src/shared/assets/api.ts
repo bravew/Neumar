@@ -10,6 +10,10 @@ import type {
   AssetStorageStats,
 } from './types';
 
+// Backstop for the native folder picker: 30s past the server's own 120s
+// osascript/zenity timeout.
+const NATIVE_FOLDER_DIALOG_TIMEOUT_MS = 150_000;
+
 export interface AssetListResult {
   assets: Asset[];
   nextCursor: string | null;
@@ -102,9 +106,20 @@ export async function openNativeFolderDialog(): Promise<{
   supported: boolean;
   path: string | null;
 }> {
-  const response = await fetch(`${API_BASE_URL}/assets/native-folder-dialog`, {
-    method: 'POST',
-  });
+  // The server kills the OS picker after 120s, so anything past that means the
+  // request never reached it (a saturated connection pool does exactly this).
+  // Without the cap the caller waits forever with its button stuck disabled.
+  const timeout = AbortSignal.timeout(NATIVE_FOLDER_DIALOG_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/assets/native-folder-dialog`, {
+      method: 'POST',
+      signal: timeout,
+    });
+  } catch (error) {
+    if (timeout.aborted) throw new Error('Folder picker did not respond');
+    throw error;
+  }
   if (response.status === 501) return { supported: false, path: null };
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const body = (await response.json()) as { path: string | null };

@@ -2,12 +2,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import {
   constants as fsConstants,
   createReadStream,
+  createWriteStream,
   existsSync,
   readdirSync,
 } from 'node:fs';
 import fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import { pipeline as streamPipeline } from 'node:stream/promises';
 
 import type { TimelineOp } from '@neumar/video-ir';
@@ -864,7 +866,13 @@ export async function addProjectAssetFromUpload(
   file: File,
 ): Promise<{ project: VideoProject; asset: MediaItem }> {
   const dest = await allocateAssetPath(projectId, file.name || 'asset');
-  await fs.writeFile(dest, Buffer.from(await file.arrayBuffer()));
+  // Stream the part to disk rather than `Buffer.from(await file.arrayBuffer())`
+  // — a 4K clip is hundreds of MB and the extra full copy pushed the process
+  // past its RSS budget, stalling the upload it was meant to finish.
+  await streamPipeline(
+    Readable.fromWeb(file.stream() as Parameters<typeof Readable.fromWeb>[0]),
+    createWriteStream(dest),
+  );
   const asset = await mediaItemFromPath(
     dest,
     'user',

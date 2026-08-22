@@ -15,13 +15,17 @@ export function useAddLocalFolder(
   pickerTitle: string,
 ): { addingFolder: boolean; addLocalFolder: () => Promise<void> } {
   const [addingFolder, setAddingFolder] = useState(false);
+  // Re-arm on every mount: React 19 StrictMode mounts, unmounts, then mounts
+  // again in dev, so a cleanup-only effect would leave this false forever —
+  // which silently swallowed the toast and left `addingFolder` stuck true,
+  // disabling the "Add folder" menu item permanently after the first click.
   const mountedRef = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
       mountedRef.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const addLocalFolder = useCallback(async () => {
     setAddingFolder(true);
