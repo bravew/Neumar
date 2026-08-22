@@ -9,6 +9,7 @@ import {
   AudioFadeCurve,
   AudioTransitionSpec,
   ClipPlayback,
+  ClipEffectStack,
   FrameRate,
   KeyframeTrack,
   TimelineHistoryEntry,
@@ -169,6 +170,7 @@ export interface VideoAnalysisArtifact {
   id: string;
   kind: VideoAnalysisArtifactKind;
   sourceMediaId?: string;
+  contentHash?: string;
   summary?: string;
   ranges?: VideoAnalysisRange[];
   proposedActionBatch?: {
@@ -963,6 +965,7 @@ export interface VideoVisualTimelineClip extends VideoBaseTimelineClip {
   transitionToNext?: VideoTimelineTransition;
   audioSeamToNext?: VideoAudioSeamMode;
   filters?: VideoClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
 }
 
@@ -1054,6 +1057,7 @@ export interface VideoEdlSegment {
   transitionToNext?: VideoTimelineTransition;
   audioSeamToNext?: VideoAudioSeamMode;
   filters?: VideoClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
 }
 

@@ -95,6 +95,7 @@ function clipMoveOptions(scrollElement: HTMLDivElement) {
     tracks,
     scrollRef: { current: scrollElement },
     markers: [],
+    beatTimesMs: [],
     playheadMs: 0,
     timelineDurationMs: 2000,
     pixelsPerSecond: 80,

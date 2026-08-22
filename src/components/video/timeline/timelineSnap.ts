@@ -9,6 +9,7 @@ export type TimelineSnapEdge = 'start' | 'end';
 export type TimelineSnapTargetKind =
   | 'clip-end'
   | 'clip-start'
+  | 'beat'
   | 'marker'
   | 'playhead'
   | 'timeline-end'
@@ -64,6 +65,7 @@ export function buildTimelineSnapTargets(input: {
   playheadMs: number;
   durationMs: number;
   markers?: VideoTimelineMarker[];
+  beatTimesMs?: number[];
 }): TimelineSnapTarget[] {
   const targets: TimelineSnapTarget[] = [
     { timeMs: 0, kind: 'timeline-start' },
@@ -72,6 +74,9 @@ export function buildTimelineSnapTargets(input: {
   ];
   for (const marker of input.markers ?? []) {
     targets.push({ timeMs: marker.timeMs, kind: 'marker' });
+  }
+  for (const timeMs of input.beatTimesMs ?? []) {
+    targets.push({ timeMs, kind: 'beat' });
   }
   for (const track of input.tracks) {
     for (const clip of track.clips) {

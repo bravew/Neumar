@@ -462,7 +462,23 @@ export default {
       canvasNewCaptionDefaultText: 'New caption',
       captionTransformHint:
         'Caption position lives under the Style tab — use the canvas drag handles or the position grid there.',
-      effectsComingSoon: 'Per-clip effects arrive in a later milestone.',
+      effectControls: {
+        empty: 'No canvas effects on this clip.',
+        remove: 'Remove effect',
+        kinds: {
+          brightness: 'Brightness',
+          contrast: 'Contrast',
+          saturation: 'Saturation',
+          'white-balance': 'White balance',
+          blur: 'Blur',
+        },
+        parameters: {
+          amount: 'Amount',
+          temperature: 'Temperature',
+          tint: 'Tint',
+          radius: 'Radius',
+        },
+      },
       styleEmphasis: 'Style',
       bold: 'Bold',
       italic: 'Italic',
@@ -1829,6 +1845,10 @@ export default {
     removeRow: 'Remove row',
     assetPlaceholder: '{kind} asset path or id',
     unsupportedControl: '{label} — {kind} control coming soon.',
+    studioTitle: 'HyperFrames preview',
+    openStudio: 'Open Studio',
+    studioError: 'HyperFrames preview failed: {error}',
+    studioScriptError: 'The HyperFrames player script failed to load.',
   },
   framesStrip: {
     empty: 'No frames yet.',

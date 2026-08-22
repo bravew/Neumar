@@ -81,10 +81,10 @@ function fakeAdapter(): VideoEngineAdapter {
       audio: 'multi',
       subtitles: 'burn-in',
       renderTarget: ['local-chromium'],
-      fps: [30],
+      fps: [{ num: 30, den: 1 }],
       licensing: 'Apache-2.0',
     },
-    isInstalled: () => true,
+    probeAvailability: () => ({ installed: true, version: 'test' }),
     validate: () => ({ ok: true, issues: [] }),
     async render(input: EngineRenderInput): Promise<EngineRenderOutput> {
       const buf = Buffer.from('stub-mp4-bytes');
@@ -100,8 +100,8 @@ function fakeAdapter(): VideoEngineAdapter {
           durationSec,
           fileSizeBytes: buf.length,
           actualResolution: input.config.resolution,
-          fps: input.config.fps,
-          renderedFrames: Math.round(durationSec * input.config.fps),
+          fps: 30,
+          renderedFrames: Math.round(durationSec * 30),
           renderWallClockSec: 0.01,
           engineVersion: 'test/0.0.0',
         },

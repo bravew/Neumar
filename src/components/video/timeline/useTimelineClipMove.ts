@@ -23,6 +23,7 @@ interface UseTimelineClipMoveParams {
   tracks: VideoTimelineTrack[];
   scrollRef: RefObject<HTMLDivElement | null>;
   markers: VideoTimelineMarker[];
+  beatTimesMs: number[];
   playheadMs: number;
   timelineDurationMs: number;
   pixelsPerSecond: number;
@@ -41,6 +42,7 @@ export function useTimelineClipMove({
   tracks,
   scrollRef,
   markers,
+  beatTimesMs,
   playheadMs,
   timelineDurationMs,
   pixelsPerSecond,
@@ -64,6 +66,7 @@ export function useTimelineClipMove({
           deltaMs: preview.deltaMs,
           disabled: preview.disableSnap,
           markers,
+          beatTimesMs,
           playheadMs,
           pixelsPerSecond,
           selectedClipIds,
@@ -78,6 +81,7 @@ export function useTimelineClipMove({
     },
     [
       markers,
+      beatTimesMs,
       pixelsPerSecond,
       playheadMs,
       scrollRef,
@@ -112,6 +116,7 @@ export function useTimelineClipMove({
         deltaMs,
         disabled: clientPoint?.disableSnap,
         markers,
+        beatTimesMs,
         playheadMs,
         pixelsPerSecond,
         selectedClipIds,
@@ -129,6 +134,7 @@ export function useTimelineClipMove({
     },
     [
       markers,
+      beatTimesMs,
       moveClip,
       pixelsPerSecond,
       playheadMs,
@@ -194,6 +200,7 @@ function getSnapResult({
   deltaMs,
   disabled,
   markers,
+  beatTimesMs,
   playheadMs,
   pixelsPerSecond,
   selectedClipIds,
@@ -206,6 +213,7 @@ function getSnapResult({
   deltaMs: number;
   disabled?: boolean;
   markers: VideoTimelineMarker[];
+  beatTimesMs: number[];
   playheadMs: number;
   pixelsPerSecond: number;
   selectedClipIds: Set<string>;
@@ -226,6 +234,7 @@ function getSnapResult({
       tracks,
       movingClipIds,
       markers,
+      beatTimesMs,
       playheadMs,
       durationMs: timelineDurationMs,
     }),

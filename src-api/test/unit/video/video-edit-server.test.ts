@@ -4,7 +4,11 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildVideoToolClassifications } from '@/extensions/agent/video/permissions';
+import {
+  buildVideoToolCapabilityReference,
+  buildVideoToolClassifications,
+  getVideoToolCapabilityMetadata,
+} from '@/extensions/agent/video/permissions';
 
 import {
   createVideoEditTools,
@@ -43,6 +47,8 @@ describe('video-edit MCP server', () => {
         'video_list_assets',
         'video_describe_scene',
         'video_list_transition_presets',
+        'video_list_effect_presets',
+        'video_get_html_selection',
         'video_get_transition_seams',
         'video_add_scene',
         'video_set_keyframes',
@@ -55,6 +61,10 @@ describe('video-edit MCP server', () => {
         'video_remove_timeline_transition',
         'video_suggest_timeline_transitions',
         'video_set_audio_clip_gain',
+        'video_set_clip_effects',
+        'video_analyze_clip_grade',
+        'video_detect_beats',
+        'video_snap_cuts_to_beats',
         'video_crossfade_audio_clips',
         'video_apply_timeline_op',
         'video_apply_timeline_ops',
@@ -98,6 +108,41 @@ describe('video-edit MCP server', () => {
     expect(classifications['mcp__video-edit__video_set_audio_clip_gain']).toBe(
       'destructive',
     );
+    expect(classifications['mcp__video-edit__video_detect_beats']).toBe(
+      'write',
+    );
+    expect(classifications['mcp__video-edit__video_snap_cuts_to_beats']).toBe(
+      'destructive',
+    );
+    expect(
+      Object.keys(classifications)
+        .filter((name) => name.startsWith('mcp__video-edit__'))
+        .map((name) => name.slice('mcp__video-edit__'.length))
+        .sort(),
+    ).toEqual([...VIDEO_EDIT_TOOL_NAMES].sort());
+    for (const name of VIDEO_EDIT_TOOL_NAMES) {
+      expect(getVideoToolCapabilityMetadata(name)).toEqual({
+        classification: expect.stringMatching(
+          /^(read|write|execute|destructive|network)$/,
+        ),
+        costClass: expect.stringMatching(/^(free|metered)$/),
+      });
+    }
+  });
+
+  it('generates capability flags from the active tool registry', () => {
+    const tools = createVideoEditTools({ projectId: 'project-1' });
+    const reference = buildVideoToolCapabilityReference(tools);
+    const entries = reference
+      .split('\n')
+      .filter((line) => line.startsWith('- ['));
+
+    expect(entries).toHaveLength(VIDEO_EDIT_TOOL_NAMES.length);
+    expect(reference).toContain('[read/free] video_get_project_summary');
+    expect(reference).toContain('[destructive/free] video_render');
+    expect(() =>
+      buildVideoToolCapabilityReference([tools[0]!, tools[0]!]),
+    ).toThrow('Duplicate video tool registration');
   });
 
   it('approves the storyboard from chat for first-party clients', async () => {
@@ -191,6 +236,51 @@ describe('video-edit MCP server', () => {
         }),
       ]),
     );
+  });
+
+  it('lists the installed clip-effect catalog', async () => {
+    const result = await findTool('video_list_effect_presets').handler({}, {});
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+
+    expect(payload).toMatchObject({
+      schema: 'neuma.video.effect-presets.v1',
+      projectId: 'project-1',
+    });
+    expect(payload.presets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'white-balance' }),
+        expect.objectContaining({ kind: 'blur' }),
+      ]),
+    );
+  });
+
+  it('proposes an invertible clip-effect stack without applying it', async () => {
+    const result = await findTool('video_set_clip_effects').handler(
+      {
+        clipId: 'timeline-clip-1',
+        effects: [
+          { kind: 'white-balance', params: { temperature: 0.15, tint: 0 } },
+          { kind: 'contrast', params: { amount: 0.9 } },
+        ],
+        applyMode: 'propose',
+      },
+      {},
+    );
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+
+    expect(payload).toMatchObject({
+      schema: 'neuma.video.mcp-proposal.v1',
+      ops: [
+        expect.objectContaining({
+          kind: 'clip.setEffects',
+          clipId: 'timeline-clip-1',
+          before: null,
+        }),
+      ],
+    });
+    const { getProject } = await import('@/shared/video/store');
+    const project = await getProject('project-1');
+    expect(project.timeline?.tracks[0]?.clips[0]).not.toHaveProperty('effects');
   });
 
   it('returns timeline transition seams with constraints and adjacent clip context', async () => {
@@ -423,6 +513,59 @@ describe('video-edit MCP server', () => {
     expect(project.storyboard?.scenes[0]?.caption?.text).toBe(
       'A sharper launch line',
     );
+  });
+
+  it('proposes an invertible batch for snapping touching cuts to beats', async () => {
+    await writeProject(projectWithBeatGrid());
+    const result = await findTool('video_snap_cuts_to_beats').handler(
+      { sourceClipId: 'music-clip', toleranceMs: 100 },
+      {},
+    );
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    expect(payload).toMatchObject({
+      schema: 'neuma.video.mcp-proposal.v1',
+      mode: 'proposal-only',
+      tool: 'video_snap_cuts_to_beats',
+      opCount: 2,
+      opKinds: ['clip.trim', 'clip.trim'],
+    });
+    expect(payload.ops).toEqual([
+      expect.objectContaining({
+        clipId: 'timeline-clip-2',
+        to: expect.objectContaining({ startMs: 550, trimStartMs: 550 }),
+      }),
+      expect.objectContaining({
+        clipId: 'timeline-clip-1',
+        to: expect.objectContaining({ durationMs: 550, trimEndMs: 550 }),
+      }),
+    ]);
+    expect(payload.inverses).toHaveLength(2);
+  });
+
+  it('keeps clips touching when one clip sits on two snapped boundaries', async () => {
+    await writeProject(projectWithTwoBeatBoundaries());
+    const result = await findTool('video_snap_cuts_to_beats').handler(
+      { sourceClipId: 'music-clip', toleranceMs: 100 },
+      {},
+    );
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    expect(payload.opCount).toBe(4);
+
+    // The middle clip is trimmed twice; the second op must start from the
+    // state the first left behind, not from the clip's original timing.
+    const { applyTimelineOps } = await import('@neumar/video-ir');
+    const project = projectWithTwoBeatBoundaries();
+    const applied = applyTimelineOps(project.timeline!, payload.ops).timeline;
+    const clips = [...applied.tracks[0]!.clips].sort(
+      (left, right) => left.startMs - right.startMs,
+    );
+    expect(
+      clips.map((clip) => [clip.startMs, clip.startMs + clip.durationMs]),
+    ).toEqual([
+      [0, 550],
+      [550, 1_050],
+      [1_050, 1_500],
+    ]);
   });
 
   it('makes the selected overlay green end-to-end: selection resolve, apply, context read, undo', async () => {
@@ -1659,6 +1802,129 @@ function projectWithAudioTimeline(): VideoProject {
       ],
     },
   };
+}
+
+function projectWithBeatGrid(): VideoProject {
+  const project = projectWithTransitionSeam();
+  return {
+    ...project,
+    assets: [
+      ...project.assets,
+      {
+        id: 'music-asset',
+        kind: 'audio',
+        source: 'user',
+        path: 'videos/project-1/assets/music.wav',
+        metadata: { durationMs: 2_000, audioTrackCount: 1 },
+      },
+    ],
+    sources: [
+      {
+        id: 'music-source',
+        mediaItemId: 'music-asset',
+        origin: 'upload',
+        contentHash: 'music-hash',
+        analysisStatus: 'done',
+        createdAt: project.createdAt,
+      },
+    ],
+    analysisArtifacts: [
+      {
+        id: 'music-beats',
+        kind: 'beat-markers',
+        sourceMediaId: 'music-source',
+        contentHash: 'music-hash',
+        metadata: {
+          beatGrid: {
+            schema: 'neuma.video.beat-grid.v1',
+            sourceMediaId: 'music-source',
+            contentHash: 'music-hash',
+            tempoBpm: 120,
+            points: [{ sourceMs: 550, confidence: 0.9, bar: 1, beat: 2 }],
+          },
+        },
+        generatedAt: project.createdAt,
+      },
+    ],
+    timeline: {
+      ...project.timeline!,
+      tracks: [
+        ...project.timeline!.tracks,
+        {
+          id: 'music-track',
+          kind: 'audio-music',
+          name: 'Music',
+          muted: false,
+          locked: false,
+          order: 10,
+          clips: [
+            {
+              id: 'music-clip',
+              kind: 'audio',
+              sourceRef: { kind: 'asset', assetId: 'music-asset' },
+              startMs: 0,
+              durationMs: 1_000,
+              trimStartMs: 0,
+              trimEndMs: 1_000,
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+function projectWithTwoBeatBoundaries(): VideoProject {
+  const project = projectWithBeatGrid();
+  const [videoTrack, musicTrack] = project.timeline!.tracks;
+  return {
+    ...project,
+    analysisArtifacts: [
+      {
+        ...project.analysisArtifacts![0]!,
+        metadata: {
+          beatGrid: {
+            schema: 'neuma.video.beat-grid.v1',
+            sourceMediaId: 'music-source',
+            contentHash: 'music-hash',
+            tempoBpm: 120,
+            points: [
+              { sourceMs: 550, confidence: 0.9, bar: 1, beat: 2 },
+              { sourceMs: 1_050, confidence: 0.9, bar: 1, beat: 3 },
+            ],
+          },
+        },
+      },
+    ],
+    timeline: {
+      ...project.timeline!,
+      durationMs: 1_500,
+      tracks: [
+        {
+          ...videoTrack!,
+          clips: [
+            ...videoTrack!.clips,
+            {
+              id: 'timeline-clip-3',
+              kind: 'video',
+              sourceRef: { kind: 'asset', assetId: 'asset-video' },
+              sceneId: 'scene-2',
+              startMs: 1_000,
+              durationMs: 500,
+              trimStartMs: 1_000,
+              trimEndMs: 1_500,
+            },
+          ],
+        },
+        {
+          ...musicTrack!,
+          clips: [
+            { ...musicTrack!.clips[0]!, durationMs: 2_000, trimEndMs: 2_000 },
+          ],
+        },
+      ],
+    },
+  } as VideoProject;
 }
 
 describe('overlay preset catalog + save tools (video-to-template MVP)', () => {

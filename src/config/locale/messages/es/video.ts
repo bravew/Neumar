@@ -459,7 +459,23 @@ export default {
       canvasNewCaptionDefaultText: 'Nuevo subtítulo',
       captionTransformHint:
         'La posición del subtítulo está en la pestaña Estilo — usa los manejadores del lienzo o la cuadrícula de posición.',
-      effectsComingSoon: 'Los efectos por clip llegarán en un hito posterior.',
+      effectControls: {
+        empty: 'Este clip no tiene efectos de lienzo.',
+        remove: 'Eliminar efecto',
+        kinds: {
+          brightness: 'Brillo',
+          contrast: 'Contraste',
+          saturation: 'Saturación',
+          'white-balance': 'Balance de blancos',
+          blur: 'Desenfoque',
+        },
+        parameters: {
+          amount: 'Cantidad',
+          temperature: 'Temperatura',
+          tint: 'Matiz',
+          radius: 'Radio',
+        },
+      },
       styleEmphasis: 'Estilo',
       bold: 'Negrita',
       italic: 'Cursiva',
@@ -1857,6 +1873,11 @@ export default {
     removeRow: 'Quitar fila',
     assetPlaceholder: 'ruta o id del recurso {kind}',
     unsupportedControl: '{label} — el control {kind} llegará pronto.',
+    studioTitle: 'Vista previa de HyperFrames',
+    openStudio: 'Abrir Studio',
+    studioError: 'Falló la vista previa de HyperFrames: {error}',
+    studioScriptError:
+      'No se pudo cargar el script del reproductor de HyperFrames.',
   },
   framesStrip: {
     empty: 'Aún no hay cuadros.',

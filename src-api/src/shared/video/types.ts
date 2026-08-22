@@ -5,6 +5,7 @@ import {
   type AudioFadeCurve as IrAudioFadeCurve,
   type AudioTransitionSpec as IrAudioTransitionSpec,
   type ClipPlayback,
+  type ClipEffectStack,
   type FrameRate,
   type KeyframeTrack,
   type TimelineHistoryEntry,
@@ -1006,6 +1007,7 @@ export interface VisualTimelineClip extends BaseTimelineClip {
   transitionToNext?: TimelineTransition;
   audioSeamToNext?: AudioSeamMode;
   filters?: ClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
 }
 
@@ -1102,6 +1104,7 @@ export interface EdlSegment {
   transitionToNext?: TimelineTransition;
   audioSeamToNext?: AudioSeamMode;
   filters?: ClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
   entranceMs?: number;
   exitMs?: number;

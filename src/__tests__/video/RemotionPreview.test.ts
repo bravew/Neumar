@@ -115,6 +115,7 @@ describe('RemotionPreview playhead sync', () => {
       kind: 'clock-wipe',
       params: { sweep: 'clockwise' },
     });
+    expect(latestPlayerInputProps().useRemotionMedia).toBe(true);
 
     act(() => {
       useTimelineEditorStore
@@ -133,9 +134,19 @@ describe('RemotionPreview playhead sync', () => {
 });
 
 function latestPlayerData(): RemotionPreviewData {
+  return latestPlayerInputProps().data;
+}
+
+function latestPlayerInputProps(): {
+  data: RemotionPreviewData;
+  useRemotionMedia: boolean;
+} {
   const props = playerProps.at(-1);
   if (!props) throw new Error('Expected the mocked Remotion Player to render.');
-  return (props.inputProps as { data: RemotionPreviewData }).data;
+  return props.inputProps as {
+    data: RemotionPreviewData;
+    useRemotionMedia: boolean;
+  };
 }
 
 function clockWipeTransition(

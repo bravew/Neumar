@@ -457,8 +457,23 @@ export default {
       canvasNewCaptionDefaultText: 'Nouveau sous-titre',
       captionTransformHint:
         'La position du sous-titre est dans l’onglet Style — utilise les poignées du canevas ou la grille de positions.',
-      effectsComingSoon:
-        'Les effets par clip arrivent dans un jalon ultérieur.',
+      effectControls: {
+        empty: "Ce clip n'a aucun effet de canevas.",
+        remove: "Supprimer l'effet",
+        kinds: {
+          brightness: 'Luminosité',
+          contrast: 'Contraste',
+          saturation: 'Saturation',
+          'white-balance': 'Balance des blancs',
+          blur: 'Flou',
+        },
+        parameters: {
+          amount: 'Intensité',
+          temperature: 'Température',
+          tint: 'Teinte',
+          radius: 'Rayon',
+        },
+      },
       styleEmphasis: 'Style',
       bold: 'Gras',
       italic: 'Italique',
@@ -1856,6 +1871,11 @@ export default {
     removeRow: 'Supprimer la ligne',
     assetPlaceholder: 'chemin ou id de la ressource {kind}',
     unsupportedControl: '{label} — le contrôle {kind} arrive bientôt.',
+    studioTitle: 'Aperçu HyperFrames',
+    openStudio: 'Ouvrir Studio',
+    studioError: 'Échec de l’aperçu HyperFrames : {error}',
+    studioScriptError:
+      'Le script du lecteur HyperFrames n’a pas pu être chargé.',
   },
   framesStrip: {
     empty: 'Aucune image pour le moment.',

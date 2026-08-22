@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { normalizeFrameRate } from '@neumar/video-ir';
+
 import { createLogger } from '@/shared/utils/logger';
 import { type VideoEngineAdapter } from '@/shared/video/engines';
 import type {
@@ -202,7 +204,7 @@ export async function materializeHtmlStoryboard(
             width: options.renderConfig.width,
             height: options.renderConfig.height,
           },
-          fps: options.renderConfig.fps,
+          fps: normalizeFrameRate(options.renderConfig.fps),
           duration: scene.durationMs / 1000,
           outputPath,
         },

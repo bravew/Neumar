@@ -22,16 +22,22 @@ describe('video engine registry', () => {
     );
   });
 
-  it('registers built-in remotion + html adapters with honest install status', async () => {
+  it('registers built-in adapters with honest install status', async () => {
     ensureBuiltinVideoEnginesRegistered();
     const engines = await listVideoEngines();
     const byId = Object.fromEntries(engines.map((e) => [e.id, e]));
     expect(byId.remotion?.installed).toBe(true);
-    // Phase 1 M3 — Playwright is a project dep (transitively via
-    // @playwright/test) so the html engine is installable everywhere
-    // Neuma runs. Real Chromium presence is exercised by the
-    // VIDEO_EVAL=1 e2e and surfaces as a runtime error if missing.
-    expect(byId.html?.installed).toBe(true);
+    // The html engine's status depends on whether the Chromium binary is
+    // actually downloaded on this host, so assert the contract rather than a
+    // fixed value: available, or unavailable with a typed reason.
+    expect(typeof byId.html?.installed).toBe('boolean');
+    if (!byId.html?.installed) {
+      expect(byId.html?.availability).toMatchObject({
+        installed: false,
+        reason: 'browser-missing',
+      });
+    }
+    expect(byId.hyperframes?.availability).toBeDefined();
   });
 
   it('supports replacing an adapter at runtime', () => {
@@ -45,10 +51,10 @@ describe('video engine registry', () => {
 
   it('ensureBuiltinVideoEnginesRegistered re-registers after a reset', async () => {
     ensureBuiltinVideoEnginesRegistered();
-    expect((await listVideoEngines()).length).toBe(2);
+    expect((await listVideoEngines()).length).toBe(3);
     _resetVideoEngineRegistry();
     expect((await listVideoEngines()).length).toBe(0);
     ensureBuiltinVideoEnginesRegistered();
-    expect((await listVideoEngines()).length).toBe(2);
+    expect((await listVideoEngines()).length).toBe(3);
   });
 });

@@ -443,7 +443,23 @@ export default {
       canvasNewCaptionDefaultText: '新字幕',
       captionTransformHint:
         '字幕位置在"样式"选项卡中 — 使用画布上的手柄或位置网格。',
-      effectsComingSoon: '每剪辑特效将在后续里程碑推出。',
+      effectControls: {
+        empty: '此剪辑没有画布特效。',
+        remove: '移除特效',
+        kinds: {
+          brightness: '亮度',
+          contrast: '对比度',
+          saturation: '饱和度',
+          'white-balance': '白平衡',
+          blur: '模糊',
+        },
+        parameters: {
+          amount: '强度',
+          temperature: '色温',
+          tint: '色调',
+          radius: '半径',
+        },
+      },
       styleEmphasis: '样式',
       bold: '粗体',
       italic: '斜体',
@@ -1795,6 +1811,10 @@ export default {
     removeRow: '删除行',
     assetPlaceholder: '{kind} 资源路径或 id',
     unsupportedControl: '{label} — {kind} 控件即将推出。',
+    studioTitle: 'HyperFrames 预览',
+    openStudio: '打开 Studio',
+    studioError: 'HyperFrames 预览失败：{error}',
+    studioScriptError: 'HyperFrames 播放器脚本加载失败。',
   },
   framesStrip: {
     empty: '暂无帧。',

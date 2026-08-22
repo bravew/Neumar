@@ -30,6 +30,7 @@ describe('video feature flags (on by default)', () => {
     expect(getVideoFeatureFlag('video.timelineTransitions')).toBe(true);
     expect(getVideoFeatureFlag('video.webcodecsPreview')).toBe(true);
     expect(getVideoFeatureFlag('video.vividOverlays')).toBe(true);
+    expect(getVideoFeatureFlag('video.remotionMedia')).toBe(true);
   });
 
   it('is enabled when explicitly "true"', () => {
@@ -40,6 +41,7 @@ describe('video feature flags (on by default)', () => {
     expect(getVideoFeatureFlag('video.timelineTransitions')).toBe(true);
     expect(getVideoFeatureFlag('video.webcodecsPreview')).toBe(true);
     expect(getVideoFeatureFlag('video.vividOverlays')).toBe(true);
+    expect(getVideoFeatureFlag('video.remotionMedia')).toBe(true);
   });
 
   it('is the kill switch only when explicitly "false"', () => {
@@ -47,6 +49,7 @@ describe('video feature flags (on by default)', () => {
     expect(getVideoFeatureFlag('video.engine.html')).toBe(false);
     expect(getVideoFeatureFlag('video.webcodecsPreview')).toBe(false);
     expect(getVideoFeatureFlag('video.vividOverlays')).toBe(false);
+    expect(getVideoFeatureFlag('video.remotionMedia')).toBe(false);
   });
 
   it('snapshots all flags', () => {
@@ -64,6 +67,7 @@ describe('video feature flags (on by default)', () => {
       'video.timelineTransitions': true,
       'video.webcodecsPreview': true,
       'video.vividOverlays': true,
+      'video.remotionMedia': true,
     });
   });
 });

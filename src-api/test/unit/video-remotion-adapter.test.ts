@@ -64,7 +64,7 @@ describe('createRemotionAdapter', () => {
         config: {
           format: 'mp4',
           resolution: { width: 640, height: 360 },
-          fps: 30,
+          fps: { num: 30, den: 1 },
           duration: 2,
           outputPath,
         },
@@ -118,7 +118,7 @@ describe('createRemotionAdapter', () => {
         config: {
           format: 'webm',
           resolution: { width: 1080, height: 1080 },
-          fps: 30,
+          fps: { num: 30, den: 1 },
           duration: 3,
           outputPath: path.join(workDir, 'native.webm'),
         },
@@ -164,7 +164,7 @@ describe('createRemotionAdapter', () => {
           config: {
             format: 'mp4',
             resolution: { width: 640, height: 360 },
-            fps: 30,
+            fps: { num: 30, den: 1 },
             duration: 2,
             outputPath: path.join(workDir, 'out.mp4'),
           },
@@ -196,7 +196,7 @@ describe('createRemotionAdapter', () => {
           config: {
             format: 'mp4',
             resolution: { width: 640, height: 360 },
-            fps: 30,
+            fps: { num: 30, den: 1 },
             duration: 2,
             outputPath: path.join(workDir, 'out.mp4'),
           },

@@ -36,7 +36,7 @@ function makeInput(
     config: {
       format: 'mp4',
       resolution: { width: 640, height: 360 },
-      fps: 30,
+      fps: { num: 30, den: 1 },
       duration: 0.5,
       outputPath: path.join(workDir, 'out.mp4'),
     },
@@ -45,18 +45,54 @@ function makeInput(
 }
 
 describe('html adapter (real impl)', () => {
-  it('isInstalled reports true when chromium is resolvable, false otherwise', async () => {
+  it('reports typed availability when chromium is resolvable or missing', async () => {
+    // `process.execPath` stands in for an installed browser binary: the probe
+    // only cares that the executable Playwright would launch exists on disk.
     const ok = createHtmlAdapter({
-      playwrightLoader: async () => ({ chromium: {} }),
+      playwrightLoader: async () => ({
+        chromium: { executablePath: () => process.execPath },
+      }),
     });
-    expect(await ok.isInstalled()).toBe(true);
+    expect(await ok.probeAvailability()).toMatchObject({ installed: true });
 
     const missing = createHtmlAdapter({
       playwrightLoader: async () => {
         throw new Error("can't find module 'playwright'");
       },
     });
-    expect(await missing.isInstalled()).toBe(false);
+    expect(await missing.probeAvailability()).toEqual({
+      installed: false,
+      reason: 'browser-missing',
+    });
+  });
+
+  it('reports browser-missing when the module loads but the binary is absent', async () => {
+    const notDownloaded = createHtmlAdapter({
+      playwrightLoader: async () => ({
+        chromium: {
+          executablePath: () => '/nonexistent/ms-playwright/headless_shell',
+        },
+      }),
+    });
+    expect(await notDownloaded.probeAvailability()).toMatchObject({
+      installed: false,
+      reason: 'browser-missing',
+    });
+
+    // Playwright throws from `executablePath()` when no browser is registered.
+    const throwsOnPath = createHtmlAdapter({
+      playwrightLoader: async () => ({
+        chromium: {
+          executablePath: () => {
+            throw new Error('Executable does not exist');
+          },
+        },
+      }),
+    });
+    expect(await throwsOnPath.probeAvailability()).toMatchObject({
+      installed: false,
+      reason: 'browser-missing',
+    });
   });
 
   it('validate rejects a template ref without sourcePath', () => {
@@ -139,7 +175,7 @@ describe('html adapter (real impl)', () => {
         config: {
           format: 'mp4',
           resolution: { width: 640, height: 360 },
-          fps: 30,
+          fps: { num: 30, den: 1 },
           duration: 'auto',
           outputPath: path.join(workDir, 'auto.mp4'),
         },

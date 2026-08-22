@@ -41,6 +41,7 @@ describe('timeline snap helpers', () => {
       playheadMs: 750,
       durationMs: 2500,
       markers: [{ id: 'marker-1', timeMs: 1250, label: 'Beat' }],
+      beatTimesMs: [1000],
     });
 
     expect(targets).toEqual(
@@ -49,6 +50,7 @@ describe('timeline snap helpers', () => {
         { timeMs: 2500, kind: 'timeline-end' },
         { timeMs: 750, kind: 'playhead' },
         { timeMs: 1250, kind: 'marker' },
+        { timeMs: 1000, kind: 'beat' },
         { timeMs: 1500, kind: 'clip-start' },
         { timeMs: 2000, kind: 'clip-end' },
       ]),

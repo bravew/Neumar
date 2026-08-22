@@ -7,6 +7,7 @@ import {
   msToFrame,
   normalizeClipPlayback,
   type ClipPlayback,
+  type ClipEffectStack,
   type KeyframeTrack,
   type VividOverlayRenderEntry,
 } from '@neumar/video-ir';
@@ -56,6 +57,8 @@ export interface RemotionRenderInput extends Record<string, unknown> {
   visualClips: RemotionRenderVisualClip[];
   audioClips: RemotionRenderAudioClip[];
   captions: RemotionRenderCaption[];
+  /** Selects @remotion/media while retaining the legacy rollback path. */
+  useRemotionMedia: boolean;
   /** Vivid overlay clips; rendered before captions (captions stay last). */
   vividOverlays?: VividOverlayRenderEntry[];
 }
@@ -81,6 +84,7 @@ export interface RemotionRenderVisualClip {
   keyframes?: KeyframeTrack[];
   transitionToNext?: EdlSegment['transitionToNext'];
   filters?: EdlSegment['filters'];
+  effects?: ClipEffectStack;
   imagePan?: Extract<AssetPlan, { kind: 'image-pan' }>;
   reframe?: VideoReframePlan;
 }
@@ -181,6 +185,7 @@ export async function buildRemotionRenderInput(
     compositionHeight: dimensions.height,
     durationInFrames: Math.max(1, durationMsToFrames(edl.durationMs, fps)),
     fps,
+    useRemotionMedia: getVideoFeatureFlag('video.remotionMedia'),
     introFrames: bookendFrames(
       project.timeline?.intro?.durationMs,
       edl.durationMs,
@@ -352,6 +357,7 @@ function visualClipFromEdl(
       keyframes: segment.keyframes,
       transitionToNext: segment.transitionToNext,
       filters: segment.filters,
+      effects: segment.effects,
       imagePan: asset.kind === 'image' ? imagePan : undefined,
       reframe:
         trackKind === 'video'

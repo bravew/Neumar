@@ -1,6 +1,7 @@
-import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+
+import { runStreamingCommand } from '@/shared/process/run-streaming-command';
 
 import { resolveProjectPath } from './fs';
 import { resolveHyperframesCommand } from './hyperframes-command';
@@ -43,11 +44,12 @@ export async function renderHyperframesComposition({
   );
   onProgress?.(`HyperFrames renderer: ${bin} ${args.join(' ')}`);
 
-  await runRendererProcess({
+  await runStreamingCommand({
     bin,
     args,
     cwd: composition.absolutePath,
-    onProgress,
+    timeoutMs: Number(process.env.NEUMA_HYPERFRAMES_TIMEOUT_MS ?? 600_000),
+    onLine: onProgress,
   });
 
   const stat = await fs.stat(outputPath.absolutePath).catch(() => null);
@@ -98,85 +100,4 @@ function parseArgsJson(raw: string) {
   throw new Error(
     'NEUMA_HYPERFRAMES_RENDER_ARGS_JSON must be a JSON string array.',
   );
-}
-
-function runRendererProcess({
-  bin,
-  args,
-  cwd,
-  onProgress,
-}: {
-  bin: string;
-  args: string[];
-  cwd: string;
-  onProgress?: (line: string) => void;
-}) {
-  const timeoutMs = Number(process.env.NEUMA_HYPERFRAMES_TIMEOUT_MS ?? 600_000);
-  return new Promise<void>((resolve, reject) => {
-    const child = spawn(bin, args, {
-      cwd,
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let settled = false;
-    const timeout = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill('SIGTERM');
-      reject(new Error(`HyperFrames renderer timed out after ${timeoutMs}ms.`));
-    }, timeoutMs);
-    const finish = (error?: Error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      if (error) reject(error);
-      else resolve();
-    };
-    child.on('error', (error) => {
-      finish(
-        new Error(
-          `HyperFrames renderer could not start: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        ),
-      );
-    });
-    child.on('close', (code, signal) => {
-      if (code === 0) {
-        finish();
-        return;
-      }
-      finish(
-        new Error(
-          `HyperFrames renderer exited with ${
-            signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`
-          }.`,
-        ),
-      );
-    });
-    streamProgress(child.stdout, onProgress);
-    streamProgress(child.stderr, onProgress);
-  });
-}
-
-function streamProgress(
-  stream: NodeJS.ReadableStream | null,
-  onProgress?: (line: string) => void,
-) {
-  if (!stream || !onProgress) return;
-  let buffered = '';
-  stream.setEncoding('utf-8');
-  stream.on('data', (chunk) => {
-    buffered += String(chunk);
-    const lines = buffered.split(/\r?\n/);
-    buffered = lines.pop() ?? '';
-    lines
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .forEach(onProgress);
-  });
-  stream.on('end', () => {
-    const line = buffered.trim();
-    if (line) onProgress(line);
-  });
 }

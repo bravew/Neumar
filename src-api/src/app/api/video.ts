@@ -86,6 +86,11 @@ import {
   snapshotVideoFeatureFlags,
 } from '@/shared/video/flags';
 import {
+  getHyperframesStudioBridge,
+  HyperframesStudioError,
+  resolveHyperframesStudioProjectDir,
+} from '@/shared/video/hyperframes-studio';
+import {
   getRenderStreamBufferSize,
   getRenderStreamSeqBounds,
   isRenderStreamActive,
@@ -849,6 +854,14 @@ function errorResponse(error: unknown): {
     return {
       body: { error: message, detail: error.detail },
       status: error.status as ContentfulStatusCode,
+    };
+  }
+  if (error instanceof HyperframesStudioError) {
+    // Surface the code so the client can distinguish an empty project from a
+    // real bridge fault without string-matching the message.
+    return {
+      body: { error: message, detail: { code: error.code } },
+      status: error.code === 'invalid-project' ? 422 : 502,
     };
   }
   if (message.includes('not found') || message.includes('ENOENT')) {
@@ -1853,6 +1866,54 @@ videoRoutes.patch(
           c.req.valid('json'),
         ),
       );
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+const hyperframesPreviewInputSchema = z.object({
+  compositionDir: z.string().min(1).max(500).default('hyperframes'),
+  subscriberId: z.string().uuid(),
+});
+
+videoRoutes.post(
+  '/projects/:id/hyperframes-preview/open',
+  zValidator('json', hyperframesPreviewInputSchema),
+  async (c) => {
+    try {
+      const projectId = c.req.param('id');
+      const projectDir = resolveHyperframesStudioProjectDir(
+        getVideoProjectRoot(projectId),
+        c.req.valid('json').compositionDir,
+      );
+      return c.json({
+        session: await getHyperframesStudioBridge().acquire(
+          projectDir,
+          c.req.valid('json').subscriberId,
+        ),
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+videoRoutes.post(
+  '/projects/:id/hyperframes-preview/release',
+  zValidator('json', hyperframesPreviewInputSchema),
+  async (c) => {
+    try {
+      const projectDir = resolveHyperframesStudioProjectDir(
+        getVideoProjectRoot(c.req.param('id')),
+        c.req.valid('json').compositionDir,
+      );
+      return c.json({
+        stopped: await getHyperframesStudioBridge().release(
+          projectDir,
+          c.req.valid('json').subscriberId,
+        ),
+      });
     } catch (error) {
       return jsonError(c, error);
     }

@@ -24,7 +24,9 @@ export type VideoFeatureFlag =
   /** WebCodecs preview renderer. Kill-switch: only explicit false disables. */
   | 'video.webcodecsPreview'
   /** Vivid overlay layer (HTML/GIF/Lottie/text-motion overlays). Kill-switch. */
-  | 'video.vividOverlays';
+  | 'video.vividOverlays'
+  /** @remotion/media video renderer. Kill-switch preserves the legacy path. */
+  | 'video.remotionMedia';
 
 const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.engine.html': true,
@@ -37,6 +39,7 @@ const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.timelineTransitions': true,
   'video.webcodecsPreview': true,
   'video.vividOverlays': true,
+  'video.remotionMedia': true,
 } satisfies Record<VideoFeatureFlag, boolean>;
 
 export function getVideoFeatureFlag(flag: VideoFeatureFlag): boolean {
@@ -68,5 +71,6 @@ export function snapshotVideoFeatureFlags(): Record<VideoFeatureFlag, boolean> {
     ),
     'video.webcodecsPreview': getVideoFeatureFlag('video.webcodecsPreview'),
     'video.vividOverlays': getVideoFeatureFlag('video.vividOverlays'),
+    'video.remotionMedia': getVideoFeatureFlag('video.remotionMedia'),
   };
 }

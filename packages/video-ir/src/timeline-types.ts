@@ -120,6 +120,55 @@ export interface KeyframeTrack {
   keys: Keyframe[];
 }
 
+export type ClipEffectKind =
+  | 'brightness'
+  | 'contrast'
+  | 'saturation'
+  | 'white-balance'
+  | 'blur';
+
+interface BaseClipEffect {
+  version: 1;
+  id: string;
+  disabled?: boolean;
+}
+
+export type ClipEffect =
+  | (BaseClipEffect & {
+      kind: 'brightness';
+      params: { amount: number };
+    })
+  | (BaseClipEffect & {
+      kind: 'contrast';
+      params: { amount: number };
+    })
+  | (BaseClipEffect & {
+      kind: 'saturation';
+      params: { amount: number };
+    })
+  | (BaseClipEffect & {
+      kind: 'white-balance';
+      params: { temperature: number; tint: number };
+    })
+  | (BaseClipEffect & {
+      kind: 'blur';
+      params: { radius: number; horizontal: boolean; vertical: boolean };
+    });
+
+export type ClipEffectParameter = 'amount' | 'temperature' | 'tint' | 'radius';
+
+export interface EffectParameterKeyframeTrack {
+  effectId: string;
+  parameter: ClipEffectParameter;
+  keys: Keyframe[];
+}
+
+export interface ClipEffectStack {
+  schema: 'neuma.video.clip-effects.v1';
+  effects: ClipEffect[];
+  keyframes?: EffectParameterKeyframeTrack[];
+}
+
 export interface Timeline {
   schema: TimelineSchemaId;
   tracks: TimelineTrack[];
@@ -205,6 +254,7 @@ export interface VisualTimelineClip extends BaseTimelineClip {
   transitionToNext?: TimelineTransition;
   audioSeamToNext?: 'follow' | 'cut';
   filters?: ClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
 }
 
@@ -339,11 +389,15 @@ export type TimelineOp =
   | ClipSetAudioTransitionOp
   | ClipSetTransformOp
   | ClipSetFiltersOp
+  | ClipSetEffectsOp
   | ClipSetParamsOp
   | ClipSetPlaybackOp
   | KeyframeUpsertOp
   | KeyframeRemoveOp
   | KeyframeSetTrackOp
+  | EffectKeyframeUpsertOp
+  | EffectKeyframeRemoveOp
+  | EffectKeyframeSetTrackOp
   | CaptionSplitAtTimeOp
   | CaptionMergeSiblingOp
   | CaptionRegroupOp
@@ -490,6 +544,13 @@ export interface ClipSetFiltersOp {
   after: ClipFilters | null;
 }
 
+export interface ClipSetEffectsOp {
+  kind: 'clip.setEffects';
+  clipId: string;
+  before: ClipEffectStack | null;
+  after: ClipEffectStack | null;
+}
+
 /**
  * Replace a clip's `params` bag (full before/after snapshots, so the op is
  * self-inverting like clip.setTransform). Vivid-overlay clips reject payloads
@@ -533,6 +594,33 @@ export interface KeyframeSetTrackOp {
   property: KeyframeableProperty;
   before: KeyframeTrack | null;
   after: KeyframeTrack | null;
+}
+
+export interface EffectKeyframeUpsertOp {
+  kind: 'effectKeyframe.upsert';
+  clipId: string;
+  effectId: string;
+  parameter: ClipEffectParameter;
+  key: Keyframe;
+  before?: Keyframe | null;
+}
+
+export interface EffectKeyframeRemoveOp {
+  kind: 'effectKeyframe.remove';
+  clipId: string;
+  effectId: string;
+  parameter: ClipEffectParameter;
+  atMs: number;
+  snapshot: Keyframe;
+}
+
+export interface EffectKeyframeSetTrackOp {
+  kind: 'effectKeyframe.setTrack';
+  clipId: string;
+  effectId: string;
+  parameter: ClipEffectParameter;
+  before: EffectParameterKeyframeTrack | null;
+  after: EffectParameterKeyframeTrack | null;
 }
 
 export interface CaptionSplitAtTimeOp {

@@ -1,4 +1,7 @@
+import { existsSync } from 'node:fs';
 import path from 'node:path';
+
+import { frameRateToNumber } from '@neumar/video-ir';
 
 import { hashHtmlFrameSeed } from '@/shared/video/content-graph/frame-seed-hash';
 
@@ -6,6 +9,7 @@ import { captureHtmlToMp4 } from './html/capture';
 import { HtmlEngineError } from './html/errors';
 import { buildHtmlScene } from './html/render-to-html';
 import type {
+  EngineAvailability,
   EngineRenderContext,
   EngineRenderInput,
   EngineRenderOutput,
@@ -35,7 +39,11 @@ const HTML_CAPABILITIES: VideoEngineCapabilities = {
   audio: 'multi',
   subtitles: 'burn-in',
   renderTarget: ['local-chromium'],
-  fps: [24, 30, 60],
+  fps: [
+    { num: 24, den: 1 },
+    { num: 30, den: 1 },
+    { num: 60, den: 1 },
+  ],
   licensing: 'Apache-2.0 (playwright)',
   bestFor: ['Animated HTML frames', 'GSAP / CSS @keyframes templates'],
   weaknesses: [
@@ -74,6 +82,40 @@ export interface HtmlAdapterDeps {
   buildScene?: typeof buildHtmlScene;
 }
 
+// The module exporting `chromium` says nothing about the browser binary being
+// downloaded. `capture` calls `chromium.launch()` with no channel, so the
+// executable it will use is exactly `chromium.executablePath()` — check that it
+// is on disk rather than reporting the engine available and failing at render.
+function chromiumAvailability(mod: unknown): EngineAvailability {
+  const chromium = (mod as { chromium?: BrowserTypeLike }).chromium;
+  if (typeof chromium !== 'object' || chromium === null) {
+    return { installed: false, reason: 'browser-missing' };
+  }
+  let executablePath: string;
+  try {
+    executablePath = chromium.executablePath();
+  } catch (error) {
+    return {
+      installed: false,
+      reason: 'browser-missing',
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+  if (!executablePath || !existsSync(executablePath)) {
+    return {
+      installed: false,
+      reason: 'browser-missing',
+      detail:
+        'Chromium is not installed. Run `pnpm exec playwright install chromium`.',
+    };
+  }
+  return { installed: true, version: ENGINE_VERSION };
+}
+
+interface BrowserTypeLike {
+  executablePath: () => string;
+}
+
 export function createHtmlAdapter(
   deps: HtmlAdapterDeps = {},
 ): VideoEngineAdapter {
@@ -85,32 +127,25 @@ export function createHtmlAdapter(
     name: 'HTML (Playwright)',
     upstreamVersion: ENGINE_VERSION,
     capabilities: HTML_CAPABILITIES,
-    isInstalled: async () => {
+    probeAvailability: async () => {
       if (deps.playwrightLoader) {
         try {
-          const mod = (await deps.playwrightLoader()) as {
-            chromium?: unknown;
-          };
-          return typeof mod.chromium === 'object' && mod.chromium !== null;
+          return chromiumAvailability(await deps.playwrightLoader());
         } catch {
-          return false;
+          return { installed: false, reason: 'browser-missing' };
         }
       }
       // Same dual-load fallback as src-api/src/app/api/design.ts.
       try {
-        const mod = (await import('playwright')) as { chromium?: unknown };
-        if (typeof mod.chromium === 'object' && mod.chromium !== null)
-          return true;
+        const available = chromiumAvailability(await import('playwright'));
+        if (available.installed) return available;
       } catch {
         /* fall through */
       }
       try {
-        const mod = (await import('@playwright/test')) as {
-          chromium?: unknown;
-        };
-        return typeof mod.chromium === 'object' && mod.chromium !== null;
+        return chromiumAvailability(await import('@playwright/test'));
       } catch {
-        return false;
+        return { installed: false, reason: 'browser-missing' };
       }
     },
     validate(template: EngineTemplateRef): EngineValidationResult {
@@ -131,6 +166,7 @@ export function createHtmlAdapter(
     ): Promise<EngineRenderOutput> {
       const start = Date.now();
       const durationSec = resolveDurationSec(input);
+      const fps = frameRateToNumber(input.config.fps);
       const sceneOutDir = path.join(ctx.workDir, `scene-${input.template.id}`);
 
       ctx.onProgress?.(2, 'preparing');
@@ -146,7 +182,7 @@ export function createHtmlAdapter(
         outputPath: input.config.outputPath,
         width: input.config.resolution.width,
         height: input.config.resolution.height,
-        fps: input.config.fps,
+        fps,
         durationSec,
         signal: ctx.signal,
         playwrightLoader: deps.playwrightLoader,
@@ -168,7 +204,7 @@ export function createHtmlAdapter(
           durationSec: result.durationSec,
           fileSizeBytes: result.fileSizeBytes,
           actualResolution: { width: result.width, height: result.height },
-          fps: input.config.fps,
+          fps,
           renderedFrames: result.renderedFrames,
           renderWallClockSec: (Date.now() - start) / 1000,
           engineVersion: ENGINE_VERSION,
@@ -190,7 +226,7 @@ export function createHtmlAdapter(
             templateVersion: input.template.version ?? '',
             engineVersion: ENGINE_VERSION,
             resolution: input.config.resolution,
-            fps: input.config.fps,
+            fps,
             durationSec,
             injectionNonce: scene.injectionNonce,
           }),
