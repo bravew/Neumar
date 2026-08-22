@@ -1,8 +1,6 @@
 # Implementation plan
 
 Sequenced so each phase is independently shippable and independently revertible.
-Nothing here is scheduled yet. This is the plan to approve or cut, not a
-commitment.
 
 Revised after a codebase and published-API review on 2026-08-22. The revision
 keeps legacy rendering byte-for-byte compatible at the data boundary, adds the
@@ -12,6 +10,44 @@ the tree.
 Conventions carried from `12-video-mode-4`: every IR op gets an inverse and a
 test; every user-visible string lands in all six locales; every phase records its
 verification commands in a progress table.
+
+## Implementation status — 2026-08-22
+
+Core implementation is complete through Phase D. Phase E is intentionally
+pick-and-choose; the permission metadata audit and generated capability reference
+were selected and completed. Phase F remains gated on real Studio usage, as this
+plan requires.
+
+| Phase | Status | Commit | Verification |
+| --- | --- | --- | --- |
+| A1 — `@remotion/media` | Implemented | `5dc5cda` | Focused preview/blur-pad/render-input tests; `pnpm validate` |
+| A2 — effect stack | Implemented | `95373ba` | Video IR, effect catalog/render, MCP, and inspector tests; `pnpm validate` |
+| B — HyperFrames engine | Implemented | `a55e060` | Process runner, engine registry, adapter, and materialization tests; `pnpm validate` |
+| C2 — beat grid | Implemented | `2cad7aa` | IR derivation/snap, backend analysis/MCP, and timeline UI tests; `pnpm validate` |
+| C1 — Studio bridge | Implemented | `b8db15a` | 55 focused backend tests, StrictMode UI test, real 0.8.7 lifecycle/context probe; `pnpm validate` |
+| D — skill drift | Implemented | `9c76b8f` | Pin match, deliberate mismatch self-test, read-only currency probe; `pnpm validate` |
+| E — metadata/reference | Implemented | `193ec48` | 53 focused MCP tests including all 111 registered Video tools; `pnpm validate` |
+| F — motion graphics | Not started | — | Waiting for production Studio-bridge usage evidence |
+
+Final branch sweep: `pnpm validate` passed; frontend Vitest passed 1,224 tests
+across 290 files; `pnpm test:api` passed 3,046 tests across 489 files, with 7
+tests in 3 files skipped by their existing configuration. The first sandboxed
+backend sweep could not bind loopback sockets or resolve DNS; the normal-permission
+rerun passed without code changes.
+
+### Acceptance evidence still required before declaring rollout complete
+
+- A1 still needs the documented golden-frame/Player screenshot matrix and
+  before/after wall-clock plus peak-RSS measurements on a long timeline.
+- B still needs three real-render sampled-frame/ffprobe comparisons and the
+  Docker reproducible-mode output-hash run. Unit coverage proves flag and error
+  contracts, not encoded-output determinism.
+- C1's live CLI probe verified start, `server,selection` context, the typed
+  `no-selection` response, and project-specific stop. The final click-to-agent
+  `data-hf-id` acceptance flow still needs an interactive Studio run.
+- HyperFrames 0.8.8 is available, but this branch deliberately keeps the
+  reviewed 0.8.7 pin. `pnpm check:hyperframes-upgrade` is read-only and an
+  upgrade requires explicit approval plus re-verification.
 
 ---
 
@@ -162,7 +198,8 @@ independent and can run in parallel.
 ### C1 — HyperFrames Studio context bridge
 
 - Managed preview lifecycle in the API: allocate a loopback-only port,
-  `--background --port <n> --json` on open, `--status` for health, and
+  `--background --port <n> --json` on open, `--context --context-fields server`
+  for health, and
   project-specific `--stop` after the final subscriber closes. Make lifecycle
   operations idempotent and reference-counted across panels. Reserve `--kill-all`
   for an explicit doctor action; normal cleanup must not terminate previews owned
@@ -171,7 +208,7 @@ independent and can run in parallel.
   `preview-port-mismatch`, malformed JSON, and version mismatch as typed boundary
   errors validated with Zod.
 - `video_get_html_selection` wrapping
-  `preview --context --json --context-fields selection`, feeding the same agent
+  `preview --context --json --context-fields server,selection`, feeding the same agent
   context slot as `$selection`. Prefer `selection.target.hfId`; fall back to
   `selector` only when no stable id exists. On `no-selection`, ask the user to
   click the element — do not infer from a screenshot.
@@ -180,9 +217,9 @@ independent and can run in parallel.
   `HtmlVideoFrames`; it does not own a raw iframe to replace. Trace the selected
   frame/composition state through `HtmlVideoFrames` and mount
   `<hyperframes-player>` only where that state and lifecycle can be cleaned up.
-- Serve `hyperframes-player.global.js` from the pinned packaged resource. Apply
-  the existing iframe/CSP boundary, add custom-element TypeScript declarations,
-  and test cleanup on React 19 StrictMode remount.
+- Load `player.js` from the managed pinned Studio server, add custom-element
+  TypeScript declarations, and test balanced lifecycle cleanup on React 19
+  StrictMode remount.
 - Hand back Studio URLs in the documented form
   `http://localhost:<port>/#project/<name>`; a URL without the hash is a dead
   link.
@@ -219,10 +256,11 @@ Deleting the source clip invalidates the artifact cleanly.
 Small enough to do at any point; do it early so the drift check exists before the
 next sweep.
 
-- Rewrite `plugins/builtin/design-skills/hyperframes/skills/hyperframes/` as a
-  router mirroring upstream 0.8.7's shape. Keep Neuma-specific content (house
-  style, project/asset conventions, storage-tree mapping) in its own reference
-  file; do not duplicate upstream domain knowledge that
+- Add an upstream-0.8.7 router as the load-bearing entry section in
+  `plugins/builtin/design-skills/hyperframes/skills/hyperframes/SKILL.md` while
+  preserving the existing offline reference library. Keep Neuma-specific
+  project, asset, storage, Studio, and upgrade policy in its own reference file;
+  do not add new copies of upstream domain knowledge that
   `hyperframes skills update` will fetch.
 - Adopt a non-mutating pin-currency check. Run the installed pinned CLI's
   `upgrade --project . --check --json`, report old to available version, and ask
@@ -240,17 +278,17 @@ next sweep.
 
 Pick individually; none blocks another.
 
-| Item | Work |
-|---|---|
-| `video_compare_variants` | Wrap `hyperframes compare`; return an **image-bearing tool result** (`[{type:'text'},{type:'image'}]`), per OpenReel's `loop.ts::buildToolResultContent` |
-| `video_compare_grades` | Wrap `grade-compare`, including `.cube` LUT candidates; pairs with Phase A2 |
-| `check --json` in QA | Route into `QaReportPanel.tsx` for HTML compositions — lint + runtime + layout + motion + WCAG AA in one browser session |
-| Ref resolution in the dispatcher | Lift `clipIndex` / `atSec` / `trackIndex` → `clipId` resolution out of `video_apply_timeline_ops` into the MCP dispatcher so every clip-taking tool gets it |
-| Generated capability doc | Generate the system-prompt tool reference from the registry, with `read-only` / `write` / `destructive` / cost-tier flags inline, so prompt and `permissions.ts` cannot diverge |
-| Symbolic-key batch ops | Allow batch ops to declare `key` / `parentKey` and return a key→id map, so multi-clip construction is one call. This also removes the `clip.removeTimeRange` caller-supplied-replacement-clip limitation noted in `12-video-mode-4` |
-| Permission metadata audit | Reuse the existing `read \| write \| execute \| destructive \| network` classification and `DESTRUCTIVE_TOOLS` list. Add tests that every registered Video tool has a classification and cost class; do not add a second destructive axis. |
-| Typed turn budget | Design this at the shared agent-runtime boundary, not only in Video Mode. Map provider-specific stops into `{ end_turn, max_steps, max_tool_calls, max_tokens, budget, error }` and surface the normalized reason in `AgentDock`. The current Video Agent still passes `maxTurns: 60`, but Claude, Codex, and Cursor do not share one stop protocol. |
-| Runtime-selection contract | Present both engines with honest tradeoffs when both are available; log the decision with every option considered; escalate rather than substitute when the chosen engine is unavailable |
+| Item | Status | Work |
+|---|---|---|
+| `video_compare_variants` | Deferred | Wrap `hyperframes compare`; return an **image-bearing tool result** (`[{type:'text'},{type:'image'}]`), per OpenReel's `loop.ts::buildToolResultContent` |
+| `video_compare_grades` | Deferred | Wrap `grade-compare`, including `.cube` LUT candidates; pairs with Phase A2 |
+| `check --json` in QA | Deferred | Route into `QaReportPanel.tsx` for HTML compositions — lint + runtime + layout + motion + WCAG AA in one browser session |
+| Ref resolution in the dispatcher | Deferred | Lift `clipIndex` / `atSec` / `trackIndex` → `clipId` resolution out of `video_apply_timeline_ops` into the MCP dispatcher so every clip-taking tool gets it |
+| Generated capability doc | Implemented | Generate the active, plugin-filtered system-prompt tool reference from the registry, with permission and cost-tier flags inline, so prompt and `permissions.ts` cannot diverge |
+| Symbolic-key batch ops | Deferred | Allow batch ops to declare `key` / `parentKey` and return a key→id map, so multi-clip construction is one call. This also removes the `clip.removeTimeRange` caller-supplied-replacement-clip limitation noted in `12-video-mode-4` |
+| Permission metadata audit | Implemented | Reuse the existing `read \| write \| execute \| destructive \| network` classification and `DESTRUCTIVE_TOOLS` list. Tests require every registered Video tool to have exactly one classification and a cost class; no second destructive axis was added. |
+| Typed turn budget | Deferred | Design this at the shared agent-runtime boundary, not only in Video Mode. Map provider-specific stops into `{ end_turn, max_steps, max_tool_calls, max_tokens, budget, error }` and surface the normalized reason in `AgentDock`. The current Video Agent still passes `maxTurns: 60`, but Claude, Codex, and Cursor do not share one stop protocol. |
+| Runtime-selection contract | Deferred | Present both engines with honest tradeoffs when both are available; log the decision with every option considered; escalate rather than substitute when the chosen engine is unavailable |
 
 ---
 

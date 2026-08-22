@@ -2,7 +2,8 @@
 
 Date: 2026-08-22
 Trigger: commit `5dafc51` — quarterly dependency sweep (#22), group G13
-Status: research complete, proposals drafted, **not yet scheduled**
+Status: core implementation complete through Phase D; selected Phase E items
+complete; Phase F gated on real Studio usage
 
 ## What this is
 
@@ -42,9 +43,12 @@ substantially since the last review (`12-video-mode-4`, 2026-06-13/14):
 
 ## Executive summary
 
-**Six findings worth acting on**, ranked by value-to-effort:
+These are the six findings recorded at the `5dafc51` baseline, ranked by
+value-to-effort. Their current implementation state is noted inline; the exact
+commit and verification ledger is in
+[`05-implementation-plan.md`](05-implementation-plan.md).
 
-1. **`@remotion/effects` is not installed.** Remotion now ships 72 GPU shader
+1. **`@remotion/effects` was not installed.** Remotion ships 72 GPU shader
    effects (`colorCorrection`, `regionBlur`, `duotone`, `halftone`,
    `chromaticAberration`, `lightLeak`, `filmGrain`-class, …) that apply to
    canvas-based components via an `effects` prop and are keyframeable. Neuma's
@@ -53,9 +57,9 @@ substantially since the last review (`12-video-mode-4`, 2026-06-13/14):
    clip media through `@remotion/media` first — which is worth doing anyway,
    because preview (`Html5Video`) and render (`OffthreadVideo`) currently use
    different media components. This is the single largest
-   capability-per-line-of-code win available. → **P0**
+   capability-per-line-of-code win available. → **P0 — implemented in A1/A2**
 
-2. **The `html` engine still records the browser in real time.**
+2. **The `html` engine recorded the browser in real time.**
    `src-api/src/shared/video/engines/html/capture.ts` uses Playwright
    `recordVideo`, which its own header comment admits is *"frame-accurate but not
    byte-deterministic across hosts"*. HyperFrames 0.8.7's renderer does
@@ -66,22 +70,24 @@ substantially since the last review (`12-video-mode-4`, 2026-06-13/14):
    registry (`EngineId` is already open: `'remotion' | 'html' | (string & {})`).
    The sidecar already targets Node 22 on every platform, so the CLI's Node ≥ 22
    floor is satisfied; the open design question is CLI *availability* in packaged
-   builds. → **P0**
+   builds. → **P0 — HyperFrames adapter implemented; `html` retained as an
+   explicit fallback**
 
-3. **`hyperframes preview --context --json` is an agent bridge Neuma doesn't
-   use.** It returns the Studio-selected element's `data-hf-id`, selector,
+3. **`hyperframes preview --context --json` was an unused agent bridge.** It
+   returns the Studio-selected element's `data-hf-id`, selector,
    bounding box, text, computed styles, and a thumbnail — exactly the deictic
    "make *this* bigger" context Neuma's Video Agent currently has to infer.
    Pairs with the new `<hyperframes-player>` web component
-   (`dist/hyperframes-player.global.js`) for in-app preview. → **P1**
+   (`player.js`) for in-app preview. → **P1 — implemented in C1**
 
-4. **Beat-driven editing has no representation in Neuma.** `hyperframes beats`
+4. **Beat-driven editing had no representation in Neuma.** `hyperframes beats`
    emits a Studio-compatible beat grid; OpenReel exposes `set_motion_beat_markers`
    and `apply_motion_preset_to_beats`; OpenMontage routes all music-driven work
    through it. `packages/video-ir` has `marker.upsert` but no beat concept, its
    ripple operations do not move markers, and `music.ts` only carries a
    `tempoBpm` hint. The plan now keeps beat grids anchored to their audio clip
-   instead of materializing every beat as an editorial marker. → **P1**
+   instead of materializing every beat as an editorial marker. → **P1 —
+   implemented in C2**
 
 5. **No motion-graphics composition model.** Neuma's IR is a strong *timeline*
    IR (105 `video_*` MCP tools, ripple-safe ops, caption tokens) but has no
@@ -90,13 +96,13 @@ substantially since the last review (`12-video-mode-4`, 2026-06-13/14):
    explicit `insert_motion_into_editor` — is the architecture to copy if Neuma
    wants agent-authored motion graphics. → **P3, large**
 
-6. **Neuma's bundled HyperFrames skill is now two minors stale.**
+6. **Neuma's bundled HyperFrames skill was two minors stale.**
    `plugins/builtin/design-skills/hyperframes/skills/hyperframes/` mirrors the
    0.6.x monolithic skill. Upstream 0.8.7 replaced it with a router plus ten
    route briefs and eight lazily-installed domain skills
    (`hyperframes-core`, `-animation`, `-keyframes`, `-creative`, `-audio`,
    `-cli`, `-registry`, `media-use`). Neuma's copy now teaches an obsolete shape.
-   → **P1, cheap**
+   → **P1 — upstream router, Neuma reference, and CI drift guard implemented**
 
 ## Verified facts behind these claims
 
@@ -106,9 +112,10 @@ Everything above was checked against the tree, not recalled:
   by diffing the packages and running `--help` on every command in both.
 - Both Remotion versions (4.0.507, 4.0.515) are in the store; declaration diffs
   were taken per package.
-- `@remotion/effects`, `@remotion/media`, `@remotion/animation-utils`,
-  `@remotion/webcodecs`, `@remotion/mac-cursors` all publish 4.0.515 and are
-  **not** in any Neuma `package.json`.
-- Neuma's video tool surface was enumerated from
-  `src-api/src/shared/mcp/video-edit-server.ts` (105 `video_*` tools) and
-  OpenReel's from `packages/agent/src/registry.ts` (276 tools).
+- At the review baseline, `@remotion/effects`, `@remotion/media`,
+  `@remotion/animation-utils`, `@remotion/webcodecs`, and
+  `@remotion/mac-cursors` published 4.0.515 and were absent from Neuma. A1/A2
+  subsequently added the first two exact pins.
+- The review enumerated 105 Neuma `video_*` tools and 276 OpenReel tools. The
+  implemented branch now registers 111 Video tools, all covered by permission
+  and cost metadata tests.
