@@ -25,9 +25,10 @@ overrides:
   # Transitive consistency — keep markdown ecosystem on a single major.
   unified: '^11.0.5'
   # Hold AG-UI runtime to the version our app integrates against.
-  '@ag-ui/client': '^0.0.57'
-  '@ag-ui/core': '^0.0.57'
-  '@ag-ui/encoder': '^0.0.57'
+  # Raised to 0.0.58 2026-08-21 (G7) alongside the direct-dep bump.
+  '@ag-ui/client': '^0.0.58'
+  '@ag-ui/core': '^0.0.58'
+  '@ag-ui/encoder': '^0.0.58'
   # Force-bump Slack Web API to keep transitive Bolt deps on the same minor.
   # Raised to 8.x 2026-08-08 alongside the @slack/bolt 5.x major (G10).
   '@slack/web-api': '^8.0.0'
@@ -103,14 +104,6 @@ minimumReleaseAgeExclude:
   - katex@0.18.2
   - mediabunny@1.53.0
   - read-excel-file@9.3.8
-  - '@assistant-ui/core@0.3.10'
-  - '@assistant-ui/react-markdown@0.14.10'
-  - '@assistant-ui/react@0.15.11'
-  - '@assistant-ui/store@0.3.8'
-  - '@assistant-ui/tap@0.9.11'
-  - assistant-cloud@0.1.39
-  - assistant-stream@0.3.36
-  - safe-content-frame@0.0.27
   - '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.226'
   - '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.226'
   - '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.226'
@@ -121,3 +114,11 @@ minimumReleaseAgeExclude:
   - '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.226'
   - '@anthropic-ai/claude-agent-sdk@0.3.226'
   - '@anthropic-ai/sandbox-runtime@0.0.71'
+  - '@copilotkit/a2ui-renderer@1.69.0'
+  - '@copilotkit/core@1.69.0'
+  - '@copilotkit/react-core@1.69.0'
+  - '@copilotkit/runtime-client-gql@1.69.0'
+  - '@copilotkit/runtime@1.69.0'
+  - '@copilotkit/shared@1.69.0'
+  - '@copilotkit/web-components@1.69.0'
+  - '@copilotkit/web-inspector@1.69.0'

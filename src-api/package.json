@@ -27,14 +27,14 @@
     "plugin:new": "tsx src/cli/scaffold-plugin.ts"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.57",
-    "@ag-ui/core": "^0.0.57",
-    "@ag-ui/encoder": "^0.0.57",
+    "@ag-ui/client": "^0.0.58",
+    "@ag-ui/core": "^0.0.58",
+    "@ag-ui/encoder": "^0.0.58",
     "@anthropic-ai/claude-agent-sdk": "^0.3.226",
     "@anthropic-ai/sandbox-runtime": "^0.0.71",
     "@anthropic-ai/sdk": "^0.116.0",
     "@codeany/open-agent-sdk": "^0.2.4",
-    "@copilotkit/runtime": "^1.66.4",
+    "@copilotkit/runtime": "^1.69.0",
     "@grammyjs/auto-retry": "^2.0.2",
     "@grammyjs/runner": "^2.0.3",
     "@grammyjs/transformer-throttler": "^1.2.1",
