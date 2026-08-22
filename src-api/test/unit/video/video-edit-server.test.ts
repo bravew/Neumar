@@ -4,7 +4,11 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildVideoToolClassifications } from '@/extensions/agent/video/permissions';
+import {
+  buildVideoToolCapabilityReference,
+  buildVideoToolClassifications,
+  getVideoToolCapabilityMetadata,
+} from '@/extensions/agent/video/permissions';
 
 import {
   createVideoEditTools,
@@ -110,6 +114,35 @@ describe('video-edit MCP server', () => {
     expect(classifications['mcp__video-edit__video_snap_cuts_to_beats']).toBe(
       'destructive',
     );
+    expect(
+      Object.keys(classifications)
+        .filter((name) => name.startsWith('mcp__video-edit__'))
+        .map((name) => name.slice('mcp__video-edit__'.length))
+        .sort(),
+    ).toEqual([...VIDEO_EDIT_TOOL_NAMES].sort());
+    for (const name of VIDEO_EDIT_TOOL_NAMES) {
+      expect(getVideoToolCapabilityMetadata(name)).toEqual({
+        classification: expect.stringMatching(
+          /^(read|write|execute|destructive|network)$/,
+        ),
+        costClass: expect.stringMatching(/^(free|metered)$/),
+      });
+    }
+  });
+
+  it('generates capability flags from the active tool registry', () => {
+    const tools = createVideoEditTools({ projectId: 'project-1' });
+    const reference = buildVideoToolCapabilityReference(tools);
+    const entries = reference
+      .split('\n')
+      .filter((line) => line.startsWith('- ['));
+
+    expect(entries).toHaveLength(VIDEO_EDIT_TOOL_NAMES.length);
+    expect(reference).toContain('[read/free] video_get_project_summary');
+    expect(reference).toContain('[destructive/free] video_render');
+    expect(() =>
+      buildVideoToolCapabilityReference([tools[0]!, tools[0]!]),
+    ).toThrow('Duplicate video tool registration');
   });
 
   it('approves the storyboard from chat for first-party clients', async () => {

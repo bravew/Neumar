@@ -12,7 +12,6 @@ const READ_TOOLS = [
   'video_list_assets',
   'video_describe_scene',
   'video_search_assets',
-  'video_search_linked_assets',
   'video_rank_moments',
   'video_list_transition_presets',
   'video_list_effect_presets',
@@ -138,6 +137,11 @@ const METERED_TOOLS = new Set([
 
 export type VideoToolCostClass = 'free' | 'metered';
 
+export interface VideoToolCapabilityMetadata {
+  classification: ToolClassification;
+  costClass: VideoToolCostClass;
+}
+
 export function buildVideoToolClassifications(): NonNullable<
   AgentOptions['toolClassifications']
 > {
@@ -177,5 +181,42 @@ export function buildVideoToolClassifications(): NonNullable<
 }
 
 export function getVideoToolCostClass(toolName: string): VideoToolCostClass {
-  return METERED_TOOLS.has(toolName) ? 'metered' : 'free';
+  const qualifiedName = toolName.startsWith('mcp__')
+    ? toolName
+    : `mcp__video-edit__${toolName}`;
+  return METERED_TOOLS.has(qualifiedName) ? 'metered' : 'free';
+}
+
+export function getVideoToolCapabilityMetadata(
+  toolName: string,
+): VideoToolCapabilityMetadata {
+  const qualifiedName = toolName.startsWith('mcp__')
+    ? toolName
+    : `mcp__video-edit__${toolName}`;
+  const classification = buildVideoToolClassifications()[qualifiedName];
+  if (!classification) {
+    throw new Error(`Video tool "${toolName}" has no permission metadata.`);
+  }
+  return {
+    classification,
+    costClass: getVideoToolCostClass(qualifiedName),
+  };
+}
+
+export function buildVideoToolCapabilityReference(
+  tools: readonly { name: string }[],
+): string {
+  const seen = new Set<string>();
+  const lines = tools.map(({ name }) => {
+    if (seen.has(name)) {
+      throw new Error(`Duplicate video tool registration: ${name}`);
+    }
+    seen.add(name);
+    const metadata = getVideoToolCapabilityMetadata(name);
+    return `- [${metadata.classification}/${metadata.costClass}] ${name}`;
+  });
+  return [
+    'Registered Video tool capabilities (generated from the active registry):',
+    ...lines,
+  ].join('\n');
 }
