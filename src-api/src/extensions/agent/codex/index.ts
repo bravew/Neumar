@@ -126,8 +126,7 @@ function mapReasoningEffort(
   if (!thinkingConfig || thinkingConfig.type === 'disabled') return undefined;
   const effort = thinkingConfig.effort;
   if (!effort) return undefined;
-  if (effort === 'max') return 'xhigh';
-  return effort; // 'low' | 'medium' | 'high' map directly
+  return effort; // 'low' | 'medium' | 'high' | 'xhigh' | 'max' all map directly
 }
 
 /**
