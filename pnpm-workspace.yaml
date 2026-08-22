@@ -48,8 +48,15 @@ overrides:
   # same stale-resolution reason as protobufjs above.
   axios: '^1.18.1'
   # workbox lineage required by vite-plugin-pwa; pin until plugin catches up.
+  # Re-checked 2026-08-21 (G3) — no newer vite-plugin-pwa release yet.
   workbox-build: '^7.4.1'
   workbox-window: '^7.4.1'
+  # 2026-08-21 (G3) — 4 brace-expansion DoS advisories (quadratic/unbounded
+  # expansion) reach two vulnerable resolutions via workbox-build's jake/glob
+  # transitives (vite-plugin-pwa, dev-only). Scoped by range so minimatch@10.x's
+  # own brace-expansion@^4.x requirement isn't force-downgraded across a major.
+  'brace-expansion@>=2.0.0 <2.1.4': '2.1.4'
+  'brace-expansion@>=4.0.0 <5.0.9': '5.0.9'
   # CVE — esbuild <0.28.1 missing binary integrity verification (GHSA, Deno).
   # Patch-bump only the prod 0.28.0 peer (@remotion/bundler); the dev-only
   # 0.25/0.27 copies (vite/vitest) are out of the --prod audit and untouched.
