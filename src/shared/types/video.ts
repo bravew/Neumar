@@ -170,6 +170,7 @@ export interface VideoAnalysisArtifact {
   id: string;
   kind: VideoAnalysisArtifactKind;
   sourceMediaId?: string;
+  contentHash?: string;
   summary?: string;
   ranges?: VideoAnalysisRange[];
   proposedActionBatch?: {

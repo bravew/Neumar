@@ -15,6 +15,7 @@ import type {
 import type { LinkedAssetDragPayload } from '../linkedAssetDrag';
 import type { OverlayPresetDragPayload } from '../overlays/overlayDragPayload';
 import type { ProjectAssetDragPayload } from '../projectAssetDrag';
+import { BeatGridOverlay } from './BeatGridOverlay';
 import { SnapOverlay } from './SnapOverlay';
 import type { TimelineClientPoint } from './timelineClipDrag';
 import { TimelineHoverIndicator } from './TimelineHoverIndicator';
@@ -45,6 +46,7 @@ interface TimelineCanvasProps {
   labels: TimelineLabels;
   lasso: TimelineLasso;
   markers: VideoTimelineMarker[];
+  beatTimesMs: number[];
   materializationStates?: MaterializationStateMap;
   pixelsPerSecond: number;
   playheadMs: number;
@@ -117,6 +119,7 @@ export function TimelineCanvas({
   labels,
   lasso,
   markers,
+  beatTimesMs,
   materializationStates,
   pixelsPerSecond,
   playheadMs,
@@ -186,6 +189,12 @@ export function TimelineCanvas({
         onPointerUp={lasso.handlePointerUp}
         onPointerCancel={lasso.handlePointerCancel}
       >
+        <BeatGridOverlay
+          beatTimesMs={beatTimesMs}
+          headerWidth={TRACK_HEADER_WIDTH}
+          height={Math.max(totalHeight, rowVirtualizer.getTotalSize())}
+          pixelsPerSecond={pixelsPerSecond}
+        />
         <TimelineRuler
           durationMs={timelineDurationMs}
           headerWidth={TRACK_HEADER_WIDTH}

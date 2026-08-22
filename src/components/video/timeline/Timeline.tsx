@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
+import { deriveProjectBeatTimelineMs } from '@/shared/video/beatGrid';
 import { useVideoFlags } from '@/shared/video/useVideoFlags';
 
 import { compareTimelineRows, getProjectTimeline } from './projectTimeline';
@@ -101,6 +102,10 @@ export function Timeline({
     [activeTimeline.tracks],
   );
   const markers = activeTimeline.markers ?? [];
+  const beatTimesMs = useMemo(
+    () => deriveProjectBeatTimelineMs({ ...project, timeline: activeTimeline }),
+    [activeTimeline, project],
+  );
   const activePlayheadSceneId = useMemo(
     () => findSceneIdAtPlayhead(tracks, playheadMs),
     [playheadMs, tracks],
@@ -158,6 +163,7 @@ export function Timeline({
     tracks,
     scrollRef,
     markers,
+    beatTimesMs,
     playheadMs,
     timelineDurationMs,
     pixelsPerSecond,
@@ -320,6 +326,7 @@ export function Timeline({
         labels={labels}
         lasso={lasso}
         markers={markers}
+        beatTimesMs={beatTimesMs}
         materializationStates={materializationStates}
         pixelsPerSecond={pixelsPerSecond}
         playheadMs={playheadMs}

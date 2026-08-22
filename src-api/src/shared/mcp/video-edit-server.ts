@@ -13,6 +13,7 @@ import {
   ContentGraphSchema,
   CLIP_EFFECT_CATALOG,
   ClipEffectStackSchema,
+  deriveBeatTimelinePoints,
   deriveTimelineClipFrameFields,
   durationMsToFrames,
   KeyframeSchema,
@@ -24,6 +25,7 @@ import {
   VIVID_OVERLAY_MOTION_TEMPLATE_STRENGTHS,
 } from '@neumar/video-ir';
 import type {
+  BeatGridArtifact,
   ClipEffect,
   ClipEffectStack,
   FrameRate,
@@ -53,6 +55,7 @@ import type {
   VideoAgentToolCall,
   VideoAgentToolName,
 } from '@/shared/video/agent-tools';
+import { analyzeSourceBeats } from '@/shared/video/analysis/beats';
 import { analyzeClipGradeImage } from '@/shared/video/analysis/clip-grade';
 import {
   indexProjectFrames,
@@ -127,6 +130,7 @@ import {
   getVideoProjectJsonPath,
   getVideoWorkspaceRoot,
   setVideoProjectAspectRatio,
+  updateProjectDocument,
   writeProject,
 } from '@/shared/video/store';
 import { saveProjectAsTemplate } from '@/shared/video/templates/agent-bridge';
@@ -328,6 +332,8 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_set_clip_transform',
   'video_set_clip_effects',
   'video_analyze_clip_grade',
+  'video_detect_beats',
+  'video_snap_cuts_to_beats',
   'video_set_overlay_controls',
   'video_set_overlay_control_keyframes',
   'video_apply_overlay_motion_template',
@@ -2009,6 +2015,174 @@ function rankProjectMoments(
     signal: input.signal,
     moments,
   };
+}
+
+function beatGridForAudioClip(
+  project: VideoProject,
+  clip: TimelineClip,
+): BeatGridArtifact | undefined {
+  if (clip.kind !== 'audio' || clip.sourceRef.kind !== 'asset')
+    return undefined;
+  const assetId = clip.sourceRef.assetId;
+  const source = project.sources?.find(
+    (entry) => entry.mediaItemId === assetId,
+  );
+  if (!source) return undefined;
+  for (const artifact of project.analysisArtifacts ?? []) {
+    if (
+      artifact.kind !== 'beat-markers' ||
+      artifact.sourceMediaId !== source.id ||
+      artifact.contentHash !== source.contentHash
+    ) {
+      continue;
+    }
+    const grid = readBeatGrid(artifact.metadata?.beatGrid);
+    if (grid) return grid;
+  }
+  return undefined;
+}
+
+function readBeatGrid(value: unknown): BeatGridArtifact | undefined {
+  if (!isUnknownRecord(value)) return undefined;
+  const record = value;
+  if (
+    record.schema !== 'neuma.video.beat-grid.v1' ||
+    typeof record.sourceMediaId !== 'string' ||
+    typeof record.contentHash !== 'string' ||
+    !Array.isArray(record.points)
+  ) {
+    return undefined;
+  }
+  const points = record.points.flatMap((point) => {
+    if (!isUnknownRecord(point)) return [];
+    const entry = point;
+    if (
+      typeof entry.sourceMs !== 'number' ||
+      typeof entry.confidence !== 'number'
+    ) {
+      return [];
+    }
+    return [
+      {
+        sourceMs: entry.sourceMs,
+        confidence: entry.confidence,
+        ...(typeof entry.bar === 'number' ? { bar: entry.bar } : {}),
+        ...(typeof entry.beat === 'number' ? { beat: entry.beat } : {}),
+      },
+    ];
+  });
+  return {
+    schema: 'neuma.video.beat-grid.v1',
+    sourceMediaId: record.sourceMediaId,
+    contentHash: record.contentHash,
+    ...(typeof record.tempoBpm === 'number'
+      ? { tempoBpm: record.tempoBpm }
+      : {}),
+    points,
+  };
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function buildSnapCutsToBeatOps(
+  project: VideoProject,
+  beatTimesMs: number[],
+  toleranceMs: number,
+): TimelineOp[] {
+  const ops: TimelineOp[] = [];
+  for (const track of project.timeline?.tracks ?? []) {
+    if (track.kind !== 'video' && track.kind !== 'broll') continue;
+    const clips = [...track.clips].sort(
+      (left, right) => left.startMs - right.startMs,
+    );
+    for (let index = 1; index < clips.length; index += 1) {
+      const previous = clips[index - 1]!;
+      const next = clips[index]!;
+      const boundary = next.startMs;
+      if (Math.abs(previous.startMs + previous.durationMs - boundary) > 1) {
+        continue;
+      }
+      const beat = nearestNumber(boundary, beatTimesMs, toleranceMs);
+      if (beat === undefined || Math.round(beat) === boundary) continue;
+      const deltaMs = Math.round(beat) - boundary;
+      const previousTo = retimeCutSide(previous, deltaMs, 'end');
+      const nextTo = retimeCutSide(next, deltaMs, 'start');
+      if (!previousTo || !nextTo) continue;
+      ops.push(
+        {
+          kind: 'clip.trim',
+          clipId: next.id,
+          from: clipTiming(next),
+          to: nextTo,
+        },
+        {
+          kind: 'clip.trim',
+          clipId: previous.id,
+          from: clipTiming(previous),
+          to: previousTo,
+        },
+      );
+    }
+  }
+  return ops;
+}
+
+function retimeCutSide(
+  clip: TimelineClip,
+  deltaMs: number,
+  side: 'start' | 'end',
+) {
+  const speed = clip.playback?.speed ?? 1;
+  const sourceDeltaMs = Math.round(deltaMs * speed);
+  const reverse = clip.playback?.reverse === true;
+  const next = clipTiming(clip);
+  if (side === 'end') {
+    next.durationMs += deltaMs;
+    if (reverse) next.trimStartMs -= sourceDeltaMs;
+    else next.trimEndMs += sourceDeltaMs;
+  } else {
+    next.startMs += deltaMs;
+    next.durationMs -= deltaMs;
+    if (reverse) next.trimEndMs -= sourceDeltaMs;
+    else next.trimStartMs += sourceDeltaMs;
+  }
+  if (
+    next.startMs < 0 ||
+    next.durationMs <= 0 ||
+    next.trimStartMs < 0 ||
+    next.trimEndMs <= next.trimStartMs
+  ) {
+    return undefined;
+  }
+  return next;
+}
+
+function clipTiming(clip: TimelineClip) {
+  return {
+    startMs: clip.startMs,
+    durationMs: clip.durationMs,
+    trimStartMs: clip.trimStartMs,
+    trimEndMs: clip.trimEndMs,
+  };
+}
+
+function nearestNumber(
+  value: number,
+  candidates: number[],
+  tolerance: number,
+): number | undefined {
+  let best: number | undefined;
+  let distance = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const nextDistance = Math.abs(candidate - value);
+    if (nextDistance <= tolerance && nextDistance < distance) {
+      best = candidate;
+      distance = nextDistance;
+    }
+  }
+  return best;
 }
 
 async function attachVideoAsset(
@@ -4022,6 +4196,108 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
         ).catch((error) =>
           errorResult(error instanceof Error ? error.message : String(error)),
         ),
+    ),
+    tool(
+      'video_detect_beats',
+      'Detect a source-relative beat grid for an audio timeline clip and persist the derived analysis artifact. Moving, trimming, or retiming the clip does not require re-analysis.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        clipId: z.string().min(1),
+        bins: z.number().int().min(128).max(2048).default(2048),
+      },
+      async ({ projectId, clipId, bins }) =>
+        withToolTimeout(
+          'video_detect_beats',
+          async () => {
+            const project = await loadProjectForTool(projectId, options);
+            const resolvedClipId = resolveClipRef(
+              clipId,
+              selectionResolverRefs(options),
+            );
+            const clip = findProjectTimelineClip(project, resolvedClipId);
+            if (clip.kind !== 'audio' || clip.sourceRef.kind !== 'asset') {
+              return errorResult(
+                `Clip is not project audio: ${resolvedClipId}`,
+              );
+            }
+            const assetId = clip.sourceRef.assetId;
+            const source = project.sources?.find(
+              (entry) => entry.mediaItemId === assetId,
+            );
+            const asset = project.assets.find((entry) => entry.id === assetId);
+            if (!source || !asset) {
+              return errorResult('Audio clip is missing its source or asset.');
+            }
+            const analysis = await analyzeSourceBeats({
+              source,
+              asset,
+              workspaceRoot: getVideoProjectRoot(project.id),
+              bins,
+            });
+            await updateProjectDocument(project.id, (current) => ({
+              ...current,
+              analysisArtifacts: [
+                ...(current.analysisArtifacts ?? []).filter(
+                  (artifact) =>
+                    artifact.kind !== 'beat-markers' ||
+                    artifact.sourceMediaId !== source.id,
+                ),
+                analysis.artifact,
+              ],
+              updatedAt: new Date().toISOString(),
+            }));
+            return jsonResult({
+              projectId: project.id,
+              clipId: resolvedClipId,
+              artifact: analysis.artifact,
+              grid: analysis.grid,
+              timelinePoints: deriveBeatTimelinePoints(analysis.grid, clip),
+            });
+          },
+          90_000,
+        ).catch((error) =>
+          errorResult(error instanceof Error ? error.message : String(error)),
+        ),
+    ),
+    tool(
+      'video_snap_cuts_to_beats',
+      'Propose an invertible op batch that snaps touching visual cut boundaries to the nearest derived beat. This tool never applies the proposal.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        sourceClipId: z.string().min(1),
+        toleranceMs: z.number().int().min(10).max(1000).default(150),
+      },
+      async ({ projectId, sourceClipId, toleranceMs }) => {
+        try {
+          const project = await loadProjectForTool(projectId, options);
+          const resolvedClipId = resolveClipRef(
+            sourceClipId,
+            selectionResolverRefs(options),
+          );
+          const sourceClip = findProjectTimelineClip(project, resolvedClipId);
+          const grid = beatGridForAudioClip(project, sourceClip);
+          if (!grid) {
+            return errorResult(
+              'No current beat-grid artifact exists for this audio clip.',
+            );
+          }
+          const beatTimesMs = deriveBeatTimelinePoints(grid, sourceClip)
+            .map((point) => point.timelineMs)
+            .sort((a, b) => a - b);
+          const ops = buildSnapCutsToBeatOps(project, beatTimesMs, toleranceMs);
+          return jsonResult(
+            timelineApplyProposalPayload(project, ops, {
+              tool: 'video_snap_cuts_to_beats',
+              summary: `Snap ${ops.length / 2} cut boundaries to detected beats`,
+              metadata: { sourceClipId: resolvedClipId, toleranceMs },
+            }),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
     ),
     tool(
       'video_set_overlay_controls',

@@ -58,6 +58,8 @@ describe('video-edit MCP server', () => {
         'video_set_audio_clip_gain',
         'video_set_clip_effects',
         'video_analyze_clip_grade',
+        'video_detect_beats',
+        'video_snap_cuts_to_beats',
         'video_crossfade_audio_clips',
         'video_apply_timeline_op',
         'video_apply_timeline_ops',
@@ -99,6 +101,12 @@ describe('video-edit MCP server', () => {
       classifications['mcp__video-edit__video_set_timeline_transition'],
     ).toBe('write');
     expect(classifications['mcp__video-edit__video_set_audio_clip_gain']).toBe(
+      'destructive',
+    );
+    expect(classifications['mcp__video-edit__video_detect_beats']).toBe(
+      'write',
+    );
+    expect(classifications['mcp__video-edit__video_snap_cuts_to_beats']).toBe(
       'destructive',
     );
   });
@@ -471,6 +479,33 @@ describe('video-edit MCP server', () => {
     expect(project.storyboard?.scenes[0]?.caption?.text).toBe(
       'A sharper launch line',
     );
+  });
+
+  it('proposes an invertible batch for snapping touching cuts to beats', async () => {
+    await writeProject(projectWithBeatGrid());
+    const result = await findTool('video_snap_cuts_to_beats').handler(
+      { sourceClipId: 'music-clip', toleranceMs: 100 },
+      {},
+    );
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    expect(payload).toMatchObject({
+      schema: 'neuma.video.mcp-proposal.v1',
+      mode: 'proposal-only',
+      tool: 'video_snap_cuts_to_beats',
+      opCount: 2,
+      opKinds: ['clip.trim', 'clip.trim'],
+    });
+    expect(payload.ops).toEqual([
+      expect.objectContaining({
+        clipId: 'timeline-clip-2',
+        to: expect.objectContaining({ startMs: 550, trimStartMs: 550 }),
+      }),
+      expect.objectContaining({
+        clipId: 'timeline-clip-1',
+        to: expect.objectContaining({ durationMs: 550, trimEndMs: 550 }),
+      }),
+    ]);
+    expect(payload.inverses).toHaveLength(2);
   });
 
   it('makes the selected overlay green end-to-end: selection resolve, apply, context read, undo', async () => {
@@ -1701,6 +1736,76 @@ function projectWithAudioTimeline(): VideoProject {
               trimStartMs: 4000,
               trimEndMs: 8000,
               sourceDurationMs: 8000,
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+function projectWithBeatGrid(): VideoProject {
+  const project = projectWithTransitionSeam();
+  return {
+    ...project,
+    assets: [
+      ...project.assets,
+      {
+        id: 'music-asset',
+        kind: 'audio',
+        source: 'user',
+        path: 'videos/project-1/assets/music.wav',
+        metadata: { durationMs: 2_000, audioTrackCount: 1 },
+      },
+    ],
+    sources: [
+      {
+        id: 'music-source',
+        mediaItemId: 'music-asset',
+        origin: 'upload',
+        contentHash: 'music-hash',
+        analysisStatus: 'done',
+        createdAt: project.createdAt,
+      },
+    ],
+    analysisArtifacts: [
+      {
+        id: 'music-beats',
+        kind: 'beat-markers',
+        sourceMediaId: 'music-source',
+        contentHash: 'music-hash',
+        metadata: {
+          beatGrid: {
+            schema: 'neuma.video.beat-grid.v1',
+            sourceMediaId: 'music-source',
+            contentHash: 'music-hash',
+            tempoBpm: 120,
+            points: [{ sourceMs: 550, confidence: 0.9, bar: 1, beat: 2 }],
+          },
+        },
+        generatedAt: project.createdAt,
+      },
+    ],
+    timeline: {
+      ...project.timeline!,
+      tracks: [
+        ...project.timeline!.tracks,
+        {
+          id: 'music-track',
+          kind: 'audio-music',
+          name: 'Music',
+          muted: false,
+          locked: false,
+          order: 10,
+          clips: [
+            {
+              id: 'music-clip',
+              kind: 'audio',
+              sourceRef: { kind: 'asset', assetId: 'music-asset' },
+              startMs: 0,
+              durationMs: 1_000,
+              trimStartMs: 0,
+              trimEndMs: 1_000,
             },
           ],
         },

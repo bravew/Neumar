@@ -31,6 +31,7 @@ const READ_TOOLS = [
 ] as const;
 
 const WRITE_TOOLS = [
+  'video_detect_beats',
   'video_analyze_image',
   'video_set_aspect_ratio',
   'video_add_scene',
@@ -111,6 +112,7 @@ const DESTRUCTIVE_TOOLS = [
   'video_flip_clip',
   'video_set_clip_transform',
   'video_set_clip_effects',
+  'video_snap_cuts_to_beats',
   'video_close_gap',
   'video_set_audio_clip_gain',
   'video_set_audio_clip_mute',
