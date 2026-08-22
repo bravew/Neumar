@@ -101,7 +101,7 @@ peerDependencyRules:
 
 minimumReleaseAgeExclude:
   - katex@0.18.2
-  - mediabunny@1.53.0
+  - mediabunny@1.55.2
   - read-excel-file@9.3.8
   - '@assistant-ui/core@0.3.10'
   - '@assistant-ui/react-markdown@0.14.10'
@@ -121,3 +121,34 @@ minimumReleaseAgeExclude:
   - '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.226'
   - '@anthropic-ai/claude-agent-sdk@0.3.226'
   - '@anthropic-ai/sandbox-runtime@0.0.71'
+  - '@remotion/bundler@4.0.515'
+  - '@remotion/captions@4.0.515'
+  - '@remotion/cli@4.0.515'
+  - '@remotion/compositor-darwin-arm64@4.0.515'
+  - '@remotion/compositor-darwin-x64@4.0.515'
+  - '@remotion/compositor-linux-arm64-gnu@4.0.515'
+  - '@remotion/compositor-linux-arm64-musl@4.0.515'
+  - '@remotion/compositor-linux-x64-gnu@4.0.515'
+  - '@remotion/compositor-linux-x64-musl@4.0.515'
+  - '@remotion/compositor-win32-x64-msvc@4.0.515'
+  - '@remotion/google-fonts@4.0.515'
+  - '@remotion/licensing@4.0.515'
+  - '@remotion/media-parser@4.0.515'
+  - '@remotion/media-utils@4.0.515'
+  - '@remotion/paths@4.0.515'
+  - '@remotion/player@4.0.515'
+  - '@remotion/renderer@4.0.515'
+  - '@remotion/shapes@4.0.515'
+  - '@remotion/streaming@4.0.515'
+  - '@remotion/studio-codemods@4.0.515'
+  - '@remotion/studio-protocol@4.0.515'
+  - '@remotion/studio-server@4.0.515'
+  - '@remotion/studio-shared@4.0.515'
+  - '@remotion/studio@4.0.515'
+  - '@remotion/tailwind@4.0.515'
+  - '@remotion/timeline-utils@4.0.515'
+  - '@remotion/transitions@4.0.515'
+  - '@remotion/web-renderer@4.0.515'
+  - '@remotion/zod-types@4.0.515'
+  - hyperframes@0.8.7
+  - remotion@4.0.515
