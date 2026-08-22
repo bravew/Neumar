@@ -1,10 +1,12 @@
+import type { FrameRate } from '@neumar/video-ir';
+
 import type { AspectRatio } from '@/shared/video/types';
 
 // Neuma-named port of html-video's EngineAdapter contract
 // (`_sample/html-video/packages/core/src/types/index.ts`).
 // See dev-doc/html-video/06-05/01-html-render-engine-and-adapter.md.
 
-export type EngineId = 'remotion' | 'html' | (string & {});
+export type EngineId = 'remotion' | 'html' | 'hyperframes' | (string & {});
 
 export type EngineRenderStage = 'preparing' | 'rendering' | 'muxing';
 
@@ -30,7 +32,7 @@ export interface VideoEngineCapabilities {
   audio: EngineAudioSupport;
   subtitles: EngineSubtitleSupport;
   renderTarget: EngineRenderTarget[];
-  fps: number[];
+  fps: FrameRate[];
   /** Free-form SPDX or license hint for this engine itself. */
   licensing: string;
   /** Rough speed indicator, surfaced to UX for estimates. */
@@ -78,14 +80,38 @@ export interface EngineRenderConfig {
   format: EngineOutputFormat;
   resolution: { width: number; height: number };
   aspect?: AspectRatio;
-  fps: number;
+  fps: FrameRate;
   /** Total duration; 'auto' lets the engine derive it from the source. */
   duration: number | 'auto';
   outputPath: string;
   alpha?: boolean;
+  strictness?: 'best-effort' | 'strict' | 'strict-all';
+  sourceFrameFormat?: 'auto' | 'jpg' | 'png';
+  contentKind?: 'general' | 'ui-capture';
+  reproducible?: boolean;
+  vp9CpuUsed?: number;
   quality?: 'draft' | 'standard' | 'high';
   audio?: Array<{ path: string; volumeDb?: number }>;
 }
+
+export type EngineUnavailableReason =
+  | 'not-found'
+  | 'version-too-old'
+  | 'browser-missing';
+
+export type EngineAvailability =
+  | {
+      installed: true;
+      version: string;
+      browserVersion?: string;
+    }
+  | {
+      installed: false;
+      reason: EngineUnavailableReason;
+      version?: string;
+      requiredVersion?: string;
+      detail?: string;
+    };
 
 export interface EngineRenderInput {
   template: EngineTemplateRef;
@@ -158,6 +184,6 @@ export interface VideoEngineAdapter {
     input: EngineRenderInput,
     ctx: EngineRenderContext,
   ): Promise<HtmlSceneOutput>;
-  /** Returns true if the engine's runtime prerequisites are installed. */
-  isInstalled(): Promise<boolean> | boolean;
+  /** Probes runtime prerequisites without mutating the host. */
+  probeAvailability(): Promise<EngineAvailability> | EngineAvailability;
 }

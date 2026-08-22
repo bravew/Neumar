@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { frameRateToNumber } from '@neumar/video-ir';
 import { bundle } from '@remotion/bundler';
 import {
   makeCancelSignal,
@@ -31,7 +32,11 @@ const REMOTION_CAPABILITIES: VideoEngineCapabilities = {
   audio: 'multi',
   subtitles: 'burn-in',
   renderTarget: ['local-node'],
-  fps: [24, 30, 60],
+  fps: [
+    { num: 24, den: 1 },
+    { num: 30, den: 1 },
+    { num: 60, den: 1 },
+  ],
   licensing: 'MIT (Remotion); see Remotion company-license rules',
   bestFor: [
     'React-controlled animation',
@@ -78,7 +83,7 @@ export function createRemotionAdapter(
     name: 'Remotion',
     upstreamVersion: ENGINE_VERSION,
     capabilities: REMOTION_CAPABILITIES,
-    isInstalled: () => true,
+    probeAvailability: () => ({ installed: true, version: ENGINE_VERSION }),
     validate(template: EngineTemplateRef): EngineValidationResult {
       const issues: EngineValidationResult['issues'] = [];
       if (!template.sourcePath) {
@@ -104,7 +109,7 @@ export function createRemotionAdapter(
     ): Promise<EngineRenderOutput> {
       const start = Date.now();
       const durationSec = resolveDurationSec(input);
-      const fps = input.config.fps;
+      const fps = frameRateToNumber(input.config.fps);
       const durationInFrames = Math.max(1, Math.round(durationSec * fps));
       const { width, height } = input.config.resolution;
 

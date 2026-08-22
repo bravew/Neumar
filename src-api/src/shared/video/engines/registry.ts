@@ -44,25 +44,34 @@ export interface VideoEngineSummary {
   name: string;
   upstreamVersion: string;
   installed: boolean;
+  availability: Awaited<ReturnType<VideoEngineAdapter['probeAvailability']>>;
   capabilities: VideoEngineAdapter['capabilities'];
 }
 
 export async function listVideoEngines(): Promise<VideoEngineSummary[]> {
   const out: VideoEngineSummary[] = [];
   for (const adapter of registry.values()) {
-    let installed = false;
+    let availability: Awaited<
+      ReturnType<VideoEngineAdapter['probeAvailability']>
+    >;
     try {
-      installed = await Promise.resolve(adapter.isInstalled());
+      availability = await Promise.resolve(adapter.probeAvailability());
     } catch (err) {
       logger.warn(
-        `isInstalled() threw for engine "${adapter.id}": ${(err as Error).message}`,
+        `probeAvailability() threw for engine "${adapter.id}": ${(err as Error).message}`,
       );
+      availability = {
+        installed: false,
+        reason: 'not-found',
+        detail: err instanceof Error ? err.message : String(err),
+      };
     }
     out.push({
       id: adapter.id,
       name: adapter.name,
       upstreamVersion: adapter.upstreamVersion,
-      installed,
+      installed: availability.installed,
+      availability,
       capabilities: adapter.capabilities,
     });
   }

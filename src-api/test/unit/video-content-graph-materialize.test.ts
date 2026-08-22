@@ -143,10 +143,10 @@ function fakeAdapter(engineId: string = 'html'): {
       audio: 'multi',
       subtitles: 'burn-in',
       renderTarget: ['local-chromium'],
-      fps: [30],
+      fps: [{ num: 30, den: 1 }],
       licensing: 'Apache-2.0',
     },
-    isInstalled: () => true,
+    probeAvailability: () => ({ installed: true, version: 'test' }),
     validate: () => ({ ok: true, issues: [] }),
     async render(input): Promise<EngineRenderOutput> {
       renders.push(input);
@@ -166,11 +166,11 @@ function fakeAdapter(engineId: string = 'html'): {
               : Number(input.config.duration),
           fileSizeBytes: buf.length,
           actualResolution: input.config.resolution,
-          fps: input.config.fps,
+          fps: 30,
           renderedFrames: Math.round(
             (input.config.duration === 'auto'
               ? 5
-              : Number(input.config.duration)) * input.config.fps,
+              : Number(input.config.duration)) * 30,
           ),
           renderWallClockSec: 0.02,
           engineVersion: 'test/0.0.0',

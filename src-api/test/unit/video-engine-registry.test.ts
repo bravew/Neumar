@@ -22,7 +22,7 @@ describe('video engine registry', () => {
     );
   });
 
-  it('registers built-in remotion + html adapters with honest install status', async () => {
+  it('registers built-in adapters with honest install status', async () => {
     ensureBuiltinVideoEnginesRegistered();
     const engines = await listVideoEngines();
     const byId = Object.fromEntries(engines.map((e) => [e.id, e]));
@@ -32,6 +32,7 @@ describe('video engine registry', () => {
     // Neuma runs. Real Chromium presence is exercised by the
     // VIDEO_EVAL=1 e2e and surfaces as a runtime error if missing.
     expect(byId.html?.installed).toBe(true);
+    expect(byId.hyperframes?.availability).toBeDefined();
   });
 
   it('supports replacing an adapter at runtime', () => {
@@ -45,10 +46,10 @@ describe('video engine registry', () => {
 
   it('ensureBuiltinVideoEnginesRegistered re-registers after a reset', async () => {
     ensureBuiltinVideoEnginesRegistered();
-    expect((await listVideoEngines()).length).toBe(2);
+    expect((await listVideoEngines()).length).toBe(3);
     _resetVideoEngineRegistry();
     expect((await listVideoEngines()).length).toBe(0);
     ensureBuiltinVideoEnginesRegistered();
-    expect((await listVideoEngines()).length).toBe(2);
+    expect((await listVideoEngines()).length).toBe(3);
   });
 });

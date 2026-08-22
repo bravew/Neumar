@@ -1,4 +1,5 @@
 import { createHtmlAdapter } from './html-adapter';
+import { createHyperframesAdapter } from './hyperframes-adapter';
 import {
   type VideoEngineSummary,
   listVideoEngines,
@@ -14,6 +15,10 @@ export {
   createHtmlAdapter,
   HtmlEngineNotImplementedError,
 } from './html-adapter';
+export {
+  createHyperframesAdapter,
+  HyperframesEngineError,
+} from './hyperframes-adapter';
 
 /**
  * Register the built-in engines. Idempotent: a second call with both
@@ -26,6 +31,9 @@ export function ensureBuiltinVideoEnginesRegistered(): void {
   }
   if (!tryGetVideoEngine('html')) {
     registerVideoEngine(createHtmlAdapter());
+  }
+  if (!tryGetVideoEngine('hyperframes')) {
+    registerVideoEngine(createHyperframesAdapter());
   }
 }
 

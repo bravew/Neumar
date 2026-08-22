@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import { frameRateToNumber } from '@neumar/video-ir';
+
 import { hashHtmlFrameSeed } from '@/shared/video/content-graph/frame-seed-hash';
 
 import { captureHtmlToMp4 } from './html/capture';
@@ -35,7 +37,11 @@ const HTML_CAPABILITIES: VideoEngineCapabilities = {
   audio: 'multi',
   subtitles: 'burn-in',
   renderTarget: ['local-chromium'],
-  fps: [24, 30, 60],
+  fps: [
+    { num: 24, den: 1 },
+    { num: 30, den: 1 },
+    { num: 60, den: 1 },
+  ],
   licensing: 'Apache-2.0 (playwright)',
   bestFor: ['Animated HTML frames', 'GSAP / CSS @keyframes templates'],
   weaknesses: [
@@ -85,22 +91,24 @@ export function createHtmlAdapter(
     name: 'HTML (Playwright)',
     upstreamVersion: ENGINE_VERSION,
     capabilities: HTML_CAPABILITIES,
-    isInstalled: async () => {
+    probeAvailability: async () => {
       if (deps.playwrightLoader) {
         try {
           const mod = (await deps.playwrightLoader()) as {
             chromium?: unknown;
           };
-          return typeof mod.chromium === 'object' && mod.chromium !== null;
+          return typeof mod.chromium === 'object' && mod.chromium !== null
+            ? { installed: true, version: ENGINE_VERSION }
+            : { installed: false, reason: 'browser-missing' };
         } catch {
-          return false;
+          return { installed: false, reason: 'browser-missing' };
         }
       }
       // Same dual-load fallback as src-api/src/app/api/design.ts.
       try {
         const mod = (await import('playwright')) as { chromium?: unknown };
         if (typeof mod.chromium === 'object' && mod.chromium !== null)
-          return true;
+          return { installed: true, version: ENGINE_VERSION };
       } catch {
         /* fall through */
       }
@@ -108,9 +116,11 @@ export function createHtmlAdapter(
         const mod = (await import('@playwright/test')) as {
           chromium?: unknown;
         };
-        return typeof mod.chromium === 'object' && mod.chromium !== null;
+        return typeof mod.chromium === 'object' && mod.chromium !== null
+          ? { installed: true, version: ENGINE_VERSION }
+          : { installed: false, reason: 'browser-missing' };
       } catch {
-        return false;
+        return { installed: false, reason: 'browser-missing' };
       }
     },
     validate(template: EngineTemplateRef): EngineValidationResult {
@@ -131,6 +141,7 @@ export function createHtmlAdapter(
     ): Promise<EngineRenderOutput> {
       const start = Date.now();
       const durationSec = resolveDurationSec(input);
+      const fps = frameRateToNumber(input.config.fps);
       const sceneOutDir = path.join(ctx.workDir, `scene-${input.template.id}`);
 
       ctx.onProgress?.(2, 'preparing');
@@ -146,7 +157,7 @@ export function createHtmlAdapter(
         outputPath: input.config.outputPath,
         width: input.config.resolution.width,
         height: input.config.resolution.height,
-        fps: input.config.fps,
+        fps,
         durationSec,
         signal: ctx.signal,
         playwrightLoader: deps.playwrightLoader,
@@ -168,7 +179,7 @@ export function createHtmlAdapter(
           durationSec: result.durationSec,
           fileSizeBytes: result.fileSizeBytes,
           actualResolution: { width: result.width, height: result.height },
-          fps: input.config.fps,
+          fps,
           renderedFrames: result.renderedFrames,
           renderWallClockSec: (Date.now() - start) / 1000,
           engineVersion: ENGINE_VERSION,
@@ -190,7 +201,7 @@ export function createHtmlAdapter(
             templateVersion: input.template.version ?? '',
             engineVersion: ENGINE_VERSION,
             resolution: input.config.resolution,
-            fps: input.config.fps,
+            fps,
             durationSec,
             injectionNonce: scene.injectionNonce,
           }),
