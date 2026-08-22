@@ -7,6 +7,7 @@ import {
   msToFrame,
   normalizeClipPlayback,
   type ClipPlayback,
+  type ClipEffectStack,
   type KeyframeTrack,
   type VividOverlayRenderEntry,
 } from '@neumar/video-ir';
@@ -83,6 +84,7 @@ export interface RemotionRenderVisualClip {
   keyframes?: KeyframeTrack[];
   transitionToNext?: EdlSegment['transitionToNext'];
   filters?: EdlSegment['filters'];
+  effects?: ClipEffectStack;
   imagePan?: Extract<AssetPlan, { kind: 'image-pan' }>;
   reframe?: VideoReframePlan;
 }
@@ -355,6 +357,7 @@ function visualClipFromEdl(
       keyframes: segment.keyframes,
       transitionToNext: segment.transitionToNext,
       filters: segment.filters,
+      effects: segment.effects,
       imagePan: asset.kind === 'image' ? imagePan : undefined,
       reframe:
         trackKind === 'video'

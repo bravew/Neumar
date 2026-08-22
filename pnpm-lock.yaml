@@ -89,6 +89,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.16
         version: 1.2.16(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@remotion/effects':
+        specifier: 4.0.515
+        version: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@remotion/media':
         specifier: 4.0.515
         version: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -433,6 +436,9 @@ importers:
       '@remotion/bundler':
         specifier: 4.0.515
         version: 4.0.515(@swc/helpers@0.5.23)(lightningcss@1.33.0)(postcss@8.5.26)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@remotion/effects':
+        specifier: 4.0.515
+        version: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@remotion/media':
         specifier: 4.0.515
         version: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -4083,6 +4089,9 @@ packages:
     resolution: {integrity: sha512-ph37Jleaoco651xAC22794gslN5/HDmRWp4wt4iyqU39Zvltsoc8TuHqDZyC2wE+MUzIgKnWCE7yQqumyaL/cg==}
     cpu: [x64]
     os: [win32]
+
+  '@remotion/effects@4.0.515':
+    resolution: {integrity: sha512-kwnehhdXRlZkgDpplGcTxwSU/ILVrys1TAq9LXRHQGch8IBrcrfnwooE+YXfpfpLKnnlGtWu2bY4rMuK2Gz+ww==}
 
   '@remotion/google-fonts@4.0.515':
     resolution: {integrity: sha512-9hhaOwXA9STe7JTF+i2QjGe35bDin96Lop+wlKG+OZj0eMQIrl9OoGerCBIO02pcDCamgX9xki7PoDZ+Z88EXA==}
@@ -14375,6 +14384,13 @@ snapshots:
 
   '@remotion/compositor-win32-x64-msvc@4.0.515':
     optional: true
+
+  '@remotion/effects@4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      remotion: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
   '@remotion/google-fonts@4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:

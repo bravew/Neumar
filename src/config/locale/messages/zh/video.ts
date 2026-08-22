@@ -443,7 +443,23 @@ export default {
       canvasNewCaptionDefaultText: '新字幕',
       captionTransformHint:
         '字幕位置在"样式"选项卡中 — 使用画布上的手柄或位置网格。',
-      effectsComingSoon: '每剪辑特效将在后续里程碑推出。',
+      effectControls: {
+        empty: '此剪辑没有画布特效。',
+        remove: '移除特效',
+        kinds: {
+          brightness: '亮度',
+          contrast: '对比度',
+          saturation: '饱和度',
+          'white-balance': '白平衡',
+          blur: '模糊',
+        },
+        parameters: {
+          amount: '强度',
+          temperature: '色温',
+          tint: '色调',
+          radius: '半径',
+        },
+      },
       styleEmphasis: '样式',
       bold: '粗体',
       italic: '斜体',

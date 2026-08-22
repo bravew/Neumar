@@ -457,7 +457,23 @@ export default {
       canvasNewCaptionDefaultText: 'Nova legenda',
       captionTransformHint:
         'A posição da legenda está na aba Estilo — use as alças do canvas ou a grade de posições.',
-      effectsComingSoon: 'Efeitos por clipe chegarão em um marco posterior.',
+      effectControls: {
+        empty: 'Este clipe não tem efeitos de tela.',
+        remove: 'Remover efeito',
+        kinds: {
+          brightness: 'Brilho',
+          contrast: 'Contraste',
+          saturation: 'Saturação',
+          'white-balance': 'Balanço de branco',
+          blur: 'Desfoque',
+        },
+        parameters: {
+          amount: 'Intensidade',
+          temperature: 'Temperatura',
+          tint: 'Matiz',
+          radius: 'Raio',
+        },
+      },
       styleEmphasis: 'Estilo',
       bold: 'Negrito',
       italic: 'Itálico',

@@ -1,13 +1,20 @@
-import type { CSSProperties } from 'react';
-
 import {
   localFrameToSourceFrame,
+  frameToMs,
   normalizeClipPlayback,
 } from '@neumar/video-ir';
 import { TransitionSeries } from '@remotion/transitions';
-import { AbsoluteFill, Freeze, Img, Sequence, useCurrentFrame } from 'remotion';
+import {
+  AbsoluteFill,
+  Freeze,
+  Img,
+  Sequence,
+  useCurrentFrame,
+  useVideoConfig,
+} from 'remotion';
 
-import { buildVideoClipCssFilter } from '../clipFilters';
+import { buildRemotionClipEffects } from '@/shared/video/remotionClipEffects';
+
 import type { OverlayAssetLoader } from './overlays/vividOverlayPreviewModel';
 import { BlurPadImage, BlurPadVideo, RemotionVideo } from './RemotionBlurPad';
 import { Caption } from './RemotionCaption';
@@ -22,6 +29,11 @@ import {
   transitionPresentation,
   transitionTiming,
 } from './remotionTransitionPresentations';
+import {
+  mediaElementStyle,
+  sourceEndFrameWithTail,
+  transformStyle,
+} from './remotionVisualClipStyle';
 import { RemotionVividOverlayClip } from './RemotionVividOverlay';
 
 export interface RemotionTimelineCompositionProps {
@@ -184,6 +196,8 @@ function VisualClip({
   useRemotionMedia: boolean;
 }) {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const effects = buildRemotionClipEffects(clip.effects, frameToMs(frame, fps));
   const playback = normalizeClipPlayback(clip.playback);
   const style = transformStyle(clip);
   const mediaStyle = mediaElementStyle(clip);
@@ -192,19 +206,25 @@ function VisualClip({
     return (
       <AbsoluteFill style={style}>
         {blurPad ? (
-          <BlurPadImage src={clip.src} mediaStyle={mediaStyle} />
+          <BlurPadImage
+            src={clip.src}
+            mediaStyle={mediaStyle}
+            effects={effects}
+          />
         ) : clip.imagePan ? (
           <KenBurnsImage
             src={clip.src}
             imagePan={clip.imagePan}
             durationInFrames={clip.durationInFrames + transitionTailFrames}
             mediaStyle={mediaStyle}
+            effects={effects}
           />
         ) : (
           <Img
             src={clip.src}
             className="size-full object-cover"
             style={mediaStyle}
+            effects={effects}
           />
         )}
       </AbsoluteFill>
@@ -228,6 +248,7 @@ function VisualClip({
         trimAfter={trimAfter}
         mediaStyle={mediaStyle}
         useRemotionMedia={useRemotionMedia}
+        effects={effects}
         {...playbackProps}
       />
     ) : (
@@ -239,6 +260,7 @@ function VisualClip({
         trimAfter={trimAfter}
         style={mediaStyle}
         useRemotionMedia={useRemotionMedia}
+        effects={effects}
         {...playbackProps}
       />
     );
@@ -269,62 +291,6 @@ function VisualClip({
       </span>
     </AbsoluteFill>
   );
-}
-
-function transformStyle(clip: RemotionVisualClip): CSSProperties {
-  const transform = clip.transform;
-  if (!transform) return {};
-  const positionX = transform.positionX ?? 0.5;
-  const positionY = transform.positionY ?? 0.5;
-  return {
-    backgroundColor: transform.background,
-    opacity: transform.opacity,
-    transform: [
-      `translate(${(positionX - 0.5) * 100}%, ${(positionY - 0.5) * 100}%)`,
-      `scale(${transform.scaleX ?? transform.scale ?? 1}, ${transform.scaleY ?? transform.scale ?? 1})`,
-      `rotate(${transform.rotation ?? 0}deg)`,
-    ].join(' '),
-  };
-}
-
-function mediaElementStyle(
-  clip: RemotionVisualClip,
-): CSSProperties | undefined {
-  const filter = buildVideoClipCssFilter(clip.filters);
-  const objectPosition = objectPositionForReframe(clip.reframe?.anchor);
-  const objectFit = objectFitForTransform(clip.transform?.fit);
-  if (!filter && !objectPosition && objectFit === 'cover') return undefined;
-  return {
-    objectFit,
-    ...(filter ? { filter } : {}),
-    ...(objectPosition ? { objectPosition } : {}),
-  };
-}
-
-function objectFitForTransform(
-  fit: NonNullable<RemotionVisualClip['transform']>['fit'] | undefined,
-): CSSProperties['objectFit'] {
-  if (fit === 'contain') return 'contain';
-  if (fit === 'fill') return 'fill';
-  return 'cover';
-}
-
-function objectPositionForReframe(
-  anchor: string | undefined,
-): string | undefined {
-  if (anchor === 'left') return '0% 50%';
-  if (anchor === 'right') return '100% 50%';
-  if (anchor === 'top') return '50% 0%';
-  if (anchor === 'bottom') return '50% 100%';
-  if (anchor === 'top-third') return '50% 33%';
-  return undefined;
-}
-
-function sourceEndFrameWithTail(
-  clip: RemotionVisualClip,
-  transitionTailFrames: number,
-): number {
-  return clip.sourceEndFrame + transitionTailFrames;
 }
 
 function groupVisualClipsByTrack(clips: RemotionVisualClip[], fps: number) {

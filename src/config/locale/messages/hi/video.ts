@@ -449,7 +449,23 @@ export default {
       canvasNewCaptionDefaultText: 'नया कैप्शन',
       captionTransformHint:
         'कैप्शन की स्थिति स्टाइल टैब में है — कैनवास हैंडल या पोज़िशन ग्रिड का उपयोग करें।',
-      effectsComingSoon: 'क्लिप-वार इफ़ेक्ट बाद में आएंगे।',
+      effectControls: {
+        empty: 'इस क्लिप पर कोई कैनवास इफ़ेक्ट नहीं है।',
+        remove: 'इफ़ेक्ट हटाएँ',
+        kinds: {
+          brightness: 'चमक',
+          contrast: 'कॉन्ट्रास्ट',
+          saturation: 'सैचुरेशन',
+          'white-balance': 'व्हाइट बैलेंस',
+          blur: 'धुंधलापन',
+        },
+        parameters: {
+          amount: 'मात्रा',
+          temperature: 'तापमान',
+          tint: 'टिंट',
+          radius: 'त्रिज्या',
+        },
+      },
       styleEmphasis: 'स्टाइल',
       bold: 'बोल्ड',
       italic: 'इटैलिक',

@@ -8,6 +8,7 @@ import type { VideoAspectRatio, VideoProject } from '@/shared/types/video';
 import { AnimateSection } from './clipInspector/AnimateSection';
 import { AudioClipSections } from './clipInspector/AudioClipSections';
 import { CaptionStyleSection } from './clipInspector/CaptionStyleSection';
+import { ClipEffectsSection } from './clipInspector/ClipEffectsSection';
 import {
   isAudioClip,
   isCaptionClip,
@@ -337,9 +338,11 @@ export function TimelineClipInspector({
       ) : null}
 
       {tab === 'effects' && isVisual ? (
-        <p className="text-muted-foreground text-xs">
-          {labels.effectsComingSoon}
-        </p>
+        <ClipEffectsSection
+          clip={selectedClip}
+          labels={labels}
+          updateEffects={(effects) => updateClip(selectedClip.id, { effects })}
+        />
       ) : null}
     </section>
   );

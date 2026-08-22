@@ -9,6 +9,7 @@ import {
   AudioFadeCurve,
   AudioTransitionSpec,
   ClipPlayback,
+  ClipEffectStack,
   FrameRate,
   KeyframeTrack,
   TimelineHistoryEntry,
@@ -963,6 +964,7 @@ export interface VideoVisualTimelineClip extends VideoBaseTimelineClip {
   transitionToNext?: VideoTimelineTransition;
   audioSeamToNext?: VideoAudioSeamMode;
   filters?: VideoClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
 }
 
@@ -1054,6 +1056,7 @@ export interface VideoEdlSegment {
   transitionToNext?: VideoTimelineTransition;
   audioSeamToNext?: VideoAudioSeamMode;
   filters?: VideoClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
 }
 

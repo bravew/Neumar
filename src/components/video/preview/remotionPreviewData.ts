@@ -4,6 +4,7 @@ import {
   msToFrame,
   normalizeClipPlayback,
   type ClipPlayback,
+  type ClipEffectStack,
   type KeyframeTrack,
 } from '@neumar/video-ir';
 
@@ -71,6 +72,7 @@ export interface RemotionVisualClip {
   transitionToNext?: VideoVisualTimelineClip['transitionToNext'];
   audioSeamToNext?: VideoVisualTimelineClip['audioSeamToNext'];
   filters?: VideoClipFilters;
+  effects?: ClipEffectStack;
   reframe?: VideoReframeOverride;
   muted?: boolean;
   playback?: ClipPlayback;
@@ -377,6 +379,7 @@ function visualClipFromSegment(
     transitionToNext: segment.transitionToNext,
     audioSeamToNext: segment.audioSeamToNext,
     filters: segment.filters,
+    effects: segment.effects,
     muted: segment.muted ?? scene?.muteAudio,
     playback: segment.playback,
     reframe:
@@ -528,6 +531,7 @@ function segmentFromClip(
     transitionToNext: clip.transitionToNext,
     audioSeamToNext: clip.audioSeamToNext,
     filters: clip.filters,
+    effects: clip.effects,
     muted: trackMuted || clip.muted === true ? true : clip.muted,
   };
 }

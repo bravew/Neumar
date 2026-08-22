@@ -2,6 +2,7 @@ export * from './content-graph-schema.js';
 export * from './content-graph-types.js';
 export * from './content-graph.js';
 export * from './audio-envelope.js';
+export * from './clip-effects.js';
 export * from './edit-builders.js';
 export * from './keyframes.js';
 export * from './overwrite.js';

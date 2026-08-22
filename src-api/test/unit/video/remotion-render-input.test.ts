@@ -166,6 +166,31 @@ describe('remotion render input', () => {
     expect(input.outroFrames).toBe(24);
   });
 
+  it('propagates typed clip effects without changing legacy filters', async () => {
+    const project = projectFixture();
+    const clip = project.timeline?.tracks[0]?.clips[0];
+    if (!clip || clip.kind !== 'video') throw new Error('Expected video clip');
+    clip.effects = {
+      schema: 'neuma.video.clip-effects.v1',
+      effects: [
+        {
+          id: '15ef4de3-a29d-4435-aa78-70e0948e5191',
+          version: 1,
+          kind: 'brightness',
+          params: { amount: 0.1 },
+        },
+      ],
+    };
+    await createAssetFiles(project);
+
+    const input = await buildRemotionRenderInput(project, { root: workDir });
+
+    expect(input.visualClips[0]).toMatchObject({
+      filters: { contrast: 1.3, grayscale: 0.2 },
+      effects: clip.effects,
+    });
+  });
+
   it('can omit captions for sidecar-only renders', async () => {
     const project = projectFixture();
     await createAssetFiles(project);

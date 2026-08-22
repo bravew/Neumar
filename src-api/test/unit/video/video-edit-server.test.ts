@@ -43,6 +43,7 @@ describe('video-edit MCP server', () => {
         'video_list_assets',
         'video_describe_scene',
         'video_list_transition_presets',
+        'video_list_effect_presets',
         'video_get_transition_seams',
         'video_add_scene',
         'video_set_keyframes',
@@ -55,6 +56,8 @@ describe('video-edit MCP server', () => {
         'video_remove_timeline_transition',
         'video_suggest_timeline_transitions',
         'video_set_audio_clip_gain',
+        'video_set_clip_effects',
+        'video_analyze_clip_grade',
         'video_crossfade_audio_clips',
         'video_apply_timeline_op',
         'video_apply_timeline_ops',
@@ -191,6 +194,51 @@ describe('video-edit MCP server', () => {
         }),
       ]),
     );
+  });
+
+  it('lists the installed clip-effect catalog', async () => {
+    const result = await findTool('video_list_effect_presets').handler({}, {});
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+
+    expect(payload).toMatchObject({
+      schema: 'neuma.video.effect-presets.v1',
+      projectId: 'project-1',
+    });
+    expect(payload.presets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'white-balance' }),
+        expect.objectContaining({ kind: 'blur' }),
+      ]),
+    );
+  });
+
+  it('proposes an invertible clip-effect stack without applying it', async () => {
+    const result = await findTool('video_set_clip_effects').handler(
+      {
+        clipId: 'timeline-clip-1',
+        effects: [
+          { kind: 'white-balance', params: { temperature: 0.15, tint: 0 } },
+          { kind: 'contrast', params: { amount: 0.9 } },
+        ],
+        applyMode: 'propose',
+      },
+      {},
+    );
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+
+    expect(payload).toMatchObject({
+      schema: 'neuma.video.mcp-proposal.v1',
+      ops: [
+        expect.objectContaining({
+          kind: 'clip.setEffects',
+          clipId: 'timeline-clip-1',
+          before: null,
+        }),
+      ],
+    });
+    const { getProject } = await import('@/shared/video/store');
+    const project = await getProject('project-1');
+    expect(project.timeline?.tracks[0]?.clips[0]).not.toHaveProperty('effects');
   });
 
   it('returns timeline transition seams with constraints and adjacent clip context', async () => {

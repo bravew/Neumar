@@ -20,7 +20,7 @@ import {
   OffthreadVideo,
   useCurrentFrame,
 } from 'remotion';
-import type { CalculateMetadataFunction } from 'remotion';
+import type { CalculateMetadataFunction, EffectsProp } from 'remotion';
 import { Sequence } from 'remotion';
 
 import {
@@ -29,6 +29,7 @@ import {
   resolveCaptionWords,
 } from './caption-word-render';
 import { buildClipCssFilter } from './clip-filters';
+import { buildRemotionClipEffects } from './remotion-clip-effects';
 import {
   REMOTION_OVERLAY_PASS_COMPOSITION_ID,
   REMOTION_RENDER_COMPOSITION_ID,
@@ -72,6 +73,7 @@ const DEFAULT_RENDER_INPUT: RemotionCompositionProps = {
   captions: [],
   useRemotionMedia: true,
 };
+const NO_EFFECTS: EffectsProp = [];
 const calculateMetadata: CalculateMetadataFunction<
   RemotionCompositionProps
 > = ({ props }) => ({
@@ -193,6 +195,7 @@ function VisualClip({
   const frame = useCurrentFrame();
   const localMs = frameToMs(frame, fps);
   const style = transformStyle(clip, localMs);
+  const effects = buildRemotionClipEffects(clip.effects, localMs);
   const blurPad = clip.transforms?.fit === 'blur-pad';
   const trimBefore = clip.sourceStartFrame;
   const trimAfter = sourceEndFrameWithTail(clip, transitionTailFrames);
@@ -209,8 +212,8 @@ function VisualClip({
       return React.createElement(
         AbsoluteFill,
         { style },
-        React.createElement(Img, { src: clip.src, style: bg }),
-        React.createElement(Img, { src: clip.src, style: fg }),
+        React.createElement(Img, { src: clip.src, style: bg, effects }),
+        React.createElement(Img, { src: clip.src, style: fg, effects }),
       );
     }
     return React.createElement(
@@ -219,6 +222,7 @@ function VisualClip({
       React.createElement(Img, {
         src: clip.src,
         style: mediaElementStyle(clip, localMs),
+        effects,
       }),
     );
   }
@@ -245,6 +249,7 @@ function VisualClip({
               trimBefore,
               trimAfter,
               useRemotionMedia,
+              effects,
               ...playbackProps,
             }),
             React.createElement(RenderVideo, {
@@ -254,6 +259,7 @@ function VisualClip({
               trimBefore,
               trimAfter,
               useRemotionMedia,
+              effects,
               ...playbackProps,
             }),
           );
@@ -265,6 +271,7 @@ function VisualClip({
           trimBefore,
           trimAfter,
           useRemotionMedia,
+          effects,
           ...playbackProps,
         });
 
@@ -302,6 +309,7 @@ interface RenderVideoProps {
   preservePitch?: boolean;
   style?: CSSProperties;
   useRemotionMedia: boolean;
+  effects?: EffectsProp;
 }
 
 /** Selects the new renderer or the legacy rollback path per render input. */
@@ -314,8 +322,12 @@ function RenderVideo({
   preservePitch,
   style,
   useRemotionMedia,
+  effects = NO_EFFECTS,
 }: RenderVideoProps): React.ReactElement {
   if (!useRemotionMedia) {
+    if (effects.length > 0) {
+      throw new UnsupportedMediaEffectError();
+    }
     return React.createElement(OffthreadVideo, {
       src,
       muted,
@@ -336,9 +348,19 @@ function RenderVideo({
     playbackRate,
     objectFit: toMediaObjectFit(objectFit),
     style: canvasStyle,
-    disallowFallbackToOffthreadVideo: false,
+    disallowFallbackToOffthreadVideo: effects.length > 0,
+    effects,
     fallbackOffthreadVideoProps: { preservePitch },
   });
+}
+
+export class UnsupportedMediaEffectError extends Error {
+  readonly code = 'unsupported_media_effect_renderer';
+
+  constructor() {
+    super('Clip effects require the @remotion/media canvas renderer');
+    this.name = 'UnsupportedMediaEffectError';
+  }
 }
 
 function toMediaObjectFit(

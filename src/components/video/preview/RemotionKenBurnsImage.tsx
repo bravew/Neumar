@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import { Img, interpolate, useCurrentFrame } from 'remotion';
+import { Img, interpolate, useCurrentFrame, type EffectsProp } from 'remotion';
 
 import type { RemotionVisualClip } from './remotionPreviewData';
 
@@ -12,11 +12,13 @@ export function KenBurnsImage({
   imagePan,
   durationInFrames,
   mediaStyle,
+  effects,
 }: {
   src: string;
   imagePan: NonNullable<RemotionVisualClip['imagePan']>;
   durationInFrames: number;
   mediaStyle: CSSProperties | undefined;
+  effects?: EffectsProp;
 }) {
   const frame = useCurrentFrame();
   const progress = interpolate(
@@ -39,6 +41,7 @@ export function KenBurnsImage({
         transformOrigin: `${cx * 100}% ${cy * 100}%`,
         transform: `translate(${(0.5 - cx) * 100}%, ${(0.5 - cy) * 100}%) scale(${zoom})`,
       }}
+      effects={effects}
     />
   );
 }

@@ -11,6 +11,8 @@ import fs from 'node:fs/promises';
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import {
   ContentGraphSchema,
+  CLIP_EFFECT_CATALOG,
+  ClipEffectStackSchema,
   deriveTimelineClipFrameFields,
   durationMsToFrames,
   KeyframeSchema,
@@ -22,6 +24,8 @@ import {
   VIVID_OVERLAY_MOTION_TEMPLATE_STRENGTHS,
 } from '@neumar/video-ir';
 import type {
+  ClipEffect,
+  ClipEffectStack,
   FrameRate,
   TimelineOp,
   VividOverlayPresetDef,
@@ -49,6 +53,7 @@ import type {
   VideoAgentToolCall,
   VideoAgentToolName,
 } from '@/shared/video/agent-tools';
+import { analyzeClipGradeImage } from '@/shared/video/analysis/clip-grade';
 import {
   indexProjectFrames,
   searchProjectFrames,
@@ -204,6 +209,60 @@ const USER_OVERLAY_DOCUMENT_CONTROL_SCHEMA = z
   })
   .strict();
 
+const CLIP_EFFECT_INPUT_SCHEMA = z.discriminatedUnion('kind', [
+  z
+    .object({
+      id: z.string().uuid().optional(),
+      kind: z.literal('brightness'),
+      disabled: z.boolean().optional(),
+      params: z.object({ amount: z.number().min(-1).max(1) }).strict(),
+    })
+    .strict(),
+  z
+    .object({
+      id: z.string().uuid().optional(),
+      kind: z.literal('contrast'),
+      disabled: z.boolean().optional(),
+      params: z.object({ amount: z.number().min(0).max(3) }).strict(),
+    })
+    .strict(),
+  z
+    .object({
+      id: z.string().uuid().optional(),
+      kind: z.literal('saturation'),
+      disabled: z.boolean().optional(),
+      params: z.object({ amount: z.number().min(0).max(3) }).strict(),
+    })
+    .strict(),
+  z
+    .object({
+      id: z.string().uuid().optional(),
+      kind: z.literal('white-balance'),
+      disabled: z.boolean().optional(),
+      params: z
+        .object({
+          temperature: z.number().min(-1).max(1),
+          tint: z.number().min(-1).max(1),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      id: z.string().uuid().optional(),
+      kind: z.literal('blur'),
+      disabled: z.boolean().optional(),
+      params: z
+        .object({
+          radius: z.number().min(0).max(100),
+          horizontal: z.boolean().default(true),
+          vertical: z.boolean().default(true),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
 export const VIDEO_EDIT_TOOL_NAMES = [
   'video_get_project_summary',
   'video_get_current_context',
@@ -215,6 +274,7 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_list_assets',
   'video_describe_scene',
   'video_list_transition_presets',
+  'video_list_effect_presets',
   'video_list_overlay_presets',
   'video_save_overlay_preset',
   'video_save_overlay_style_from_template',
@@ -266,6 +326,8 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_rotate_clip',
   'video_flip_clip',
   'video_set_clip_transform',
+  'video_set_clip_effects',
+  'video_analyze_clip_grade',
   'video_set_overlay_controls',
   'video_set_overlay_control_keyframes',
   'video_apply_overlay_motion_template',
@@ -869,6 +931,7 @@ function timelineApplyProposalPayload(
     summary: input.summary,
     opCount: ops.length,
     opKinds: ops.map((op) => op.kind),
+    ops,
     inverses: proposal.inverses,
     conflicts: proposal.conflicts,
     metadata: input.metadata,
@@ -1028,6 +1091,99 @@ function resolveClipRef(
     return clipId;
   }
   return value;
+}
+
+function findProjectTimelineClip(
+  project: VideoProject,
+  clipId: string,
+): TimelineClip {
+  for (const track of project.timeline?.tracks ?? []) {
+    const clip = track.clips.find((candidate) => candidate.id === clipId);
+    if (clip) return clip;
+  }
+  throw new Error(`Timeline clip not found: ${clipId}`);
+}
+
+function isVisualTimelineMediaClip(
+  clip: TimelineClip,
+): clip is Extract<TimelineClip, { kind: 'video' | 'image' | 'overlay' }> {
+  return (
+    clip.kind === 'video' || clip.kind === 'image' || clip.kind === 'overlay'
+  );
+}
+
+function effectInputToClipEffect(
+  input: z.infer<typeof CLIP_EFFECT_INPUT_SCHEMA>,
+): ClipEffect {
+  const base = {
+    id: input.id ?? randomUUID(),
+    version: 1 as const,
+    ...(input.disabled === undefined ? {} : { disabled: input.disabled }),
+  };
+  switch (input.kind) {
+    case 'brightness':
+      return { ...base, kind: input.kind, params: input.params };
+    case 'contrast':
+      return { ...base, kind: input.kind, params: input.params };
+    case 'saturation':
+      return { ...base, kind: input.kind, params: input.params };
+    case 'white-balance':
+      return { ...base, kind: input.kind, params: input.params };
+    case 'blur':
+      return { ...base, kind: input.kind, params: input.params };
+    default: {
+      const exhaustive: never = input;
+      return exhaustive;
+    }
+  }
+}
+
+function proposedGradeEffects(
+  current: ClipEffectStack | undefined,
+  correction: {
+    brightness: number;
+    contrast: number;
+    temperature: number;
+  },
+): ClipEffectStack {
+  const effects = [...(current?.effects ?? [])];
+  upsertGradeEffect(effects, 'brightness', { amount: correction.brightness });
+  upsertGradeEffect(effects, 'contrast', { amount: correction.contrast });
+  const whiteBalance = effects.find(
+    (effect) => effect.kind === 'white-balance',
+  );
+  if (whiteBalance?.kind === 'white-balance') {
+    const index = effects.indexOf(whiteBalance);
+    effects[index] = {
+      ...whiteBalance,
+      params: { ...whiteBalance.params, temperature: correction.temperature },
+    };
+  } else {
+    effects.push({
+      id: randomUUID(),
+      version: 1,
+      kind: 'white-balance',
+      params: { temperature: correction.temperature, tint: 0 },
+    });
+  }
+  return {
+    schema: 'neuma.video.clip-effects.v1',
+    effects,
+    ...(current?.keyframes ? { keyframes: current.keyframes } : {}),
+  };
+}
+
+function upsertGradeEffect(
+  effects: ClipEffect[],
+  kind: 'brightness' | 'contrast',
+  params: { amount: number },
+): void {
+  const existing = effects.find((effect) => effect.kind === kind);
+  if (existing?.kind === kind) {
+    effects[effects.indexOf(existing)] = { ...existing, params };
+    return;
+  }
+  effects.push({ id: randomUUID(), version: 1, kind, params });
 }
 
 function assetCounts(assets: MediaItem[]) {
@@ -2244,6 +2400,24 @@ export function createVideoEditTools(options: VideoEditServerOptions = {}) {
             schema: 'neuma.video.transition-presets.v1',
             projectId: resolvedProjectId,
             presets: transitionPresetCatalog(),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_list_effect_presets',
+      'Return the installed clip-effect catalog with closed parameter ranges and defaults. This tool is read-only.',
+      { projectId: PROJECT_ID_SCHEMA },
+      async ({ projectId }) => {
+        try {
+          return jsonResult({
+            schema: 'neuma.video.effect-presets.v1',
+            projectId: resolveProjectId(projectId, options),
+            presets: CLIP_EFFECT_CATALOG,
           });
         } catch (error) {
           return errorResult(
@@ -3723,6 +3897,131 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
         const { projectId, call } = camelToolCall('setClipTransform', rest);
         return timelineEditToolCallResult(projectId, options, call, applyMode);
       },
+    ),
+    tool(
+      'video_set_clip_effects',
+      'Replace a visual clip canvas-effect stack with validated grading and blur effects. Legacy CSS filters remain unchanged. Pass clipId "selection" for the inspected clip.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        clipId: z.string().min(1),
+        effects: z.array(CLIP_EFFECT_INPUT_SCHEMA).max(12),
+        applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
+        summary: z.string().max(280).optional(),
+      },
+      async ({ projectId, clipId, effects, applyMode, summary }) => {
+        try {
+          const project = await loadProjectForTool(projectId, options);
+          const resolvedClipId = resolveClipRef(
+            clipId,
+            selectionResolverRefs(options),
+          );
+          const clip = findProjectTimelineClip(project, resolvedClipId);
+          if (!isVisualTimelineMediaClip(clip)) {
+            return errorResult(`Clip is not visual media: ${resolvedClipId}`);
+          }
+          const after =
+            effects.length > 0
+              ? ClipEffectStackSchema.parse({
+                  schema: 'neuma.video.clip-effects.v1',
+                  effects: effects.map(effectInputToClipEffect),
+                })
+              : null;
+          const op: TimelineOp = {
+            kind: 'clip.setEffects',
+            clipId: resolvedClipId,
+            before: clip.effects ?? null,
+            after,
+          };
+          if (applyMode === 'propose') {
+            return jsonResult(
+              timelineApplyProposalPayload(project, [op], {
+                tool: 'video_set_clip_effects',
+                summary,
+              }),
+            );
+          }
+          const resolved = camelToolCall('applyTimelineOps', {
+            projectId: project.id,
+            ops: [op],
+            summary,
+          });
+          return toolCallResult(resolved.projectId, options, resolved.call);
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_analyze_clip_grade',
+      'Measure a rendered clip frame and propose a bounded brightness, contrast, and white-balance correction. This tool never applies its proposal.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        clipId: z.string().min(1),
+        intent: z
+          .enum(['neutral', 'warmer', 'cooler', 'less-contrasty'])
+          .default('neutral'),
+        aspectRatio: ASPECT_RATIO_SCHEMA.optional(),
+      },
+      async ({ projectId, clipId, intent, aspectRatio }) =>
+        withToolTimeout(
+          'video_analyze_clip_grade',
+          async () => {
+            const project = await loadProjectForTool(projectId, options);
+            const resolvedClipId = resolveClipRef(
+              clipId,
+              selectionResolverRefs(options),
+            );
+            const clip = findProjectTimelineClip(project, resolvedClipId);
+            if (!isVisualTimelineMediaClip(clip)) {
+              return errorResult(`Clip is not visual media: ${resolvedClipId}`);
+            }
+            const sampleMs = Math.floor(clip.startMs + clip.durationMs / 2);
+            const frames = await renderTimelineFramesWithRemotion({
+              project,
+              startMs: sampleMs,
+              endMs: sampleMs + 1,
+              frameCount: 1,
+              aspectRatio:
+                aspectRatio ??
+                project.settings?.defaultAspectRatios?.[0] ??
+                '16:9',
+              maxEdgePx: 480,
+              root: getVideoProjectRoot(project.id),
+            });
+            const frame = frames.frames[0];
+            if (!frame) return errorResult('Grade analysis produced no frame.');
+            const analysis = await analyzeClipGradeImage(
+              frame.imageBase64,
+              intent,
+            );
+            const effects = proposedGradeEffects(
+              clip.effects,
+              analysis.correction,
+            );
+            const op: TimelineOp = {
+              kind: 'clip.setEffects',
+              clipId: resolvedClipId,
+              before: clip.effects ?? null,
+              after: effects,
+            };
+            return jsonResult({
+              ...analysis,
+              projectId: project.id,
+              clipId: resolvedClipId,
+              sampleMs,
+              proposal: timelineApplyProposalPayload(project, [op], {
+                tool: 'video_analyze_clip_grade',
+                summary: `Apply bounded grade correction to ${resolvedClipId}`,
+              }),
+            });
+          },
+          90_000,
+        ).catch((error) =>
+          errorResult(error instanceof Error ? error.message : String(error)),
+        ),
     ),
     tool(
       'video_set_overlay_controls',

@@ -47,6 +47,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@neumar/video-ir": "workspace:*",
     "@remotion/bundler": "4.0.515",
+    "@remotion/effects": "4.0.515",
     "@remotion/media": "4.0.515",
     "@remotion/renderer": "4.0.515",
     "@remotion/transitions": "4.0.515",
