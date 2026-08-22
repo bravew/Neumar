@@ -70,7 +70,7 @@
     "react-dom": "19.2.8",
     "remotion": "4.0.507",
     "sharp": "^0.35.3",
-    "sherpa-onnx-node": "1.13.4",
+    "sherpa-onnx-node": "1.13.6",
     "sqlite-vec": "0.1.9",
     "undici": "^7.29.0",
     "ws": "^8.21.0",
@@ -78,7 +78,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@contentauth/c2pa-node": "0.8.3",
+    "@contentauth/c2pa-node": "0.9.1",
     "@slack/types": "^3.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.3",
