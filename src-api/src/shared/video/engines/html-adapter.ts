@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { frameRateToNumber } from '@neumar/video-ir';
@@ -8,6 +9,7 @@ import { captureHtmlToMp4 } from './html/capture';
 import { HtmlEngineError } from './html/errors';
 import { buildHtmlScene } from './html/render-to-html';
 import type {
+  EngineAvailability,
   EngineRenderContext,
   EngineRenderInput,
   EngineRenderOutput,
@@ -80,6 +82,40 @@ export interface HtmlAdapterDeps {
   buildScene?: typeof buildHtmlScene;
 }
 
+// The module exporting `chromium` says nothing about the browser binary being
+// downloaded. `capture` calls `chromium.launch()` with no channel, so the
+// executable it will use is exactly `chromium.executablePath()` — check that it
+// is on disk rather than reporting the engine available and failing at render.
+function chromiumAvailability(mod: unknown): EngineAvailability {
+  const chromium = (mod as { chromium?: BrowserTypeLike }).chromium;
+  if (typeof chromium !== 'object' || chromium === null) {
+    return { installed: false, reason: 'browser-missing' };
+  }
+  let executablePath: string;
+  try {
+    executablePath = chromium.executablePath();
+  } catch (error) {
+    return {
+      installed: false,
+      reason: 'browser-missing',
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+  if (!executablePath || !existsSync(executablePath)) {
+    return {
+      installed: false,
+      reason: 'browser-missing',
+      detail:
+        'Chromium is not installed. Run `pnpm exec playwright install chromium`.',
+    };
+  }
+  return { installed: true, version: ENGINE_VERSION };
+}
+
+interface BrowserTypeLike {
+  executablePath: () => string;
+}
+
 export function createHtmlAdapter(
   deps: HtmlAdapterDeps = {},
 ): VideoEngineAdapter {
@@ -94,31 +130,20 @@ export function createHtmlAdapter(
     probeAvailability: async () => {
       if (deps.playwrightLoader) {
         try {
-          const mod = (await deps.playwrightLoader()) as {
-            chromium?: unknown;
-          };
-          return typeof mod.chromium === 'object' && mod.chromium !== null
-            ? { installed: true, version: ENGINE_VERSION }
-            : { installed: false, reason: 'browser-missing' };
+          return chromiumAvailability(await deps.playwrightLoader());
         } catch {
           return { installed: false, reason: 'browser-missing' };
         }
       }
       // Same dual-load fallback as src-api/src/app/api/design.ts.
       try {
-        const mod = (await import('playwright')) as { chromium?: unknown };
-        if (typeof mod.chromium === 'object' && mod.chromium !== null)
-          return { installed: true, version: ENGINE_VERSION };
+        const available = chromiumAvailability(await import('playwright'));
+        if (available.installed) return available;
       } catch {
         /* fall through */
       }
       try {
-        const mod = (await import('@playwright/test')) as {
-          chromium?: unknown;
-        };
-        return typeof mod.chromium === 'object' && mod.chromium !== null
-          ? { installed: true, version: ENGINE_VERSION }
-          : { installed: false, reason: 'browser-missing' };
+        return chromiumAvailability(await import('@playwright/test'));
       } catch {
         return { installed: false, reason: 'browser-missing' };
       }

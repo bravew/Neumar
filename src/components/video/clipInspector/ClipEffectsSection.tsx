@@ -2,8 +2,9 @@ import {
   CLIP_EFFECT_CATALOG,
   createClipEffect,
   getClipEffectCatalogEntry,
+  getClipEffectParameterValue,
+  setClipEffectParameterValue,
   type ClipEffect,
-  type ClipEffectParameter,
   type ClipEffectStack,
 } from '@neumar/video-ir';
 import { Plus, Trash2 } from 'lucide-react';
@@ -104,7 +105,10 @@ export function ClipEffectsSection({ clip, labels, updateEffects }: Props) {
                   </button>
                 </header>
                 {catalog.parameters.map((parameter) => {
-                  const value = effectParameterValue(effect, parameter.key);
+                  const value = getClipEffectParameterValue(
+                    effect,
+                    parameter.key,
+                  );
                   return (
                     <label
                       key={parameter.key}
@@ -129,7 +133,7 @@ export function ClipEffectsSection({ clip, labels, updateEffects }: Props) {
                           replaceEffects(
                             effects.map((candidate) =>
                               candidate.id === effect.id
-                                ? updateEffectParameter(
+                                ? setClipEffectParameterValue(
                                     candidate,
                                     parameter.key,
                                     Number(event.currentTarget.value),
@@ -149,58 +153,4 @@ export function ClipEffectsSection({ clip, labels, updateEffects }: Props) {
       )}
     </section>
   );
-}
-
-function effectParameterValue(
-  effect: ClipEffect,
-  parameter: ClipEffectParameter,
-): number {
-  switch (effect.kind) {
-    case 'brightness':
-    case 'contrast':
-    case 'saturation':
-      if (parameter === 'amount') return effect.params.amount;
-      break;
-    case 'white-balance':
-      if (parameter === 'temperature') return effect.params.temperature;
-      if (parameter === 'tint') return effect.params.tint;
-      break;
-    case 'blur':
-      if (parameter === 'radius') return effect.params.radius;
-      break;
-  }
-  throw new Error(`${parameter} is not valid for ${effect.kind}`);
-}
-
-function updateEffectParameter(
-  effect: ClipEffect,
-  parameter: ClipEffectParameter,
-  value: number,
-): ClipEffect {
-  switch (effect.kind) {
-    case 'brightness':
-    case 'contrast':
-    case 'saturation':
-      if (parameter === 'amount') {
-        return { ...effect, params: { amount: value } };
-      }
-      break;
-    case 'white-balance':
-      if (parameter === 'temperature') {
-        return {
-          ...effect,
-          params: { ...effect.params, temperature: value },
-        };
-      }
-      if (parameter === 'tint') {
-        return { ...effect, params: { ...effect.params, tint: value } };
-      }
-      break;
-    case 'blur':
-      if (parameter === 'radius') {
-        return { ...effect, params: { ...effect.params, radius: value } };
-      }
-      break;
-  }
-  throw new Error(`${parameter} is not valid for ${effect.kind}`);
 }

@@ -161,11 +161,18 @@ describe('template gallery loader', () => {
 });
 
 describe('engine registry', () => {
-  it('honestly reports both engines as installed (Playwright + Remotion)', async () => {
+  it('honestly reports engine availability (Playwright + Remotion)', async () => {
     const engines = await listVideoEnginesWithBuiltins();
     const byId = Object.fromEntries(engines.map((e) => [e.id, e]));
     expect(byId.remotion?.installed).toBe(true);
-    expect(byId.html?.installed).toBe(true);
+    // html tracks the real Chromium binary, which may not be downloaded here.
+    expect(typeof byId.html?.installed).toBe('boolean');
+    if (!byId.html?.installed) {
+      expect(byId.html?.availability).toMatchObject({
+        installed: false,
+        reason: 'browser-missing',
+      });
+    }
     expect(byId.html?.capabilities.paradigms).toContain('html-css-gsap');
   });
 

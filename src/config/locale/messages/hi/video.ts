@@ -1829,6 +1829,7 @@ export default {
     studioTitle: 'HyperFrames पूर्वावलोकन',
     openStudio: 'Studio खोलें',
     studioError: 'HyperFrames पूर्वावलोकन विफल: {error}',
+    studioScriptError: 'HyperFrames प्लेयर स्क्रिप्ट लोड नहीं हो सकी।',
   },
   framesStrip: {
     empty: 'अभी तक कोई फ्रेम नहीं।',

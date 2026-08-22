@@ -4,6 +4,7 @@ import path from 'node:path';
 import { frameRateToNumber, type FrameRate } from '@neumar/video-ir';
 import { z } from 'zod';
 
+import { getSetting } from '@/shared/db/operations';
 import {
   runStreamingCommand,
   StreamingCommandError,
@@ -14,7 +15,6 @@ import { resolveHyperframesCommand } from '@/shared/services/design-mode/hyperfr
 
 import type {
   EngineAvailability,
-  EngineRenderContext,
   EngineRenderInput,
   EngineRenderOutput,
   EngineTemplateRef,
@@ -84,7 +84,11 @@ export function createHyperframesAdapter(
     probeAvailability: () => probeHyperframes(command, runCommand),
     validate: validateHyperframesTemplate,
     async render(input, ctx) {
-      const availability = await probeHyperframes(command, runCommand);
+      const availability = await probeHyperframes(
+        command,
+        runCommand,
+        ctx.workDir,
+      );
       if (!availability.installed) {
         throw new HyperframesEngineError(
           availability.reason,
@@ -177,16 +181,23 @@ export class HyperframesEngineError extends Error {
   }
 }
 
+// `process.cwd()` is not the workspace in the Tauri sidecar, so the probe must
+// resolve the configured workspace root instead.
+function workspaceRoot(): string {
+  return getSetting('workDir') ?? process.cwd();
+}
+
 export async function probeHyperframes(
   command: string,
   runCommand: RunCommand = runStreamingCommand,
+  cwd = workspaceRoot(),
 ): Promise<EngineAvailability> {
   let version: string;
   try {
     const result = await runCommand({
       bin: command,
       args: ['--version'],
-      cwd: process.cwd(),
+      cwd,
       timeoutMs: 10_000,
     });
     version = parseVersion(result.stdout);
@@ -212,7 +223,7 @@ export async function probeHyperframes(
     const result = await runCommand({
       bin: command,
       args: ['doctor', '--json'],
-      cwd: process.cwd(),
+      cwd,
       timeoutMs: 30_000,
     });
     const doctor = DoctorSchema.parse(JSON.parse(result.stdout));

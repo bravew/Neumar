@@ -46,8 +46,12 @@ function makeInput(
 
 describe('html adapter (real impl)', () => {
   it('reports typed availability when chromium is resolvable or missing', async () => {
+    // `process.execPath` stands in for an installed browser binary: the probe
+    // only cares that the executable Playwright would launch exists on disk.
     const ok = createHtmlAdapter({
-      playwrightLoader: async () => ({ chromium: {} }),
+      playwrightLoader: async () => ({
+        chromium: { executablePath: () => process.execPath },
+      }),
     });
     expect(await ok.probeAvailability()).toMatchObject({ installed: true });
 
@@ -57,6 +61,35 @@ describe('html adapter (real impl)', () => {
       },
     });
     expect(await missing.probeAvailability()).toEqual({
+      installed: false,
+      reason: 'browser-missing',
+    });
+  });
+
+  it('reports browser-missing when the module loads but the binary is absent', async () => {
+    const notDownloaded = createHtmlAdapter({
+      playwrightLoader: async () => ({
+        chromium: {
+          executablePath: () => '/nonexistent/ms-playwright/headless_shell',
+        },
+      }),
+    });
+    expect(await notDownloaded.probeAvailability()).toMatchObject({
+      installed: false,
+      reason: 'browser-missing',
+    });
+
+    // Playwright throws from `executablePath()` when no browser is registered.
+    const throwsOnPath = createHtmlAdapter({
+      playwrightLoader: async () => ({
+        chromium: {
+          executablePath: () => {
+            throw new Error('Executable does not exist');
+          },
+        },
+      }),
+    });
+    expect(await throwsOnPath.probeAvailability()).toMatchObject({
       installed: false,
       reason: 'browser-missing',
     });

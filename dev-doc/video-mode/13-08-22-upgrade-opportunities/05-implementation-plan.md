@@ -46,8 +46,14 @@ rerun passed without code changes.
   `no-selection` response, and project-specific stop. The final click-to-agent
   `data-hf-id` acceptance flow still needs an interactive Studio run.
 - HyperFrames 0.8.8 is available, but this branch deliberately keeps the
-  reviewed 0.8.7 pin. `pnpm check:hyperframes-upgrade` is read-only and an
-  upgrade requires explicit approval plus re-verification.
+  reviewed 0.8.7 pin. `pnpm check:hyperframes-upgrade` is read-only, now runs
+  from `pnpm validate`, and warns rather than failing when the CLI or the
+  network is unavailable; an upgrade still requires explicit approval plus
+  re-verification.
+- B's packaged-runtime policy is decided and recorded (require the CLI on
+  `PATH`; see Phase B). The typed unavailable reason and version diagnostics
+  that policy obliges are implemented, but the `doctor`-style first-run setup
+  prompt it also calls for is not built yet.
 
 ---
 
@@ -177,10 +183,24 @@ warmer and less contrasty" produces a reviewable, invertible op batch.
   report both with honest capability differences. HyperFrames has deterministic
   frame seeking; byte-identical encoding is only an acceptance target for its
   explicit `--docker` reproducible mode, not for the default host render.
-- Decide the packaged-runtime policy before implementation. Either ship the CLI
-  as a Tauri resource with a browser bootstrap flow, or require it on `PATH` and
-  provide a `doctor`-style first-run check. Include CLI and browser version data
-  in every render diagnostic.
+- **Packaged-runtime policy — decided: require the CLI on `PATH`.** We do not
+  bundle `hyperframes` as a Tauri resource. `hyperframes` stays a `src-video`
+  devDependency for development; `resolveHyperframesCommand()` honours an
+  explicit override and otherwise falls back to `hyperframes` on `PATH`, and
+  `src-tauri/tauri.conf.json` ships no CLI or browser payload. Bundling was
+  rejected because the CLI drags its own Chrome download, which would roughly
+  double the installer and duplicate a browser the host usually already has.
+
+  What this policy obliges, and its current state:
+  - `probeHyperframes` returns a typed unavailable reason (`not-found`,
+    `version-too-old`, `browser-missing`) with CLI and browser version detail,
+    and `render()` throws that reason before doing any work — **done**.
+  - Every render diagnostic carries `cliVersion` and `browserVersion` —
+    **done**.
+  - A `doctor`-style first-run surface that turns `not-found` /
+    `browser-missing` into an actionable install prompt — **not built**; the
+    reason reaches the engine list and the render error today, but there is no
+    guided setup flow. Tracked under remaining rollout evidence.
 
 **Acceptance:** three default HyperFrames renders produce identical sampled frame
 hashes and matching ffprobe metadata. When Docker reproducible mode is selected,

@@ -12,6 +12,21 @@ import {
 } from '@/shared/process/run-streaming-command';
 import { resolveHyperframesCommand } from '@/shared/services/design-mode/hyperframes-command';
 
+// The renderer loads `player.js` from `serverUrl` and opens `studioUrl`, so a
+// non-loopback value would let the CLI hand us a remote script origin. Every
+// URL crossing this boundary must be a plain-HTTP loopback address.
+const LOOPBACK_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
+
+const LoopbackUrlSchema = z.string().refine((value) => {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === 'http:' && LOOPBACK_HOSTNAMES.has(parsed.hostname);
+}, 'URL must be a loopback http:// address');
+
 const LifecycleResultSchema = z.object({
   schemaVersion: z.literal(1),
   operation: z.string(),
@@ -22,8 +37,8 @@ const LifecycleResultSchema = z.object({
     projectDir: z.string(),
     host: z.literal('127.0.0.1'),
     port: z.number().int().min(1).max(65_535),
-    serverUrl: z.string().url(),
-    studioUrl: z.string().url(),
+    serverUrl: LoopbackUrlSchema,
+    studioUrl: LoopbackUrlSchema,
   }),
 });
 
@@ -40,7 +55,7 @@ const ServerContextSchema = z.object({
     port: z.number().int(),
     projectName: z.string(),
     projectDir: z.string(),
-    url: z.string().url(),
+    url: LoopbackUrlSchema,
   }),
 });
 
@@ -50,7 +65,7 @@ const SelectionContextSchema = z.object({
     port: z.number().int(),
     projectName: z.string(),
     projectDir: z.string(),
-    url: z.string().url(),
+    url: LoopbackUrlSchema,
   }),
   selection: z
     .object({
@@ -113,6 +128,7 @@ export class HyperframesStudioError extends Error {
 export class HyperframesStudioBridge {
   private readonly sessions = new Map<string, ManagedSession>();
   private readonly starts = new Map<string, Promise<ManagedSession>>();
+  private readonly stops = new Map<string, Promise<void>>();
 
   constructor(
     private readonly command = resolveHyperframesCommand(),
@@ -125,6 +141,8 @@ export class HyperframesStudioBridge {
   ): Promise<HyperframesStudioSession> {
     const resolved = path.resolve(projectDir);
     await requireComposition(resolved);
+    const pendingStop = this.stops.get(resolved);
+    if (pendingStop) await pendingStop.catch(() => undefined);
     const existing = this.sessions.get(resolved);
     if (existing) {
       existing.subscriberIds.add(subscriberId);
@@ -158,14 +176,19 @@ export class HyperframesStudioBridge {
       ],
       resolved,
     );
+    // The CLI is already running in the background by this point, so every
+    // failure below must stop it — nothing is registered in `sessions` yet, so
+    // `release` could never reach the orphan.
     const parsed = LifecycleResultSchema.safeParse(payload);
     if (!parsed.success) {
+      await this.stopQuietly(resolved, port);
       throw new HyperframesStudioError(
         'malformed-json',
         'HyperFrames returned an invalid preview lifecycle payload.',
       );
     }
     if (parsed.data.result.port !== port) {
+      await this.stopQuietly(resolved, parsed.data.result.port);
       throw new HyperframesStudioError(
         'preview-port-mismatch',
         `HyperFrames started on ${parsed.data.result.port}, expected ${port}.`,
@@ -224,11 +247,21 @@ export class HyperframesStudioBridge {
     if (!session.subscriberIds.delete(subscriberId)) return false;
     if (session.subscriberIds.size > 0) return false;
     this.sessions.delete(resolved);
-    await this.runJson(
-      ['preview', resolved, '--stop', '--port', String(session.port), '--json'],
-      resolved,
-    );
-    return true;
+    // Publish the in-flight stop so a concurrent `acquire` waits for the old
+    // preview to release the project instead of starting a second one, which
+    // the CLI would reject as `ambiguous-preview-server`.
+    const stop = this.stop(resolved, session.port);
+    this.stops.set(resolved, stop);
+    try {
+      await stop;
+      return true;
+    } catch (error) {
+      // Keep the session addressable so a later release can retry the stop.
+      if (!this.sessions.has(resolved)) this.sessions.set(resolved, session);
+      throw error;
+    } finally {
+      if (this.stops.get(resolved) === stop) this.stops.delete(resolved);
+    }
   }
 
   async getSelection(projectDir: string) {
@@ -275,6 +308,18 @@ export class HyperframesStudioBridge {
       stableTarget: target.hfId ?? target.id ?? target.selector,
       studioUrl: session.studioUrl,
     };
+  }
+
+  private async stop(resolved: string, port: number): Promise<void> {
+    await this.runJson(
+      ['preview', resolved, '--stop', '--port', String(port), '--json'],
+      resolved,
+    );
+  }
+
+  /** Best-effort stop used on paths that have no session to retry from. */
+  private async stopQuietly(resolved: string, port: number): Promise<void> {
+    await this.stop(resolved, port).catch(() => undefined);
   }
 
   private async runJson(args: string[], cwd: string): Promise<unknown> {

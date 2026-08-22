@@ -3,6 +3,15 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+// Read-only probe: it reports whether a newer HyperFrames exists and never
+// changes a file. It runs inside `pnpm validate`, so an offline machine or a
+// missing CLI must warn rather than fail the whole validation run — only the
+// upgrade decision itself is gated, and that stays a human call.
+function warn(message) {
+  console.warn(`HyperFrames upgrade check skipped: ${message}`);
+  process.exit(0);
+}
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const videoRoot = path.join(root, 'src-video');
 const result = spawnSync(
@@ -11,17 +20,18 @@ const result = spawnSync(
   { cwd: videoRoot, encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30_000 },
 );
 
-if (result.error) throw result.error;
+if (result.error) warn(result.error.message);
 if (result.status !== 0) {
-  process.stderr.write(result.stderr || result.stdout);
-  process.exit(result.status ?? 1);
+  warn(
+    (result.stderr || result.stdout || '').trim() || `exit ${result.status}`,
+  );
 }
 
 let payload;
 try {
   payload = JSON.parse(result.stdout);
 } catch {
-  throw new Error('HyperFrames upgrade check returned malformed JSON.');
+  warn('the CLI returned malformed JSON.');
 }
 
 const current = payload?._meta?.version;
@@ -32,7 +42,7 @@ if (
   typeof latest !== 'string' ||
   typeof updateAvailable !== 'boolean'
 ) {
-  throw new Error('HyperFrames upgrade check returned an invalid payload.');
+  warn('the CLI returned an invalid payload.');
 }
 
 if (updateAvailable) {

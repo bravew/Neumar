@@ -542,6 +542,32 @@ describe('video-edit MCP server', () => {
     expect(payload.inverses).toHaveLength(2);
   });
 
+  it('keeps clips touching when one clip sits on two snapped boundaries', async () => {
+    await writeProject(projectWithTwoBeatBoundaries());
+    const result = await findTool('video_snap_cuts_to_beats').handler(
+      { sourceClipId: 'music-clip', toleranceMs: 100 },
+      {},
+    );
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    expect(payload.opCount).toBe(4);
+
+    // The middle clip is trimmed twice; the second op must start from the
+    // state the first left behind, not from the clip's original timing.
+    const { applyTimelineOps } = await import('@neumar/video-ir');
+    const project = projectWithTwoBeatBoundaries();
+    const applied = applyTimelineOps(project.timeline!, payload.ops).timeline;
+    const clips = [...applied.tracks[0]!.clips].sort(
+      (left, right) => left.startMs - right.startMs,
+    );
+    expect(
+      clips.map((clip) => [clip.startMs, clip.startMs + clip.durationMs]),
+    ).toEqual([
+      [0, 550],
+      [550, 1_050],
+      [1_050, 1_500],
+    ]);
+  });
+
   it('makes the selected overlay green end-to-end: selection resolve, apply, context read, undo', async () => {
     await writeProject(projectWithOverlayClip());
     const editorSelection = {
@@ -1846,6 +1872,59 @@ function projectWithBeatGrid(): VideoProject {
       ],
     },
   };
+}
+
+function projectWithTwoBeatBoundaries(): VideoProject {
+  const project = projectWithBeatGrid();
+  const [videoTrack, musicTrack] = project.timeline!.tracks;
+  return {
+    ...project,
+    analysisArtifacts: [
+      {
+        ...project.analysisArtifacts![0]!,
+        metadata: {
+          beatGrid: {
+            schema: 'neuma.video.beat-grid.v1',
+            sourceMediaId: 'music-source',
+            contentHash: 'music-hash',
+            tempoBpm: 120,
+            points: [
+              { sourceMs: 550, confidence: 0.9, bar: 1, beat: 2 },
+              { sourceMs: 1_050, confidence: 0.9, bar: 1, beat: 3 },
+            ],
+          },
+        },
+      },
+    ],
+    timeline: {
+      ...project.timeline!,
+      durationMs: 1_500,
+      tracks: [
+        {
+          ...videoTrack!,
+          clips: [
+            ...videoTrack!.clips,
+            {
+              id: 'timeline-clip-3',
+              kind: 'video',
+              sourceRef: { kind: 'asset', assetId: 'asset-video' },
+              sceneId: 'scene-2',
+              startMs: 1_000,
+              durationMs: 500,
+              trimStartMs: 1_000,
+              trimEndMs: 1_500,
+            },
+          ],
+        },
+        {
+          ...musicTrack!,
+          clips: [
+            { ...musicTrack!.clips[0]!, durationMs: 2_000, trimEndMs: 2_000 },
+          ],
+        },
+      ],
+    },
+  } as VideoProject;
 }
 
 describe('overlay preset catalog + save tools (video-to-template MVP)', () => {

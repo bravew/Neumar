@@ -74,6 +74,53 @@ describe('clip effects', () => {
     );
   });
 
+  it('rejects duplicate or descending keyframe atMs even for out-of-opacity-range values', () => {
+    // -0.5 is legal for brightness but outside opacity's 0..1 range. The
+    // timing check must not be short-circuited by borrowed value bounds.
+    const duplicateAtMs = stack({
+      keyframes: [
+        {
+          effectId: EFFECT_ID,
+          parameter: 'amount',
+          keys: [
+            { atMs: 0, value: -0.5 },
+            { atMs: 0, value: 0.2 },
+          ],
+        },
+      ],
+    });
+    expect(ClipEffectStackSchema.safeParse(duplicateAtMs).success).toBe(false);
+
+    const descendingAtMs = stack({
+      keyframes: [
+        {
+          effectId: EFFECT_ID,
+          parameter: 'amount',
+          keys: [
+            { atMs: 100, value: -0.5 },
+            { atMs: 50, value: 0.2 },
+          ],
+        },
+      ],
+    });
+    expect(ClipEffectStackSchema.safeParse(descendingAtMs).success).toBe(false);
+
+    // A brightness value outside opacity's range is still accepted on its own.
+    const validNegative = stack({
+      keyframes: [
+        {
+          effectId: EFFECT_ID,
+          parameter: 'amount',
+          keys: [
+            { atMs: 0, value: -0.5 },
+            { atMs: 100, value: 0.2 },
+          ],
+        },
+      ],
+    });
+    expect(ClipEffectStackSchema.safeParse(validNegative).success).toBe(true);
+  });
+
   it('sets an effect stack with an inverse and preserves legacy filters', () => {
     const timeline = timelineFixture();
     const effectStack = stack();

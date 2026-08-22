@@ -105,6 +105,35 @@ export function getClipEffectParameterDefinition(
   );
 }
 
+/**
+ * Read one parameter off an effect. Shared so the inspector, the agent tools,
+ * and the render layer resolve the same kind-to-parameter mapping.
+ */
+export function getClipEffectParameterValue(
+  effect: ClipEffect,
+  parameter: ClipEffectParameter,
+): number {
+  const params = effect.params as Record<string, number | boolean>;
+  const value = params[parameter];
+  if (typeof value !== 'number') {
+    throw new Error(`${parameter} is not valid for ${effect.kind}`);
+  }
+  return value;
+}
+
+/** Immutably set one parameter on an effect, preserving its siblings. */
+export function setClipEffectParameterValue(
+  effect: ClipEffect,
+  parameter: ClipEffectParameter,
+  value: number,
+): ClipEffect {
+  getClipEffectParameterValue(effect, parameter);
+  return {
+    ...effect,
+    params: { ...effect.params, [parameter]: value },
+  } as ClipEffect;
+}
+
 export function findEffectParameterTrack(
   stack: ClipEffectStack | undefined,
   effectId: string,

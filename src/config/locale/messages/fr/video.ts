@@ -1874,6 +1874,8 @@ export default {
     studioTitle: 'Aperçu HyperFrames',
     openStudio: 'Ouvrir Studio',
     studioError: 'Échec de l’aperçu HyperFrames : {error}',
+    studioScriptError:
+      'Le script du lecteur HyperFrames n’a pas pu être chargé.',
   },
   framesStrip: {
     empty: 'Aucune image pour le moment.',

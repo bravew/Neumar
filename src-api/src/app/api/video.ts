@@ -87,6 +87,7 @@ import {
 } from '@/shared/video/flags';
 import {
   getHyperframesStudioBridge,
+  HyperframesStudioError,
   resolveHyperframesStudioProjectDir,
 } from '@/shared/video/hyperframes-studio';
 import {
@@ -853,6 +854,14 @@ function errorResponse(error: unknown): {
     return {
       body: { error: message, detail: error.detail },
       status: error.status as ContentfulStatusCode,
+    };
+  }
+  if (error instanceof HyperframesStudioError) {
+    // Surface the code so the client can distinguish an empty project from a
+    // real bridge fault without string-matching the message.
+    return {
+      body: { error: message, detail: { code: error.code } },
+      status: error.code === 'invalid-project' ? 422 : 502,
     };
   }
   if (message.includes('not found') || message.includes('ENOENT')) {

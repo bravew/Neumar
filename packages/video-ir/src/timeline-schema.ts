@@ -7,7 +7,13 @@ import {
   keyframeTrackValidationError,
   keyframeValueValidationError,
 } from './keyframes.js';
-import type { Keyframe, KeyframeableProperty } from './timeline-types.js';
+import type {
+  ClipEffect,
+  ClipEffectKind,
+  ClipEffectParameter,
+  Keyframe,
+  KeyframeableProperty,
+} from './timeline-types.js';
 
 export const TimelineTransitionKindSchema = z.enum([
   'cut',
@@ -199,39 +205,110 @@ const ClipEffectBaseSchema = z.object({
   disabled: z.boolean().optional(),
 });
 
+// Ranges come from CLIP_EFFECT_CATALOG so the schema, the MCP input contract,
+// and the inspector sliders can never disagree about a parameter's bounds.
+function effectParam(kind: ClipEffectKind, key: ClipEffectParameter) {
+  const definition = getClipEffectParameterDefinition(kind, key);
+  if (!definition) throw new Error(`${key} is not valid for ${kind}`);
+  return z.number().min(definition.min).max(definition.max);
+}
+
+const CLIP_EFFECT_PARAMS = {
+  brightness: z
+    .object({ amount: effectParam('brightness', 'amount') })
+    .strict(),
+  contrast: z.object({ amount: effectParam('contrast', 'amount') }).strict(),
+  saturation: z
+    .object({ amount: effectParam('saturation', 'amount') })
+    .strict(),
+  'white-balance': z
+    .object({
+      temperature: effectParam('white-balance', 'temperature'),
+      tint: effectParam('white-balance', 'tint'),
+    })
+    .strict(),
+  blur: z
+    .object({
+      radius: effectParam('blur', 'radius'),
+      horizontal: z.boolean(),
+      vertical: z.boolean(),
+    })
+    .strict(),
+} as const;
+
 export const ClipEffectSchema = z.discriminatedUnion('kind', [
   ClipEffectBaseSchema.extend({
     kind: z.literal('brightness'),
-    params: z.object({ amount: z.number().min(-1).max(1) }).strict(),
+    params: CLIP_EFFECT_PARAMS.brightness,
   }).strict(),
   ClipEffectBaseSchema.extend({
     kind: z.literal('contrast'),
-    params: z.object({ amount: z.number().min(0).max(3) }).strict(),
+    params: CLIP_EFFECT_PARAMS.contrast,
   }).strict(),
   ClipEffectBaseSchema.extend({
     kind: z.literal('saturation'),
-    params: z.object({ amount: z.number().min(0).max(3) }).strict(),
+    params: CLIP_EFFECT_PARAMS.saturation,
   }).strict(),
   ClipEffectBaseSchema.extend({
     kind: z.literal('white-balance'),
-    params: z
-      .object({
-        temperature: z.number().min(-1).max(1),
-        tint: z.number().min(-1).max(1),
-      })
-      .strict(),
+    params: CLIP_EFFECT_PARAMS['white-balance'],
   }).strict(),
   ClipEffectBaseSchema.extend({
     kind: z.literal('blur'),
+    params: CLIP_EFFECT_PARAMS.blur,
+  }).strict(),
+]);
+
+const ClipEffectInputBaseSchema = z.object({
+  id: z.string().uuid().optional(),
+  disabled: z.boolean().optional(),
+});
+
+/**
+ * Agent-facing shape of a clip effect: same parameter bounds as
+ * `ClipEffectSchema`, but `id` is optional and `version` is supplied by
+ * `clipEffectFromInput` rather than the caller.
+ */
+export const ClipEffectInputSchema = z.discriminatedUnion('kind', [
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('brightness'),
+    params: CLIP_EFFECT_PARAMS.brightness,
+  }).strict(),
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('contrast'),
+    params: CLIP_EFFECT_PARAMS.contrast,
+  }).strict(),
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('saturation'),
+    params: CLIP_EFFECT_PARAMS.saturation,
+  }).strict(),
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('white-balance'),
+    params: CLIP_EFFECT_PARAMS['white-balance'],
+  }).strict(),
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('blur'),
     params: z
       .object({
-        radius: z.number().min(0).max(100),
-        horizontal: z.boolean(),
-        vertical: z.boolean(),
+        radius: effectParam('blur', 'radius'),
+        horizontal: z.boolean().default(true),
+        vertical: z.boolean().default(true),
       })
       .strict(),
   }).strict(),
 ]);
+
+export type ClipEffectInput = z.infer<typeof ClipEffectInputSchema>;
+
+export function clipEffectFromInput(input: ClipEffectInput): ClipEffect {
+  return {
+    id: input.id ?? crypto.randomUUID(),
+    version: 1,
+    ...(input.disabled === undefined ? {} : { disabled: input.disabled }),
+    kind: input.kind,
+    params: input.params,
+  } as ClipEffect;
+}
 
 export const EffectParameterKeyframeTrackSchema = z
   .object({
@@ -240,13 +317,27 @@ export const EffectParameterKeyframeTrackSchema = z
     keys: z.array(KeyframeSchema).min(1),
   })
   .strict()
+  // Only the timing invariants are checked here. Value bounds are effect-kind
+  // specific and are enforced against the catalog in `ClipEffectStackSchema`;
+  // borrowing another property's bounds would abort this loop early and let
+  // duplicate or descending `atMs` through.
   .superRefine((track, ctx) => {
-    const error = keyframeTrackValidationError({
-      property: 'opacity',
-      keys: track.keys,
-    });
-    if (error && !error.startsWith('opacity keyframe value')) {
-      ctx.addIssue({ code: 'custom', message: error, path: ['keys'] });
+    let previousAtMs = -1;
+    for (const [index, key] of track.keys.entries()) {
+      if (!Number.isInteger(key.atMs) || key.atMs < 0) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Keyframe atMs must be a non-negative integer',
+          path: ['keys', index, 'atMs'],
+        });
+      } else if (key.atMs <= previousAtMs) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Keyframe keys must be strictly sorted and unique by atMs',
+          path: ['keys', index, 'atMs'],
+        });
+      }
+      previousAtMs = key.atMs;
     }
   });
 

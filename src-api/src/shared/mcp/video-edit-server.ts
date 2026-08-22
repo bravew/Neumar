@@ -12,7 +12,9 @@ import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import {
   ContentGraphSchema,
   CLIP_EFFECT_CATALOG,
+  ClipEffectInputSchema,
   ClipEffectStackSchema,
+  clipEffectFromInput,
   deriveBeatTimelinePoints,
   deriveTimelineClipFrameFields,
   durationMsToFrames,
@@ -217,60 +219,6 @@ const USER_OVERLAY_DOCUMENT_CONTROL_SCHEMA = z
     options: z.array(z.string().min(1).max(80)).max(40).optional(),
   })
   .strict();
-
-const CLIP_EFFECT_INPUT_SCHEMA = z.discriminatedUnion('kind', [
-  z
-    .object({
-      id: z.string().uuid().optional(),
-      kind: z.literal('brightness'),
-      disabled: z.boolean().optional(),
-      params: z.object({ amount: z.number().min(-1).max(1) }).strict(),
-    })
-    .strict(),
-  z
-    .object({
-      id: z.string().uuid().optional(),
-      kind: z.literal('contrast'),
-      disabled: z.boolean().optional(),
-      params: z.object({ amount: z.number().min(0).max(3) }).strict(),
-    })
-    .strict(),
-  z
-    .object({
-      id: z.string().uuid().optional(),
-      kind: z.literal('saturation'),
-      disabled: z.boolean().optional(),
-      params: z.object({ amount: z.number().min(0).max(3) }).strict(),
-    })
-    .strict(),
-  z
-    .object({
-      id: z.string().uuid().optional(),
-      kind: z.literal('white-balance'),
-      disabled: z.boolean().optional(),
-      params: z
-        .object({
-          temperature: z.number().min(-1).max(1),
-          tint: z.number().min(-1).max(1),
-        })
-        .strict(),
-    })
-    .strict(),
-  z
-    .object({
-      id: z.string().uuid().optional(),
-      kind: z.literal('blur'),
-      disabled: z.boolean().optional(),
-      params: z
-        .object({
-          radius: z.number().min(0).max(100),
-          horizontal: z.boolean().default(true),
-          vertical: z.boolean().default(true),
-        })
-        .strict(),
-    })
-    .strict(),
-]);
 
 export const VIDEO_EDIT_TOOL_NAMES = [
   'video_get_project_summary',
@@ -1122,32 +1070,6 @@ function isVisualTimelineMediaClip(
   return (
     clip.kind === 'video' || clip.kind === 'image' || clip.kind === 'overlay'
   );
-}
-
-function effectInputToClipEffect(
-  input: z.infer<typeof CLIP_EFFECT_INPUT_SCHEMA>,
-): ClipEffect {
-  const base = {
-    id: input.id ?? randomUUID(),
-    version: 1 as const,
-    ...(input.disabled === undefined ? {} : { disabled: input.disabled }),
-  };
-  switch (input.kind) {
-    case 'brightness':
-      return { ...base, kind: input.kind, params: input.params };
-    case 'contrast':
-      return { ...base, kind: input.kind, params: input.params };
-    case 'saturation':
-      return { ...base, kind: input.kind, params: input.params };
-    case 'white-balance':
-      return { ...base, kind: input.kind, params: input.params };
-    case 'blur':
-      return { ...base, kind: input.kind, params: input.params };
-    default: {
-      const exhaustive: never = input;
-      return exhaustive;
-    }
-  }
 }
 
 function proposedGradeEffects(
@@ -2103,33 +2025,45 @@ function buildSnapCutsToBeatOps(
     const clips = [...track.clips].sort(
       (left, right) => left.startMs - right.startMs,
     );
+    // A clip sits on two boundaries when both of its neighbours snap. Each op
+    // must therefore build on the timing the previous op left behind, not on
+    // the clip's original timing — otherwise the second op silently reverts
+    // the first and the cut reopens.
+    const pending = new Map(clips.map((clip) => [clip.id, clipTiming(clip)]));
     for (let index = 1; index < clips.length; index += 1) {
       const previous = clips[index - 1]!;
       const next = clips[index]!;
-      const boundary = next.startMs;
-      if (Math.abs(previous.startMs + previous.durationMs - boundary) > 1) {
+      const previousFrom = pending.get(previous.id)!;
+      const nextFrom = pending.get(next.id)!;
+      const boundary = nextFrom.startMs;
+      if (
+        Math.abs(previousFrom.startMs + previousFrom.durationMs - boundary) > 1
+      ) {
         continue;
       }
       const beat = nearestNumber(boundary, beatTimesMs, toleranceMs);
       if (beat === undefined || Math.round(beat) === boundary) continue;
       const deltaMs = Math.round(beat) - boundary;
-      const previousTo = retimeCutSide(previous, deltaMs, 'end');
-      const nextTo = retimeCutSide(next, deltaMs, 'start');
+      const previousTo = retimeCutSide(previous, previousFrom, deltaMs, 'end');
+      const nextTo = retimeCutSide(next, nextFrom, deltaMs, 'start');
       if (!previousTo || !nextTo) continue;
-      ops.push(
-        {
-          kind: 'clip.trim',
-          clipId: next.id,
-          from: clipTiming(next),
-          to: nextTo,
-        },
-        {
-          kind: 'clip.trim',
-          clipId: previous.id,
-          from: clipTiming(previous),
-          to: previousTo,
-        },
-      );
+      const previousOp: TimelineOp = {
+        kind: 'clip.trim',
+        clipId: previous.id,
+        from: previousFrom,
+        to: previousTo,
+      };
+      const nextOp: TimelineOp = {
+        kind: 'clip.trim',
+        clipId: next.id,
+        from: nextFrom,
+        to: nextTo,
+      };
+      // Move the clip that vacates the boundary first so the batch never
+      // passes through a transient overlap, which would read as a conflict.
+      ops.push(...(deltaMs > 0 ? [nextOp, previousOp] : [previousOp, nextOp]));
+      pending.set(previous.id, previousTo);
+      pending.set(next.id, nextTo);
     }
   }
   return ops;
@@ -2137,13 +2071,14 @@ function buildSnapCutsToBeatOps(
 
 function retimeCutSide(
   clip: TimelineClip,
+  from: ReturnType<typeof clipTiming>,
   deltaMs: number,
   side: 'start' | 'end',
 ) {
   const speed = clip.playback?.speed ?? 1;
   const sourceDeltaMs = Math.round(deltaMs * speed);
   const reverse = clip.playback?.reverse === true;
-  const next = clipTiming(clip);
+  const next = { ...from };
   if (side === 'end') {
     next.durationMs += deltaMs;
     if (reverse) next.trimStartMs -= sourceDeltaMs;
@@ -4122,7 +4057,7 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
         projectId: PROJECT_ID_SCHEMA,
         reasoning: REASONING_SCHEMA,
         clipId: z.string().min(1),
-        effects: z.array(CLIP_EFFECT_INPUT_SCHEMA).max(12),
+        effects: z.array(ClipEffectInputSchema).max(12),
         applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
         summary: z.string().max(280).optional(),
       },
@@ -4141,7 +4076,7 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
             effects.length > 0
               ? ClipEffectStackSchema.parse({
                   schema: 'neuma.video.clip-effects.v1',
-                  effects: effects.map(effectInputToClipEffect),
+                  effects: effects.map(clipEffectFromInput),
                 })
               : null;
           const op: TimelineOp = {
@@ -4277,18 +4212,23 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
               workspaceRoot: getVideoProjectRoot(project.id),
               bins,
             });
-            await updateProjectDocument(project.id, (current) => ({
-              ...current,
-              analysisArtifacts: [
-                ...(current.analysisArtifacts ?? []).filter(
-                  (artifact) =>
-                    artifact.kind !== 'beat-markers' ||
-                    artifact.sourceMediaId !== source.id,
-                ),
-                analysis.artifact,
-              ],
-              updatedAt: new Date().toISOString(),
-            }));
+            // `updateProjectDocument` has its own lock map, so it does not
+            // exclude the `withProjectLock` writers every other tool uses.
+            // Hold the shared lock too, or a concurrent edit can be lost.
+            await withProjectLock(project.id, () =>
+              updateProjectDocument(project.id, (current) => ({
+                ...current,
+                analysisArtifacts: [
+                  ...(current.analysisArtifacts ?? []).filter(
+                    (artifact) =>
+                      artifact.kind !== 'beat-markers' ||
+                      artifact.sourceMediaId !== source.id,
+                  ),
+                  analysis.artifact,
+                ],
+                updatedAt: new Date().toISOString(),
+              })),
+            );
             return jsonResult({
               projectId: project.id,
               clipId: resolvedClipId,

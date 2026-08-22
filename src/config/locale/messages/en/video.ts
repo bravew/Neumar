@@ -1848,6 +1848,7 @@ export default {
     studioTitle: 'HyperFrames preview',
     openStudio: 'Open Studio',
     studioError: 'HyperFrames preview failed: {error}',
+    studioScriptError: 'The HyperFrames player script failed to load.',
   },
   framesStrip: {
     empty: 'No frames yet.',

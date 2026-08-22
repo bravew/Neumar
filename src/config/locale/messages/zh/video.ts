@@ -1814,6 +1814,7 @@ export default {
     studioTitle: 'HyperFrames 预览',
     openStudio: '打开 Studio',
     studioError: 'HyperFrames 预览失败：{error}',
+    studioScriptError: 'HyperFrames 播放器脚本加载失败。',
   },
   framesStrip: {
     empty: '暂无帧。',

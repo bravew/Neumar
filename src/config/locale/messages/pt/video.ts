@@ -1866,6 +1866,8 @@ export default {
     studioTitle: 'Prévia do HyperFrames',
     openStudio: 'Abrir Studio',
     studioError: 'Falha na prévia do HyperFrames: {error}',
+    studioScriptError:
+      'Não foi possível carregar o script do player do HyperFrames.',
   },
   framesStrip: {
     empty: 'Ainda não há quadros.',

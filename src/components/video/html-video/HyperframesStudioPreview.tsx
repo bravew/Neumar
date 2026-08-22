@@ -9,6 +9,10 @@ interface StudioSession {
   studioUrl: string;
 }
 
+// The player script is shared by every preview mounted against one server, so
+// it is reference counted: the last instance to unmount removes it.
+const playerScriptRefs = new Map<string, number>();
+
 export function HyperframesStudioPreview({
   projectId,
   selectedFrameId,
@@ -46,9 +50,10 @@ export function HyperframesStudioPreview({
     })
       .then(async (response) => {
         if (!response.ok) {
-          const message = await response.text();
-          if (message.includes('requires index.html')) return null;
-          throw new Error(message || `HTTP ${response.status}`);
+          const failure = await parseStudioError(response);
+          // A project with no composition yet is a normal empty state.
+          if (failure.code === 'invalid-project') return null;
+          throw new Error(failure.message);
         }
         const payload: unknown = await response.json();
         const nextSession = parseStudioSession(payload);
@@ -77,19 +82,31 @@ export function HyperframesStudioPreview({
   useEffect(() => {
     if (!session) return;
     const src = `${session.serverUrl}/player.js`;
-    const existing = [
-      ...document.querySelectorAll<HTMLScriptElement>(
-        'script[data-hyperframes-player]',
-      ),
-    ].find((script) => script.dataset.hyperframesPlayer === src);
-    if (existing) return;
-    const script = document.createElement('script');
-    script.src = src;
-    script.dataset.hyperframesPlayer = src;
-    script.async = true;
-    document.head.append(script);
-    return () => script.remove();
-  }, [session]);
+    const onScriptError = () => setError(labels.studioScriptError);
+    const refs = playerScriptRefs.get(src) ?? 0;
+    playerScriptRefs.set(src, refs + 1);
+    let script: HTMLScriptElement | null = null;
+    if (refs === 0) {
+      script = document.createElement('script');
+      script.src = src;
+      script.dataset.hyperframesPlayer = src;
+      script.async = true;
+      script.addEventListener('error', onScriptError);
+      document.head.append(script);
+    }
+    return () => {
+      script?.removeEventListener('error', onScriptError);
+      const remaining = (playerScriptRefs.get(src) ?? 1) - 1;
+      if (remaining > 0) {
+        playerScriptRefs.set(src, remaining);
+        return;
+      }
+      playerScriptRefs.delete(src);
+      document
+        .querySelector(`script[data-hyperframes-player="${CSS.escape(src)}"]`)
+        ?.remove();
+    };
+  }, [session, labels.studioScriptError]);
 
   if (!session && !error) return null;
   if (error) {
@@ -126,6 +143,23 @@ export function HyperframesStudioPreview({
       </div>
     </section>
   );
+}
+
+async function parseStudioError(
+  response: Response,
+): Promise<{ code?: string; message: string }> {
+  const fallback = `HTTP ${response.status}`;
+  const payload: unknown = await response.json().catch(() => null);
+  if (typeof payload !== 'object' || payload === null) {
+    return { message: fallback };
+  }
+  const body = payload as { error?: unknown; detail?: unknown };
+  const detail = body.detail as { code?: unknown } | undefined;
+  return {
+    ...(typeof detail?.code === 'string' ? { code: detail.code } : {}),
+    message:
+      typeof body.error === 'string' && body.error ? body.error : fallback,
+  };
 }
 
 function parseStudioSession(value: unknown): StudioSession {

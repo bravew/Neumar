@@ -140,6 +140,121 @@ describe('HyperframesStudioBridge', () => {
       code: 'no-selection',
     } satisfies Partial<HyperframesStudioError>);
   });
+
+  it('rejects a non-loopback serverUrl instead of handing it to the renderer', async () => {
+    const run = vi.fn(async (input: StreamingCommandInput) => {
+      const port = Number(input.args[input.args.indexOf('--port') + 1]);
+      if (input.args.includes('--stop'))
+        return lifecycleResult(input, projectDir, port);
+      return {
+        stdout: JSON.stringify({
+          schemaVersion: 1,
+          operation: 'start',
+          ok: true,
+          result: {
+            state: 'started',
+            projectName: 'demo',
+            projectDir,
+            host: '127.0.0.1',
+            port,
+            serverUrl: 'https://attacker.example.com',
+            studioUrl: `http://127.0.0.1:${port}/#project/demo`,
+          },
+        }),
+        stderr: '',
+      };
+    });
+    const bridge = new HyperframesStudioBridge('hyperframes-test', run);
+    await expect(
+      bridge.acquire(projectDir, 'subscriber-1'),
+    ).rejects.toMatchObject({
+      name: 'HyperframesStudioError',
+      code: 'malformed-json',
+    });
+    // The background preview was already running, so it must be stopped.
+    expect(
+      run.mock.calls.filter(([input]) => input.args.includes('--stop')),
+    ).toHaveLength(1);
+  });
+
+  it('stops the background preview when the reported port does not match', async () => {
+    const run = vi.fn(async (input: StreamingCommandInput) => {
+      const port = Number(input.args[input.args.indexOf('--port') + 1]);
+      if (input.args.includes('--stop'))
+        return lifecycleResult(input, projectDir, port);
+      return lifecycleResult(input, projectDir, port + 1);
+    });
+    const bridge = new HyperframesStudioBridge('hyperframes-test', run);
+    await expect(
+      bridge.acquire(projectDir, 'subscriber-1'),
+    ).rejects.toMatchObject({
+      name: 'HyperframesStudioError',
+      code: 'preview-port-mismatch',
+    });
+    const stops = run.mock.calls.filter(([input]) =>
+      input.args.includes('--stop'),
+    );
+    expect(stops).toHaveLength(1);
+    // Stopped on the port HyperFrames actually reported, not the one we asked for.
+    const requestedPort = Number(
+      run.mock.calls[0]![0].args[
+        run.mock.calls[0]![0].args.indexOf('--port') + 1
+      ],
+    );
+    expect(
+      Number(stops[0]![0].args[stops[0]![0].args.indexOf('--port') + 1]),
+    ).toBe(requestedPort + 1);
+  });
+
+  it('keeps the session addressable when the stop command fails', async () => {
+    let failStop = true;
+    const run = vi.fn(async (input: StreamingCommandInput) => {
+      const port = Number(input.args[input.args.indexOf('--port') + 1]);
+      if (input.args.includes('--stop') && failStop) {
+        throw new Error('stop failed');
+      }
+      return lifecycleResult(input, projectDir, port);
+    });
+    const bridge = new HyperframesStudioBridge('hyperframes-test', run);
+    const session = await bridge.acquire(projectDir, 'subscriber-1');
+    await expect(bridge.release(projectDir, 'subscriber-1')).rejects.toThrow();
+
+    // A retry can still reach the running preview on the same port.
+    failStop = false;
+    const again = await bridge.acquire(projectDir, 'subscriber-2');
+    expect(again.port).toBe(session.port);
+    expect(await bridge.release(projectDir, 'subscriber-2')).toBe(true);
+  });
+
+  it('waits for an in-flight stop before starting a second preview', async () => {
+    let releaseStop: (() => void) | undefined;
+    const run = vi.fn(async (input: StreamingCommandInput) => {
+      const port = Number(input.args[input.args.indexOf('--port') + 1]);
+      if (input.args.includes('--stop')) {
+        await new Promise<void>((resolve) => {
+          releaseStop = resolve;
+        });
+      }
+      return lifecycleResult(input, projectDir, port);
+    });
+    const bridge = new HyperframesStudioBridge('hyperframes-test', run);
+    await bridge.acquire(projectDir, 'subscriber-1');
+    const stopping = bridge.release(projectDir, 'subscriber-1');
+    expect(releaseStop).toBeDefined();
+
+    const reacquire = bridge.acquire(projectDir, 'subscriber-2');
+    const startsBeforeStopSettles = run.mock.calls.filter(([input]) =>
+      input.args.includes('--background'),
+    ).length;
+    expect(startsBeforeStopSettles).toBe(1);
+
+    releaseStop!();
+    expect(await stopping).toBe(true);
+    await reacquire;
+    expect(
+      run.mock.calls.filter(([input]) => input.args.includes('--background')),
+    ).toHaveLength(2);
+  });
 });
 
 function lifecycleResult(
