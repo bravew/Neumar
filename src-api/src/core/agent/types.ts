@@ -15,6 +15,8 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
+import type { TurnBudgetOutcome } from './turn-budget';
+
 /**
  * A per-run in-process MCP server exposed to a subprocess runtime over the
  * loopback bridge. `createServer` is a factory (fresh instance per bridge
@@ -199,6 +201,14 @@ export interface AgentMessage {
    * Available on 'result' messages from Agent SDK ≥0.2.91.
    */
   terminalReason?: string;
+  /**
+   * Provider-neutral stop reason, normalized at the shared agent-runtime
+   * boundary (see `core/agent/turn-budget.ts`). Set on 'result' messages so
+   * the UI can distinguish "the model finished" from "we hit a ceiling".
+   */
+  turnBudget?: TurnBudgetOutcome;
+  /** Configured turn ceiling for this run, when the caller set one. */
+  maxTurns?: number;
   /**
    * Phase 7: tool-output defense verdict + audit metadata. Adapters set this
    * on tool_result messages so AG-UI / persistence can attach a security

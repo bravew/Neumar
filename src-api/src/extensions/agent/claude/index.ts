@@ -61,6 +61,7 @@ import { pythonErrorHintHook } from '@/core/agent/safety/python-error-classifier
 import { ToolLifecycleHookRunner } from '@/core/agent/tool-lifecycle-hooks';
 import { ToolPermissionRegistry } from '@/core/agent/tool-permission-registry';
 import { limitForDisplay } from '@/core/agent/tool-result-limiter';
+import { normalizeStopReason } from '@/core/agent/turn-budget';
 import type {
   AgentConfig,
   AgentMessage,
@@ -2150,6 +2151,8 @@ export class ClaudeAgent extends BaseAgent {
   private readonly containerManager = new ContainerManager();
   /** Per-session counter of consecutive SDK control-channel error results. */
   private readonly sdkControlErrorCounts = new Map<string, number>();
+  /** sessionId → the turn ceiling this run was configured with (P2-5). */
+  private readonly effectiveMaxTurns = new Map<string, number>();
 
   constructor(config: AgentConfig) {
     super(config);
@@ -2967,6 +2970,11 @@ User's request (answer this AFTER reading the images):
       options?.additionalUserDirs,
     );
 
+    // Typed turn budget (P2-5): remember the ceiling this run was given so the
+    // `result` message can report it alongside the normalized stop reason.
+    const effectiveMaxTurns = options?.maxTurns ?? 200;
+    this.effectiveMaxTurns.set(session.id, effectiveMaxTurns);
+
     const denialTracker = new DenialTracker();
     const loopGuard = new LoopGuard();
     const permissionRegistry = createPermissionRegistry(options?.autoApprove);
@@ -3016,7 +3024,7 @@ User's request (answer this AFTER reading the images):
           }
         : {}),
       pathToClaudeCodeExecutable: claudeCodePath,
-      maxTurns: options?.maxTurns ?? 200,
+      maxTurns: effectiveMaxTurns,
       enableFileCheckpointing: true,
       // Provides user message UUIDs in stream (required for rewindFiles targeting)
       extraArgs: { 'replay-user-messages': null },
@@ -6466,6 +6474,8 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         },
       });
 
+      const maxTurns = this.effectiveMaxTurns.get(sessionId);
+      this.effectiveMaxTurns.delete(sessionId);
       yield {
         type: 'result',
         subtype: msg.subtype,
@@ -6473,6 +6483,12 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         cost: this.effectiveCost(msg.total_cost_usd),
         duration: msg.duration_ms,
         terminalReason,
+        ...(maxTurns !== undefined ? { maxTurns } : {}),
+        turnBudget: normalizeStopReason({
+          subtype: msg.subtype,
+          terminalReason,
+          limit: maxTurns,
+        }),
         usage: msg.usage
           ? {
               input_tokens: msg.usage.input_tokens,

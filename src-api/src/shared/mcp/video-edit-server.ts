@@ -7,6 +7,7 @@
 
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import {
@@ -89,14 +90,27 @@ import {
 } from '@/shared/video/editor-context';
 import { buildEditorHandoffModel } from '@/shared/video/editor-handoff/build-model';
 import { evaluateHandoffConformance } from '@/shared/video/editor-handoff/conformance';
-import { listVideoEnginesWithBuiltins } from '@/shared/video/engines';
+import {
+  EngineSelectionError,
+  listEngineSelectionOptions,
+  listVideoEnginesWithBuiltins,
+  selectVideoEngine,
+} from '@/shared/video/engines';
 import { getVideoFeatureFlag } from '@/shared/video/flags';
+import {
+  checkHyperframesComposition,
+  compareHyperframesGrades,
+  compareHyperframesVariants,
+  HyperframesInspectError,
+  summarizeHyperframesCheck,
+} from '@/shared/video/hyperframes-inspect';
 import {
   getHyperframesStudioBridge,
   HyperframesStudioError,
   resolveHyperframesStudioProjectDir,
 } from '@/shared/video/hyperframes-studio';
 import { analyzeImageFocalPoint } from '@/shared/video/image-analysis';
+import { readInlinePng } from '@/shared/video/inline-image';
 import { enqueueEditorHandoffJob } from '@/shared/video/jobs';
 import {
   attachLinkedAsset,
@@ -158,6 +172,11 @@ import {
   buildTimelineWindow,
   findTimelineClips,
 } from '@/shared/video/timeline-window';
+import {
+  hasVideoRefs,
+  resolveVideoRefs,
+  VideoRefResolutionError,
+} from '@/shared/video/tool-refs';
 import { transitionQualityEntry } from '@/shared/video/transition-quality';
 import {
   deriveTimelineTransitionSeams,
@@ -238,7 +257,11 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_save_user_overlay_document',
   'video_get_transition_seams',
   'video_list_engines',
+  'video_select_engine',
   'video_get_html_selection',
+  'video_compare_variants',
+  'video_compare_grades',
+  'video_check_html_composition',
   'video_search_templates',
   'video_list_custom_templates',
   'video_inspect_template',
@@ -535,6 +558,47 @@ function jsonResult(value: unknown) {
 
 function errorResult(message: string) {
   return { ...textResult(message), isError: true };
+}
+
+/**
+ * HyperFrames diagnostics escalate their typed reason so the agent can point
+ * the user at the doctor/setup surface instead of retrying blindly.
+ */
+function hyperframesInspectErrorResult(error: unknown) {
+  if (error instanceof HyperframesInspectError) {
+    return errorResult(`[${error.code}] ${error.message}`);
+  }
+  return errorResult(error instanceof Error ? error.message : String(error));
+}
+
+/**
+ * Image-bearing tool result: `[{type:'text'},{type:'image'}]`. The text half
+ * always carries the on-disk path, so an oversized sheet that cannot be
+ * inlined still leaves the agent something actionable.
+ */
+async function imageResult(value: unknown, absolutePngPath: string) {
+  const inline = await readInlinePng(absolutePngPath).catch(() => null);
+  const text = JSON.stringify(
+    {
+      ...(typeof value === 'object' && value !== null ? value : { value }),
+      inlineImage: inline
+        ? { included: true, downscaled: inline.downscaled, bytes: inline.bytes }
+        : { included: false, reason: 'too-large-or-unreadable' },
+    },
+    null,
+    2,
+  );
+  if (!inline) return textResult(text);
+  return {
+    content: [
+      { type: 'text' as const, text },
+      {
+        type: 'image' as const,
+        data: inline.base64,
+        mimeType: inline.mimeType,
+      },
+    ],
+  };
 }
 
 function withToolTimeout<T>(
@@ -983,23 +1047,92 @@ function camelToolCall<Name extends VideoAgentToolName>(
   };
 }
 
+/**
+ * Symbolic-key batch ops (P2-4). A batch op may carry `key`, which mints a
+ * clip id for a clip the caller did not pre-generate; later ops in the same
+ * batch reference it as `$key:<name>`, and the tool returns the key → id map.
+ * That is what turns multi-clip construction into one call instead of one
+ * round-trip per id, and it removes the need to hand `clip.removeTimeRange`
+ * caller-built replacement clips just to control their ids.
+ */
+const SYMBOLIC_KEY_PATTERN = /^[A-Za-z0-9_.-]{1,60}$/;
+
+interface ParsedTimelineBatch {
+  ops: TimelineOp[];
+  /** Symbolic key → minted clip id, in declaration order. */
+  keys: Record<string, string>;
+}
+
 function parseTimelineOpsWithResolverRefs(
   rawOps: Array<Record<string, unknown>>,
   refs: TimelineResolverRefs | undefined,
-): TimelineOp[] {
-  return rawOps.map((rawOp) =>
-    TimelineOpSchema.parse(resolveTimelineOpRefs(rawOp, refs)),
+  project?: VideoProject,
+): ParsedTimelineBatch {
+  const keyedClipIds: Record<string, string> = {};
+  const ops = rawOps.map((rawOp) =>
+    TimelineOpSchema.parse(
+      resolveTimelineOpRefs(rawOp, refs, keyedClipIds, project),
+    ),
   );
+  return { ops, keys: keyedClipIds };
 }
 
 function resolveTimelineOpRefs(
   rawOp: Record<string, unknown>,
   refs: TimelineResolverRefs | undefined,
+  keyedClipIds: Record<string, string>,
+  project: VideoProject | undefined,
 ): Record<string, unknown> {
-  const op = { ...rawOp };
+  const { key, ...rest } = rawOp;
+  const op: Record<string, unknown> = { ...rest };
+
+  if (key !== undefined) {
+    if (typeof key !== 'string' || !SYMBOLIC_KEY_PATTERN.test(key)) {
+      throw new Error(
+        'Batch op "key" must be 1-60 characters of [A-Za-z0-9_.-].',
+      );
+    }
+    if (keyedClipIds[key]) {
+      throw new Error(`Duplicate symbolic key "${key}" in this batch.`);
+    }
+    const clip = op.clip;
+    if (!clip || typeof clip !== 'object') {
+      throw new Error(
+        `Batch op "key" is only valid on clip-creating ops; op "${String(op.kind)}" has no clip.`,
+      );
+    }
+    const clipRecord = clip as Record<string, unknown>;
+    const mintedId =
+      typeof clipRecord.id === 'string' && clipRecord.id.length > 0
+        ? clipRecord.id
+        : randomUUID();
+    op.clip = { ...clipRecord, id: mintedId };
+    keyedClipIds[key] = mintedId;
+  }
+
+  // Every clip/track ref form the dispatcher understands works inside a batch
+  // too, plus `$key:` which only makes sense here.
+  if (project && hasVideoRefs(op)) {
+    return applyRefs(
+      resolveVideoRefs({
+        value: op,
+        project,
+        refs: { ...refs, keyedClipIds },
+      }) as Record<string, unknown>,
+      refs,
+    );
+  }
   if (typeof op.clipId === 'string') {
     op.clipId = resolveClipRef(op.clipId, refs);
   }
+  return applyRefs(op, refs);
+}
+
+/** The transcript range resolver, which is a range rewrite, not an id lookup. */
+function applyRefs(
+  op: Record<string, unknown>,
+  refs: TimelineResolverRefs | undefined,
+): Record<string, unknown> {
   if (
     op.kind === 'clip.removeTimeRange' &&
     op.rangeRef === 'transcript_selection'
@@ -1008,9 +1141,13 @@ function resolveTimelineOpRefs(
     if (!range) {
       throw new Error('transcript_selection range resolver was not provided');
     }
-    op.startMs = range.startMs;
-    op.endMs = range.endMs;
-    delete op.rangeRef;
+    const next: Record<string, unknown> = {
+      ...op,
+      startMs: range.startMs,
+      endMs: range.endMs,
+    };
+    delete next.rangeRef;
+    return next;
   }
   return op;
 }
@@ -1030,6 +1167,21 @@ function selectionResolverRefs(
   return selected && selected.length > 0
     ? { selectionClipIds: selected }
     : undefined;
+}
+
+/** Explicit caller refs win over the live editor selection. */
+function mergeResolverRefs(
+  base: TimelineResolverRefs | undefined,
+  explicit: TimelineResolverRefs | undefined,
+): TimelineResolverRefs | undefined {
+  if (!base) return explicit;
+  if (!explicit) return base;
+  return { ...base, ...explicit };
+}
+
+/** Only load the project when some ref actually needs the timeline. */
+function needsProjectForRefs(value: unknown): boolean {
+  return hasVideoRefs(value);
 }
 
 function resolveClipRef(
@@ -2186,6 +2338,58 @@ async function attachVideoAsset(
 }
 
 export function createVideoEditTools(options: VideoEditServerOptions = {}) {
+  return withVideoRefResolution(buildVideoEditTools(options), options);
+}
+
+/**
+ * Ref resolution in the MCP dispatcher (P2-2).
+ *
+ * Every clip-taking tool — not just `video_apply_timeline_ops` — accepts the
+ * shared ref vocabulary in its `clipId`, `clipIds`, and `trackId` fields. The
+ * project is loaded only when a ref is actually present, so literal-id calls
+ * pay nothing. `video_apply_timeline_ops` opts out: its batch pass has to run
+ * op-by-op so `$key:` refs can see keys minted earlier in the same batch.
+ */
+const SELF_RESOLVING_TOOLS = new Set(['video_apply_timeline_ops']);
+
+function withVideoRefResolution<
+  Tools extends ReadonlyArray<{
+    name: string;
+    handler: (args: never, extra: unknown) => Promise<unknown>;
+  }>,
+>(tools: Tools, options: VideoEditServerOptions): Tools {
+  return tools.map((definition) => {
+    if (SELF_RESOLVING_TOOLS.has(definition.name)) return definition;
+    const inner = definition.handler;
+    return {
+      ...definition,
+      handler: async (args: never, extra: unknown) => {
+        if (!hasVideoRefs(args)) return inner(args, extra);
+        let resolved: unknown;
+        try {
+          const input = args as unknown as { projectId?: string };
+          const project = await loadProjectForTool(input.projectId, options);
+          resolved = resolveVideoRefs({
+            value: args,
+            project,
+            refs: selectionResolverRefs(options),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof VideoRefResolutionError
+              ? `${definition.name}: could not resolve "${error.ref}" — ${error.message}`
+              : error instanceof Error
+                ? error.message
+                : String(error),
+          );
+        }
+        return inner(resolved as never, extra);
+      },
+    };
+  }) as unknown as Tools;
+}
+
+function buildVideoEditTools(options: VideoEditServerOptions) {
   return [
     tool(
       'video_get_project_summary',
@@ -2799,14 +3003,59 @@ export function createVideoEditTools(options: VideoEditServerOptions = {}) {
     ),
     tool(
       'video_list_engines',
-      'List the registered video render engines (id, name, version, installed, capabilities). ' +
+      'List the registered video render engines (id, name, version, installed, capabilities) with their honest tradeoffs and, when an engine is unusable, the typed unavailable reason. ' +
         'Read-only. Surfaces the engine adapter seam from dev-doc/html-video Phase 1.',
       {},
       async () => {
         try {
           const engines = await listVideoEnginesWithBuiltins();
-          return jsonResult({ engines });
+          const options = await listEngineSelectionOptions();
+          return jsonResult({ engines, options });
         } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_select_engine',
+      'Choose a render engine under the runtime-selection contract: returns a logged decision listing every engine considered with its tradeoffs. ' +
+        'When the requested engine is unavailable this escalates with the typed reason (not-found / version-too-old / browser-missing) instead of silently substituting another engine — present the options to the user and let them choose.',
+      {
+        engineId: z
+          .string()
+          .min(1)
+          .max(60)
+          .optional()
+          .describe(
+            'Engine to select (remotion | html | hyperframes). Omit to get the preference-order recommendation.',
+          ),
+      },
+      async ({ engineId }) => {
+        try {
+          await listVideoEnginesWithBuiltins();
+          const decision = await selectVideoEngine(
+            engineId ? { requestedEngineId: engineId } : {},
+          );
+          return jsonResult(decision);
+        } catch (error) {
+          if (error instanceof EngineSelectionError) {
+            return errorResult(
+              JSON.stringify(
+                {
+                  schema: 'neuma.video.engine-selection-error.v1',
+                  code: error.code,
+                  message: error.message,
+                  requestedEngineId: error.decisionInput.requestedEngineId,
+                  unavailableReason: error.decisionInput.unavailableReason,
+                  optionsConsidered: error.decisionInput.options,
+                },
+                null,
+                2,
+              ),
+            );
+          }
           return errorResult(
             error instanceof Error ? error.message : String(error),
           );
@@ -2849,6 +3098,198 @@ export function createVideoEditTools(options: VideoEditServerOptions = {}) {
           );
         }
       },
+    ),
+    tool(
+      'video_compare_variants',
+      'Render two or more HyperFrames composition variants at one timestamp into a single labeled contact sheet, returned as an inline image plus its path. Use this to choose between alternatives instead of describing them.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        variants: z
+          .array(
+            z
+              .object({
+                label: z.string().min(1).max(40),
+                compositionDir: z
+                  .string()
+                  .min(1)
+                  .max(500)
+                  .describe(
+                    'Composition directory relative to the video project root.',
+                  ),
+              })
+              .strict(),
+          )
+          .min(2)
+          .max(8),
+        atSec: z
+          .number()
+          .min(0)
+          .optional()
+          .describe('Timeline time to seek in every variant before capture.'),
+        cols: z.number().int().min(1).max(4).optional(),
+      },
+      async ({ projectId, variants, atSec, cols }) =>
+        withToolTimeout('video_compare_variants', async () => {
+          const resolvedProjectId = resolveProjectId(projectId, options);
+          const root = getVideoProjectRoot(resolvedProjectId);
+          const resolvedVariants = variants.map((variant) => ({
+            label: variant.label,
+            compositionPath: resolveHyperframesStudioProjectDir(
+              root,
+              variant.compositionDir,
+            ),
+          }));
+          const outputPath = path.join(
+            root,
+            '.neuma-cache',
+            'compare',
+            `variants-${randomUUID()}.png`,
+          );
+          const result = await compareHyperframesVariants({
+            variants: resolvedVariants,
+            ...(atSec !== undefined ? { atSec } : {}),
+            ...(cols !== undefined ? { cols } : {}),
+            outputPath,
+            cwd: root,
+          });
+          const sheet = result.sheet
+            ? path.resolve(root, result.sheet)
+            : outputPath;
+          return imageResult(
+            {
+              schema: 'neuma.video.compare-variants.v1',
+              projectId: resolvedProjectId,
+              atSec: atSec ?? 0,
+              sheetPath: sheet,
+              variants: resolvedVariants.map((variant) => variant.label),
+              rendered: result.rendered ?? resolvedVariants.length,
+            },
+            sheet,
+          );
+        }).catch(hyperframesInspectErrorResult),
+    ),
+    tool(
+      'video_compare_grades',
+      'Render candidate color grades (and/or .cube LUTs) onto one reference frame as a single labeled comparison sheet, returned as an inline image plus its path. Proposes; applies nothing. Pair with video_analyze_clip_grade and video_set_clip_effects.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referencePath: z
+          .string()
+          .min(1)
+          .max(500)
+          .describe(
+            'Reference image, or a video sampled at t=0, relative to the video project root.',
+          ),
+        grades: z
+          .array(
+            z
+              .object({
+                label: z.string().min(1).max(40),
+                grading: z.record(z.string(), z.unknown()),
+              })
+              .strict(),
+          )
+          .max(8)
+          .optional(),
+        luts: z.array(z.string().min(1).max(500)).max(8).optional(),
+        baseline: z
+          .boolean()
+          .optional()
+          .describe('Prepend the ungraded frame as an "original" cell.'),
+      },
+      async ({ projectId, referencePath, grades, luts, baseline }) =>
+        withToolTimeout('video_compare_grades', async () => {
+          const resolvedProjectId = resolveProjectId(projectId, options);
+          const root = getVideoProjectRoot(resolvedProjectId);
+          const reference = validatePath(referencePath, root, 'read');
+          const resolvedLuts = (luts ?? []).map((lut) =>
+            validatePath(lut, root, 'read'),
+          );
+          const outputPath = path.join(
+            root,
+            '.neuma-cache',
+            'compare',
+            `grades-${randomUUID()}.png`,
+          );
+          const result = await compareHyperframesGrades({
+            referencePath: reference,
+            ...(grades ? { grades } : {}),
+            ...(resolvedLuts.length > 0 ? { luts: resolvedLuts } : {}),
+            ...(baseline !== undefined ? { baseline } : {}),
+            outputPath,
+            projectDir: root,
+            cwd: root,
+          });
+          const sheet = result.sheet
+            ? path.resolve(root, result.sheet)
+            : outputPath;
+          return imageResult(
+            {
+              schema: 'neuma.video.compare-grades.v1',
+              projectId: resolvedProjectId,
+              sheetPath: sheet,
+              cells: result.cells ?? 0,
+              candidates: [
+                ...(grades ?? []).map((grade) => grade.label),
+                ...resolvedLuts.map((lut) => path.basename(lut)),
+              ],
+            },
+            sheet,
+          );
+        }).catch(hyperframesInspectErrorResult),
+    ),
+    tool(
+      'video_check_html_composition',
+      'Run the HyperFrames lint + runtime + layout + motion + WCAG AA contrast gate over an HTML composition in one browser session. Read-only. Findings are a result, not a failure — a non-clean report still returns.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        compositionDir: z.string().min(1).max(500).default('hyperframes'),
+        samples: z.number().int().min(1).max(60).optional(),
+        atSec: z.array(z.number().min(0)).max(20).optional(),
+        atTransitions: z.boolean().optional(),
+        contrast: z.boolean().optional(),
+        strict: z.boolean().optional(),
+        maxIssues: z.number().int().min(1).max(400).optional(),
+      },
+      async ({
+        projectId,
+        compositionDir,
+        samples,
+        atSec,
+        atTransitions,
+        contrast,
+        strict,
+        maxIssues,
+      }) =>
+        withToolTimeout(
+          'video_check_html_composition',
+          async () => {
+            const resolvedProjectId = resolveProjectId(projectId, options);
+            const root = getVideoProjectRoot(resolvedProjectId);
+            const dir = resolveHyperframesStudioProjectDir(
+              root,
+              compositionDir,
+            );
+            const report = await checkHyperframesComposition({
+              compositionDir: dir,
+              ...(samples !== undefined ? { samples } : {}),
+              ...(atSec?.length ? { atSec } : {}),
+              ...(atTransitions !== undefined ? { atTransitions } : {}),
+              ...(contrast !== undefined ? { contrast } : {}),
+              ...(strict !== undefined ? { strict } : {}),
+              ...(maxIssues !== undefined ? { maxIssues } : {}),
+              cwd: root,
+            });
+            return jsonResult({
+              schema: 'neuma.video.html-check.v1',
+              projectId: resolvedProjectId,
+              compositionDir,
+              summary: summarizeHyperframesCheck(report),
+              report,
+            });
+          },
+          300_000,
+        ).catch(hyperframesInspectErrorResult),
     ),
     tool(
       'video_search_templates',
@@ -3822,7 +4263,9 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
     ),
     tool(
       'video_apply_timeline_ops',
-      'Apply an ordered timeline operation batch atomically. The batch is one audit entry and one undo unit; if any op fails, no project write is committed.',
+      'Apply an ordered timeline operation batch atomically. The batch is one audit entry and one undo unit; if any op fails, no project write is committed. ' +
+        'A clip-creating op may carry a symbolic "key" instead of a pre-generated clip id; later ops in the same batch reference it as "$key:<name>", and the result returns the key → clip id map. ' +
+        'Clip and track fields also accept the shared refs: $selection, $transcript_selection, clipIndex:<n>, trackIndex:<n>:clipIndex:<m>, atSec:<seconds>, trackIndex:<n>.',
       {
         projectId: PROJECT_ID_SCHEMA,
         reasoning: REASONING_SCHEMA,
@@ -3833,15 +4276,29 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
       async (input) =>
         withToolTimeout('video_apply_timeline_ops', async () => {
           const { resolverRefs, ops, ...rest } = input;
-          const resolvedOps = parseTimelineOpsWithResolverRefs(
-            ops,
-            resolverRefs,
-          );
+          const refs = mergeResolverRefs(selectionResolverRefs(options), {
+            ...(resolverRefs ?? {}),
+          });
+          const project = needsProjectForRefs(ops)
+            ? await loadProjectForTool(input.projectId, options)
+            : undefined;
+          const batch = parseTimelineOpsWithResolverRefs(ops, refs, project);
           const { projectId, call } = camelToolCall('applyTimelineOps', {
             ...rest,
-            ops: resolvedOps,
+            ops: batch.ops,
           });
-          return toolCallResult(projectId, options, call);
+          const result = await toolCallResult(projectId, options, call);
+          if (Object.keys(batch.keys).length === 0) return result;
+          return {
+            ...result,
+            content: [
+              ...result.content,
+              {
+                type: 'text' as const,
+                text: JSON.stringify({ symbolicKeys: batch.keys }, null, 2),
+              },
+            ],
+          };
         }).catch((error) =>
           errorResult(error instanceof Error ? error.message : String(error)),
         ),

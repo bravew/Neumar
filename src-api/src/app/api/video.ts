@@ -80,11 +80,22 @@ import {
   writeContentGraph,
   writeTemplateVariables,
 } from '@/shared/video/content-graph/persistence';
+import {
+  EngineSelectionError,
+  listEngineSelectionOptions,
+  listVideoEnginesWithBuiltins,
+  selectVideoEngine,
+} from '@/shared/video/engines';
 import { runVideoEvalReport } from '@/shared/video/eval';
 import {
   getVideoFeatureFlag,
   snapshotVideoFeatureFlags,
 } from '@/shared/video/flags';
+import {
+  checkHyperframesComposition,
+  HyperframesInspectError,
+  summarizeHyperframesCheck,
+} from '@/shared/video/hyperframes-inspect';
 import {
   getHyperframesStudioBridge,
   HyperframesStudioError,
@@ -1153,6 +1164,34 @@ videoRoutes.get('/flags', (c) => {
   return c.json({ flags: snapshotVideoFeatureFlags() });
 });
 
+// Runtime-selection contract (P2-6) + packaged-runtime setup surface.
+// Every registered engine, with its honest tradeoffs and — when it is not
+// usable — the typed reason (`not-found` / `version-too-old` /
+// `browser-missing`) the setup prompt turns into install guidance.
+videoRoutes.get('/engines', async (c) => {
+  try {
+    await listVideoEnginesWithBuiltins();
+    const options = await listEngineSelectionOptions();
+    let recommendedEngineId: string | undefined;
+    try {
+      recommendedEngineId = (await selectVideoEngine({ options }))
+        .selectedEngineId;
+    } catch (error) {
+      if (!(error instanceof EngineSelectionError)) throw error;
+    }
+    return c.json({
+      schema: 'neuma.video.engine-options.v1',
+      engines: options,
+      ...(recommendedEngineId ? { recommendedEngineId } : {}),
+    });
+  } catch (error) {
+    logger.error(
+      `Failed to list video engines: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return c.json({ error: 'Failed to list video engines' }, 500);
+  }
+});
+
 // "My overlays" — user-saved overlay presets (07-07 plan CP6). Data-only
 // bookmarks over built-in presets; see overlays/user-presets.ts.
 videoRoutes.get('/overlay-presets', async (c) => {
@@ -1915,6 +1954,62 @@ videoRoutes.post(
         ),
       });
     } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+const htmlCheckInputSchema = z.object({
+  compositionDir: z.string().min(1).max(500).default('hyperframes'),
+  samples: z.number().int().min(1).max(60).optional(),
+  atSec: z.array(z.number().min(0)).max(20).optional(),
+  atTransitions: z.boolean().optional(),
+  contrast: z.boolean().optional(),
+  strict: z.boolean().optional(),
+  maxIssues: z.number().int().min(1).max(400).optional(),
+});
+
+// Phase E (P2-1): route HyperFrames' one-session lint + runtime + layout +
+// motion + WCAG AA gate into the QA panel. Findings are a result, not a
+// failure, so a non-clean report still returns 200.
+videoRoutes.post(
+  '/projects/:id/html-check',
+  zValidator('json', htmlCheckInputSchema),
+  async (c) => {
+    const input = c.req.valid('json');
+    try {
+      const root = getVideoProjectRoot(c.req.param('id'));
+      const report = await checkHyperframesComposition({
+        compositionDir: resolveHyperframesStudioProjectDir(
+          root,
+          input.compositionDir,
+        ),
+        ...(input.samples !== undefined ? { samples: input.samples } : {}),
+        ...(input.atSec?.length ? { atSec: input.atSec } : {}),
+        ...(input.atTransitions !== undefined
+          ? { atTransitions: input.atTransitions }
+          : {}),
+        ...(input.contrast !== undefined ? { contrast: input.contrast } : {}),
+        ...(input.strict !== undefined ? { strict: input.strict } : {}),
+        ...(input.maxIssues !== undefined
+          ? { maxIssues: input.maxIssues }
+          : {}),
+        cwd: root,
+        signal: c.req.raw.signal,
+      });
+      return c.json({
+        schema: 'neuma.video.html-check.v1',
+        compositionDir: input.compositionDir,
+        summary: summarizeHyperframesCheck(report),
+        report,
+      });
+    } catch (error) {
+      if (error instanceof HyperframesInspectError) {
+        return c.json(
+          { error: error.message, detail: { code: error.code } },
+          error.code === 'invalid-input' ? 400 : 502,
+        );
+      }
       return jsonError(c, error);
     }
   },

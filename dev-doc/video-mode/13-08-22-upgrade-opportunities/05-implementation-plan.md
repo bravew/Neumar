@@ -13,10 +13,9 @@ verification commands in a progress table.
 
 ## Implementation status — 2026-08-22
 
-Core implementation is complete through Phase D. Phase E is intentionally
-pick-and-choose; the permission metadata audit and generated capability reference
-were selected and completed. Phase F remains gated on real Studio usage, as this
-plan requires.
+Core implementation is complete through Phase E — every Phase E item has now
+been picked up, not just the permission metadata audit and generated capability
+reference. Phase F remains gated on real Studio usage, as this plan requires.
 
 | Phase | Status | Commit | Verification |
 | --- | --- | --- | --- |
@@ -27,6 +26,7 @@ plan requires.
 | C1 — Studio bridge | Implemented | `b8db15a` | 55 focused backend tests, StrictMode UI test, real 0.8.7 lifecycle/context probe; `pnpm validate` |
 | D — skill drift | Implemented | `9c76b8f` | Pin match, deliberate mismatch self-test, read-only currency probe; `pnpm validate` |
 | E — metadata/reference | Implemented | `193ec48` | 53 focused MCP tests including all 111 registered Video tools; `pnpm validate` |
+| E — remaining P2 items | Implemented | (this pass) | Engine-selection, tool-refs, turn-budget, HyperFrames-inspect, dispatcher, route, and UI suites; `pnpm validate`; live 0.8.7 `check` / `compare` / `grade-compare` runs |
 | F — motion graphics | Not started | — | Waiting for production Studio-bridge usage evidence |
 
 Final branch sweep: `pnpm validate` passed; frontend Vitest passed 1,224 tests
@@ -34,6 +34,10 @@ across 290 files; `pnpm test:api` passed 3,046 tests across 489 files, with 7
 tests in 3 files skipped by their existing configuration. The first sandboxed
 backend sweep could not bind loopback sockets or resolve DNS; the normal-permission
 rerun passed without code changes.
+
+Sweep after the remaining Phase E items landed: `pnpm validate` passed;
+`pnpm test:fast` passed 1,240 frontend tests across 293 files and 3,108 API
+tests across 497 files (7 skipped by existing configuration).
 
 ### Acceptance evidence still required before declaring rollout complete
 
@@ -51,9 +55,8 @@ rerun passed without code changes.
   network is unavailable; an upgrade still requires explicit approval plus
   re-verification.
 - B's packaged-runtime policy is decided and recorded (require the CLI on
-  `PATH`; see Phase B). The typed unavailable reason and version diagnostics
-  that policy obliges are implemented, but the `doctor`-style first-run setup
-  prompt it also calls for is not built yet.
+  `PATH`; see Phase B). Everything that policy obliges is now implemented,
+  including the `doctor`-style first-run setup prompt.
 
 ---
 
@@ -198,9 +201,12 @@ warmer and less contrasty" produces a reviewable, invertible op batch.
   - Every render diagnostic carries `cliVersion` and `browserVersion` —
     **done**.
   - A `doctor`-style first-run surface that turns `not-found` /
-    `browser-missing` into an actionable install prompt — **not built**; the
-    reason reaches the engine list and the render error today, but there is no
-    guided setup flow. Tracked under remaining rollout evidence.
+    `browser-missing` into an actionable install prompt — **done**.
+    `GET /video/engines` returns every engine's typed reason;
+    `EngineSetupPrompt.tsx` renders one copyable install command plus a
+    re-check, and `EnginePicker.tsx` surfaces it before a render can fail on
+    it. Install guidance is data-driven in
+    `src/components/video/engineSetupGuidance.ts`.
 
 **Acceptance:** three default HyperFrames renders produce identical sampled frame
 hashes and matching ffprobe metadata. When Docker reproducible mode is selected,
@@ -300,15 +306,15 @@ Pick individually; none blocks another.
 
 | Item | Status | Work |
 |---|---|---|
-| `video_compare_variants` | Deferred | Wrap `hyperframes compare`; return an **image-bearing tool result** (`[{type:'text'},{type:'image'}]`), per OpenReel's `loop.ts::buildToolResultContent` |
-| `video_compare_grades` | Deferred | Wrap `grade-compare`, including `.cube` LUT candidates; pairs with Phase A2 |
-| `check --json` in QA | Deferred | Route into `QaReportPanel.tsx` for HTML compositions — lint + runtime + layout + motion + WCAG AA in one browser session |
-| Ref resolution in the dispatcher | Deferred | Lift `clipIndex` / `atSec` / `trackIndex` → `clipId` resolution out of `video_apply_timeline_ops` into the MCP dispatcher so every clip-taking tool gets it |
+| `video_compare_variants` | Implemented | Wraps `hyperframes compare` and returns an **image-bearing tool result** (`[{type:'text'},{type:'image'}]`). `shared/video/inline-image.ts` caps the encoded payload, downscales once through ffmpeg, and degrades to path-only rather than oversizing a turn. |
+| `video_compare_grades` | Implemented | Wraps `grade-compare` with `.cube` LUT candidates and an optional ungraded baseline cell. `--grades` takes a **file path**, not inline JSON — the CLI help text is misleading — so the module writes and cleans up a temp file. |
+| `check --json` in QA | Implemented | `video_check_html_composition` + `POST /video/projects/:id/html-check` + `QaHtmlCheckSection.tsx` inside `QaReportPanel.tsx`. `check` exits non-zero when it finds issues, so the runner reads the report off the failed run's stdout; findings are a result, not a failure. |
+| Ref resolution in the dispatcher | Implemented | `shared/video/tool-refs.ts` + `withVideoRefResolution` in `video-edit-server.ts`. Every tool's `clipId` / `clipIds` / `trackId` — nested ones included — accepts `$selection`, `$transcript_selection`, `clipIndex:<n>`, `trackIndex:<n>:clipIndex:<m>`, `atSec:<s>`, and `trackIndex:<n>`. The project is read only when a ref is actually present. |
 | Generated capability doc | Implemented | Generate the active, plugin-filtered system-prompt tool reference from the registry, with permission and cost-tier flags inline, so prompt and `permissions.ts` cannot diverge |
-| Symbolic-key batch ops | Deferred | Allow batch ops to declare `key` / `parentKey` and return a key→id map, so multi-clip construction is one call. This also removes the `clip.removeTimeRange` caller-supplied-replacement-clip limitation noted in `12-video-mode-4` |
+| Symbolic-key batch ops | Implemented | A clip-creating op in `video_apply_timeline_ops` may declare `key`; Neuma mints the clip id, later ops in the same batch reference it as `$key:<name>`, and the result appends the key→id map. Only `key` shipped — `parentKey` had no consumer in the timeline IR, which is flat per track. |
 | Permission metadata audit | Implemented | Reuse the existing `read \| write \| execute \| destructive \| network` classification and `DESTRUCTIVE_TOOLS` list. Tests require every registered Video tool to have exactly one classification and a cost class; no second destructive axis was added. |
-| Typed turn budget | Deferred | Design this at the shared agent-runtime boundary, not only in Video Mode. Map provider-specific stops into `{ end_turn, max_steps, max_tool_calls, max_tokens, budget, error }` and surface the normalized reason in `AgentDock`. The current Video Agent still passes `maxTurns: 60`, but Claude, Codex, and Cursor do not share one stop protocol. |
-| Runtime-selection contract | Deferred | Present both engines with honest tradeoffs when both are available; log the decision with every option considered; escalate rather than substitute when the chosen engine is unavailable |
+| Typed turn budget | Implemented | `core/agent/turn-budget.ts` maps any provider's `subtype` / `terminal_reason` / message into `{ end_turn, max_steps, max_tool_calls, max_tokens, budget, cancelled, refusal, error, unknown }` plus an `exhausted` flag. Normalization runs in `AGUIEmitter` — the one boundary every mode's messages cross — and ships as the `neuma.turn_budget` CUSTOM event; the Claude adapter also reports the run's configured ceiling. `AgentDockTurnBudget.tsx` offers Continue only when a ceiling, not a failure, stopped the run. |
+| Runtime-selection contract | Implemented | `engines/selection.ts`. `selectVideoEngine()` logs a decision naming every option considered with its tradeoffs, and throws `EngineSelectionError` (`unknown-engine` / `engine-unavailable` / `no-engine-available`) instead of substituting. Surfaced as `video_select_engine`, folded into `video_list_engines` and `GET /video/engines`, prompted in the Video system prompt, and enforced in `materializeHtmlStoryboard`, which pre-flights the adapter once per run so escalation is real rather than advisory. |
 
 ---
 

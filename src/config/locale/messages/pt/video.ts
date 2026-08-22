@@ -636,6 +636,23 @@ export default {
       },
     },
     qa: {
+      htmlCheck: {
+        title: 'Verificação da composição HTML',
+        run: 'Executar verificação',
+        running: 'A verificar…',
+        clean: 'Sem problemas',
+        counts: '{errors} erros · {warnings} avisos',
+        error: 'A verificação falhou: {error}',
+        more: '+{count} mais',
+        passDisabled: 'desativado',
+        pass: {
+          lint: 'Lint',
+          runtime: 'Runtime',
+          layout: 'Esquema',
+          motion: 'Movimento',
+          contrast: 'Contraste',
+        },
+      },
       title: 'Relatório de QA',
       passed: 'Nenhum problema encontrado',
       issueCount: '{count} problemas',
@@ -1183,6 +1200,22 @@ export default {
       },
     },
     agentDock: {
+      turnBudget: {
+        continue: 'Continuar',
+        continuePrompt: 'Continua a partir de onde paraste.',
+        reason: {
+          max_steps:
+            'O agente parou no seu limite de turnos ({limit}) antes de terminar.',
+          max_tool_calls:
+            'O agente parou no seu limite de chamadas de ferramentas.',
+          max_tokens: 'O agente parou no seu limite de tokens.',
+          budget: 'O agente parou no seu orçamento de custo.',
+          cancelled: 'A execução foi interrompida.',
+          refusal: 'O agente recusou continuar este pedido.',
+          error: 'A execução terminou com um erro.',
+          unknown: 'A execução terminou por um motivo desconhecido.',
+        },
+      },
       toggle: 'Agente',
       open: 'Abrir agente',
       close: 'Fechar agente',
@@ -1868,6 +1901,29 @@ export default {
     studioError: 'Falha na prévia do HyperFrames: {error}',
     studioScriptError:
       'Não foi possível carregar o script do player do HyperFrames.',
+  },
+  engines: {
+    label: 'Motor',
+    pickerHint: 'Motores de renderização registados nesta máquina',
+    loading: 'A verificar motores…',
+    loadError: 'Falha ao carregar os motores: {error}',
+    none: 'Nenhum motor de renderização registado.',
+    unavailable: 'Por configurar',
+    setup: {
+      title: '{engine} não está pronto nesta máquina',
+      reasonNotFound: '{engine} não está instalado.',
+      reasonVersionTooOld:
+        '{engine} {found} é anterior à versão exigida {required}.',
+      reasonBrowserMissing:
+        '{engine} está instalado, mas falta o seu navegador de renderização.',
+      unknownVersion: 'desconhecida',
+      noSubstitution:
+        'O Neuma não renderiza com outro motor por iniciativa própria — configure este ou escolha outro você mesmo.',
+      copyCommand: 'Copiar',
+      copied: 'Copiado',
+      docs: 'Documentação',
+      recheck: 'Verificar novamente',
+    },
   },
   framesStrip: {
     empty: 'Ainda não há quadros.',

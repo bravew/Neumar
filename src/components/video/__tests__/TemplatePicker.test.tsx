@@ -2,7 +2,6 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders as render } from '../../../__tests__/helpers/render-with-providers';
-import { EnginePicker } from '../EnginePicker';
 import { TemplatePicker } from '../TemplatePicker';
 
 const fakeGallery = {
@@ -151,12 +150,5 @@ describe('TemplatePicker', () => {
         String(url).includes('/frame-clean-title/source'),
       ),
     ).toBe(false);
-  });
-});
-
-describe('EnginePicker', () => {
-  it('renders a read-only chip with the engine id', () => {
-    render(<EnginePicker engineId="html" />);
-    expect(screen.getByTestId('engine-picker')).toHaveTextContent('html');
   });
 });

@@ -637,6 +637,23 @@ export default {
       },
     },
     qa: {
+      htmlCheck: {
+        title: 'Vérification de composition HTML',
+        run: 'Lancer la vérification',
+        running: 'Vérification…',
+        clean: 'Aucun problème',
+        counts: '{errors} erreurs · {warnings} avertissements',
+        error: 'Échec de la vérification : {error}',
+        more: '+{count} de plus',
+        passDisabled: 'désactivé',
+        pass: {
+          lint: 'Lint',
+          runtime: 'Exécution',
+          layout: 'Mise en page',
+          motion: 'Animation',
+          contrast: 'Contraste',
+        },
+      },
       title: 'Rapport QA',
       passed: 'Aucun problème trouvé',
       issueCount: '{count} problèmes',
@@ -1186,6 +1203,21 @@ export default {
       },
     },
     agentDock: {
+      turnBudget: {
+        continue: 'Continuer',
+        continuePrompt: 'Reprends là où tu t’es arrêté.',
+        reason: {
+          max_steps:
+            'L’agent s’est arrêté à sa limite de tours ({limit}) sans terminer.',
+          max_tool_calls: 'L’agent s’est arrêté à sa limite d’appels d’outils.',
+          max_tokens: 'L’agent s’est arrêté à sa limite de jetons.',
+          budget: 'L’agent s’est arrêté à son budget de coût.',
+          cancelled: 'L’exécution a été arrêtée.',
+          refusal: 'L’agent a refusé de poursuivre cette demande.',
+          error: 'L’exécution s’est terminée par une erreur.',
+          unknown: 'L’exécution s’est terminée pour une raison inconnue.',
+        },
+      },
       toggle: 'Agent',
       open: 'Ouvrir l’agent',
       close: 'Fermer l’agent',
@@ -1876,6 +1908,29 @@ export default {
     studioError: 'Échec de l’aperçu HyperFrames : {error}',
     studioScriptError:
       'Le script du lecteur HyperFrames n’a pas pu être chargé.',
+  },
+  engines: {
+    label: 'Moteur',
+    pickerHint: 'Moteurs de rendu enregistrés sur cette machine',
+    loading: 'Vérification des moteurs…',
+    loadError: 'Échec du chargement des moteurs : {error}',
+    none: 'Aucun moteur de rendu enregistré.',
+    unavailable: 'Non configuré',
+    setup: {
+      title: '{engine} n’est pas prêt sur cette machine',
+      reasonNotFound: '{engine} n’est pas installé.',
+      reasonVersionTooOld:
+        '{engine} {found} est antérieur à la version requise {required}.',
+      reasonBrowserMissing:
+        '{engine} est installé, mais son navigateur de rendu est absent.',
+      unknownVersion: 'inconnue',
+      noSubstitution:
+        'Neuma ne fera pas le rendu avec un autre moteur de lui-même : configurez celui-ci ou choisissez-en un autre vous-même.',
+      copyCommand: 'Copier',
+      copied: 'Copié',
+      docs: 'Documentation',
+      recheck: 'Vérifier à nouveau',
+    },
   },
   framesStrip: {
     empty: 'Aucune image pour le moment.',

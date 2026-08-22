@@ -630,6 +630,23 @@ export default {
       },
     },
     qa: {
+      htmlCheck: {
+        title: 'HTML composition check',
+        run: 'Run check',
+        running: 'Checking…',
+        clean: 'No issues',
+        counts: '{errors} errors · {warnings} warnings',
+        error: 'Check failed: {error}',
+        more: '+{count} more',
+        passDisabled: 'off',
+        pass: {
+          lint: 'Lint',
+          runtime: 'Runtime',
+          layout: 'Layout',
+          motion: 'Motion',
+          contrast: 'Contrast',
+        },
+      },
       title: 'QA report',
       passed: 'No issues found',
       issueCount: '{count} issues',
@@ -1468,6 +1485,21 @@ export default {
       },
     },
     agentDock: {
+      turnBudget: {
+        continue: 'Continue',
+        continuePrompt: 'Continue from where you stopped.',
+        reason: {
+          max_steps:
+            'The agent stopped at its turn limit ({limit}) before finishing.',
+          max_tool_calls: 'The agent stopped at its tool-call limit.',
+          max_tokens: 'The agent stopped at its token limit.',
+          budget: 'The agent stopped at its cost budget.',
+          cancelled: 'The run was stopped.',
+          refusal: 'The agent declined to continue this request.',
+          error: 'The run ended with an error.',
+          unknown: 'The run ended for an unknown reason.',
+        },
+      },
       toggle: 'Agent',
       open: 'Open agent',
       close: 'Close agent',
@@ -1849,6 +1881,29 @@ export default {
     openStudio: 'Open Studio',
     studioError: 'HyperFrames preview failed: {error}',
     studioScriptError: 'The HyperFrames player script failed to load.',
+  },
+  engines: {
+    label: 'Engine',
+    pickerHint: 'Render engines registered on this machine',
+    loading: 'Checking engines…',
+    loadError: 'Failed to load engines: {error}',
+    none: 'No render engines registered.',
+    unavailable: 'Not set up',
+    setup: {
+      title: '{engine} is not ready on this machine',
+      reasonNotFound: '{engine} is not installed.',
+      reasonVersionTooOld:
+        '{engine} {found} is older than the required {required}.',
+      reasonBrowserMissing:
+        '{engine} is installed, but its rendering browser is missing.',
+      unknownVersion: 'unknown',
+      noSubstitution:
+        'Neuma will not render with a different engine on its own — set this one up, or pick another engine yourself.',
+      copyCommand: 'Copy',
+      copied: 'Copied',
+      docs: 'Docs',
+      recheck: 'Check again',
+    },
   },
   framesStrip: {
     empty: 'No frames yet.',

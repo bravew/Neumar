@@ -621,6 +621,23 @@ export default {
       },
     },
     qa: {
+      htmlCheck: {
+        title: 'HTML कंपोज़िशन जाँच',
+        run: 'जाँच चलाएँ',
+        running: 'जाँच हो रही है…',
+        clean: 'कोई समस्या नहीं',
+        counts: '{errors} त्रुटियाँ · {warnings} चेतावनियाँ',
+        error: 'जाँच विफल: {error}',
+        more: '+{count} और',
+        passDisabled: 'बंद',
+        pass: {
+          lint: 'लिंट',
+          runtime: 'रनटाइम',
+          layout: 'लेआउट',
+          motion: 'मोशन',
+          contrast: 'कंट्रास्ट',
+        },
+      },
       title: 'QA रिपोर्ट',
       passed: 'कोई समस्या नहीं मिली',
       issueCount: '{count} समस्याएं',
@@ -1161,6 +1178,20 @@ export default {
       },
     },
     agentDock: {
+      turnBudget: {
+        continue: 'जारी रखें',
+        continuePrompt: 'जहाँ रुके थे वहीं से जारी रखें।',
+        reason: {
+          max_steps: 'एजेंट काम पूरा करने से पहले टर्न सीमा ({limit}) पर रुक गया।',
+          max_tool_calls: 'एजेंट टूल-कॉल सीमा पर रुक गया।',
+          max_tokens: 'एजेंट टोकन सीमा पर रुक गया।',
+          budget: 'एजेंट लागत बजट पर रुक गया।',
+          cancelled: 'यह रन रोक दिया गया।',
+          refusal: 'एजेंट ने यह अनुरोध जारी रखने से इनकार किया।',
+          error: 'यह रन त्रुटि के साथ समाप्त हुआ।',
+          unknown: 'यह रन अज्ञात कारण से समाप्त हुआ।',
+        },
+      },
       toggle: 'एजेंट',
       open: 'एजेंट खोलें',
       close: 'एजेंट बंद करें',
@@ -1830,6 +1861,28 @@ export default {
     openStudio: 'Studio खोलें',
     studioError: 'HyperFrames पूर्वावलोकन विफल: {error}',
     studioScriptError: 'HyperFrames प्लेयर स्क्रिप्ट लोड नहीं हो सकी।',
+  },
+  engines: {
+    label: 'इंजन',
+    pickerHint: 'इस मशीन पर पंजीकृत रेंडर इंजन',
+    loading: 'इंजन जाँचे जा रहे हैं…',
+    loadError: 'इंजन लोड नहीं हो सके: {error}',
+    none: 'कोई रेंडर इंजन पंजीकृत नहीं है।',
+    unavailable: 'सेट अप नहीं',
+    setup: {
+      title: '{engine} इस मशीन पर तैयार नहीं है',
+      reasonNotFound: '{engine} इंस्टॉल नहीं है।',
+      reasonVersionTooOld: '{engine} {found} आवश्यक {required} से पुराना है।',
+      reasonBrowserMissing:
+        '{engine} इंस्टॉल है, लेकिन उसका रेंडरिंग ब्राउज़र नहीं मिला।',
+      unknownVersion: 'अज्ञात',
+      noSubstitution:
+        'Neuma अपने आप किसी दूसरे इंजन से रेंडर नहीं करेगा — इसे सेट अप करें, या स्वयं दूसरा इंजन चुनें।',
+      copyCommand: 'कॉपी करें',
+      copied: 'कॉपी हो गया',
+      docs: 'दस्तावेज़',
+      recheck: 'फिर से जाँचें',
+    },
   },
   framesStrip: {
     empty: 'अभी तक कोई फ्रेम नहीं।',

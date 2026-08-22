@@ -10,6 +10,7 @@ import { createRemotionAdapter } from './remotion-adapter';
 
 export * from './types';
 export * from './registry';
+export * from './selection';
 export { createRemotionAdapter } from './remotion-adapter';
 export {
   createHtmlAdapter,

@@ -99,6 +99,31 @@ type PendingPluginContext = Pick<
   | 'pluginSignatureOk'
 >;
 
+/**
+ * Typed turn budget (P2-5). Normalized server-side at the shared agent-runtime
+ * boundary and delivered as the `neuma.turn_budget` CUSTOM event, so the dock
+ * can tell "the model finished" from "we hit the turn ceiling".
+ */
+export type TurnStopReason =
+  | 'end_turn'
+  | 'max_steps'
+  | 'max_tool_calls'
+  | 'max_tokens'
+  | 'budget'
+  | 'cancelled'
+  | 'refusal'
+  | 'error'
+  | 'unknown';
+
+export interface TurnBudgetOutcome {
+  reason: TurnStopReason;
+  raw?: string;
+  exhausted: boolean;
+  limit?: number;
+}
+
+export const TURN_BUDGET_EVENT_NAME = 'neuma.turn_budget';
+
 export type ToolCallStage = 'pending' | 'streaming' | 'complete' | 'error';
 
 export interface ToolCallRecord {
@@ -150,6 +175,7 @@ export function useAgentDock({ projectId }: UseAgentDockOptions) {
   );
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [turnBudget, setTurnBudget] = useState<TurnBudgetOutcome | null>(null);
   const streamRef = useRef<{
     id: string;
     controller: AbortController;
@@ -314,6 +340,16 @@ export function useAgentDock({ projectId }: UseAgentDockOptions) {
 
       if (
         getString(payload, 'type') === 'CUSTOM' &&
+        getString(payload, 'name') === TURN_BUDGET_EVENT_NAME
+      ) {
+        const value = getRecord(payload, 'value');
+        const outcome = value ? toTurnBudgetOutcome(value) : null;
+        if (outcome) setTurnBudget(outcome);
+        return;
+      }
+
+      if (
+        getString(payload, 'type') === 'CUSTOM' &&
         getString(payload, 'name') === 'permission_request'
       ) {
         const value = getRecord(payload, 'value');
@@ -414,6 +450,8 @@ export function useAgentDock({ projectId }: UseAgentDockOptions) {
     async (content: string, context: AgentDockContext) => {
       const trimmed = content.trim();
       if (!trimmed) return;
+      // A new turn invalidates the previous turn's stop reason.
+      setTurnBudget(null);
 
       // Prior turns (before this message) give the agent multi-turn memory — so
       // a URL pasted earlier is still in context after a follow-up confirmation.
@@ -554,6 +592,34 @@ export function useAgentDock({ projectId }: UseAgentDockOptions) {
     appendText,
     updateAction,
     model,
+    turnBudget,
+  };
+}
+
+const TURN_STOP_REASONS = new Set<TurnStopReason>([
+  'end_turn',
+  'max_steps',
+  'max_tool_calls',
+  'max_tokens',
+  'budget',
+  'cancelled',
+  'refusal',
+  'error',
+  'unknown',
+]);
+
+function toTurnBudgetOutcome(
+  value: Record<string, unknown>,
+): TurnBudgetOutcome | null {
+  const reason = getString(value, 'reason');
+  if (!reason || !TURN_STOP_REASONS.has(reason as TurnStopReason)) return null;
+  const limit = value.limit;
+  const raw = getString(value, 'raw');
+  return {
+    reason: reason as TurnStopReason,
+    exhausted: value.exhausted === true,
+    ...(raw ? { raw } : {}),
+    ...(typeof limit === 'number' ? { limit } : {}),
   };
 }
 

@@ -327,7 +327,7 @@ export function StepPreviewCanvas({
           </div>
         </Panel>
       </PanelGroup>
-      <QaReportPanel output={selectedOutput} />
+      <QaReportPanel output={selectedOutput} projectId={project.id} />
       <RenderQueuePanel projectId={project.id} />
       <RenderProgressBar project={project} onCancel={handleCancelRender} />
     </div>
