@@ -20,6 +20,7 @@ const READ_TOOLS = [
   'video_list_overlay_presets',
   'video_get_transition_seams',
   'video_list_engines',
+  'video_get_html_selection',
   'video_search_templates',
   'video_list_custom_templates',
   'video_inspect_template',

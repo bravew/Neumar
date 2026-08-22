@@ -86,6 +86,10 @@ import {
   snapshotVideoFeatureFlags,
 } from '@/shared/video/flags';
 import {
+  getHyperframesStudioBridge,
+  resolveHyperframesStudioProjectDir,
+} from '@/shared/video/hyperframes-studio';
+import {
   getRenderStreamBufferSize,
   getRenderStreamSeqBounds,
   isRenderStreamActive,
@@ -1853,6 +1857,54 @@ videoRoutes.patch(
           c.req.valid('json'),
         ),
       );
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+const hyperframesPreviewInputSchema = z.object({
+  compositionDir: z.string().min(1).max(500).default('hyperframes'),
+  subscriberId: z.string().uuid(),
+});
+
+videoRoutes.post(
+  '/projects/:id/hyperframes-preview/open',
+  zValidator('json', hyperframesPreviewInputSchema),
+  async (c) => {
+    try {
+      const projectId = c.req.param('id');
+      const projectDir = resolveHyperframesStudioProjectDir(
+        getVideoProjectRoot(projectId),
+        c.req.valid('json').compositionDir,
+      );
+      return c.json({
+        session: await getHyperframesStudioBridge().acquire(
+          projectDir,
+          c.req.valid('json').subscriberId,
+        ),
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+videoRoutes.post(
+  '/projects/:id/hyperframes-preview/release',
+  zValidator('json', hyperframesPreviewInputSchema),
+  async (c) => {
+    try {
+      const projectDir = resolveHyperframesStudioProjectDir(
+        getVideoProjectRoot(c.req.param('id')),
+        c.req.valid('json').compositionDir,
+      );
+      return c.json({
+        stopped: await getHyperframesStudioBridge().release(
+          projectDir,
+          c.req.valid('json').subscriberId,
+        ),
+      });
     } catch (error) {
       return jsonError(c, error);
     }

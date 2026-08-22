@@ -44,6 +44,7 @@ describe('video-edit MCP server', () => {
         'video_describe_scene',
         'video_list_transition_presets',
         'video_list_effect_presets',
+        'video_get_html_selection',
         'video_get_transition_seams',
         'video_add_scene',
         'video_set_keyframes',

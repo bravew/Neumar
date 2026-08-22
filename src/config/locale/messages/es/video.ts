@@ -1873,6 +1873,9 @@ export default {
     removeRow: 'Quitar fila',
     assetPlaceholder: 'ruta o id del recurso {kind}',
     unsupportedControl: '{label} — el control {kind} llegará pronto.',
+    studioTitle: 'Vista previa de HyperFrames',
+    openStudio: 'Abrir Studio',
+    studioError: 'Falló la vista previa de HyperFrames: {error}',
   },
   framesStrip: {
     empty: 'Aún no hay cuadros.',

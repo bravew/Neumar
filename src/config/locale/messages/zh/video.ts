@@ -1811,6 +1811,9 @@ export default {
     removeRow: '删除行',
     assetPlaceholder: '{kind} 资源路径或 id',
     unsupportedControl: '{label} — {kind} 控件即将推出。',
+    studioTitle: 'HyperFrames 预览',
+    openStudio: '打开 Studio',
+    studioError: 'HyperFrames 预览失败：{error}',
   },
   framesStrip: {
     empty: '暂无帧。',

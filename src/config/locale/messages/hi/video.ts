@@ -1826,6 +1826,9 @@ export default {
     removeRow: 'पंक्ति हटाएँ',
     assetPlaceholder: '{kind} एसेट पथ या id',
     unsupportedControl: '{label} — {kind} नियंत्रण जल्द ही।',
+    studioTitle: 'HyperFrames पूर्वावलोकन',
+    openStudio: 'Studio खोलें',
+    studioError: 'HyperFrames पूर्वावलोकन विफल: {error}',
   },
   framesStrip: {
     empty: 'अभी तक कोई फ्रेम नहीं।',

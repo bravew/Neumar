@@ -20,6 +20,8 @@ export class StreamingCommandError extends Error {
     public readonly code: 'not-found' | 'aborted' | 'timeout' | 'failed',
     message: string,
     public readonly exitCode?: number,
+    public readonly stdout = '',
+    public readonly stderr = '',
   ) {
     super(message);
     this.name = 'StreamingCommandError';
@@ -90,6 +92,8 @@ export function runStreamingCommand({
           'failed',
           `${bin} exited with ${closeSignal ? `signal ${closeSignal}` : `code ${code ?? 'unknown'}`}`,
           code ?? undefined,
+          stdout,
+          stderr,
         ),
       );
     });

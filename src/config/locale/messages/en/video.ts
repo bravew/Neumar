@@ -1845,6 +1845,9 @@ export default {
     removeRow: 'Remove row',
     assetPlaceholder: '{kind} asset path or id',
     unsupportedControl: '{label} — {kind} control coming soon.',
+    studioTitle: 'HyperFrames preview',
+    openStudio: 'Open Studio',
+    studioError: 'HyperFrames preview failed: {error}',
   },
   framesStrip: {
     empty: 'No frames yet.',

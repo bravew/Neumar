@@ -1871,6 +1871,9 @@ export default {
     removeRow: 'Supprimer la ligne',
     assetPlaceholder: 'chemin ou id de la ressource {kind}',
     unsupportedControl: '{label} — le contrôle {kind} arrive bientôt.',
+    studioTitle: 'Aperçu HyperFrames',
+    openStudio: 'Ouvrir Studio',
+    studioError: 'Échec de l’aperçu HyperFrames : {error}',
   },
   framesStrip: {
     empty: 'Aucune image pour le moment.',

@@ -89,6 +89,11 @@ import { buildEditorHandoffModel } from '@/shared/video/editor-handoff/build-mod
 import { evaluateHandoffConformance } from '@/shared/video/editor-handoff/conformance';
 import { listVideoEnginesWithBuiltins } from '@/shared/video/engines';
 import { getVideoFeatureFlag } from '@/shared/video/flags';
+import {
+  getHyperframesStudioBridge,
+  HyperframesStudioError,
+  resolveHyperframesStudioProjectDir,
+} from '@/shared/video/hyperframes-studio';
 import { analyzeImageFocalPoint } from '@/shared/video/image-analysis';
 import { enqueueEditorHandoffJob } from '@/shared/video/jobs';
 import {
@@ -285,6 +290,7 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_save_user_overlay_document',
   'video_get_transition_seams',
   'video_list_engines',
+  'video_get_html_selection',
   'video_search_templates',
   'video_list_custom_templates',
   'video_inspect_template',
@@ -2866,6 +2872,43 @@ export function createVideoEditTools(options: VideoEditServerOptions = {}) {
           const engines = await listVideoEnginesWithBuiltins();
           return jsonResult({ engines });
         } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_get_html_selection',
+      'Read the element currently selected in the managed HyperFrames Studio preview. Prefer the stable data-hf-id target; if no element is selected, ask the user to click it in Studio.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        compositionDir: z.string().min(1).max(500).default('hyperframes'),
+      },
+      async ({ projectId, compositionDir }) => {
+        try {
+          const resolvedProjectId = resolveProjectId(projectId, options);
+          const projectDir = resolveHyperframesStudioProjectDir(
+            getVideoProjectRoot(resolvedProjectId),
+            compositionDir,
+          );
+          const selection =
+            await getHyperframesStudioBridge().getSelection(projectDir);
+          return jsonResult({
+            schema: 'neuma.video.hyperframes-selection.v1',
+            projectId: resolvedProjectId,
+            selection,
+            contextTarget: selection.stableTarget,
+          });
+        } catch (error) {
+          if (
+            error instanceof HyperframesStudioError &&
+            error.code === 'no-selection'
+          ) {
+            return errorResult(
+              'No element is selected in HyperFrames Studio. Ask the user to click the target element, then retry.',
+            );
+          }
           return errorResult(
             error instanceof Error ? error.message : String(error),
           );

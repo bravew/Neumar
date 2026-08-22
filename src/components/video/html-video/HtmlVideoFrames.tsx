@@ -7,6 +7,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 import { useContentGraph } from '@/shared/video/useContentGraph';
 
 import { useRenderQueueJobs } from '../useRenderQueueJobs';
+import { HyperframesStudioPreview } from './HyperframesStudioPreview';
 
 // Slice K — the multi-frame agent output: a topo-ordered frames strip (editable)
 // + the read-only content-graph viewer. Hidden until the agent emits a graph.
@@ -85,6 +86,12 @@ export function HtmlVideoFrames({ projectId }: { projectId: string }) {
         enhancingNodeId={enhancingNodeId}
         onSetNativeEnhancement={toggleNativeEnhancement}
       />
+      {selectedId ? (
+        <HyperframesStudioPreview
+          projectId={projectId}
+          selectedFrameId={selectedId}
+        />
+      ) : null}
       <ContentGraphViewer
         graph={graph}
         projectId={projectId}

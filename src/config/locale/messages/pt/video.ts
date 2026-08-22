@@ -1863,6 +1863,9 @@ export default {
     removeRow: 'Remover linha',
     assetPlaceholder: 'caminho ou id do recurso {kind}',
     unsupportedControl: '{label} — controle {kind} em breve.',
+    studioTitle: 'Prévia do HyperFrames',
+    openStudio: 'Abrir Studio',
+    studioError: 'Falha na prévia do HyperFrames: {error}',
   },
   framesStrip: {
     empty: 'Ainda não há quadros.',
