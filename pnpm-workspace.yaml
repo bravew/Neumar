@@ -53,7 +53,8 @@ overrides:
   # CVE — esbuild <0.28.1 missing binary integrity verification (GHSA, Deno).
   # Patch-bump only the prod 0.28.0 peer (@remotion/bundler); the dev-only
   # 0.25/0.27 copies (vite/vitest) are out of the --prod audit and untouched.
-  'esbuild@0.28.0': '0.28.1'
+  # Retargeted to 0.28.2 2026-08-21 (G1) to track the current patch release.
+  'esbuild@0.28.0': '0.28.2'
   # GHSA-96hv-2xvq-fx4p — force Remotion transitives onto patched ws.
   ws: '8.21.0'
   # GHSA-vxpw-j846-p89q — discord.js pins undici 6.24.1; force patched 6.x.
