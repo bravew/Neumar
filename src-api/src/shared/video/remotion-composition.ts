@@ -8,6 +8,7 @@ import {
   resolveTimelineProperty,
 } from '@neumar/video-ir';
 import type { KeyframeableProperty } from '@neumar/video-ir';
+import { Video as MediaVideo, type VideoObjectFit } from '@remotion/media';
 import { TransitionSeries } from '@remotion/transitions';
 import React, { type CSSProperties } from 'react';
 import {
@@ -69,6 +70,7 @@ const DEFAULT_RENDER_INPUT: RemotionCompositionProps = {
   visualClips: [],
   audioClips: [],
   captions: [],
+  useRemotionMedia: true,
 };
 const calculateMetadata: CalculateMetadataFunction<
   RemotionCompositionProps
@@ -124,10 +126,15 @@ export function RemotionRenderComposition(
   return React.createElement(
     AbsoluteFill,
     { style: { backgroundColor: '#000000' } },
-    ...visualTrackNodes(props.visualClips, props.fps, {
-      width: props.compositionWidth,
-      height: props.compositionHeight,
-    }),
+    ...visualTrackNodes(
+      props.visualClips,
+      props.fps,
+      {
+        width: props.compositionWidth,
+        height: props.compositionHeight,
+      },
+      props.useRemotionMedia ?? true,
+    ),
     ...props.audioClips.map((clip) =>
       React.createElement(
         Sequence,
@@ -176,10 +183,12 @@ function VisualClip({
   clip,
   transitionTailFrames,
   fps,
+  useRemotionMedia,
 }: {
   clip: RemotionRenderVisualClip;
   transitionTailFrames: number;
   fps: number;
+  useRemotionMedia: boolean;
 }) {
   const frame = useCurrentFrame();
   const localMs = frameToMs(frame, fps);
@@ -229,30 +238,33 @@ function VisualClip({
           return React.createElement(
             React.Fragment,
             null,
-            React.createElement(OffthreadVideo, {
+            React.createElement(RenderVideo, {
               src: clip.src,
               style: bg,
               muted: true,
               trimBefore,
               trimAfter,
+              useRemotionMedia,
               ...playbackProps,
             }),
-            React.createElement(OffthreadVideo, {
+            React.createElement(RenderVideo, {
               src: clip.src,
               style: fg,
               muted,
               trimBefore,
               trimAfter,
+              useRemotionMedia,
               ...playbackProps,
             }),
           );
         })()
-      : React.createElement(OffthreadVideo, {
+      : React.createElement(RenderVideo, {
           src: clip.src,
           style: mediaElementStyle(clip, localMs),
           muted,
           trimBefore,
           trimAfter,
+          useRemotionMedia,
           ...playbackProps,
         });
 
@@ -279,6 +291,69 @@ function VisualClip({
           frame: reverseFrame,
         }),
   );
+}
+
+interface RenderVideoProps {
+  src: string;
+  muted: boolean;
+  trimBefore: number;
+  trimAfter: number;
+  playbackRate?: number;
+  preservePitch?: boolean;
+  style?: CSSProperties;
+  useRemotionMedia: boolean;
+}
+
+/** Selects the new renderer or the legacy rollback path per render input. */
+function RenderVideo({
+  src,
+  muted,
+  trimBefore,
+  trimAfter,
+  playbackRate,
+  preservePitch,
+  style,
+  useRemotionMedia,
+}: RenderVideoProps): React.ReactElement {
+  if (!useRemotionMedia) {
+    return React.createElement(OffthreadVideo, {
+      src,
+      muted,
+      trimBefore,
+      trimAfter,
+      playbackRate,
+      preservePitch,
+      style,
+    });
+  }
+
+  const { objectFit, ...canvasStyle } = style ?? {};
+  return React.createElement(MediaVideo, {
+    src,
+    muted,
+    trimBefore,
+    trimAfter,
+    playbackRate,
+    objectFit: toMediaObjectFit(objectFit),
+    style: canvasStyle,
+    disallowFallbackToOffthreadVideo: false,
+    fallbackOffthreadVideoProps: { preservePitch },
+  });
+}
+
+function toMediaObjectFit(
+  objectFit: CSSProperties['objectFit'],
+): VideoObjectFit | undefined {
+  switch (objectFit) {
+    case 'fill':
+    case 'contain':
+    case 'cover':
+    case 'none':
+    case 'scale-down':
+      return objectFit;
+    default:
+      return undefined;
+  }
 }
 
 // blur-pad: whole media (contain) over a blurred, zoomed cover copy. Mirrors the
@@ -633,11 +708,22 @@ function visualTrackNodes(
   clips: RemotionRenderVisualClip[],
   fps: number,
   size: { width: number; height: number },
+  useRemotionMedia: boolean,
 ): React.ReactNode[] {
   return groupVisualClipsByTrack(clips, fps).flatMap((track) =>
     track.hasTransitions
-      ? [transitionTrackNode(track.id, track.clips, fps, size)]
-      : track.clips.map((clip) => visualClipSequenceNode(clip, fps)),
+      ? [
+          transitionTrackNode(
+            track.id,
+            track.clips,
+            fps,
+            size,
+            useRemotionMedia,
+          ),
+        ]
+      : track.clips.map((clip) =>
+          visualClipSequenceNode(clip, fps, useRemotionMedia),
+        ),
   );
 }
 
@@ -646,6 +732,7 @@ function transitionTrackNode(
   clips: RemotionRenderVisualClip[],
   fps: number,
   size: { width: number; height: number },
+  useRemotionMedia: boolean,
 ): React.ReactNode {
   let cursorFrame = 0;
   const children = clips.flatMap((clip, index) => {
@@ -673,6 +760,7 @@ function transitionTrackNode(
           clip,
           transitionTailFrames: transitionFrames,
           fps,
+          useRemotionMedia,
         }),
       ),
     );
@@ -693,6 +781,7 @@ function transitionTrackNode(
 function visualClipSequenceNode(
   clip: RemotionRenderVisualClip,
   fps: number,
+  useRemotionMedia: boolean,
 ): React.ReactNode {
   return React.createElement(
     Sequence,
@@ -701,7 +790,12 @@ function visualClipSequenceNode(
       from: clip.fromFrame,
       durationInFrames: clip.durationInFrames,
     },
-    React.createElement(VisualClip, { clip, transitionTailFrames: 0, fps }),
+    React.createElement(VisualClip, {
+      clip,
+      transitionTailFrames: 0,
+      fps,
+      useRemotionMedia,
+    }),
   );
 }
 

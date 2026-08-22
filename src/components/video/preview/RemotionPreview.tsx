@@ -85,6 +85,7 @@ export const RemotionPreview = forwardRef<
   const data = dataRef.current.data;
   const { flags: videoFlags } = useVideoFlags();
   const vividOverlaysEnabled = videoFlags['video.vividOverlays'] !== false;
+  const remotionMediaEnabled = videoFlags['video.remotionMedia'] !== false;
   const loadOverlayAsset = useMemo(
     () => createOverlayAssetLoader(project.id),
     [project.id],
@@ -93,8 +94,9 @@ export const RemotionPreview = forwardRef<
     () => ({
       data: vividOverlaysEnabled ? data : { ...data, vividOverlays: [] },
       loadOverlayAsset,
+      useRemotionMedia: remotionMediaEnabled,
     }),
-    [data, loadOverlayAsset, vividOverlaysEnabled],
+    [data, loadOverlayAsset, remotionMediaEnabled, vividOverlaysEnabled],
   );
   const playerRef = useRef<PlayerRef | null>(null);
   const hoverMs = useTimelineUiStore((state) => state.hoverMs);

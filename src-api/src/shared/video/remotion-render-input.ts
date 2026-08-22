@@ -56,6 +56,8 @@ export interface RemotionRenderInput extends Record<string, unknown> {
   visualClips: RemotionRenderVisualClip[];
   audioClips: RemotionRenderAudioClip[];
   captions: RemotionRenderCaption[];
+  /** Selects @remotion/media while retaining the legacy rollback path. */
+  useRemotionMedia: boolean;
   /** Vivid overlay clips; rendered before captions (captions stay last). */
   vividOverlays?: VividOverlayRenderEntry[];
 }
@@ -181,6 +183,7 @@ export async function buildRemotionRenderInput(
     compositionHeight: dimensions.height,
     durationInFrames: Math.max(1, durationMsToFrames(edl.durationMs, fps)),
     fps,
+    useRemotionMedia: getVideoFeatureFlag('video.remotionMedia'),
     introFrames: bookendFrames(
       project.timeline?.intro?.durationMs,
       edl.durationMs,

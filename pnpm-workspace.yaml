@@ -162,3 +162,4 @@ minimumReleaseAgeExclude:
   - '@remotion/zod-types@4.0.515'
   - hyperframes@0.8.7
   - remotion@4.0.515
+  - '@remotion/media@4.0.515'

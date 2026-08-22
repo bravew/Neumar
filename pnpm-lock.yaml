@@ -89,6 +89,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.16
         version: 1.2.16(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@remotion/media':
+        specifier: 4.0.515
+        version: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@remotion/player':
         specifier: 4.0.515
         version: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -430,6 +433,9 @@ importers:
       '@remotion/bundler':
         specifier: 4.0.515
         version: 4.0.515(@swc/helpers@0.5.23)(lightningcss@1.33.0)(postcss@8.5.26)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@remotion/media':
+        specifier: 4.0.515
+        version: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@remotion/renderer':
         specifier: 4.0.515
         version: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -4089,6 +4095,12 @@ packages:
 
   '@remotion/media-utils@4.0.515':
     resolution: {integrity: sha512-Fz3am569QbvybDRfLHccm7QFQJbbZk7kPTzfyUOVhaX4P0I6vb4yZ21KpaNFGKMhS0pxryLsj55dCbA4ibnOdQ==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@remotion/media@4.0.515':
+    resolution: {integrity: sha512-rJArpxcwYFc194Pw9sIJT54N+sWcGh/sI6Gz/HnZ0WwvOgeUxPSxVK13KHV4/JTRgZ7/EKRaPC4LfzOuTP5GLA==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -14381,6 +14393,14 @@ snapshots:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
       remotion: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+
+  '@remotion/media@4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      mediabunny: 1.55.1
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      remotion: 4.0.515(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      zod: 4.4.3
 
   '@remotion/paths@4.0.515': {}
 

@@ -1,5 +1,6 @@
-import type { CSSProperties } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 
+import { Video as MediaVideo, type VideoObjectFit } from '@remotion/media';
 import { AbsoluteFill, Html5Video, Img } from 'remotion';
 
 /**
@@ -71,6 +72,7 @@ export function BlurPadVideo({
   mediaStyle,
   playbackRate,
   preservePitch,
+  useRemotionMedia,
 }: {
   src: string;
   muted: boolean;
@@ -79,31 +81,109 @@ export function BlurPadVideo({
   mediaStyle: CSSProperties | undefined;
   playbackRate?: number;
   preservePitch?: boolean;
+  useRemotionMedia: boolean;
 }) {
   return (
     <AbsoluteFill>
-      <Html5Video
+      <RemotionVideo
         src={src}
         className="size-full"
         muted
-        pauseWhenBuffering
         playbackRate={playbackRate}
         preservePitch={preservePitch}
         trimBefore={trimBefore}
         trimAfter={trimAfter}
         style={blurPadBackgroundStyle(mediaStyle)}
+        useRemotionMedia={useRemotionMedia}
       />
-      <Html5Video
+      <RemotionVideo
         src={src}
         className="size-full"
+        muted={muted}
+        playbackRate={playbackRate}
+        preservePitch={preservePitch}
+        trimBefore={trimBefore}
+        trimAfter={trimAfter}
+        style={blurPadForegroundStyle(mediaStyle)}
+        useRemotionMedia={useRemotionMedia}
+      />
+    </AbsoluteFill>
+  );
+}
+
+interface RemotionVideoProps {
+  src: string;
+  className?: string;
+  muted: boolean;
+  playbackRate?: number;
+  preservePitch?: boolean;
+  trimBefore: number;
+  trimAfter: number;
+  style?: CSSProperties;
+  useRemotionMedia: boolean;
+}
+
+/** Keeps the legacy renderer reachable while the media migration is observed. */
+export function RemotionVideo({
+  src,
+  className,
+  muted,
+  playbackRate,
+  preservePitch,
+  trimBefore,
+  trimAfter,
+  style,
+  useRemotionMedia,
+}: RemotionVideoProps) {
+  const fallbackOffthreadVideoProps = useMemo(
+    () => ({ pauseWhenBuffering: true, preservePitch }),
+    [preservePitch],
+  );
+
+  if (!useRemotionMedia) {
+    return (
+      <Html5Video
+        src={src}
+        className={className}
         muted={muted}
         pauseWhenBuffering
         playbackRate={playbackRate}
         preservePitch={preservePitch}
         trimBefore={trimBefore}
         trimAfter={trimAfter}
-        style={blurPadForegroundStyle(mediaStyle)}
+        style={style}
       />
-    </AbsoluteFill>
+    );
+  }
+
+  const { objectFit, ...canvasStyle } = style ?? {};
+  return (
+    <MediaVideo
+      src={src}
+      className={className}
+      muted={muted}
+      playbackRate={playbackRate}
+      trimBefore={trimBefore}
+      trimAfter={trimAfter}
+      objectFit={toMediaObjectFit(objectFit)}
+      style={canvasStyle}
+      disallowFallbackToOffthreadVideo={false}
+      fallbackOffthreadVideoProps={fallbackOffthreadVideoProps}
+    />
   );
+}
+
+function toMediaObjectFit(
+  objectFit: CSSProperties['objectFit'],
+): VideoObjectFit | undefined {
+  switch (objectFit) {
+    case 'fill':
+    case 'contain':
+    case 'cover':
+    case 'none':
+    case 'scale-down':
+      return objectFit;
+    default:
+      return undefined;
+  }
 }

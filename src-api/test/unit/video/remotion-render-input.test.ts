@@ -56,6 +56,7 @@ describe('remotion render input', () => {
       compositionHeight: 1280,
       durationInFrames: 144,
       fps: 24,
+      useRemotionMedia: true,
     });
     expect(input.visualClips).toHaveLength(2);
     expect(input.visualClips[0]).toMatchObject({

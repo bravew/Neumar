@@ -5,18 +5,11 @@ import {
   normalizeClipPlayback,
 } from '@neumar/video-ir';
 import { TransitionSeries } from '@remotion/transitions';
-import {
-  AbsoluteFill,
-  Freeze,
-  Html5Video,
-  Img,
-  Sequence,
-  useCurrentFrame,
-} from 'remotion';
+import { AbsoluteFill, Freeze, Img, Sequence, useCurrentFrame } from 'remotion';
 
 import { buildVideoClipCssFilter } from '../clipFilters';
 import type { OverlayAssetLoader } from './overlays/vividOverlayPreviewModel';
-import { BlurPadImage, BlurPadVideo } from './RemotionBlurPad';
+import { BlurPadImage, BlurPadVideo, RemotionVideo } from './RemotionBlurPad';
 import { Caption } from './RemotionCaption';
 import { KenBurnsImage } from './RemotionKenBurnsImage';
 import type {
@@ -33,12 +26,14 @@ import { RemotionVividOverlayClip } from './RemotionVividOverlay';
 
 export interface RemotionTimelineCompositionProps {
   data: RemotionPreviewData;
+  useRemotionMedia?: boolean;
   /** In-browser Player only (functions don't serialize to headless renders). */
   loadOverlayAsset?: OverlayAssetLoader;
 }
 
 export function RemotionTimelineComposition({
   data,
+  useRemotionMedia = true,
   loadOverlayAsset,
 }: RemotionTimelineCompositionProps) {
   const visualTracks = groupVisualClipsByTrack(data.visualClips, data.fps);
@@ -52,10 +47,15 @@ export function RemotionTimelineComposition({
             clips={track.clips}
             fps={data.fps}
             size={size}
+            useRemotionMedia={useRemotionMedia}
           />
         ) : (
           track.clips.map((clip) => (
-            <VisualClipSequence key={clip.id} clip={clip} />
+            <VisualClipSequence
+              key={clip.id}
+              clip={clip}
+              useRemotionMedia={useRemotionMedia}
+            />
           ))
         ),
       )}
@@ -105,10 +105,12 @@ function TransitionVisualTrack({
   clips,
   fps,
   size,
+  useRemotionMedia,
 }: {
   clips: RemotionVisualClip[];
   fps: number;
   size: { width: number; height: number };
+  useRemotionMedia: boolean;
 }) {
   let cursorFrame = 0;
   return (
@@ -132,7 +134,11 @@ function TransitionVisualTrack({
             key={clip.id}
             durationInFrames={clip.durationInFrames + transitionFrames}
           >
-            <VisualClip clip={clip} transitionTailFrames={transitionFrames} />
+            <VisualClip
+              clip={clip}
+              transitionTailFrames={transitionFrames}
+              useRemotionMedia={useRemotionMedia}
+            />
           </TransitionSeries.Sequence>,
         );
         if (transitionFrames > 0) {
@@ -150,10 +156,20 @@ function TransitionVisualTrack({
   );
 }
 
-function VisualClipSequence({ clip }: { clip: RemotionVisualClip }) {
+function VisualClipSequence({
+  clip,
+  useRemotionMedia,
+}: {
+  clip: RemotionVisualClip;
+  useRemotionMedia: boolean;
+}) {
   return (
     <Sequence from={clip.fromFrame} durationInFrames={clip.durationInFrames}>
-      <VisualClip clip={clip} transitionTailFrames={0} />
+      <VisualClip
+        clip={clip}
+        transitionTailFrames={0}
+        useRemotionMedia={useRemotionMedia}
+      />
     </Sequence>
   );
 }
@@ -161,9 +177,11 @@ function VisualClipSequence({ clip }: { clip: RemotionVisualClip }) {
 function VisualClip({
   clip,
   transitionTailFrames,
+  useRemotionMedia,
 }: {
   clip: RemotionVisualClip;
   transitionTailFrames: number;
+  useRemotionMedia: boolean;
 }) {
   const frame = useCurrentFrame();
   const playback = normalizeClipPlayback(clip.playback);
@@ -209,17 +227,18 @@ function VisualClip({
         trimBefore={clip.sourceStartFrame}
         trimAfter={trimAfter}
         mediaStyle={mediaStyle}
+        useRemotionMedia={useRemotionMedia}
         {...playbackProps}
       />
     ) : (
-      <Html5Video
+      <RemotionVideo
         src={clip.src}
         className="size-full object-cover"
         muted={muted}
-        pauseWhenBuffering
         trimBefore={clip.sourceStartFrame}
         trimAfter={trimAfter}
         style={mediaStyle}
+        useRemotionMedia={useRemotionMedia}
         {...playbackProps}
       />
     );
