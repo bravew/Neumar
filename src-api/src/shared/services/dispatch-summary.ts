@@ -15,7 +15,7 @@ import { resolveApiCredentials } from '@/shared/utils/provider-resolution';
 
 const logger = createLogger('DispatchSummary');
 
-const SUMMARY_MODEL = 'claude-haiku-4-5-20251001';
+const SUMMARY_MODEL = 'claude-haiku-4-5';
 const SUMMARY_TIMEOUT_MS = 10_000;
 const MAX_SUMMARY_LENGTH = 300;
 

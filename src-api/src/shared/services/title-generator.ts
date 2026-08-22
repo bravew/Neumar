@@ -45,7 +45,7 @@ const TITLE_GENERATION_TIMEOUT_MS = 8_000;
 const SDK_TITLE_TIMEOUT_MS = 10_000;
 
 /** Fast model for title generation */
-const ANTHROPIC_FAST_MODEL = 'claude-haiku-4-5-20251001';
+const ANTHROPIC_FAST_MODEL = 'claude-haiku-4-5';
 
 /** Map locale codes to human-readable language names */
 const LOCALE_TO_LANGUAGE: Record<string, string> = {
