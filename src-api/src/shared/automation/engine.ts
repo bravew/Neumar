@@ -981,7 +981,7 @@ function resolveChannelContext(
   };
 }
 
-const CONDITION_LLM_MODEL = 'claude-haiku-4-5-20251001';
+const CONDITION_LLM_MODEL = 'claude-haiku-4-5';
 const CONDITION_LLM_TIMEOUT_MS = 15_000;
 
 /**
@@ -1085,7 +1085,7 @@ async function executeRun(
       const intervalMs = automation.trigger.heartbeat.intervalMs;
       if (intervalMs < 60 * 60_000) {
         // Frequent heartbeat: default to cheapest model
-        modelConfig = { ...modelConfig, model: 'claude-haiku-4-5-20251001' };
+        modelConfig = { ...modelConfig, model: 'claude-haiku-4-5' };
       }
     }
 

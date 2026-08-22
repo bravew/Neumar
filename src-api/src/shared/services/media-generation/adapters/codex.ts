@@ -76,7 +76,8 @@ function hasCodexSubscriptionAuth(): boolean {
 }
 
 function mapThinkingEffort(params: GenerateImageParams): ModelReasoningEffort {
-  if (params.quality && /hd|max|ultra/i.test(params.quality)) return 'xhigh';
+  if (params.quality && /ultra/i.test(params.quality)) return 'ultra';
+  if (params.quality && /hd|max/i.test(params.quality)) return 'xhigh';
   return 'high';
 }
 

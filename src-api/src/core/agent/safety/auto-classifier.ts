@@ -64,7 +64,7 @@ export class AutoClassifier {
   private model: string;
   private cache = new Map<string, ClassifierResult>();
 
-  constructor(apiKey: string, model = 'claude-haiku-4-5-20251001') {
+  constructor(apiKey: string, model = 'claude-haiku-4-5') {
     this.client = new Anthropic({ apiKey });
     this.model = model;
   }

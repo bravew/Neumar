@@ -35,7 +35,7 @@ const logger = createLogger('SkillExtractor');
 const EXTRACTION_TIMEOUT_MS = 30_000;
 
 /** Fast model for extraction */
-const ANTHROPIC_FAST_MODEL = 'claude-haiku-4-5-20251001';
+const ANTHROPIC_FAST_MODEL = 'claude-haiku-4-5';
 
 /** Max chars for the compressed message transcript */
 const MAX_TRANSCRIPT_CHARS = 10_000;

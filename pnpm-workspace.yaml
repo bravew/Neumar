@@ -25,9 +25,10 @@ overrides:
   # Transitive consistency — keep markdown ecosystem on a single major.
   unified: '^11.0.5'
   # Hold AG-UI runtime to the version our app integrates against.
-  '@ag-ui/client': '^0.0.57'
-  '@ag-ui/core': '^0.0.57'
-  '@ag-ui/encoder': '^0.0.57'
+  # Raised to 0.0.58 2026-08-21 (G7) alongside the direct-dep bump.
+  '@ag-ui/client': '^0.0.58'
+  '@ag-ui/core': '^0.0.58'
+  '@ag-ui/encoder': '^0.0.58'
   # Force-bump Slack Web API to keep transitive Bolt deps on the same minor.
   # Raised to 8.x 2026-08-08 alongside the @slack/bolt 5.x major (G10).
   '@slack/web-api': '^8.0.0'
@@ -48,14 +49,23 @@ overrides:
   # same stale-resolution reason as protobufjs above.
   axios: '^1.18.1'
   # workbox lineage required by vite-plugin-pwa; pin until plugin catches up.
+  # Re-checked 2026-08-21 (G3) — no newer vite-plugin-pwa release yet.
   workbox-build: '^7.4.1'
   workbox-window: '^7.4.1'
   # CVE — esbuild <0.28.1 missing binary integrity verification (GHSA, Deno).
   # Patch-bump only the prod 0.28.0 peer (@remotion/bundler); the dev-only
   # 0.25/0.27 copies (vite/vitest) are out of the --prod audit and untouched.
-  'esbuild@0.28.0': '0.28.1'
+  # Retargeted to 0.28.2 2026-08-21 (G1) to track the current patch release.
+  'esbuild@0.28.0': '0.28.2'
+  # 2026-08-21 (G3) — 4 brace-expansion DoS advisories (quadratic/unbounded
+  # expansion) reach two vulnerable resolutions via workbox-build's jake/glob
+  # transitives (vite-plugin-pwa, dev-only). Scoped by range so minimatch@10.x's
+  # own brace-expansion@^4.x requirement isn't force-downgraded across a major.
+  'brace-expansion@>=2.0.0 <2.1.4': '2.1.4'
+  'brace-expansion@>=4.0.0 <5.0.9': '5.0.9'
   # GHSA-96hv-2xvq-fx4p — force Remotion transitives onto patched ws.
-  ws: '8.21.0'
+  # Raised to 8.21.3 2026-08-21 (G8) to track the current patch.
+  ws: '8.21.3'
   # GHSA-vxpw-j846-p89q — discord.js pins undici 6.24.1; force patched 6.x.
   # Raised 2026-08-08: 6.27.0 itself gained 3 moderate advisories (response
   # desync, CRLF injection, cookie injection) fixed at 6.28.0.
@@ -100,24 +110,55 @@ peerDependencyRules:
     '@anthropic-ai/sdk': '>=0.57.0 <1.0.0'
 
 minimumReleaseAgeExclude:
-  - katex@0.18.2
-  - mediabunny@1.53.0
-  - read-excel-file@9.3.8
-  - '@assistant-ui/core@0.3.10'
-  - '@assistant-ui/react-markdown@0.14.10'
-  - '@assistant-ui/react@0.15.11'
-  - '@assistant-ui/store@0.3.8'
-  - '@assistant-ui/tap@0.9.11'
-  - assistant-cloud@0.1.39
-  - assistant-stream@0.3.36
-  - safe-content-frame@0.0.27
-  - '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.226'
-  - '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.226'
-  - '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.226'
-  - '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.226'
-  - '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.226'
-  - '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.226'
-  - '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.226'
-  - '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.226'
-  - '@anthropic-ai/claude-agent-sdk@0.3.226'
-  - '@anthropic-ai/sandbox-runtime@0.0.71'
+  - katex@0.18.4
+  - mediabunny@1.55.2
+  - read-excel-file@9.3.10
+  - '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.239'
+  - '@anthropic-ai/claude-agent-sdk-darwin-x64@0.3.239'
+  - '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.3.239'
+  - '@anthropic-ai/claude-agent-sdk-linux-arm64@0.3.239'
+  - '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.3.239'
+  - '@anthropic-ai/claude-agent-sdk-linux-x64@0.3.239'
+  - '@anthropic-ai/claude-agent-sdk-win32-arm64@0.3.239'
+  - '@anthropic-ai/claude-agent-sdk-win32-x64@0.3.239'
+  - '@anthropic-ai/claude-agent-sdk@0.3.239'
+  - '@copilotkit/a2ui-renderer@1.69.0'
+  - '@copilotkit/core@1.69.0'
+  - '@copilotkit/react-core@1.69.0'
+  - '@copilotkit/runtime-client-gql@1.69.0'
+  - '@copilotkit/runtime@1.69.0'
+  - '@copilotkit/shared@1.69.0'
+  - '@copilotkit/web-components@1.69.0'
+  - '@copilotkit/web-inspector@1.69.0'
+  - '@linear/sdk@91.0.0'
+  - '@remotion/bundler@4.0.515'
+  - '@remotion/captions@4.0.515'
+  - '@remotion/cli@4.0.515'
+  - '@remotion/compositor-darwin-arm64@4.0.515'
+  - '@remotion/compositor-darwin-x64@4.0.515'
+  - '@remotion/compositor-linux-arm64-gnu@4.0.515'
+  - '@remotion/compositor-linux-arm64-musl@4.0.515'
+  - '@remotion/compositor-linux-x64-gnu@4.0.515'
+  - '@remotion/compositor-linux-x64-musl@4.0.515'
+  - '@remotion/compositor-win32-x64-msvc@4.0.515'
+  - '@remotion/google-fonts@4.0.515'
+  - '@remotion/licensing@4.0.515'
+  - '@remotion/media-parser@4.0.515'
+  - '@remotion/media-utils@4.0.515'
+  - '@remotion/paths@4.0.515'
+  - '@remotion/player@4.0.515'
+  - '@remotion/renderer@4.0.515'
+  - '@remotion/shapes@4.0.515'
+  - '@remotion/streaming@4.0.515'
+  - '@remotion/studio-codemods@4.0.515'
+  - '@remotion/studio-protocol@4.0.515'
+  - '@remotion/studio-server@4.0.515'
+  - '@remotion/studio-shared@4.0.515'
+  - '@remotion/studio@4.0.515'
+  - '@remotion/tailwind@4.0.515'
+  - '@remotion/timeline-utils@4.0.515'
+  - '@remotion/transitions@4.0.515'
+  - '@remotion/web-renderer@4.0.515'
+  - '@remotion/zod-types@4.0.515'
+  - hyperframes@0.8.7
+  - remotion@4.0.515
