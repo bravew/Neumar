@@ -1,5 +1,6 @@
 ---
 name: hyperframes
+upstream-version: 0.8.7
 description: Create video compositions, animations, title cards, overlays, captions, voiceovers, audio-reactive visuals, and scene transitions in HyperFrames HTML. Use when asked to build any HTML-based video content, add captions or subtitles synced to audio, generate text-to-speech narration, create audio-reactive animation (beat sync, glow, pulse driven by music), add animated text highlighting (marker sweeps, hand-drawn circles, burst lines, scribble, sketchout), or add transitions between scenes (crossfades, wipes, reveals, shader transitions). Covers composition authoring, timing, media, and the full video production workflow. For CLI commands (init, lint, preview, render, transcribe, tts) see the hyperframes-cli skill.
 triggers:
   - "hyperframes"
@@ -26,6 +27,49 @@ od:
 # HyperFrames
 
 HTML is the source of truth for video. A composition is an HTML file with `data-*` attributes for timing, a GSAP timeline for animation, and CSS for appearance. The framework handles clip visibility, media playback, and timeline sync.
+
+## Upstream 0.8.7 router (load-bearing)
+
+This section is the entry point and supersedes conflicting operational commands
+later in this bundled snapshot. Upstream owns composition, animation, media, and
+CLI guidance. Read
+[`references/neuma-integration.md`](references/neuma-integration.md) before
+taking action in Neuma.
+
+Apply the first matching route:
+
+| State | Action |
+| --- | --- |
+| Explicit Remotion port | Update and enter `/remotion-to-hyperframes`. |
+| Specific operation on an existing project | Perform only that operation with `/hyperframes-cli` and required domains. |
+| Specific edit to an existing project | Make only the requested edit; skip intent routing. |
+| `BRIEF.md` exists | Resume its recorded workflow and flow. |
+| Existing `hyperframes.json` or `STORYBOARD.md` | Resume project state; ask one routing question only if ownership is ambiguous. |
+| Fresh creation | Update `hyperframes`, run its intent interview, then route once. |
+
+Fresh creation routes, in priority order: `/remotion-to-hyperframes`,
+`/slideshow`, `/embedded-captions`, `/talking-head-recut`, `/music-to-video`,
+`/motion-graphics`, `/pr-to-video`, `/product-launch-video`,
+`/faceless-explainer`, then `/general-video`. Match the deliverable, not an
+incidental keyword.
+
+Install or refresh the selected workflow through the pinned workspace CLI:
+
+```bash
+pnpm -C src-video exec hyperframes skills update <workflow-name>
+```
+
+Surface installation errors and do not reconstruct upstream instructions from
+memory. Then load only the required upstream domains: `/hyperframes-core`,
+`/hyperframes-animation`, `/hyperframes-keyframes`, `/hyperframes-creative`,
+`/media-use`, `/hyperframes-audio`, `/hyperframes-cli`,
+`/hyperframes-registry`, or `/figma`. Domain skills do not own the end-to-end
+deliverable.
+
+Before the first render-affecting operation on an existing project, use the
+read-only pinned upgrade check in the Neuma integration reference. Report an
+available version and ask before changing the project. Never run an unpinned
+latest CLI or silently mutate and revert a user's files.
 
 ## Open Design integration (load-bearing for this surface)
 
