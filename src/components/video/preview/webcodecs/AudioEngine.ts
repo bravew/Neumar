@@ -70,6 +70,14 @@ export class WebCodecsAudioEngine {
   private bufferCacheAccessSequence = 0;
   private sessionId = 0;
   private readonly sources = new Set<AudioBufferSourceNode>();
+  /**
+   * Sources that carry no decodable audio. A video clip's audio source is the
+   * same URL as its picture, and the scrub proxy is generated with `-an`
+   * (see `src-api/.../video/proxy.ts`) — so "this file has no audio track" is
+   * the normal case, not a failure. Remember it so playback stays silent for
+   * that source instead of refetching megabytes on every play.
+   */
+  private readonly silentSources = new Set<string>();
 
   constructor(private readonly options: WebCodecsAudioEngineOptions = {}) {}
 
@@ -103,6 +111,7 @@ export class WebCodecsAudioEngine {
     const contextStartSec = context.currentTime + PLAYBACK_START_LEAD_SEC;
     await Promise.all(
       clips.map(async ({ clip, schedule }) => {
+        if (this.silentSources.has(clip.src)) return;
         let buffer: AudioBuffer;
         try {
           buffer = await this.getAudioBuffer(
@@ -111,7 +120,13 @@ export class WebCodecsAudioEngine {
           );
         } catch (error) {
           if (sessionId !== this.sessionId) return;
-          throw error;
+          if (isAbortError(error)) throw error;
+          // A source that will not decode is silent, not fatal. Throwing here
+          // used to abort the whole play() call, which the preview treated as
+          // "WebCodecs unsupported" and answered by tearing down the live
+          // canvas renderer for the rest of the session.
+          this.silentSources.add(clip.src);
+          return;
         }
         if (sessionId !== this.sessionId) return;
         const playback = normalizeClipPlayback(clip.playback);
@@ -166,9 +181,15 @@ export class WebCodecsAudioEngine {
     }
   }
 
+  /** Sources found to carry no decodable audio, for diagnostics and tests. */
+  getSilentSources(): string[] {
+    return [...this.silentSources];
+  }
+
   dispose(): void {
     this.stopSources();
     this.bufferCache.clear();
+    this.silentSources.clear();
     if (this.audioContext) {
       void this.audioContext.close();
       this.audioContext = null;
@@ -471,6 +492,10 @@ async function decodeAudioSource({
   const bytes = await response.arrayBuffer();
   throwIfAborted(signal);
   return audioContext.decodeAudioData(bytes.slice(0));
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
 }
 
 function throwIfAborted(signal: AbortSignal): void {

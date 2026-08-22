@@ -35,6 +35,7 @@ import {
 } from './remotionPreviewData';
 import { usePreviewViewport } from './usePreviewViewport';
 import { WebCodecsAudioEngine } from './webcodecs/AudioEngine';
+import { reportPreviewAudioFailure } from './webcodecs/audioFailure';
 import { getWebCodecsPreviewUnsupportedReason } from './webcodecs/sceneModel';
 import { VideoFrameCache } from './webcodecs/VideoFrameCache';
 import { useWebCodecsFrameRenderer } from './WebCodecsFrameRenderer';
@@ -175,21 +176,10 @@ export const WebCodecsPreview = forwardRef<
       if (unsupportedReason) return;
       void getAudioEngine()
         .play(data, playbackClock.currentFrame, playbackRate)
-        .catch((error) => {
-          onUnsupported?.(
-            error instanceof Error ? error.message : 'WebCodecs audio failed',
-          );
-        });
+        .catch(reportPreviewAudioFailure);
       playbackClock.play();
     },
-    [
-      data,
-      getAudioEngine,
-      onUnsupported,
-      playbackClock,
-      playbackRate,
-      unsupportedReason,
-    ],
+    [data, getAudioEngine, playbackClock, playbackRate, unsupportedReason],
   );
 
   useImperativeHandle(
@@ -225,18 +215,13 @@ export const WebCodecsPreview = forwardRef<
     if (playbackClock.isRunning && !unsupportedReason) {
       void getAudioEngine()
         .play(data, frame, playbackRate)
-        .catch((error) => {
-          onUnsupported?.(
-            error instanceof Error ? error.message : 'WebCodecs audio failed',
-          );
-        });
+        .catch(reportPreviewAudioFailure);
     }
     void renderFrame(frame);
   }, [
     data,
     getAudioEngine,
     hoverFrame,
-    onUnsupported,
     playbackClock,
     playbackRate,
     playheadMs,

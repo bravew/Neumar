@@ -290,6 +290,31 @@ Engine rules (non-negotiable):
 
 Production capture runs through native Tauri commands with scoped capabilities and allowlisted sidecar arguments. Browser `MediaRecorder` is a camera-only development fallback for `pnpm dev:web`; do not treat `getDisplayMedia()` audio behavior as production parity.
 
+## Live Preview
+
+The Preview step renders through `WebCodecsPreview` (a Canvas 2D compositor)
+whenever WebCodecs is supported, and falls back to the Remotion Player
+otherwise. Two rules keep that fallback honest:
+
+- **`onUnsupported` retires the WebCodecs renderer for the whole session.**
+  Only a genuine picture-path failure may call it. Audio failures must not:
+  a clip's audio source is the same URL as its picture, and the scrub proxy is
+  generated with `-an` (`src-api/src/shared/video/proxy.ts`), so "this source
+  has no decodable audio" is the normal case. `WebCodecsAudioEngine` records
+  such sources as silent and keeps playing; see
+  `preview/webcodecs/audioFailure.ts`.
+- **Clip effects are approximated in the preview.** `@remotion/effects` runs
+  real shaders on the Remotion canvas and stays authoritative for output. The
+  live preview maps the stack onto `ctx.filter`
+  (`preview/webcodecs/clipEffectsCanvasFilter.ts`), which is exact for
+  brightness, contrast, saturation, and an isotropic blur, and deliberately
+  approximate for white balance and single-axis blur. Any new effect kind has
+  to be added in both places or it will render only on export.
+
+Known gap: because the proxy is video-only, preview playback is silent. Giving
+the preview sound needs an audio-only proxy (or an audio-bearing variant), not
+a change to the audio engine.
+
 ## Render Engines
 
 Three engines are registered: `remotion`, `html` (Playwright), and
