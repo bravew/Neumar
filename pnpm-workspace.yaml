@@ -100,9 +100,9 @@ peerDependencyRules:
     '@anthropic-ai/sdk': '>=0.57.0 <1.0.0'
 
 minimumReleaseAgeExclude:
-  - katex@0.18.2
+  - katex@0.18.4
   - mediabunny@1.53.0
-  - read-excel-file@9.3.8
+  - read-excel-file@9.3.10
   - '@assistant-ui/core@0.3.10'
   - '@assistant-ui/react-markdown@0.14.10'
   - '@assistant-ui/react@0.15.11'

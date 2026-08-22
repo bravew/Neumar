@@ -64,7 +64,7 @@
     "onnxruntime-node": "^1.27.0",
     "openai": "^7.4.0",
     "pdf-parse": "^2.4.5",
-    "pdfjs-dist": "^6.0.227",
+    "pdfjs-dist": "^6.2.108",
     "picomatch": "^4.0.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
