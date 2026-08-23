@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Image as ImageIcon, Pause, Play } from 'lucide-react';
+import { Expand, Image as ImageIcon, Pause, Play } from 'lucide-react';
 
 import { useAssetPreviewSound } from '@/shared/hooks/useAssetPreviewSound';
 import { cn } from '@/shared/lib/utils';
@@ -86,6 +86,32 @@ export function AssetVideoHoverPreview({
     else video.pause();
   }, []);
 
+  /**
+   * Hands the video itself to the browser's full-screen view.
+   *
+   * Native controls go on for the duration: the hover flyout that owns this
+   * bar isn't on screen any more, so without them there'd be no way to scrub
+   * or get out. They come back off on exit, restoring the quiet preview.
+   */
+  const enterFullscreen = useCallback(() => {
+    const video = videoRef.current;
+    if (!video?.requestFullscreen) return;
+    video.controls = true;
+    void video.requestFullscreen().catch(() => {
+      video.controls = false;
+    });
+  }, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const video = videoRef.current;
+      if (video && document.fullscreenElement !== video) video.controls = false;
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () =>
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
   const seekTo = useCallback((seconds: number) => {
     const video = videoRef.current;
     if (!video) return;
@@ -168,6 +194,20 @@ export function AssetVideoHoverPreview({
             </span>
           </>
         ) : null}
+        <button
+          type="button"
+          aria-label={t.assets.previewFullscreen}
+          title={t.assets.previewFullscreen}
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded text-white/90 transition-colors hover:bg-white/15 hover:text-white"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            enterFullscreen();
+          }}
+        >
+          <Expand className="size-3.5" aria-hidden />
+        </button>
       </div>
     </div>
   );

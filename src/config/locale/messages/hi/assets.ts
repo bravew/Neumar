@@ -25,6 +25,7 @@ export default {
   attachQueuedToast: '{count} assets attach ho rahe hain…',
   attachSucceededToast: '{count} assets attach ho gaye',
   attachPartialToast: '{succeeded} attach hue · {failed} fail hue',
+  previewFullscreen: 'पूर्ण स्क्रीन',
   previewPlay: 'प्रीव्यू चलाएं',
   previewPause: 'प्रीव्यू रोकें',
   previewMute: 'प्रीव्यू म्यूट करें',

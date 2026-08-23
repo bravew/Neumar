@@ -51,6 +51,25 @@ describe('AssetVideoHoverPreview', () => {
     expect(container.querySelector('.opacity-100')).not.toBeNull();
   });
 
+  it('goes full screen on the video, with controls so it can be steered', () => {
+    const { video, getByRole } = renderPreview();
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(video, 'requestFullscreen', {
+      value: requestFullscreen,
+      configurable: true,
+    });
+
+    fireEvent.click(getByRole('button', { name: 'Full screen' }));
+
+    expect(requestFullscreen).toHaveBeenCalledTimes(1);
+    // The flyout's own bar is gone in full screen, so the native one stands in.
+    expect(video.controls).toBe(true);
+
+    // Leaving full screen restores the quiet preview.
+    fireEvent(document, new Event('fullscreenchange'));
+    expect(video.controls).toBe(false);
+  });
+
   it('shows no scrub bar until the duration is known', () => {
     const { container } = renderPreview();
     expect(container.querySelector('input[type="range"]')).toBeNull();
