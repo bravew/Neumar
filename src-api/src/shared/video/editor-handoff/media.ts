@@ -32,7 +32,12 @@ async function collectOneMediaRef(
   mediaRef: EditorHandoffMediaRef,
 ): Promise<EditorHandoffMediaRef> {
   if (!mediaRef.path || mediaRef.missing) return mediaRef;
-  const sourcePath = resolveWorkspacePath(input.workspaceRoot, mediaRef.path);
+  // An external master is deliberately outside the workspace — that is the
+  // whole point of it. Only a *managed* path that escapes the workspace is
+  // suspect.
+  const sourcePath = mediaRef.external
+    ? path.resolve(mediaRef.path)
+    : resolveWorkspacePath(input.workspaceRoot, mediaRef.path);
   if (!sourcePath) {
     return {
       ...mediaRef,
@@ -51,7 +56,11 @@ async function collectOneMediaRef(
         originalPathHint: sourcePath,
         checksumSha256,
         sizeBytes: stat.size,
-        relinkRequired: true,
+        // An external master already sits at a path the editor's user knows —
+        // their own library — so link mode points straight at it and needs no
+        // relink. A managed one points into this app's private storage, which
+        // they will have to repoint.
+        relinkRequired: !mediaRef.external,
       };
     }
 

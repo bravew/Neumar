@@ -106,6 +106,38 @@ describe('editor handoff package', () => {
     expect(result.conformance.summary.errorCount).toBe(1);
   });
 
+  it('carries an external master through link mode without a relink flag', async () => {
+    const project = await createEditorHandoffFixtureProject(workDir);
+    const externalPath = path.join(workDir, 'outside-the-project.mp4');
+    await fs.writeFile(externalPath, 'external master');
+    const [firstAsset] = project.assets;
+    project.assets = [
+      { ...firstAsset!, origin: 'external', path: externalPath },
+      ...project.assets.slice(1),
+    ];
+
+    const result = await createEditorHandoffPackage(project, {
+      jobId: 'job-external',
+      targets: ['premiere-pro'],
+      mediaMode: 'link',
+      outputRoot: path.join(workDir, 'external-package'),
+      workspaceRoot: workDir,
+    });
+
+    const manifest = JSON.parse(
+      await fs.readFile(result.manifestPath, 'utf8'),
+    ) as { mediaRefs: Array<Record<string, unknown>> };
+    const ref = manifest.mediaRefs.find((item) => item.id === firstAsset!.id);
+    // The editor is pointed at the user's own library path, which needs no
+    // repointing — unlike a managed master inside this app's storage.
+    expect(ref).toMatchObject({
+      external: true,
+      missing: false,
+      relinkRequired: false,
+      originalPathHint: externalPath,
+    });
+  });
+
   // The archive is streamed to disk rather than built as one Buffer, because a
   // copy-mode package carries every master the timeline uses. Streaming fails
   // quietly — a truncated or empty file still "exists" — so read it back.

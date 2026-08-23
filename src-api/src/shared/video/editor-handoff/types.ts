@@ -137,6 +137,8 @@ export interface EditorHandoffMediaRef {
   path?: string;
   originalPathHint?: string;
   copiedPath?: string;
+  /** True when the master is the user's own file, outside the project. */
+  external?: boolean;
   checksumSha256?: string;
   sizeBytes?: number;
   metadata?: MediaMetadata;
@@ -281,6 +283,7 @@ export interface EditorHandoffManifest {
     id: string;
     kind: EditorHandoffMediaRef['kind'];
     path?: string;
+    external?: boolean;
     copiedPath?: string;
     originalPathHint?: string;
     checksumSha256?: string;

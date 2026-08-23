@@ -34,6 +34,7 @@ export function buildEditorHandoffManifest(input: {
       id: ref.id,
       kind: ref.kind,
       path: ref.path,
+      external: ref.external,
       copiedPath: ref.copiedPath,
       originalPathHint: ref.originalPathHint,
       checksumSha256: ref.checksumSha256,
