@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createEditorHandoffPackage } from '@/shared/video/editor-handoff/package';
@@ -103,6 +104,48 @@ describe('editor handoff package', () => {
     );
     expect(edl).toContain('TITLE: Editor handoff & "XML" <fixture>');
     expect(result.conformance.summary.errorCount).toBe(1);
+  });
+
+  // The archive is streamed to disk rather than built as one Buffer, because a
+  // copy-mode package carries every master the timeline uses. Streaming fails
+  // quietly — a truncated or empty file still "exists" — so read it back.
+  it('writes a complete, readable zip archive', async () => {
+    const project = await createEditorHandoffFixtureProject(workDir);
+    const result = await createEditorHandoffPackage(project, {
+      jobId: 'job-zip',
+      targets: ['neuma-package'],
+      outputRoot: path.join(workDir, 'zip-package'),
+      workspaceRoot: workDir,
+    });
+
+    const archive = await JSZip.loadAsync(
+      await fs.readFile(result.packagePath),
+    );
+    const entries = Object.keys(archive.files);
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        'manifest.json',
+        'cut-list.json',
+        'interchange/timeline.otio',
+        'media/asset-video-alpha.mp4',
+      ]),
+    );
+    expect(entries).not.toContain('neuma-video-handoff.zip');
+
+    // Contents survive the stream, not just the entry names.
+    const manifestInZip = await archive.file('manifest.json')?.async('string');
+    expect(JSON.parse(manifestInZip ?? '{}')).toMatchObject({
+      schema: 'neuma.video.editor-handoff.manifest.v1',
+      projectId: 'handoff-fixture',
+    });
+
+    const mediaInZip = await archive
+      .file('media/asset-video-alpha.mp4')
+      ?.async('nodebuffer');
+    const mediaOnDisk = await fs.readFile(
+      path.join(result.packageDir, 'media', 'asset-video-alpha.mp4'),
+    );
+    expect(mediaInZip?.equals(mediaOnDisk)).toBe(true);
   });
 });
 

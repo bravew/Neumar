@@ -123,6 +123,24 @@ export class LocalFsLinkedSourceAdapter implements CloudStorageAdapter {
     return pathToCloudFile(filePath, stat, this.rootPath);
   }
 
+  /**
+   * Absolute path of a file inside the granted root, containment-checked the
+   * same way `download` checks it.
+   *
+   * Callers that only need the bytes on this machine (attaching linked media
+   * into a project, for instance) can copy straight from this path instead of
+   * pulling the file through a `Response` — no in-memory buffer, and on a
+   * copy-on-write filesystem the copy costs no extra disk at all.
+   */
+  async resolveLocalFilePath(providerItemId: string): Promise<string> {
+    const filePath = await this.resolveWithinRoot(providerItemId);
+    const stat = await fs.stat(filePath);
+    if (!stat.isFile()) {
+      throw new CloudStorageError('unsupported', 'Cannot download a folder');
+    }
+    return filePath;
+  }
+
   async download(
     providerItemId: string,
     init: DownloadInit = {},

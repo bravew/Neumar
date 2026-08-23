@@ -64,7 +64,9 @@ export async function crawlLinkedSource(input: {
       });
       for (const item of page.items) {
         if (item.isFolder) {
-          if (next.depth < maxDepth) {
+          // Don't descend into `.Trashes`, `.Spotlight-V100`, or the app's own
+          // cache dirs — nothing under them is footage the user picked.
+          if (next.depth < maxDepth && !isFilesystemNoise(item.name)) {
             queue.push({ parentId: item.id, depth: next.depth + 1 });
           }
           continue;
@@ -113,11 +115,29 @@ export async function crawlLinkedSource(input: {
   };
 }
 
+/**
+ * Filesystem bookkeeping that is not media, however much its name suggests it
+ * is. The big one is AppleDouble: copying to a non-HFS volume (an exFAT card or
+ * a shared drive) leaves a 4KB `._Clip.MP4` resource fork beside every
+ * `Clip.MP4`, and it carries the same extension. Indexing those doubles the
+ * apparent size of a folder, fills the browser with unopenable entries, and
+ * eats the crawl budget that real footage needs.
+ *
+ * Skipping every dotfile covers AppleDouble, `.DS_Store`, and the app's own
+ * derivative sidecars in one rule; the Windows equivalents need naming.
+ */
+const OS_METADATA_FILENAMES = new Set(['thumbs.db', 'desktop.ini']);
+
+export function isFilesystemNoise(name: string): boolean {
+  return name.startsWith('.') || OS_METADATA_FILENAMES.has(name.toLowerCase());
+}
+
 function passesFilters(
   file: CloudFile,
   kind: LinkedAssetKind,
   filters: LinkedSource['filters'],
 ): boolean {
+  if (isFilesystemNoise(file.name)) return false;
   if (kind === 'other') return false;
   if (filters?.types?.length && !filters.types.includes(kind)) return false;
   if (filters?.extensions?.length) {

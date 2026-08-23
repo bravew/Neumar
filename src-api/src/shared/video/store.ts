@@ -725,10 +725,25 @@ export async function addProjectAssetFromPath(
 ): Promise<{ project: VideoProject; asset: MediaItem }> {
   const root = getVideoProjectRoot(projectId);
   const resolvedSource = validateInputFile(sourcePath, root);
+  // Hash the file where it sits. Attaching media the project already holds is
+  // then free: no copy is written only to be hashed and deleted a moment
+  // later, which for a multi-GB master is the difference between seconds of
+  // disk churn and none.
+  const contentHash = await hashFile(resolvedSource).catch(() => undefined);
+  if (contentHash) {
+    const current = await getProject(projectId);
+    const duplicate = await findProjectAssetByContentHash(
+      root,
+      current.assets,
+      contentHash,
+    );
+    if (duplicate) return { project: current, asset: duplicate };
+  }
   const asset = await copyAssetIntoProject(projectId, resolvedSource);
   const { project, asset: attached } = await attachCopiedProjectAsset(
     projectId,
     asset,
+    contentHash,
   );
   return { project, asset: attached };
 }
@@ -789,10 +804,13 @@ export async function findProjectAssetByContentHash(
 export async function attachCopiedProjectAsset(
   projectId: string,
   asset: MediaItem,
+  /** Pass when the caller already hashed the bytes, to skip a second read. */
+  knownContentHash?: string,
 ): Promise<{ project: VideoProject; asset: MediaItem; deduped: boolean }> {
   const root = getVideoProjectRoot(projectId);
   const abs = path.join(root, asset.path);
-  const contentHash = await hashFile(abs).catch(() => undefined);
+  const contentHash =
+    knownContentHash ?? (await hashFile(abs).catch(() => undefined));
   if (contentHash) {
     asset.metadata = { ...asset.metadata, contentHash };
   }
@@ -1921,7 +1939,7 @@ function safeJson(raw: string): Record<string, unknown> {
   }
 }
 
-async function hashFile(filePath: string): Promise<string> {
+export async function hashFile(filePath: string): Promise<string> {
   // Source videos can be multi-GB; loading the whole file into memory OOMs
   // the sidecar. Stream the file through the hash instead.
   const hash = createHash('sha256');

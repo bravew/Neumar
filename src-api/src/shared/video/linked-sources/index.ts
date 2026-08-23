@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { constants as fsConstants, createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline as streamPipeline } from 'node:stream/promises';
 
 import { getDatabase } from '@/shared/db';
 import type { CloudFile } from '@/shared/integrations/cloud-storage/types';
@@ -10,8 +13,8 @@ import {
   getProject,
   getVideoAssetsDir,
   getVideoProjectRoot,
+  hashFile,
   mediaItemFromPath,
-  projectAssetContentHash,
   updateProjectDocument,
   writeProject,
 } from '@/shared/video/store';
@@ -34,8 +37,9 @@ import {
   resolveLinkedSourceAdapter,
 } from './adapter-bridge';
 import { purgeLinkedSourceCache } from './cache';
-import { crawlLinkedSource } from './crawler';
+import { crawlLinkedSource, isFilesystemNoise } from './crawler';
 import { rowToLinkedAsset } from './crawler';
+import { LocalFsLinkedSourceAdapter } from './local-fs';
 import { consumeLocalFolderGrant } from './local-grants';
 import { linkedAssetKind } from './metadata';
 import {
@@ -254,6 +258,10 @@ export async function runLinkedSourceSyncJob(
       workspaceRoot,
       depth: optionalNumber(job.payload.depth),
     });
+    // Sweep out rows an earlier sync indexed before the crawler learned to
+    // skip filesystem bookkeeping — otherwise a folder stays half-full of
+    // AppleDouble entries until the user removes and re-adds the source.
+    purgeIndexedFilesystemNoise(job.projectId, sourceId);
     const indexed = await indexLinkedAssetsForSource(job.projectId, source);
     await markLinkedSourceIndex(job.projectId, sourceId, {
       state: result.state,
@@ -549,72 +557,135 @@ export async function attachLinkedAsset(
   input: AttachLinkedAssetInput = {},
 ): Promise<{ project: VideoProject; asset: VideoProject['assets'][number] }> {
   const linkedAsset = getLinkedAsset(projectId, assetId);
-  const source = findLinkedSource(
-    await getProject(projectId),
-    linkedAsset.sourceId,
-  );
+  const project = await getProject(projectId);
+  const source = findLinkedSource(project, linkedAsset.sourceId);
   const adapter = resolveLinkedSourceAdapter(source);
-  // Pulls the master into the project for editing — request the original,
-  // not a streaming transcode (which Immich can 500 on).
-  const response = await adapter.download(linkedAsset.externalId, {
-    preferOriginal: true,
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Linked asset download failed with HTTP ${response.status}`,
-    );
-  }
-  const buffer = Buffer.from(await response.arrayBuffer());
   const root = getVideoProjectRoot(projectId);
-  const destination = await linkedAssetDestination(projectId, linkedAsset);
-  await fs.writeFile(destination, buffer);
-  const asset = await mediaItemFromPath(destination, 'downloaded', root);
-  asset.provenance = {
-    provider: source.provider,
-    sourceUrl:
-      source.provider === 'local-fs'
-        ? `local-fs:${linkedAsset.externalId}`
-        : linkedAsset.externalId,
-    sourceDisplayName: source.displayName,
-    attribution: source.displayName,
+
+  // A local linked folder already has the bytes on this machine, so we never
+  // pull them through the adapter's `Response`. Two things fall out of that:
+  // the file is hashed where it sits, so re-attaching media the project
+  // already holds writes nothing at all; and when a copy is needed it is a
+  // `copyFile` that the filesystem may satisfy as a copy-on-write clone —
+  // instant, and free on disk when source and project share a volume.
+  const localSourcePath =
+    adapter instanceof LocalFsLinkedSourceAdapter
+      ? await adapter.resolveLocalFilePath(linkedAsset.externalId)
+      : undefined;
+
+  let materializedPath: string | undefined;
+  const materialize = async (): Promise<string> => {
+    if (materializedPath) return materializedPath;
+    const destination = await linkedAssetDestination(projectId, linkedAsset);
+    try {
+      if (localSourcePath) {
+        await fs.copyFile(
+          localSourcePath,
+          destination,
+          fsConstants.COPYFILE_FICLONE,
+        );
+      } else {
+        // Pulls the master into the project for editing — request the original,
+        // not a streaming transcode (which Immich can 500 on).
+        const response = await adapter.download(linkedAsset.externalId, {
+          preferOriginal: true,
+        });
+        if (!response.ok) {
+          throw new Error(
+            `Linked asset download failed with HTTP ${response.status}`,
+          );
+        }
+        if (!response.body) {
+          throw new Error('Linked asset download returned an empty body');
+        }
+        // Stream to disk. A 4K master read whole into a Buffer blows the
+        // process memory budget and stalls the attach it was meant to finish.
+        await streamPipeline(
+          Readable.fromWeb(
+            response.body as Parameters<typeof Readable.fromWeb>[0],
+          ),
+          createWriteStream(destination),
+        );
+      }
+    } catch (error) {
+      // Never leave a half-written master behind for the next attach to find.
+      await fs.rm(destination, { force: true }).catch(() => {});
+      throw error;
+    }
+    materializedPath = destination;
+    return destination;
   };
+
+  const buildAsset = async (
+    filePath: string,
+    contentHash: string | undefined,
+  ): Promise<VideoProject['assets'][number]> => {
+    const asset = await mediaItemFromPath(filePath, 'downloaded', root);
+    asset.provenance = {
+      provider: source.provider,
+      sourceUrl:
+        source.provider === 'local-fs'
+          ? `local-fs:${linkedAsset.externalId}`
+          : linkedAsset.externalId,
+      sourceDisplayName: source.displayName,
+      attribution: source.displayName,
+    };
+    if (contentHash) {
+      asset.metadata = { ...asset.metadata, contentHash };
+    }
+    return asset;
+  };
+
+  // Hash before copying when we can (local), after writing when we can't
+  // (remote providers only hand over bytes by downloading them).
+  const contentHash = await hashFile(
+    localSourcePath ?? (await materialize()),
+  ).catch(() => undefined);
 
   // If this exact file is already a project asset, reuse it instead of adding a
   // second copy — attaching the same linked media twice should be idempotent.
-  const contentHash = await projectAssetContentHash(root, asset);
-  if (contentHash) {
-    asset.metadata = { ...asset.metadata, contentHash };
-  }
+  // Checked once here so the common re-attach never touches the disk, and
+  // again under the lock so a concurrent attach can't slip a copy past us.
+  const preexisting = contentHash
+    ? await findProjectAssetByContentHash(root, project.assets, contentHash)
+    : undefined;
+  let candidate = preexisting
+    ? undefined
+    : await buildAsset(await materialize(), contentHash);
 
   // Serialize the read-merge-write so concurrent attaches can't clobber each
-  // other; the download + hash above are done outside the lock.
-  let effectiveAsset: VideoProject['assets'][number] = asset;
+  // other; the copy + hash above are done outside the lock.
+  let effectiveAsset: VideoProject['assets'][number] | undefined;
   const next = await updateProjectDocument(projectId, async (current) => {
     const duplicate = contentHash
       ? await findProjectAssetByContentHash(root, current.assets, contentHash)
       : undefined;
-    effectiveAsset = duplicate ?? asset;
-    if (duplicate) {
-      await fs.rm(destination, { force: true }).catch(() => {});
+    if (duplicate && materializedPath) {
+      await fs.rm(materializedPath, { force: true }).catch(() => {});
+      materializedPath = undefined;
     }
+    let attached = duplicate ?? candidate;
+    if (!attached) {
+      // The pre-check matched a copy that was deleted before we took the lock —
+      // materialize now rather than attaching an asset with no bytes.
+      candidate = await buildAsset(await materialize(), contentHash);
+      attached = candidate;
+    }
+    effectiveAsset = attached;
     if (duplicate && !input.sceneId) return current;
 
     const patchedProject: VideoProject = {
       ...current,
-      assets: duplicate ? current.assets : [...current.assets, asset],
+      assets: duplicate ? current.assets : [...current.assets, attached],
       storyboard: input.sceneId
-        ? patchStoryboardScene(
-            current.storyboard,
-            input.sceneId,
-            effectiveAsset.id,
-          )
+        ? patchStoryboardScene(current.storyboard, input.sceneId, attached.id)
         : current.storyboard,
       scenes: input.sceneId
         ? (current.scenes ?? []).map((scene) =>
             scene.id === input.sceneId
               ? {
                   ...scene,
-                  clips: [{ id: randomUUID(), mediaId: effectiveAsset.id }],
+                  clips: [{ id: randomUUID(), mediaId: attached.id }],
                 }
               : scene,
           )
@@ -625,6 +696,9 @@ export async function attachLinkedAsset(
       ? rebuildTimelineFromStoryboard(patchedProject)
       : patchedProject;
   });
+  if (!effectiveAsset) {
+    throw new Error('Linked asset attach resolved no media item');
+  }
   markLinkedAssetOpened(projectId, assetId);
   return { project: next, asset: effectiveAsset };
 }
@@ -717,6 +791,39 @@ function insertVideoJob(job: VideoJob): void {
       job.costCents ?? 0,
       job.caller,
     );
+}
+
+/**
+ * Deletes previously indexed rows that the crawler now rejects as filesystem
+ * noise. Narrow by construction: it only matches names no crawl would index
+ * today, so it can never drop real media.
+ */
+function purgeIndexedFilesystemNoise(
+  projectId: string,
+  sourceId: string,
+): void {
+  const db = getDatabase();
+  const stale = db
+    .prepare(
+      `SELECT id, name FROM linked_assets WHERE project_id = ? AND source_id = ?`,
+    )
+    .all(projectId, sourceId) as Array<{ id: string; name: string }>;
+  const ids = stale
+    .filter((row) => isFilesystemNoise(row.name))
+    .map((row) => row.id);
+  if (ids.length === 0) return;
+
+  const placeholders = ids.map(() => '?').join(',');
+  try {
+    db.prepare(
+      `DELETE FROM vec_linked_assets WHERE linked_asset_id IN (${placeholders})`,
+    ).run(...ids);
+  } catch {
+    // sqlite-vec may be unavailable.
+  }
+  db.prepare(`DELETE FROM linked_assets WHERE id IN (${placeholders})`).run(
+    ...ids,
+  );
 }
 
 function deleteLinkedAssetsForSource(
