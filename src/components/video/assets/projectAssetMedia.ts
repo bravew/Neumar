@@ -125,7 +125,7 @@ export function projectAssetPreviewMedia(
   asset: ProjectAsset,
 ): {
   url: string | null;
-  kind: 'image' | 'video';
+  kind: 'image' | 'video' | 'audio';
   poster: string | null;
 } {
   const catalogAssetId = referencedCatalogAssetId(asset);
@@ -152,6 +152,14 @@ export function projectAssetPreviewMedia(
       }`,
       kind: 'video',
       poster: projectAssetThumbnailUrl(projectId, asset) || null,
+    };
+  }
+  if (asset.kind === 'audio') {
+    // Audio has nothing to look at, so the preview is the sound itself.
+    return {
+      url: projectAssetStreamUrl(projectId, asset.id),
+      kind: 'audio',
+      poster: null,
     };
   }
   return { url: null, kind: 'image', poster: null };

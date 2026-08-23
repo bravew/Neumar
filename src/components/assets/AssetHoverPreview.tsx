@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { AudioLines, ExternalLink, Image as ImageIcon } from 'lucide-react';
 
 import {
   Tooltip,
@@ -10,13 +10,15 @@ import {
 } from '@/components/ui/tooltip';
 import { openExternalUrl } from '@/shared/lib/open-external-url';
 
+import { AssetVideoHoverPreview } from './AssetVideoHoverPreview';
+
 interface AssetHoverPreviewProps {
   children: ReactNode;
   title: string;
   subtitle?: string;
   kind: string;
   previewUrl?: string | null;
-  previewKind?: 'image' | 'video';
+  previewKind?: 'image' | 'video' | 'audio';
   /**
    * Optional poster image rendered while a video preview buffers. Useful
    * when `previewKind === 'video'` so the tooltip never flashes blank.
@@ -67,38 +69,46 @@ export function AssetHoverPreview({
           className="bg-popover text-popover-foreground border-border w-80 rounded-lg border p-0 shadow-xl"
         >
           <div className="space-y-3 p-3">
-            {previewUrl ? (
+            {previewUrl && previewKind === 'audio' ? (
+              // Audio has no frame to show, so the preview is the sound. It
+              // waits for a click rather than playing on hover — sweeping the
+              // pointer down a list of tracks should not make noise, and
+              // browsers block unmuted autoplay without a gesture anyway.
+              <div className="bg-muted flex items-center gap-2 rounded-md p-2">
+                <AudioLines
+                  className="text-muted-foreground size-4 shrink-0"
+                  aria-hidden
+                />
+                <audio
+                  src={previewUrl}
+                  controls
+                  preload="metadata"
+                  className="h-8 min-w-0 flex-1"
+                  onClick={(event) => event.stopPropagation()}
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                  <track kind="captions" />
+                </audio>
+              </div>
+            ) : null}
+            {previewUrl && previewKind === 'video' ? (
+              // Auto-plays muted so the tooltip shows actual motion instead of
+              // a static first frame, with a scrub bar on hover for finding a
+              // specific moment. Falls back to the poster if the stream errors.
+              <AssetVideoHoverPreview src={previewUrl} poster={previewPoster} />
+            ) : null}
+            {previewUrl && previewKind === 'image' ? (
               <div className="bg-muted text-muted-foreground relative flex aspect-video items-center justify-center overflow-hidden rounded-md">
                 <ImageIcon className="absolute size-7" aria-hidden />
-                {previewKind === 'video' ? (
-                  // Auto-play muted on hover so the tooltip shows actual
-                  // motion instead of a static first frame. Loops while
-                  // the tooltip is open and falls back to the poster
-                  // (first-frame filmstrip) if the stream errors.
-                  <video
-                    src={previewUrl}
-                    poster={previewPoster ?? undefined}
-                    className="relative size-full object-cover"
-                    muted
-                    autoPlay
-                    loop
-                    playsInline
-                    preload="metadata"
-                    onError={(event) => {
-                      event.currentTarget.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <img
-                    src={previewUrl}
-                    alt=""
-                    className="relative size-full object-cover"
-                    loading="lazy"
-                    onError={(event) => {
-                      event.currentTarget.style.display = 'none';
-                    }}
-                  />
-                )}
+                <img
+                  src={previewUrl}
+                  alt=""
+                  className="relative size-full object-cover"
+                  loading="lazy"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
+                />
               </div>
             ) : null}
             <div className="min-w-0">
