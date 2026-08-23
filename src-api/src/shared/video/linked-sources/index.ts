@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { constants as fsConstants, createWriteStream } from 'node:fs';
+import { createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -13,6 +13,7 @@ import {
   getProject,
   getVideoAssetsDir,
   getVideoProjectRoot,
+  externalMediaItem,
   hashFile,
   mediaItemFromPath,
   updateProjectDocument,
@@ -562,12 +563,10 @@ export async function attachLinkedAsset(
   const adapter = resolveLinkedSourceAdapter(source);
   const root = getVideoProjectRoot(projectId);
 
-  // A local linked folder already has the bytes on this machine, so we never
-  // pull them through the adapter's `Response`. Two things fall out of that:
-  // the file is hashed where it sits, so re-attaching media the project
-  // already holds writes nothing at all; and when a copy is needed it is a
-  // `copyFile` that the filesystem may satisfy as a copy-on-write clone —
-  // instant, and free on disk when source and project share a volume.
+  // A local linked folder already has the bytes on this machine. Attaching
+  // registers the user's own file as the master and copies nothing; only a
+  // remote provider has to be pulled in. The file is still hashed where it
+  // sits so re-attaching media the project already holds is idempotent.
   const localSourcePath =
     adapter instanceof LocalFsLinkedSourceAdapter
       ? await adapter.resolveLocalFilePath(linkedAsset.externalId)
@@ -578,35 +577,27 @@ export async function attachLinkedAsset(
     if (materializedPath) return materializedPath;
     const destination = await linkedAssetDestination(projectId, linkedAsset);
     try {
-      if (localSourcePath) {
-        await fs.copyFile(
-          localSourcePath,
-          destination,
-          fsConstants.COPYFILE_FICLONE,
-        );
-      } else {
-        // Pulls the master into the project for editing — request the original,
-        // not a streaming transcode (which Immich can 500 on).
-        const response = await adapter.download(linkedAsset.externalId, {
-          preferOriginal: true,
-        });
-        if (!response.ok) {
-          throw new Error(
-            `Linked asset download failed with HTTP ${response.status}`,
-          );
-        }
-        if (!response.body) {
-          throw new Error('Linked asset download returned an empty body');
-        }
-        // Stream to disk. A 4K master read whole into a Buffer blows the
-        // process memory budget and stalls the attach it was meant to finish.
-        await streamPipeline(
-          Readable.fromWeb(
-            response.body as Parameters<typeof Readable.fromWeb>[0],
-          ),
-          createWriteStream(destination),
+      // Pulls the master into the project for editing — request the original,
+      // not a streaming transcode (which Immich can 500 on).
+      const response = await adapter.download(linkedAsset.externalId, {
+        preferOriginal: true,
+      });
+      if (!response.ok) {
+        throw new Error(
+          `Linked asset download failed with HTTP ${response.status}`,
         );
       }
+      if (!response.body) {
+        throw new Error('Linked asset download returned an empty body');
+      }
+      // Stream to disk. A 4K master read whole into a Buffer blows the
+      // process memory budget and stalls the attach it was meant to finish.
+      await streamPipeline(
+        Readable.fromWeb(
+          response.body as Parameters<typeof Readable.fromWeb>[0],
+        ),
+        createWriteStream(destination),
+      );
     } catch (error) {
       // Never leave a half-written master behind for the next attach to find.
       await fs.rm(destination, { force: true }).catch(() => {});
@@ -617,10 +608,11 @@ export async function attachLinkedAsset(
   };
 
   const buildAsset = async (
-    filePath: string,
     contentHash: string | undefined,
   ): Promise<VideoProject['assets'][number]> => {
-    const asset = await mediaItemFromPath(filePath, 'downloaded', root);
+    const asset = localSourcePath
+      ? await externalMediaItem(localSourcePath, 'downloaded', contentHash)
+      : await mediaItemFromPath(await materialize(), 'downloaded', root);
     asset.provenance = {
       provider: source.provider,
       sourceUrl:
@@ -636,8 +628,7 @@ export async function attachLinkedAsset(
     return asset;
   };
 
-  // Hash before copying when we can (local), after writing when we can't
-  // (remote providers only hand over bytes by downloading them).
+  // Hash the local file where it sits; a remote one only exists once pulled.
   const contentHash = await hashFile(
     localSourcePath ?? (await materialize()),
   ).catch(() => undefined);
@@ -649,9 +640,7 @@ export async function attachLinkedAsset(
   const preexisting = contentHash
     ? await findProjectAssetByContentHash(root, project.assets, contentHash)
     : undefined;
-  let candidate = preexisting
-    ? undefined
-    : await buildAsset(await materialize(), contentHash);
+  let candidate = preexisting ? undefined : await buildAsset(contentHash);
 
   // Serialize the read-merge-write so concurrent attaches can't clobber each
   // other; the copy + hash above are done outside the lock.
@@ -666,9 +655,8 @@ export async function attachLinkedAsset(
     }
     let attached = duplicate ?? candidate;
     if (!attached) {
-      // The pre-check matched a copy that was deleted before we took the lock —
-      // materialize now rather than attaching an asset with no bytes.
-      candidate = await buildAsset(await materialize(), contentHash);
+      // The pre-check matched an asset that went away before we took the lock.
+      candidate = await buildAsset(contentHash);
       attached = candidate;
     }
     effectiveAsset = attached;

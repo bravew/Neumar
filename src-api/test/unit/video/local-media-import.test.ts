@@ -1,4 +1,3 @@
-import { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -70,18 +69,17 @@ describe('local media import disk usage', () => {
       return { project, photoPath, linkedId: linked!.id };
     }
 
-    it('copies straight from the source file, asking for a clone', async () => {
+    it("registers the user's file as the master without copying it", async () => {
       const { project, photoPath, linkedId } =
-        await linkFolderWithPhoto('clone');
+        await linkFolderWithPhoto('inplace');
       const copyFile = vi.spyOn(fs, 'copyFile');
 
-      await attachLinkedAsset(project.id, linkedId);
+      const { asset } = await attachLinkedAsset(project.id, linkedId);
 
-      expect(copyFile).toHaveBeenCalledTimes(1);
-      const [source, , mode] = copyFile.mock.calls[0]!;
+      expect(copyFile).not.toHaveBeenCalled();
+      expect(asset.origin).toBe('external');
       // The adapter resolves symlinks (/var → /private/var on macOS).
-      expect(source).toBe(await fs.realpath(photoPath));
-      expect(mode).toBe(fsConstants.COPYFILE_FICLONE);
+      expect(asset.path).toBe(await fs.realpath(photoPath));
     });
 
     it('writes nothing when the project already holds those bytes', async () => {
@@ -102,27 +100,17 @@ describe('local media import disk usage', () => {
       expect(second.project.assets).toHaveLength(1);
     });
 
-    // Re-attaching used to leave the project pointing at bytes that no longer
-    // existed: the destination filename is derived from the linked asset id, so
-    // the second attach overwrote the first copy, then the duplicate check
-    // deleted that very file — emptying the assets dir while the MediaItem
-    // still referenced it.
-    it('keeps the attached file on disk across repeated attaches', async () => {
+    it('stays readable across repeated attaches, still without copying', async () => {
       const { project, linkedId } = await linkFolderWithPhoto('single');
       await attachLinkedAsset(project.id, linkedId);
       await attachLinkedAsset(project.id, linkedId);
       const third = await attachLinkedAsset(project.id, linkedId);
 
+      expect(third.project.assets).toHaveLength(1);
+      // Nothing was ever written into the project's assets dir.
       const assetsDir = path.join(workDir, 'videos', project.id, 'assets');
-      const entries = (await fs.readdir(assetsDir)).filter(
-        (name) => !name.startsWith('.'),
-      );
-      expect(entries).toHaveLength(1);
-
-      // `asset.path` is relative to the video workspace root, not the project.
-      await expect(
-        fs.access(path.join(workDir, third.asset.path)),
-      ).resolves.toBeUndefined();
+      await expect(fs.readdir(assetsDir)).rejects.toThrow();
+      await expect(fs.access(third.asset.path)).resolves.toBeUndefined();
     });
   });
 

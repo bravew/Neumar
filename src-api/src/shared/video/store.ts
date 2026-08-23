@@ -757,23 +757,7 @@ export async function addExternalProjectAsset(
   const real = assertSafeExternalMediaFile(sourcePath);
   const root = getVideoProjectRoot(projectId);
   const contentHash = await hashFile(real).catch(() => undefined);
-
-  // `real` passed the external trust check above, so probing it against its own
-  // directory keeps the workspace check a no-op rather than rejecting a path we
-  // deliberately allow. Without this the probe fails and the asset lands with
-  // no duration or dimensions.
-  const metadata = await enrichImageMetadata(
-    real,
-    await readMediaMetadata(real, path.dirname(real)),
-  );
-  const asset: MediaItem = {
-    id: randomUUID(),
-    kind: inferKind(real, metadata),
-    source: 'user',
-    origin: 'external',
-    path: real,
-    metadata: contentHash ? { ...metadata, contentHash } : metadata,
-  };
+  const asset = await externalMediaItem(real, 'user', contentHash);
 
   let resultAsset = asset;
   let deduped = false;
@@ -793,6 +777,35 @@ export async function addExternalProjectAsset(
     };
   });
   return { project, asset: resultAsset, deduped };
+}
+
+/**
+ * Builds a `MediaItem` for a file that stays where the user put it.
+ *
+ * `mediaItemFromPath` stores a path relative to the workspace, which is
+ * meaningless for a master outside it, and probes against the workspace root,
+ * which rejects one. Callers must have run the external trust check first.
+ */
+export async function externalMediaItem(
+  realPath: string,
+  source: MediaItem['source'],
+  contentHash?: string,
+): Promise<MediaItem> {
+  // Probing against the file's own directory keeps the workspace check a no-op
+  // rather than rejecting a path we deliberately allow. Without it the probe
+  // fails and the asset lands with no duration or dimensions.
+  const metadata = await enrichImageMetadata(
+    realPath,
+    await readMediaMetadata(realPath, path.dirname(realPath)),
+  );
+  return {
+    id: randomUUID(),
+    kind: inferKind(realPath, metadata),
+    source,
+    origin: 'external',
+    path: realPath,
+    metadata: contentHash ? { ...metadata, contentHash } : metadata,
+  };
 }
 
 export async function addProjectAssetFromPath(
