@@ -1,11 +1,13 @@
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AssetVideoHoverPreview } from '@/components/assets/AssetVideoHoverPreview';
 
+import { renderWithProviders } from '../helpers/render-with-providers';
+
 describe('AssetVideoHoverPreview', () => {
   function renderPreview() {
-    const utils = render(
+    const utils = renderWithProviders(
       <AssetVideoHoverPreview src="http://api.test/clip.mp4" poster={null} />,
     );
     const video = utils.container.querySelector('video');
@@ -20,6 +22,34 @@ describe('AssetVideoHoverPreview', () => {
     });
     fireEvent.loadedMetadata(video);
   }
+
+  it('pauses and resumes from the control bar', () => {
+    const { container, video, getByRole } = renderPreview();
+    const play = vi.fn().mockResolvedValue(undefined);
+    const pause = vi.fn(() => {
+      Object.defineProperty(video, 'paused', {
+        value: true,
+        configurable: true,
+      });
+      fireEvent.pause(video);
+    });
+    Object.defineProperty(video, 'paused', {
+      value: false,
+      configurable: true,
+    });
+    Object.defineProperty(video, 'play', { value: play, configurable: true });
+    Object.defineProperty(video, 'pause', { value: pause, configurable: true });
+    // The element reports it started, which is what flips the icon.
+    fireEvent.play(video);
+
+    fireEvent.click(getByRole('button', { name: 'Pause preview' }));
+    expect(pause).toHaveBeenCalledTimes(1);
+
+    // The control now offers the way back, and the bar stops hiding itself.
+    fireEvent.click(getByRole('button', { name: 'Play preview' }));
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('.opacity-100')).not.toBeNull();
+  });
 
   it('shows no scrub bar until the duration is known', () => {
     const { container } = renderPreview();

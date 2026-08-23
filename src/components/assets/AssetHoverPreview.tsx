@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { AudioLines, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { ExternalLink, Image as ImageIcon } from 'lucide-react';
 
 import {
   Tooltip,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/tooltip';
 import { openExternalUrl } from '@/shared/lib/open-external-url';
 
+import { AssetAudioHoverPreview } from './AssetAudioHoverPreview';
 import { AssetVideoHoverPreview } from './AssetVideoHoverPreview';
 
 interface AssetHoverPreviewProps {
@@ -70,26 +71,7 @@ export function AssetHoverPreview({
         >
           <div className="space-y-3 p-3">
             {previewUrl && previewKind === 'audio' ? (
-              // Audio has no frame to show, so the preview is the sound. It
-              // waits for a click rather than playing on hover — sweeping the
-              // pointer down a list of tracks should not make noise, and
-              // browsers block unmuted autoplay without a gesture anyway.
-              <div className="bg-muted flex items-center gap-2 rounded-md p-2">
-                <AudioLines
-                  className="text-muted-foreground size-4 shrink-0"
-                  aria-hidden
-                />
-                <audio
-                  src={previewUrl}
-                  controls
-                  preload="metadata"
-                  className="h-8 min-w-0 flex-1"
-                  onClick={(event) => event.stopPropagation()}
-                  onPointerDown={(event) => event.stopPropagation()}
-                >
-                  <track kind="captions" />
-                </audio>
-              </div>
+              <AssetAudioHoverPreview src={previewUrl} />
             ) : null}
             {previewUrl && previewKind === 'video' ? (
               // Auto-plays muted so the tooltip shows actual motion instead of
