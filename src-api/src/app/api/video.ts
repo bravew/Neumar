@@ -2977,7 +2977,14 @@ videoRoutes.get('/projects/:id/assets/:assetId/filmstrip', async (c) => {
     }
     const count = Number.parseInt(c.req.query('count') ?? '8', 10);
     const { getFilmstrip } = await import('@/shared/video/asset-thumbs');
-    const absolute = await resolveProjectAssetInputFile(project.id, asset);
+    // Sample frames from the proxy when there is one. Walking a 4K HEVC master
+    // to pick N evenly-spaced frames means decoding the whole file — measured at
+    // 22s for a 1.1GB clip, against 0.76s for its 27MB 720p proxy. A timeline
+    // holding several clips would otherwise spend minutes generating strips,
+    // and hold open every connection the browser allows while it did.
+    const absolute = await resolveProjectAssetInputFile(project.id, asset, {
+      preferProxy: true,
+    });
     const result = await getFilmstrip(
       absolute,
       count,
