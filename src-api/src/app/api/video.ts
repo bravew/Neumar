@@ -216,6 +216,7 @@ import {
   getSourceAnalysis,
   getProject,
   getProviderConfig,
+  getVideoAssetDerivativesDir,
   getVideoProjectRoot,
   getVideoWorkspaceRoot,
   getStoryboard,
@@ -2919,6 +2920,10 @@ videoRoutes.get('/projects/:id/assets/:assetId/filmstrip', async (c) => {
       absolute,
       count,
       getVideoProjectRoot(project.id),
+      {
+        cacheDir: getVideoAssetDerivativesDir(project.id, asset.id),
+        resolvedPath: absolute,
+      },
     );
     return c.redirect(
       `/files/stream?path=${encodeURIComponent(result.stripPath)}`,
@@ -2960,6 +2965,10 @@ videoRoutes.get('/projects/:id/assets/:assetId/peaks', async (c) => {
             reverse: c.req.query('reverse') === '1',
           }
         : undefined,
+      {
+        cacheDir: getVideoAssetDerivativesDir(project.id, asset.id),
+        resolvedPath: absolute,
+      },
     );
     return c.json(payload, 200, {
       'Cache-Control': 'public, max-age=86400, immutable',

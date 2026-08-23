@@ -9,7 +9,12 @@ import {
 } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 
-import { getProject, getVideoProjectRoot, writeProject } from './store';
+import {
+  getProject,
+  getVideoAssetDerivativesDir,
+  getVideoProjectRoot,
+  writeProject,
+} from './store';
 import type { MediaItem, MediaProxy, VideoProject } from './types';
 
 const logger = createLogger('VideoProxy');
@@ -40,9 +45,19 @@ export function shouldGenerateVideoProxy(asset: MediaItem): boolean {
   );
 }
 
-export function proxyPathForAssetPath(assetPath: string): string {
-  const parsed = path.parse(assetPath);
-  return path.join(parsed.dir, `${parsed.name}.proxy.mp4`);
+/**
+ * Where a newly generated proxy is written: inside the project's derivatives
+ * dir, never beside the master. The master may be an external file the user
+ * only lent us read access to.
+ *
+ * Existing assets keep whatever `asset.proxy.path` already records, so proxies
+ * written beside older masters stay valid.
+ */
+export function proxyPathForAsset(projectId: string, asset: MediaItem): string {
+  return path.join(
+    getVideoAssetDerivativesDir(projectId, asset.id),
+    'proxy.mp4',
+  );
 }
 
 export function buildVideoProxyArgs(
@@ -110,7 +125,7 @@ export async function generateVideoProxyForAsset(
 
   const root = getVideoProjectRoot(projectId);
   const inputPath = validateInputFile(asset.path, root);
-  const outputPath = validatePath(proxyPathForAssetPath(asset.path), root);
+  const outputPath = validatePath(proxyPathForAsset(projectId, asset), root);
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
   const result = await runFFmpeg(buildVideoProxyArgs(inputPath, outputPath), {

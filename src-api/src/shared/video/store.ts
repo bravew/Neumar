@@ -507,6 +507,27 @@ export function getVideoSourcesDir(projectId: string): string {
   return path.join(getVideoProjectDir(projectId), 'sources');
 }
 
+/**
+ * Where generated stand-ins for an asset live — proxies, filmstrips, waveform
+ * peaks. Always inside the project, never beside the master: a master may sit
+ * on a read-only card or in the user's own media library, and neither is a
+ * place for this app to scatter cache files.
+ *
+ * One directory per asset, so deleting an asset can drop everything derived
+ * from it without having to guess which files belonged to it.
+ */
+export function getVideoDerivativesDir(projectId: string): string {
+  return path.join(getVideoProjectDir(projectId), 'derivatives');
+}
+
+export function getVideoAssetDerivativesDir(
+  projectId: string,
+  assetId: string,
+): string {
+  assertSafeId(assetId);
+  return path.join(getVideoDerivativesDir(projectId), assetId);
+}
+
 export async function createProject(
   input: CreateVideoProjectInput,
 ): Promise<VideoProject> {
@@ -1005,6 +1026,20 @@ export async function deleteProjectAsset(
         });
       }
     }
+    // Everything generated from this asset lives under one directory, so the
+    // filmstrips and waveform caches go with it instead of piling up unowned.
+    await fs
+      .rm(getVideoAssetDerivativesDir(projectId, assetId), {
+        recursive: true,
+        force: true,
+      })
+      .catch((error: unknown) => {
+        logger.warn('video.asset.delete_derivatives_failed', {
+          project_id: projectId,
+          asset_id: assetId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
   }
   return next;
 }

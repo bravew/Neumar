@@ -14,7 +14,11 @@ import {
   runLinkedSourceSyncJob,
 } from '@/shared/video/linked-sources';
 import { createLocalFolderGrant } from '@/shared/video/linked-sources/local-grants';
-import { addProjectAssetFromPath, createProject } from '@/shared/video/store';
+import {
+  addProjectAssetFromPath,
+  createProject,
+  deleteProjectAsset,
+} from '@/shared/video/store';
 import type { VideoJob } from '@/shared/video/types';
 
 const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -197,6 +201,39 @@ describe('local media import disk usage', () => {
         sourceId: added.source.id,
       }).map((asset) => asset.name);
       expect(names).toEqual(['photo.png']);
+    });
+  });
+
+  describe('derivative placement', () => {
+    it('keeps generated files inside the project, not beside the master', async () => {
+      const project = await createProject({
+        name: 'Derivatives',
+        template: 'slideshow',
+      });
+      const sourcePath = path.join(workDir, 'clip-source.png');
+      await fs.writeFile(sourcePath, PNG_BYTES);
+      const { asset } = await addProjectAssetFromPath(project.id, sourcePath);
+
+      const derivativeDir = path.join(
+        workDir,
+        'videos',
+        project.id,
+        'derivatives',
+        asset.id,
+      );
+      await fs.mkdir(derivativeDir, { recursive: true });
+      await fs.writeFile(path.join(derivativeDir, 'proxy.mp4'), 'proxy');
+
+      // Nothing generated may land next to the imported file.
+      const besideSource = (await fs.readdir(workDir)).filter((name) =>
+        name.startsWith('.clip-source'),
+      );
+      expect(besideSource).toEqual([]);
+
+      await deleteProjectAsset(project.id, asset.id);
+
+      // Deleting the asset takes everything derived from it.
+      await expect(fs.access(derivativeDir)).rejects.toThrow();
     });
   });
 
