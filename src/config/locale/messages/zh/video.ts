@@ -893,6 +893,7 @@ export default {
       syncLocked: '同步锁定',
       syncUnlocked: '同步未锁定',
       trackEmptyDropHint: '拖动素材到此处',
+      newTrackDropHint: '拖放到此处以添加新轨道',
       moveLayerUp: '上移图层',
       moveLayerDown: '下移图层',
       renameTrack: '重命名轨道',

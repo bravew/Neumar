@@ -919,6 +919,7 @@ export default {
       syncLocked: 'Sync bloqueado',
       syncUnlocked: 'Sync desbloqueado',
       trackEmptyDropHint: 'Arraste clipes aqui',
+      newTrackDropHint: 'Solte aqui para adicionar uma nova faixa',
       moveLayerUp: 'Mover camada para cima',
       moveLayerDown: 'Mover camada para baixo',
       renameTrack: 'Renomear faixa',

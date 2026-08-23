@@ -21,13 +21,9 @@ import type {
   TimelineClipMovePreview,
 } from './timelineClipDrag';
 import type { TimelineTrackLabels } from './TimelineLabels';
-import { pixelsToMs } from './timelineMath';
 import { getTimelineClipMediaSrc, resolveClipAsset } from './timelineMedia';
-import {
-  dispatchTrackDrop,
-  trackAcceptsDrag,
-} from './timelineTrackDropDispatch';
 import { TimelineTrackDropIndicator } from './TimelineTrackDropIndicator';
+import type { TrackInsertSide } from './timelineTrackInsertion';
 import {
   TimelineTrackTransitions,
   useTimelineTrackTransitions,
@@ -38,6 +34,7 @@ import type {
   TimelineTrimEdge,
 } from './useTimelineEditorStore';
 import { useTimelineTrackContextMenu } from './useTimelineTrackContextMenu';
+import { useTimelineTrackDropZone } from './useTimelineTrackDropZone';
 
 interface TimelineTrackProps {
   project: VideoProject;
@@ -99,6 +96,13 @@ interface TimelineTrackProps {
     startMs: number,
     files: File[],
   ) => void;
+  /** Drop near a lane edge: make a new track there and place the clip on it. */
+  onDropOnNewTrack?: (
+    dataTransfer: DataTransfer,
+    anchorTrackId: string,
+    side: TrackInsertSide,
+    startMs: number,
+  ) => boolean;
   onToggleTrackMute: (track: VideoTimelineTrack) => void;
   onToggleTrackLock: (track: VideoTimelineTrack) => void;
   onToggleTrackSyncLock: (track: VideoTimelineTrack) => void;
@@ -139,6 +143,7 @@ export function TimelineTrack({
   onDropProjectAsset,
   onDropOverlayPreset,
   onDropFiles,
+  onDropOnNewTrack,
   onToggleTrackMute,
   onToggleTrackLock,
   onToggleTrackSyncLock,
@@ -168,6 +173,13 @@ export function TimelineTrack({
     onDropOverlayPreset,
     onDropFiles,
   };
+  const laneDrag = useTimelineTrackDropZone({
+    track,
+    pixelsPerSecond,
+    dropHandlers,
+    transitions,
+    onDropOnNewTrack,
+  });
   const activeDropTarget =
     clipMoveDropTarget?.trackId === track.id ? clipMoveDropTarget : null;
   const contextMenu = useTimelineTrackContextMenu({
@@ -220,30 +232,7 @@ export function TimelineTrack({
             ? 'ring-primary/30 bg-primary/10 ring-1 ring-inset'
             : 'bg-muted/20 hover:bg-muted/30',
         )}
-        onDragOver={(event) => {
-          if (transitions.handleDragOver(event)) return;
-          if (track.locked) return;
-          if (!trackAcceptsDrag(event.dataTransfer, track, dropHandlers)) {
-            return;
-          }
-          event.preventDefault();
-          event.dataTransfer.dropEffect = 'copy';
-        }}
-        onDragLeave={transitions.handleDragLeave}
-        onDrop={(event) => {
-          if (transitions.handleDrop(event)) return;
-          if (track.locked) return;
-          const rect = event.currentTarget.getBoundingClientRect();
-          const startMs = pixelsToMs(
-            event.clientX - rect.left,
-            pixelsPerSecond,
-          );
-          if (
-            dispatchTrackDrop(event.dataTransfer, track, startMs, dropHandlers)
-          ) {
-            event.preventDefault();
-          }
-        }}
+        {...laneDrag.dragProps}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -252,6 +241,15 @@ export function TimelineTrack({
         }}
       >
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.16)_1px,transparent_1px)] bg-[length:80px_100%]" />
+        {laneDrag.insertSide ? (
+          <div
+            aria-hidden
+            className={cn(
+              'bg-primary pointer-events-none absolute right-0 left-0 z-20 h-0.5',
+              laneDrag.insertSide === 'above' ? 'top-0' : 'bottom-0',
+            )}
+          />
+        ) : null}
         {activeDropTarget ? (
           <TimelineTrackDropIndicator
             dropTarget={activeDropTarget}

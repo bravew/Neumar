@@ -58,6 +58,10 @@ import {
   type TimelineClipboardPayload,
 } from './timelineClipboard';
 import {
+  insertTrackRelativeTo,
+  type TrackInsertSide,
+} from './timelineTrackInsertion';
+import {
   deriveTimelineTransitionSeams,
   TRANSITION_SEAM_GLOBAL_MAX_DURATION_MS,
   type TimelineTransitionSeam,
@@ -130,7 +134,10 @@ interface TimelineEditorState {
     > & { hidden?: boolean },
   ) => void;
   addVideoTrack: () => string | null;
-  addTrack: (kind: VideoTimelineTrack['kind']) => string | null;
+  addTrack: (
+    kind: VideoTimelineTrack['kind'],
+    options?: { anchorTrackId?: string; side?: TrackInsertSide },
+  ) => string | null;
   removeTrack: (trackId: string) => void;
   insertCaptionAtPlayhead: (playheadMs: number, text?: string) => string | null;
   moveTrackLayer: (
@@ -366,13 +373,22 @@ export const useTimelineEditorStore = create<TimelineEditorState>(
       return clipId;
     },
     addVideoTrack: () => get().addTrack('video'),
-    addTrack: (kind) => {
+    addTrack: (kind, options) => {
       let trackId: string | null = null;
       set((state) => {
         if (!state.timeline) return state;
         const nextTrack = buildTrackByKind(state.timeline.tracks, kind);
         trackId = nextTrack.id;
-        const tracks = [...state.timeline.tracks, nextTrack];
+        // Without an anchor the track lands at the end of its family, which is
+        // what the toolbar button has always done.
+        const tracks = options?.anchorTrackId
+          ? insertTrackRelativeTo(
+              state.timeline.tracks,
+              nextTrack,
+              options.anchorTrackId,
+              options.side ?? 'below',
+            )
+          : [...state.timeline.tracks, nextTrack];
         return withUserHistory(state, {
           timeline: { ...state.timeline, tracks },
           selectedClipId: null,

@@ -909,6 +909,7 @@ export default {
       syncLocked: 'Sync locked',
       syncUnlocked: 'Sync unlocked',
       trackEmptyDropHint: 'Drag clips here',
+      newTrackDropHint: 'Drop here to add a new track',
       moveLayerUp: 'Move layer up',
       moveLayerDown: 'Move layer down',
       renameTrack: 'Rename track',

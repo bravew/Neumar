@@ -924,6 +924,7 @@ export default {
       syncLocked: 'Bloqueo de sincronía',
       syncUnlocked: 'Sin bloqueo de sincronía',
       trackEmptyDropHint: 'Arrastra clips aquí',
+      newTrackDropHint: 'Suelta aquí para añadir una pista nueva',
       moveLayerUp: 'Subir capa',
       moveLayerDown: 'Bajar capa',
       renameTrack: 'Renombrar pista',

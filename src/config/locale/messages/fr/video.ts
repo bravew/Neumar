@@ -922,6 +922,7 @@ export default {
       syncLocked: 'Synchro verrouillée',
       syncUnlocked: 'Synchro déverrouillée',
       trackEmptyDropHint: 'Déposez des clips ici',
+      newTrackDropHint: 'Déposez ici pour ajouter une nouvelle piste',
       moveLayerUp: 'Monter la couche',
       moveLayerDown: 'Descendre la couche',
       renameTrack: 'Renommer la piste',

@@ -900,6 +900,7 @@ export default {
       syncLocked: 'सिंक लॉक',
       syncUnlocked: 'सिंक अनलॉक',
       trackEmptyDropHint: 'क्लिप यहाँ खींचें',
+      newTrackDropHint: 'नया ट्रैक जोड़ने के लिए यहाँ छोड़ें',
       moveLayerUp: 'लेयर ऊपर ले जाएं',
       moveLayerDown: 'लेयर नीचे ले जाएं',
       renameTrack: 'ट्रैक का नाम बदलें',

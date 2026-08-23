@@ -20,6 +20,7 @@ import type {
 import type { TimelineTrackLabels } from './TimelineLabels';
 import { TRACK_HEADER_WIDTH } from './timelineLayout';
 import { TimelineTrack } from './TimelineTrack';
+import type { TrackInsertSide } from './timelineTrackInsertion';
 import { TimelineTrackResizeHandle } from './TimelineTrackResizeHandle';
 import type {
   TimelineClipSelectionMode,
@@ -89,6 +90,12 @@ interface TimelineTrackRowsProps {
     startMs: number,
     files: File[],
   ) => void;
+  onDropOnNewTrack?: (
+    dataTransfer: DataTransfer,
+    anchorTrackId: string,
+    side: TrackInsertSide,
+    startMs: number,
+  ) => boolean;
   onToggleTrackMute: (track: VideoTimelineTrack) => void;
   onToggleTrackLock: (track: VideoTimelineTrack) => void;
   onToggleTrackSyncLock: (track: VideoTimelineTrack) => void;
@@ -132,6 +139,7 @@ export function TimelineTrackRows({
   onDropProjectAsset,
   onDropOverlayPreset,
   onDropFiles,
+  onDropOnNewTrack,
   onToggleTrackMute,
   onToggleTrackLock,
   onToggleTrackSyncLock,
@@ -190,6 +198,7 @@ export function TimelineTrackRows({
               onDropOverlayPreset={onDropOverlayPreset}
               onDropProjectAsset={onDropProjectAsset}
               onDropFiles={onDropFiles}
+              onDropOnNewTrack={onDropOnNewTrack}
               onAddClipFiles={(t, files) => onDropFiles?.(t, playheadMs, files)}
               onToggleTrackMute={onToggleTrackMute}
               onToggleTrackLock={onToggleTrackLock}

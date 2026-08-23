@@ -178,6 +178,7 @@ export function Timeline({
     handleDropProjectAsset,
     handleDropOverlayPreset,
     handleDropFiles,
+    handleDropOnNewTrack,
   } = useTimelineDropHandlers({
     project,
     aspectRatio,
@@ -347,6 +348,7 @@ export function Timeline({
         onDeleteSelectedClip={handleDeleteSelectedClip}
         onDropCatalogAssets={handleDropCatalogAssets}
         onDropFiles={handleDropFiles}
+        onDropOnNewTrack={handleDropOnNewTrack}
         onDropLinkedAsset={handleDropLinkedAsset}
         onDropOverlayPreset={handleDropOverlayPreset}
         onDropProjectAsset={handleDropProjectAsset}
