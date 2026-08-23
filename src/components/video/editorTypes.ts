@@ -50,7 +50,10 @@ export interface VideoProjectEditorActions {
     project: VideoProject;
     assets: VideoProject['assets'];
   } | null>;
-  attachAssetPaths: (paths: string[]) => Promise<VideoProject | null>;
+  attachAssetPaths: (
+    paths: string[],
+    mode?: 'copy' | 'reference',
+  ) => Promise<VideoProject | null>;
   deleteAsset: (assetId: string) => Promise<VideoProject | null>;
   regenerateAssetProxy: (assetId: string) => Promise<{
     project: VideoProject;

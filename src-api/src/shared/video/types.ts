@@ -1213,6 +1213,17 @@ export interface MediaItem {
   // pseudo-scheme; the timeline and agent flows treat that as "no local
   // bytes yet" and route through `hydrateProjectAsset` on first read.
   path: string;
+  /**
+   * Where the bytes live.
+   *
+   * `'managed'` (the default when absent) means this app owns the file: `path`
+   * is relative to the video workspace root and points inside the project.
+   *
+   * `'external'` means the user's own copy is the master and we only borrowed
+   * read access — `path` is absolute and outside the project. Nothing derived
+   * is written beside it, and deleting the asset never deletes the file.
+   */
+  origin?: 'managed' | 'external';
   // Lifecycle of the local bytes. Absent or `'ready'` means the file
   // exists on disk at `path`. `'referenced'` means the row is a
   // metadata-only placeholder. `'hydrating'` is set briefly by the

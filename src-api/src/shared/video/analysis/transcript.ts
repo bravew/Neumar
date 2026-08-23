@@ -22,6 +22,7 @@ import type {
 } from '@/shared/services/speech/types';
 import { createLogger } from '@/shared/utils/logger';
 
+import { resolveProjectAssetPath } from '../asset-files';
 import {
   enforceVideoCostApproval,
   readVideoCostApproval,
@@ -278,7 +279,7 @@ export async function extractSourceAudioPcm(input: {
   cacheDir: string;
   durationMs: number;
 }): Promise<Buffer> {
-  const sourcePath = validateInputFile(input.asset.path, input.workspaceRoot);
+  const sourcePath = resolveProjectAssetPath(input.asset, input.workspaceRoot);
   const outputPath = path.join(input.cacheDir, 'source-audio.s16le');
   await fs.mkdir(input.cacheDir, { recursive: true });
   if (!existsSync(outputPath)) {

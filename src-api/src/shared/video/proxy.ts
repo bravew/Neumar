@@ -9,6 +9,7 @@ import {
 } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 
+import { resolveProjectAssetPath } from './asset-files';
 import {
   getProject,
   getVideoAssetDerivativesDir,
@@ -124,7 +125,7 @@ export async function generateVideoProxyForAsset(
   }
 
   const root = getVideoProjectRoot(projectId);
-  const inputPath = validateInputFile(asset.path, root);
+  const inputPath = resolveProjectAssetPath(asset, root);
   const outputPath = validatePath(proxyPathForAsset(projectId, asset), root);
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
 

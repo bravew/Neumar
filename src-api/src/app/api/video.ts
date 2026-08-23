@@ -54,6 +54,7 @@ import {
   undoVideoAgentJournalEntry,
   videoAgentToolCallSchema,
 } from '@/shared/video/agent-tools';
+import { resolveProjectAssetPath } from '@/shared/video/asset-files';
 import { downloadBrollHit, searchBroll } from '@/shared/video/broll';
 import {
   mergeCaption,
@@ -202,6 +203,7 @@ import {
   parseVideoStorageRoot,
 } from '@/shared/video/storage-tree';
 import {
+  addExternalProjectAsset,
   addProjectAssetFromPath,
   addProjectAssetFromUpload,
   addProjectImageAssetFromUpload,
@@ -282,6 +284,12 @@ export const videoRoutes = new Hono();
 
 const assetPathSchema = z.object({
   paths: z.array(z.string().min(1)).min(1).max(50),
+  /**
+   * `'reference'` registers the user's own file where it already is.
+   * `'copy'` (the default, for agent and ingest callers that write into the
+   * project and expect it to own the bytes) duplicates it into the project.
+   */
+  mode: z.enum(['copy', 'reference']).optional(),
 });
 
 const providerUpdateSchema = z.object({
@@ -940,7 +948,7 @@ function validateProjectAssetInputFile(
       });
     }
   }
-  return validateInputFile(asset.path, root);
+  return resolveProjectAssetPath(asset, root);
 }
 
 function htmlTemplatePreview(template: GalleryTemplate) {
@@ -2848,7 +2856,10 @@ videoRoutes.post('/projects/:id/assets', async (c) => {
       const assets = [];
       let project = await getProject(projectId);
       for (const sourcePath of parsed.paths) {
-        const result = await addProjectAssetFromPath(projectId, sourcePath);
+        const result =
+          parsed.mode === 'reference'
+            ? await addExternalProjectAsset(projectId, sourcePath)
+            : await addProjectAssetFromPath(projectId, sourcePath);
         project = result.project;
         assets.push(result.asset);
         scheduleVideoProxyGeneration(projectId, result.asset.id);

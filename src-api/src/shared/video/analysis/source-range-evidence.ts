@@ -6,6 +6,7 @@ import path from 'node:path';
 import { runFFmpeg, validateInputFile } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 
+import { resolveProjectAssetPath } from '../asset-files';
 import { getPeaks, type PeaksResult } from '../asset-thumbs';
 import type {
   AnalysisArtifact,
@@ -225,7 +226,7 @@ export async function buildSourceRangeEvidenceArtifact(input: {
 export async function buildSourceRangeFilmstrip(
   input: BuildFilmstripInput,
 ): Promise<SourceRangeFilmstrip> {
-  const absPath = validateInputFile(input.asset.path, input.workspaceRoot);
+  const absPath = resolveProjectAssetPath(input.asset, input.workspaceRoot);
   const frameHeight = filmstripFrameHeight(input.asset);
   const cachePath = path.join(
     input.cacheDir,

@@ -85,6 +85,21 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
+/**
+ * ffprobe re-validates its input against a root. When the caller already
+ * resolved the path under its own rule — an external master the project only
+ * references — validating it again against the workspace would reject a file
+ * we deliberately allow, so the file's own directory stands in.
+ */
+function probeRootFor(
+  absPath: string,
+  options: AssetThumbCacheOptions,
+): string {
+  return options.resolvedPath
+    ? path.dirname(absPath)
+    : (getSetting('workDir') ?? process.cwd());
+}
+
 async function cacheKey(
   absPath: string,
   suffix: string,
@@ -124,7 +139,7 @@ export async function getFilmstrip(
   const absPath = options.resolvedPath ?? validateInputFile(assetPath, workDir);
   const clampedCount = clampCount(count);
 
-  const probe = await probeFile(absPath, workDir);
+  const probe = await probeFile(absPath, probeRootFor(absPath, options));
   const durationSec = probe.duration ?? 0;
   const videoStream = probe.streams.find(
     (s) => s.width != null && s.height != null,
@@ -214,7 +229,7 @@ export async function getPeaks(
   const absPath = options.resolvedPath ?? validateInputFile(assetPath, workDir);
   const clampedBins = clampBins(bins);
 
-  const probe = await probeFile(absPath, workDir);
+  const probe = await probeFile(absPath, probeRootFor(absPath, options));
   const durationSec = probe.duration ?? 0;
   if (durationSec <= 0) {
     throw new Error('Asset has no detectable duration');

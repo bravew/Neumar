@@ -40,6 +40,7 @@ import {
   assertSupportedImageUpload,
   imageExtensionFromName,
 } from './image-validation';
+import { assertSafeExternalMediaFile } from './linked-sources/local-fs';
 import {
   VIDEO_PROVIDER_CAPABILITIES,
   type ProviderCapability,
@@ -740,6 +741,60 @@ export async function deleteProject(projectId: string): Promise<void> {
   logger.info('video.project.deleted', { project_id: projectId });
 }
 
+/**
+ * Registers a file the user keeps outside the project as an asset, without
+ * copying a byte. `path` becomes the absolute location of their own master;
+ * everything the editor needs beyond the original — proxy, filmstrip, peaks —
+ * is generated into the project.
+ *
+ * Re-referencing a file the project already holds (referenced or copied)
+ * returns the existing asset.
+ */
+export async function addExternalProjectAsset(
+  projectId: string,
+  sourcePath: string,
+): Promise<{ project: VideoProject; asset: MediaItem; deduped: boolean }> {
+  const real = assertSafeExternalMediaFile(sourcePath);
+  const root = getVideoProjectRoot(projectId);
+  const contentHash = await hashFile(real).catch(() => undefined);
+
+  // `real` passed the external trust check above, so probing it against its own
+  // directory keeps the workspace check a no-op rather than rejecting a path we
+  // deliberately allow. Without this the probe fails and the asset lands with
+  // no duration or dimensions.
+  const metadata = await enrichImageMetadata(
+    real,
+    await readMediaMetadata(real, path.dirname(real)),
+  );
+  const asset: MediaItem = {
+    id: randomUUID(),
+    kind: inferKind(real, metadata),
+    source: 'user',
+    origin: 'external',
+    path: real,
+    metadata: contentHash ? { ...metadata, contentHash } : metadata,
+  };
+
+  let resultAsset = asset;
+  let deduped = false;
+  const project = await updateProjectDocument(projectId, async (current) => {
+    const duplicate = contentHash
+      ? await findProjectAssetByContentHash(root, current.assets, contentHash)
+      : undefined;
+    if (duplicate) {
+      resultAsset = duplicate;
+      deduped = true;
+      return current;
+    }
+    return {
+      ...current,
+      assets: [...current.assets, asset],
+      updatedAt: new Date().toISOString(),
+    };
+  });
+  return { project, asset: resultAsset, deduped };
+}
+
 export async function addProjectAssetFromPath(
   projectId: string,
   sourcePath: string,
@@ -1002,16 +1057,20 @@ export async function deleteProjectAsset(
   await writeProject(next);
   if (asset) {
     const root = getVideoProjectRoot(projectId);
-    try {
-      await fs.rm(validatePath(asset.path, root, 'write'), {
-        force: true,
-      });
-    } catch (error) {
-      logger.warn('video.asset.delete_file_failed', {
-        project_id: projectId,
-        asset_id: assetId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+    // An external master is the user's own file. Removing it from the project
+    // removes the reference, never the media.
+    if (asset.origin !== 'external') {
+      try {
+        await fs.rm(validatePath(asset.path, root, 'write'), {
+          force: true,
+        });
+      } catch (error) {
+        logger.warn('video.asset.delete_file_failed', {
+          project_id: projectId,
+          asset_id: assetId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
     if (asset.proxy && asset.proxy.source !== 'asset_catalog') {
       try {

@@ -15,6 +15,7 @@ import {
 } from '@/shared/video/linked-sources';
 import { createLocalFolderGrant } from '@/shared/video/linked-sources/local-grants';
 import {
+  addExternalProjectAsset,
   addProjectAssetFromPath,
   createProject,
   deleteProjectAsset,
@@ -234,6 +235,66 @@ describe('local media import disk usage', () => {
 
       // Deleting the asset takes everything derived from it.
       await expect(fs.access(derivativeDir)).rejects.toThrow();
+    });
+  });
+
+  describe('referencing a local file in place', () => {
+    it('adds the asset without copying, pointing at the original', async () => {
+      const project = await createProject({
+        name: 'External',
+        template: 'slideshow',
+      });
+      const sourcePath = path.join(workDir, 'outside.png');
+      await fs.writeFile(sourcePath, PNG_BYTES);
+
+      const { asset } = await addExternalProjectAsset(project.id, sourcePath);
+
+      expect(asset.origin).toBe('external');
+      expect(asset.path).toBe(await fs.realpath(sourcePath));
+      const assetsDir = path.join(workDir, 'videos', project.id, 'assets');
+      await expect(fs.readdir(assetsDir)).rejects.toThrow();
+    });
+
+    it('reuses the asset when the same file is referenced twice', async () => {
+      const project = await createProject({
+        name: 'External dedup',
+        template: 'slideshow',
+      });
+      const sourcePath = path.join(workDir, 'twice.png');
+      await fs.writeFile(sourcePath, PNG_BYTES);
+
+      const first = await addExternalProjectAsset(project.id, sourcePath);
+      const second = await addExternalProjectAsset(project.id, sourcePath);
+
+      expect(second.deduped).toBe(true);
+      expect(second.asset.id).toBe(first.asset.id);
+      expect(second.project.assets).toHaveLength(1);
+    });
+
+    it("leaves the user's file on disk when the asset is deleted", async () => {
+      const project = await createProject({
+        name: 'External delete',
+        template: 'slideshow',
+      });
+      const sourcePath = path.join(workDir, 'keep-me.png');
+      await fs.writeFile(sourcePath, PNG_BYTES);
+      const { asset } = await addExternalProjectAsset(project.id, sourcePath);
+
+      const next = await deleteProjectAsset(project.id, asset.id);
+
+      expect(next.assets).toHaveLength(0);
+      // Removing it from the project must never remove their media.
+      await expect(fs.access(sourcePath)).resolves.toBeUndefined();
+    });
+
+    it('refuses a path outside the trusted roots', async () => {
+      const project = await createProject({
+        name: 'External guard',
+        template: 'slideshow',
+      });
+      await expect(
+        addExternalProjectAsset(project.id, '/etc/hosts'),
+      ).rejects.toThrow(/trusted local roots|sensitive|not found/i);
     });
   });
 

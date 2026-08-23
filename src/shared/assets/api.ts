@@ -126,6 +126,33 @@ export async function openNativeFolderDialog(): Promise<{
   return { supported: true, path: body.path ?? null };
 }
 
+/**
+ * File counterpart of `openNativeFolderDialog`: asks the local API server to
+ * raise the OS file chooser and hand back absolute paths. A browser `File`
+ * carries bytes but no path, so this is the only way the web build can add
+ * media without uploading a copy of it.
+ */
+export async function openNativeFileDialog(): Promise<{
+  supported: boolean;
+  paths: string[];
+}> {
+  const timeout = AbortSignal.timeout(NATIVE_FOLDER_DIALOG_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/assets/native-file-dialog`, {
+      method: 'POST',
+      signal: timeout,
+    });
+  } catch (error) {
+    if (timeout.aborted) throw new Error('File picker did not respond');
+    throw error;
+  }
+  if (response.status === 501) return { supported: false, paths: [] };
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const body = (await response.json()) as { paths?: string[] };
+  return { supported: true, paths: body.paths ?? [] };
+}
+
 export async function deleteAsset(id: string): Promise<void> {
   const response = await fetch(
     `${API_BASE_URL}/assets/${encodeURIComponent(id)}`,

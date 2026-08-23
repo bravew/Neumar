@@ -28,7 +28,10 @@ import {
   type PreviewArtifactKind,
   type ProxyPreset,
 } from '@/shared/assets';
-import { openNativeFolderDialog } from '@/shared/assets/native-folder-dialog';
+import {
+  openNativeFileDialog,
+  openNativeFolderDialog,
+} from '@/shared/assets/native-folder-dialog';
 import {
   getAssetsWorkspaceRoot,
   safeUploadFileName,
@@ -220,6 +223,23 @@ export function createAssetsRoutes(options: AssetsRouteOptions = {}) {
       return c.json({ path: result.path });
     } catch (error) {
       return handleAssetsError(c, error, 'Failed to open folder dialog');
+    }
+  });
+
+  // File counterpart of `/native-folder-dialog`. Returns real paths so the web
+  // build can add media by reference instead of uploading bytes.
+  assets.post('/native-file-dialog', async (c) => {
+    try {
+      const result = await openNativeFileDialog();
+      if (!result.supported) {
+        return c.json(
+          { error: 'No native file dialog is available on this platform' },
+          501,
+        );
+      }
+      return c.json({ paths: result.paths });
+    } catch (error) {
+      return handleAssetsError(c, error, 'Failed to open file dialog');
     }
   });
 

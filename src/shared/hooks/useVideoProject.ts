@@ -376,13 +376,13 @@ export function useVideoProject(projectId: string | undefined) {
   );
 
   const attachAssetPaths = useCallback(
-    async (paths: string[]) => {
+    async (paths: string[], mode: 'copy' | 'reference' = 'copy') => {
       if (!projectId) return null;
       const data = await videoApi<{ project: VideoProject }>(
         `/projects/${encodeURIComponent(projectId)}/assets`,
         {
           method: 'POST',
-          body: JSON.stringify({ paths }),
+          body: JSON.stringify({ paths, mode }),
         },
       );
       setProject(data.project);

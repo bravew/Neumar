@@ -14,6 +14,7 @@ import {
 
 import { validateInputFile } from '@/shared/services/ffmpeg';
 
+import { resolveProjectAssetPath } from './asset-files';
 import { getVideoFeatureFlag } from './flags';
 import { getImportedOverlayAsset } from './overlays/imported-items';
 import { buildVividOverlayRenderEntriesWithPlugins } from './overlays/server-resolve';
@@ -238,7 +239,7 @@ async function enrichVividOverlayEntries(
       );
       if (!asset) return entry;
       try {
-        const sourcePath = validateInputFile(asset.path, root);
+        const sourcePath = resolveProjectAssetPath(asset, root);
         const fileStats = await stat(sourcePath);
         if (fileStats.size === 0 || fileStats.size > MAX_OVERLAY_SOURCE_BYTES) {
           return entry;
@@ -329,7 +330,7 @@ function visualClipFromEdl(
     ? durationMsToFrames(segment.sourceDurationMs, fps)
     : undefined;
 
-  const sourcePath = validateInputFile(asset.path, root);
+  const sourcePath = resolveProjectAssetPath(asset, root);
   return [
     {
       id: segment.id,
@@ -382,7 +383,7 @@ function audioClipFromEdl(
   const asset = assetForSourceRef(project, clip.sourceRef);
   if (asset?.kind !== 'audio') return [];
 
-  const sourcePath = validateInputFile(asset.path, root);
+  const sourcePath = resolveProjectAssetPath(asset, root);
   const sourceStartFrame = msToFrame(clip.sourceStartMs, fps);
   const durationInFrames = Math.max(
     1,

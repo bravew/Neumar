@@ -15,6 +15,10 @@ vi.mock('@/components/video/LinkedSourcesPanel', () => ({
 vi.mock('@/shared/lib/tauri-scope', () => ({
   grantFileReadAccess: vi.fn().mockResolvedValue(undefined),
 }));
+const pickLocalMediaFiles = vi.fn();
+vi.mock('@/components/video/assets/pickLocalMediaFiles', () => ({
+  pickLocalMediaFiles: () => pickLocalMediaFiles(),
+}));
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -55,6 +59,53 @@ describe('useAddLocalFolder', () => {
 });
 
 describe('useAddLocalFiles', () => {
+  it('references picked files by path instead of uploading their bytes', async () => {
+    pickLocalMediaFiles.mockResolvedValue([
+      '/Volumes/Card/a.mp4',
+      '/Volumes/Card/b.mp4',
+    ]);
+    const attachAssetPaths = vi.fn().mockResolvedValue(null);
+    const uploadAssets = vi.fn().mockResolvedValue(null);
+    const actions = {
+      attachAssetPaths,
+      uploadAssets,
+    } as unknown as VideoProjectEditorActions;
+
+    const { result } = renderHook(() => useAddLocalFiles(actions, labels));
+    await act(async () => {
+      result.current.openFilePicker();
+    });
+
+    expect(attachAssetPaths).toHaveBeenCalledWith(
+      ['/Volumes/Card/a.mp4', '/Volumes/Card/b.mp4'],
+      'reference',
+    );
+    expect(uploadAssets).not.toHaveBeenCalled();
+    expect(result.current.addingFiles).toBe(false);
+  });
+
+  it('falls back to the upload input when no native picker exists', async () => {
+    pickLocalMediaFiles.mockResolvedValue(null);
+    const attachAssetPaths = vi.fn().mockResolvedValue(null);
+    const actions = {
+      attachAssetPaths,
+      uploadAssets: vi.fn(),
+    } as unknown as VideoProjectEditorActions;
+
+    const { result } = renderHook(() => useAddLocalFiles(actions, labels));
+    const input = document.createElement('input');
+    input.type = 'file';
+    const click = vi.spyOn(input, 'click').mockImplementation(() => {});
+    result.current.fileInputRef.current = input;
+
+    await act(async () => {
+      result.current.openFilePicker();
+    });
+
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(attachAssetPaths).not.toHaveBeenCalled();
+  });
+
   it('uploads each picked file in its own request', async () => {
     const uploadAssets = vi.fn().mockResolvedValue(null);
     const actions = { uploadAssets } as unknown as VideoProjectEditorActions;
