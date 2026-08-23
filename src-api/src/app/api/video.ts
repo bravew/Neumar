@@ -204,6 +204,8 @@ import {
 } from '@/shared/video/storage-tree';
 import {
   addExternalProjectAsset,
+  consolidateExternalProjectAsset,
+  externalAssetAvailability,
   addProjectAssetFromPath,
   addProjectAssetFromUpload,
   addProjectImageAssetFromUpload,
@@ -233,6 +235,7 @@ import {
   updateProject,
   upsertProviderConfig,
   writeProject,
+  relinkExternalProjectAssets,
 } from '@/shared/video/store';
 import {
   createCustomVideoTemplate,
@@ -290,6 +293,11 @@ const assetPathSchema = z.object({
    * project and expect it to own the bytes) duplicates it into the project.
    */
   mode: z.enum(['copy', 'reference']).optional(),
+});
+
+const relinkExternalSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
 });
 
 const providerUpdateSchema = z.object({
@@ -2889,6 +2897,49 @@ videoRoutes.post('/projects/:id/assets', async (c) => {
       }
     }
     return c.json({ project, assets });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+// Which referenced masters are reachable right now — a drive may be unplugged.
+videoRoutes.get('/projects/:id/assets/external-status', async (c) => {
+  try {
+    const project = await getProject(c.req.param('id'));
+    return c.json({ assets: externalAssetAvailability(project) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post(
+  '/projects/:id/assets/relink',
+  zValidator('json', relinkExternalSchema),
+  async (c) => {
+    try {
+      const { from, to } = c.req.valid('json');
+      const result = await relinkExternalProjectAssets(
+        c.req.param('id'),
+        from,
+        to,
+      );
+      return c.json(result);
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+// Takes ownership of a referenced master: copy it in, stop depending on the
+// user's own storage. What you run before archiving or handing a project off.
+videoRoutes.post('/projects/:id/assets/:assetId/consolidate', async (c) => {
+  try {
+    return c.json(
+      await consolidateExternalProjectAsset(
+        c.req.param('id'),
+        c.req.param('assetId'),
+      ),
+    );
   } catch (error) {
     return jsonError(c, error);
   }

@@ -21,6 +21,7 @@ import { getSetting } from '@/shared/db/operations';
 import { readMediaMetadata } from '@/shared/media/probe';
 import { validateInputFile, validatePath } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
+import { expandPath } from '@/shared/utils/paths';
 
 import {
   buildAutoCutCandidates,
@@ -806,6 +807,96 @@ export async function externalMediaItem(
     path: realPath,
     metadata: contentHash ? { ...metadata, contentHash } : metadata,
   };
+}
+
+/**
+ * Which external masters are currently reachable. A referenced file lives on
+ * the user's own disk, so it can be renamed, moved, or sit on a volume that
+ * isn't mounted right now; the editor needs to say so rather than fail at
+ * render time.
+ */
+export function externalAssetAvailability(
+  project: VideoProject,
+): Array<{ assetId: string; path: string; online: boolean }> {
+  return project.assets
+    .filter((asset) => asset.origin === 'external')
+    .map((asset) => ({
+      assetId: asset.id,
+      path: asset.path,
+      online: existsSync(asset.path),
+    }));
+}
+
+/**
+ * Repoints external masters after their storage moved — a drive remounted
+ * under a different name, a library reorganised. Rewrites every external asset
+ * whose path sits under `from` to the matching path under `to`, and re-runs the
+ * trust check on each result so a relink can't be used to reach somewhere the
+ * original import could not.
+ */
+export async function relinkExternalProjectAssets(
+  projectId: string,
+  from: string,
+  to: string,
+): Promise<{ project: VideoProject; relinked: number; missing: string[] }> {
+  const fromRoot = path.resolve(expandPath(from));
+  const toRoot = path.resolve(expandPath(to));
+  const missing: string[] = [];
+  let relinked = 0;
+
+  const project = await updateProjectDocument(projectId, (current) => {
+    const assets = current.assets.map((asset) => {
+      if (asset.origin !== 'external') return asset;
+      const relative = path.relative(fromRoot, asset.path);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) return asset;
+      const candidate = path.join(toRoot, relative);
+      try {
+        const real = assertSafeExternalMediaFile(candidate);
+        relinked += 1;
+        return { ...asset, path: real };
+      } catch {
+        missing.push(candidate);
+        return asset;
+      }
+    });
+    if (relinked === 0) return current;
+    return { ...current, assets, updatedAt: new Date().toISOString() };
+  });
+  return { project, relinked, missing };
+}
+
+/**
+ * Copies an external master into the project and takes ownership of it. The
+ * counterpart to referencing: what you run before archiving a project, handing
+ * it to someone else, or unplugging the drive it was cut from.
+ */
+export async function consolidateExternalProjectAsset(
+  projectId: string,
+  assetId: string,
+): Promise<{ project: VideoProject; asset: MediaItem }> {
+  const project = await getProject(projectId);
+  const asset = project.assets.find((item) => item.id === assetId);
+  if (!asset) throw new Error('Asset not found');
+  if (asset.origin !== 'external') return { project, asset };
+
+  const real = assertSafeExternalMediaFile(asset.path);
+  const dest = await allocateAssetPath(projectId, path.basename(real));
+  await fs.copyFile(real, dest, fsConstants.COPYFILE_FICLONE);
+  const root = getVideoProjectRoot(projectId);
+  const managedPath = path.relative(root, dest);
+
+  let updated = asset;
+  const next = await updateProjectDocument(projectId, (current) => ({
+    ...current,
+    assets: current.assets.map((item) => {
+      if (item.id !== assetId) return item;
+      const { origin: _origin, ...rest } = item;
+      updated = { ...rest, path: managedPath };
+      return updated;
+    }),
+    updatedAt: new Date().toISOString(),
+  }));
+  return { project: next, asset: updated };
 }
 
 export async function addProjectAssetFromPath(

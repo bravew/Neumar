@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 
-import { CloudDownload, Plus, Trash2 } from 'lucide-react';
+import {
+  CloudDownload,
+  HardDriveDownload,
+  Link2,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 
@@ -8,11 +14,18 @@ interface ProjectAssetActionGroupProps {
   placeLabel: string;
   downloadLabel: string;
   deleteLabel: string;
+  /** Only needed when the matching handler is supplied. */
+  consolidateLabel?: string;
+  relinkLabel?: string;
   assetName?: string;
   canDownload: boolean;
   onPlace?: () => void;
   onDownload?: () => void;
   onDelete?: () => void;
+  /** Copy an external master into the project. Absent for managed assets. */
+  onConsolidate?: () => void;
+  /** Point an external master at its new home. Offered when it's missing. */
+  onRelink?: () => void;
   className?: string;
 }
 
@@ -20,14 +33,20 @@ export function ProjectAssetActionGroup({
   placeLabel,
   downloadLabel,
   deleteLabel,
+  consolidateLabel,
+  relinkLabel,
   assetName,
   canDownload,
   onPlace,
   onDownload,
   onDelete,
+  onConsolidate,
+  onRelink,
   className,
 }: ProjectAssetActionGroupProps) {
-  if (!onPlace && !onDownload && !onDelete) return null;
+  if (!onPlace && !onDownload && !onDelete && !onConsolidate && !onRelink) {
+    return null;
+  }
   return (
     <div
       className={cn(
@@ -49,6 +68,22 @@ export function ProjectAssetActionGroup({
           onClick={onDownload}
         >
           <CloudDownload className="size-3.5" aria-hidden />
+        </ActionButton>
+      ) : null}
+      {onRelink ? (
+        <ActionButton
+          label={assetActionLabel(relinkLabel ?? '', assetName)}
+          onClick={onRelink}
+        >
+          <Link2 className="size-3.5" aria-hidden />
+        </ActionButton>
+      ) : null}
+      {onConsolidate ? (
+        <ActionButton
+          label={assetActionLabel(consolidateLabel ?? '', assetName)}
+          onClick={onConsolidate}
+        >
+          <HardDriveDownload className="size-3.5" aria-hidden />
         </ActionButton>
       ) : null}
       {onDelete ? (

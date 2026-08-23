@@ -16,8 +16,12 @@ import { createLocalFolderGrant } from '@/shared/video/linked-sources/local-gran
 import {
   addExternalProjectAsset,
   addProjectAssetFromPath,
+  consolidateExternalProjectAsset,
   createProject,
   deleteProjectAsset,
+  externalAssetAvailability,
+  getProject,
+  relinkExternalProjectAssets,
 } from '@/shared/video/store';
 import type { VideoJob } from '@/shared/video/types';
 
@@ -283,6 +287,68 @@ describe('local media import disk usage', () => {
       await expect(
         addExternalProjectAsset(project.id, '/etc/hosts'),
       ).rejects.toThrow(/trusted local roots|sensitive|not found/i);
+    });
+  });
+
+  describe('when referenced media moves', () => {
+    async function projectWithExternal(name: string) {
+      const project = await createProject({ name, template: 'slideshow' });
+      const dir = path.join(workDir, `${name}-lib`);
+      await fs.mkdir(dir, { recursive: true });
+      const filePath = path.join(dir, 'clip.png');
+      await fs.writeFile(filePath, PNG_BYTES);
+      const { asset } = await addExternalProjectAsset(project.id, filePath);
+      return { project, dir, filePath, asset };
+    }
+
+    it('reports a master that is no longer reachable', async () => {
+      const { project, filePath, asset } = await projectWithExternal('offline');
+      const online = externalAssetAvailability(await getProject(project.id));
+      expect(online).toEqual([
+        { assetId: asset.id, path: await fs.realpath(filePath), online: true },
+      ]);
+
+      await fs.rm(filePath);
+
+      const offline = externalAssetAvailability(await getProject(project.id));
+      expect(offline[0]).toMatchObject({ assetId: asset.id, online: false });
+    });
+
+    it('repoints assets when their storage moves', async () => {
+      const { project, dir, asset } = await projectWithExternal('relink');
+      const moved = path.join(workDir, 'relink-moved');
+      await fs.rename(dir, moved);
+
+      const result = await relinkExternalProjectAssets(
+        project.id,
+        await fs.realpath(workDir).then((w) => path.join(w, 'relink-lib')),
+        moved,
+      );
+
+      expect(result.relinked).toBe(1);
+      expect(result.missing).toEqual([]);
+      const updated = result.project.assets.find((a) => a.id === asset.id);
+      expect(updated?.path).toBe(
+        await fs.realpath(path.join(moved, 'clip.png')),
+      );
+    });
+
+    it('consolidating copies the master in and takes ownership', async () => {
+      const { project, filePath, asset } =
+        await projectWithExternal('consolidate');
+
+      const result = await consolidateExternalProjectAsset(
+        project.id,
+        asset.id,
+      );
+
+      expect(result.asset.origin).toBeUndefined();
+      expect(path.isAbsolute(result.asset.path)).toBe(false);
+      await expect(
+        fs.access(path.join(workDir, result.asset.path)),
+      ).resolves.toBeUndefined();
+      // The user's own copy is left exactly where it was.
+      await expect(fs.access(filePath)).resolves.toBeUndefined();
     });
   });
 

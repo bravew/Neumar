@@ -12,6 +12,8 @@ import {
   projectAssetDisplaySubtitle,
   ProjectAssetTile,
 } from './ProjectAssetTile';
+import { useExternalAssetActions } from './useExternalAssetActions';
+import { useExternalAssetStatus } from './useExternalAssetStatus';
 
 type ProjectAsset = VideoProject['assets'][number];
 type Kind = ProjectAsset['kind'];
@@ -50,6 +52,14 @@ export function ProjectAssetsGroupedList({
 }: ProjectAssetsGroupedListProps) {
   const { t } = useLanguage();
   const labels = t.video.editor.assetsRail;
+  const { offlineAssetIds, refresh } = useExternalAssetStatus(
+    project.id,
+    project.assets,
+  );
+  const { consolidateAsset, relinkAsset } = useExternalAssetActions(
+    project.id,
+    refresh,
+  );
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
@@ -157,6 +167,9 @@ export function ProjectAssetsGroupedList({
               isNew={newIds.has(asset.id)}
               materializationStates={materializationStates}
               materializationActions={materializationActions}
+              offlineAssetIds={offlineAssetIds}
+              onConsolidate={(assetId) => void consolidateAsset(assetId)}
+              onRelink={(target) => void relinkAsset(target)}
               variantCount={
                 variantCounts.get(projectAssetDedupeKey(asset)) ?? 1
               }
