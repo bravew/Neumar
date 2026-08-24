@@ -48,7 +48,7 @@ export async function readInlinePng(
       '-i',
       absolutePath,
       '-vf',
-      `scale='min(${DOWNSCALE_MAX_EDGE_PX},iw)':-2`,
+      `scale='if(gt(iw,ih),min(${DOWNSCALE_MAX_EDGE_PX},iw),-2)':'if(gt(iw,ih),-2,min(${DOWNSCALE_MAX_EDGE_PX},ih))'`,
       scaledPath,
     ]);
     if (result.exitCode !== 0) {

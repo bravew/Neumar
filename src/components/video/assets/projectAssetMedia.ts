@@ -139,6 +139,15 @@ export function projectAssetPreviewMedia(
         poster: projectAssetThumbnailUrl(projectId, asset) || null,
       };
     }
+    if (asset.kind === 'audio') {
+      return {
+        url:
+          projectAssetRemoteContentUrl(asset) ??
+          `${API_BASE_URL}/assets/${encodeURIComponent(catalogAssetId)}/raw`,
+        kind: 'audio',
+        poster: null,
+      };
+    }
     return {
       url: projectAssetThumbnailUrl(projectId, asset) || null,
       kind: 'image',

@@ -17,6 +17,7 @@ type ProjectAsset = VideoProject['assets'][number];
 export function useExternalAssetActions(
   projectId: string,
   onChanged: () => void,
+  onProjectUpdated?: (project: VideoProject) => void,
 ): {
   consolidateAsset: (assetId: string) => Promise<void>;
   relinkAsset: (asset: ProjectAsset) => Promise<void>;
@@ -33,14 +34,29 @@ export function useExternalAssetActions(
           )}/assets/${encodeURIComponent(assetId)}/consolidate`,
           { method: 'POST' },
         );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          throw new Error(
+            labels.requestFailedToast.replace(
+              '{status}',
+              String(response.status),
+            ),
+          );
+        }
+        const body = (await response.json()) as { project?: VideoProject };
+        if (body.project) onProjectUpdated?.(body.project);
         toast.success(labels.consolidatedToast);
         onChanged();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : String(error));
       }
     },
-    [labels.consolidatedToast, onChanged, projectId],
+    [
+      labels.consolidatedToast,
+      labels.requestFailedToast,
+      onChanged,
+      onProjectUpdated,
+      projectId,
+    ],
   );
 
   const relinkAsset = useCallback(
@@ -52,7 +68,12 @@ export function useExternalAssetActions(
         // The asset's own folder is the "from" root, so picking the folder it
         // moved to repoints every sibling in one step — which is the shape of
         // the problem: whole libraries move, not single files.
-        const from = asset.path.slice(0, asset.path.lastIndexOf('/'));
+        const separatorIndex = Math.max(
+          asset.path.lastIndexOf('/'),
+          asset.path.lastIndexOf('\\'),
+        );
+        const from =
+          separatorIndex >= 0 ? asset.path.slice(0, separatorIndex) : '';
         const response = await fetch(
           `${API_BASE_URL}/video/projects/${encodeURIComponent(
             projectId,
@@ -63,13 +84,24 @@ export function useExternalAssetActions(
             body: JSON.stringify({ from, to: picked }),
           },
         );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const body = (await response.json()) as { relinked?: number };
+        if (!response.ok) {
+          throw new Error(
+            labels.requestFailedToast.replace(
+              '{status}',
+              String(response.status),
+            ),
+          );
+        }
+        const body = (await response.json()) as {
+          project?: VideoProject;
+          relinked?: number;
+        };
         const relinked = body.relinked ?? 0;
         if (relinked === 0) {
           toast.warning(labels.relinkNoneToast);
           return;
         }
+        if (body.project) onProjectUpdated?.(body.project);
         toast.success(
           labels.relinkedToast.replace('{count}', String(relinked)),
         );
@@ -82,7 +114,9 @@ export function useExternalAssetActions(
       labels.relinkAsset,
       labels.relinkNoneToast,
       labels.relinkedToast,
+      labels.requestFailedToast,
       onChanged,
+      onProjectUpdated,
       projectId,
     ],
   );

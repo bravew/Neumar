@@ -1416,6 +1416,7 @@ export default {
       relinkAsset: 'फिर से लिंक करें…',
       relinkedToast: '{count} फ़ाइल फिर से लिंक की गईं',
       relinkNoneToast: 'उस फ़ोल्डर से कोई फ़ाइल मेल नहीं खाई',
+      requestFailedToast: 'रिक्वेस्ट फेल हुई ({status})',
       variantCount: '{count} वैरिएंट',
       showMore: '{count} और दिखाएँ',
       kindAll: 'सभी',

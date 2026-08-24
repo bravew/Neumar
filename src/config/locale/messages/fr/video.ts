@@ -1448,6 +1448,7 @@ export default {
       relinkAsset: 'Relier…',
       relinkedToast: '{count} fichier(s) reliés',
       relinkNoneToast: 'Aucun fichier ne correspond à ce dossier',
+      requestFailedToast: 'Échec de la requête ({status})',
       variantCount: '{count} variantes',
       showMore: 'Afficher {count} de plus',
       kindAll: 'Tous',

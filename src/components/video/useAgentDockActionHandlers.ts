@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import type { TranslationKeys } from '@/config/locale';
 import type { VideoAspectRatio, VideoProject } from '@/shared/types/video';
@@ -37,6 +37,10 @@ export function useAgentDockActionHandlers({
   bumpDraftNonce,
 }: UseAgentDockActionHandlersInput) {
   const [journalBusyId, setJournalBusyId] = useState<string | null>(null);
+  // Guards against a double-click both firing before the state update from
+  // the first click is visible — React state is not synchronous, so two
+  // clicks in the same tick would otherwise both read `journalBusyId` as null.
+  const journalBusyIdRef = useRef<string | null>(null);
   const labels = t.video.editor.agentDock;
 
   const acceptAction = async (action: AgentActionRecord) => {
@@ -93,7 +97,8 @@ export function useAgentDockActionHandlers({
   };
 
   const runJournalAction = async (entryId: string, mode: 'undo' | 'redo') => {
-    if (journalBusyId) return;
+    if (journalBusyIdRef.current) return;
+    journalBusyIdRef.current = entryId;
     setJournalBusyId(entryId);
     try {
       if (mode === 'undo') {
@@ -110,6 +115,7 @@ export function useAgentDockActionHandlers({
         ),
       );
     } finally {
+      journalBusyIdRef.current = null;
       setJournalBusyId(null);
     }
   };

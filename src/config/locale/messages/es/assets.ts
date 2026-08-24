@@ -26,6 +26,7 @@ export default {
   attachSucceededToast: '{count} recursos adjuntados',
   attachPartialToast: '{succeeded} adjuntados · {failed} fallidos',
   previewFullscreen: 'Pantalla completa',
+  previewScrub: 'Vista previa de desplazamiento',
   previewPlay: 'Reproducir vista previa',
   previewPause: 'Pausar vista previa',
   previewMute: 'Silenciar vistas previas',

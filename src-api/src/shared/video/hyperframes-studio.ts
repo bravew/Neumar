@@ -194,6 +194,16 @@ export class HyperframesStudioBridge {
         `HyperFrames started on ${parsed.data.result.port}, expected ${port}.`,
       );
     }
+    if (
+      urlPort(parsed.data.result.serverUrl) !== port ||
+      urlPort(parsed.data.result.studioUrl) !== port
+    ) {
+      await this.stopQuietly(resolved, port);
+      throw new HyperframesStudioError(
+        'preview-port-mismatch',
+        'HyperFrames returned Studio URLs for an unexpected port.',
+      );
+    }
     const session: ManagedSession = {
       projectDir: resolved,
       projectName: parsed.data.result.projectName,
@@ -231,7 +241,10 @@ export class HyperframesStudioBridge {
         'HyperFrames returned invalid Studio server context.',
       );
     }
-    if (parsed.data.server.port !== session.port) {
+    if (
+      parsed.data.server.port !== session.port ||
+      urlPort(parsed.data.server.url) !== session.port
+    ) {
       throw new HyperframesStudioError(
         'preview-port-mismatch',
         `HyperFrames reported port ${parsed.data.server.port}, expected ${session.port}.`,
@@ -409,6 +422,11 @@ function allocateLoopbackPort(): Promise<number> {
       server.close((error) => (error ? reject(error) : resolve(address.port)));
     });
   });
+}
+
+function urlPort(rawUrl: string): number {
+  const parsed = new URL(rawUrl);
+  return Number(parsed.port || 80);
 }
 
 function parseJson(raw: string): unknown {

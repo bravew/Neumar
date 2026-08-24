@@ -62,6 +62,27 @@ describe('parseTrailingJson', () => {
       HyperframesInspectError,
     );
   });
+
+  it('takes the last top-level object, not the first, when the CLI logs a valid JSON object before the result', () => {
+    const stdout = [
+      '{"ok":true,"note":"preamble diagnostics, not the result"}',
+      '{"ok":false,"sheet":"cmp.png"}',
+    ].join('\n');
+    expect(parseTrailingJson(stdout)).toEqual({
+      ok: false,
+      sheet: 'cmp.png',
+    });
+  });
+
+  it('does not mistake a nested field for a separate top-level object', () => {
+    const stdout =
+      'noise\n{"ok":true,"nested":{"ok":false,"other":"x"},"sheet":"cmp.png"}';
+    expect(parseTrailingJson(stdout)).toEqual({
+      ok: true,
+      nested: { ok: false, other: 'x' },
+      sheet: 'cmp.png',
+    });
+  });
 });
 
 describe('compareHyperframesVariants', () => {

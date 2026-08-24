@@ -1450,6 +1450,7 @@ export default {
       relinkAsset: 'Volver a vincular…',
       relinkedToast: '{count} archivo(s) vueltos a vincular',
       relinkNoneToast: 'Ningún archivo coincide con esa carpeta',
+      requestFailedToast: 'Solicitud fallida ({status})',
       variantCount: '{count} variantes',
       showMore: 'Mostrar {count} más',
       kindAll: 'Todo',

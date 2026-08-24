@@ -26,6 +26,7 @@ export default {
   attachSucceededToast: '{count} assets attached',
   attachPartialToast: '{succeeded} attached · {failed} failed',
   previewFullscreen: 'Full screen',
+  previewScrub: 'Scrub preview',
   previewPlay: 'Play preview',
   previewPause: 'Pause preview',
   previewMute: 'Mute previews',

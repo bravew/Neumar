@@ -121,11 +121,13 @@ existing rows.
 
 Now that `probeHyperframes` returns a typed reason
 (`not-found`/`version-too-old`/`browser-missing`) with CLI/browser version
-detail (fixed in `f91a320`), the missing piece is purely UI: surface that
+detail (fixed in `f91a320`), the missing piece was purely UI: surface that
 reason as an actionable prompt instead of a raw render error. Small, scoped,
 and it's the one loose end from the packaged-runtime policy decided this
-session. Do this before A-2/A-1's Docker verification work, since testing on
-a clean machine benefits from the same install-guidance path.
+session. Landed ahead of the two remaining Step 1 evidence activities — A-2's
+Docker output-hash reproducibility run and A-1's golden-frame/screenshot and
+wall-clock/peak-RSS measurements — since testing on a clean machine benefits
+from the same install-guidance path.
 
 ### Step 3 — B-1 (runtime-selection contract) — **done**
 

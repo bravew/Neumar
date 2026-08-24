@@ -25,6 +25,7 @@ const PAGE_SIZE = 30;
 
 interface ProjectAssetsGroupedListProps {
   project: VideoProject;
+  onProjectUpdated?: (project: VideoProject) => void;
   newIds: Set<string>;
   materializationStates?: MaterializationStateMap;
   materializationActions?: ProjectAssetBadgeActions;
@@ -39,6 +40,7 @@ interface ProjectAssetsGroupedListProps {
 
 export function ProjectAssetsGroupedList({
   project,
+  onProjectUpdated,
   newIds,
   materializationStates,
   materializationActions,
@@ -59,6 +61,7 @@ export function ProjectAssetsGroupedList({
   const { consolidateAsset, relinkAsset } = useExternalAssetActions(
     project.id,
     refresh,
+    onProjectUpdated,
   );
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');

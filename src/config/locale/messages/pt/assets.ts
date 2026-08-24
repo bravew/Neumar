@@ -26,6 +26,7 @@ export default {
   attachSucceededToast: '{count} assets anexados',
   attachPartialToast: '{succeeded} anexados · {failed} falharam',
   previewFullscreen: 'Tela cheia',
+  previewScrub: 'Arrastar pré-visualização',
   previewPlay: 'Reproduzir pré-visualização',
   previewPause: 'Pausar pré-visualização',
   previewMute: 'Silenciar pré-visualizações',

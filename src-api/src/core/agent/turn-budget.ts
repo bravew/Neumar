@@ -91,12 +91,22 @@ export function normalizeStopReason(
     input.code,
     input.message,
   ].filter((part): part is string => Boolean(part));
-  const haystack = parts.join(' ').toLowerCase();
   const raw = input.terminalReason ?? input.subtype ?? input.code;
 
-  const reason =
-    PATTERNS.find(([pattern]) => pattern.test(haystack))?.[1] ??
-    (parts.length === 0 ? 'unknown' : 'end_turn');
+  // Test each field on its own, in precedence order, rather than one joined
+  // haystack — a free-text `message` can otherwise smuggle in a keyword
+  // ("...failed to..." inside an unrelated sentence) that overrides a
+  // structured field's own, more reliable classification.
+  let reason: TurnStopReason | undefined;
+  for (const part of parts) {
+    const lowered = part.toLowerCase();
+    const match = PATTERNS.find(([pattern]) => pattern.test(lowered));
+    if (match) {
+      reason = match[1];
+      break;
+    }
+  }
+  reason ??= parts.length === 0 ? 'unknown' : 'end_turn';
 
   return {
     reason,

@@ -1238,6 +1238,7 @@ export default {
       relinkAsset: 'Relink…',
       relinkedToast: 'Relinked {count} file(s)',
       relinkNoneToast: 'No files matched that folder',
+      requestFailedToast: 'Request failed ({status})',
       variantCount: '{count} variants',
       showMore: 'Show {count} more',
       kindAll: 'All',

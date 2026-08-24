@@ -178,7 +178,7 @@ export function AssetVideoHoverPreview({
               max={duration}
               step={0.05}
               value={Math.min(currentTime, duration)}
-              aria-label="Scrub preview"
+              aria-label={t.assets.previewScrub}
               className="accent-primary h-1 min-w-0 flex-1 cursor-pointer"
               onPointerDown={(event) => {
                 event.stopPropagation();

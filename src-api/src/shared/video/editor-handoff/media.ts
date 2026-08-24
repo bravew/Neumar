@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline as streamPipeline } from 'node:stream/promises';
 
+import { assertSafeExternalMediaFile } from '../linked-sources/local-fs';
 import type { EditorHandoffMediaMode, EditorHandoffMediaRef } from './types';
 
 export interface CollectMediaInput {
@@ -33,11 +34,18 @@ async function collectOneMediaRef(
 ): Promise<EditorHandoffMediaRef> {
   if (!mediaRef.path || mediaRef.missing) return mediaRef;
   // An external master is deliberately outside the workspace — that is the
-  // whole point of it. Only a *managed* path that escapes the workspace is
-  // suspect.
-  const sourcePath = mediaRef.external
-    ? path.resolve(mediaRef.path)
-    : resolveWorkspacePath(input.workspaceRoot, mediaRef.path);
+  // whole point of it — but it still has to land inside a trusted local root
+  // (home, the workspace, a mounted volume), the same rule every other read
+  // of an external master follows. Project metadata is editable, so a path
+  // that was safe when it was written is not automatically safe now.
+  let sourcePath: string | undefined;
+  try {
+    sourcePath = mediaRef.external
+      ? assertSafeExternalMediaFile(mediaRef.path)
+      : resolveWorkspacePath(input.workspaceRoot, mediaRef.path);
+  } catch {
+    sourcePath = undefined;
+  }
   if (!sourcePath) {
     return {
       ...mediaRef,

@@ -121,6 +121,10 @@ export class WebCodecsAudioEngine {
         } catch (error) {
           if (sessionId !== this.sessionId) return;
           if (isAbortError(error)) throw error;
+          // A transient fetch failure (network blip, flaky 5xx) should be
+          // retried on the next play() — only a genuine decode failure means
+          // the browser can never play this source.
+          if (error instanceof AudioFetchError) return;
           // A source that will not decode is silent, not fatal. Throwing here
           // used to abort the whole play() call, which the preview treated as
           // "WebCodecs unsupported" and answered by tearing down the live
@@ -487,15 +491,31 @@ async function decodeAudioSource({
   throwIfAborted(signal);
   const response = await fetchFn(src, { signal });
   if (!response.ok) {
-    throw new Error(`Audio fetch failed: ${response.status}`);
+    throw new AudioFetchError(response.status);
   }
   const bytes = await response.arrayBuffer();
   throwIfAborted(signal);
   return audioContext.decodeAudioData(bytes.slice(0));
 }
 
+/** A transient fetch failure (e.g. a flaky 5xx) — distinct from a source the
+ * browser genuinely cannot decode, so it must not be cached as permanently
+ * silent the way a decode failure is. */
+class AudioFetchError extends Error {
+  constructor(status: number) {
+    super(`Audio fetch failed: ${status}`);
+    this.name = 'AudioFetchError';
+  }
+}
+
 function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError';
+  // Match by name, not `instanceof DOMException` — some environments surface
+  // an abort as a plain Error with name "AbortError" instead.
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { name?: unknown }).name === 'AbortError'
+  );
 }
 
 function throwIfAborted(signal: AbortSignal): void {

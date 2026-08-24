@@ -113,8 +113,11 @@ export function buildClipEffectsCanvasFilter(
         break;
       }
       default: {
+        // Compile-time exhaustiveness check only — an effect kind this build
+        // does not know about is skipped, not returned as a filter value.
         const exhaustive: never = effect;
-        return exhaustive;
+        void exhaustive;
+        continue;
       }
     }
   }

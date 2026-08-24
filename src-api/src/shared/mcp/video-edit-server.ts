@@ -99,6 +99,7 @@ import {
 import { getVideoFeatureFlag } from '@/shared/video/flags';
 import {
   checkHyperframesComposition,
+  COMPARE_TIMEOUT_MS,
   compareHyperframesGrades,
   compareHyperframesVariants,
   HyperframesInspectError,
@@ -3129,44 +3130,48 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
         cols: z.number().int().min(1).max(4).optional(),
       },
       async ({ projectId, variants, atSec, cols }) =>
-        withToolTimeout('video_compare_variants', async () => {
-          const resolvedProjectId = resolveProjectId(projectId, options);
-          const root = getVideoProjectRoot(resolvedProjectId);
-          const resolvedVariants = variants.map((variant) => ({
-            label: variant.label,
-            compositionPath: resolveHyperframesStudioProjectDir(
+        withToolTimeout(
+          'video_compare_variants',
+          async () => {
+            const resolvedProjectId = resolveProjectId(projectId, options);
+            const root = getVideoProjectRoot(resolvedProjectId);
+            const resolvedVariants = variants.map((variant) => ({
+              label: variant.label,
+              compositionPath: resolveHyperframesStudioProjectDir(
+                root,
+                variant.compositionDir,
+              ),
+            }));
+            const outputPath = path.join(
               root,
-              variant.compositionDir,
-            ),
-          }));
-          const outputPath = path.join(
-            root,
-            '.neuma-cache',
-            'compare',
-            `variants-${randomUUID()}.png`,
-          );
-          const result = await compareHyperframesVariants({
-            variants: resolvedVariants,
-            ...(atSec !== undefined ? { atSec } : {}),
-            ...(cols !== undefined ? { cols } : {}),
-            outputPath,
-            cwd: root,
-          });
-          const sheet = result.sheet
-            ? path.resolve(root, result.sheet)
-            : outputPath;
-          return imageResult(
-            {
-              schema: 'neuma.video.compare-variants.v1',
-              projectId: resolvedProjectId,
-              atSec: atSec ?? 0,
-              sheetPath: sheet,
-              variants: resolvedVariants.map((variant) => variant.label),
-              rendered: result.rendered ?? resolvedVariants.length,
-            },
-            sheet,
-          );
-        }).catch(hyperframesInspectErrorResult),
+              '.neuma-cache',
+              'compare',
+              `variants-${randomUUID()}.png`,
+            );
+            const result = await compareHyperframesVariants({
+              variants: resolvedVariants,
+              ...(atSec !== undefined ? { atSec } : {}),
+              ...(cols !== undefined ? { cols } : {}),
+              outputPath,
+              cwd: root,
+            });
+            const sheet = result.sheet
+              ? path.resolve(root, result.sheet)
+              : outputPath;
+            return imageResult(
+              {
+                schema: 'neuma.video.compare-variants.v1',
+                projectId: resolvedProjectId,
+                atSec: atSec ?? 0,
+                sheetPath: sheet,
+                variants: resolvedVariants.map((variant) => variant.label),
+                rendered: result.rendered ?? resolvedVariants.length,
+              },
+              sheet,
+            );
+          },
+          COMPARE_TIMEOUT_MS + 30_000,
+        ).catch(hyperframesInspectErrorResult),
     ),
     tool(
       'video_compare_grades',
@@ -3198,45 +3203,49 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
           .describe('Prepend the ungraded frame as an "original" cell.'),
       },
       async ({ projectId, referencePath, grades, luts, baseline }) =>
-        withToolTimeout('video_compare_grades', async () => {
-          const resolvedProjectId = resolveProjectId(projectId, options);
-          const root = getVideoProjectRoot(resolvedProjectId);
-          const reference = validatePath(referencePath, root, 'read');
-          const resolvedLuts = (luts ?? []).map((lut) =>
-            validatePath(lut, root, 'read'),
-          );
-          const outputPath = path.join(
-            root,
-            '.neuma-cache',
-            'compare',
-            `grades-${randomUUID()}.png`,
-          );
-          const result = await compareHyperframesGrades({
-            referencePath: reference,
-            ...(grades ? { grades } : {}),
-            ...(resolvedLuts.length > 0 ? { luts: resolvedLuts } : {}),
-            ...(baseline !== undefined ? { baseline } : {}),
-            outputPath,
-            projectDir: root,
-            cwd: root,
-          });
-          const sheet = result.sheet
-            ? path.resolve(root, result.sheet)
-            : outputPath;
-          return imageResult(
-            {
-              schema: 'neuma.video.compare-grades.v1',
-              projectId: resolvedProjectId,
-              sheetPath: sheet,
-              cells: result.cells ?? 0,
-              candidates: [
-                ...(grades ?? []).map((grade) => grade.label),
-                ...resolvedLuts.map((lut) => path.basename(lut)),
-              ],
-            },
-            sheet,
-          );
-        }).catch(hyperframesInspectErrorResult),
+        withToolTimeout(
+          'video_compare_grades',
+          async () => {
+            const resolvedProjectId = resolveProjectId(projectId, options);
+            const root = getVideoProjectRoot(resolvedProjectId);
+            const reference = validatePath(referencePath, root, 'read');
+            const resolvedLuts = (luts ?? []).map((lut) =>
+              validatePath(lut, root, 'read'),
+            );
+            const outputPath = path.join(
+              root,
+              '.neuma-cache',
+              'compare',
+              `grades-${randomUUID()}.png`,
+            );
+            const result = await compareHyperframesGrades({
+              referencePath: reference,
+              ...(grades ? { grades } : {}),
+              ...(resolvedLuts.length > 0 ? { luts: resolvedLuts } : {}),
+              ...(baseline !== undefined ? { baseline } : {}),
+              outputPath,
+              projectDir: root,
+              cwd: root,
+            });
+            const sheet = result.sheet
+              ? path.resolve(root, result.sheet)
+              : outputPath;
+            return imageResult(
+              {
+                schema: 'neuma.video.compare-grades.v1',
+                projectId: resolvedProjectId,
+                sheetPath: sheet,
+                cells: result.cells ?? 0,
+                candidates: [
+                  ...(grades ?? []).map((grade) => grade.label),
+                  ...resolvedLuts.map((lut) => path.basename(lut)),
+                ],
+              },
+              sheet,
+            );
+          },
+          COMPARE_TIMEOUT_MS + 30_000,
+        ).catch(hyperframesInspectErrorResult),
     ),
     tool(
       'video_check_html_composition',
@@ -4288,7 +4297,9 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
             ops: batch.ops,
           });
           const result = await toolCallResult(projectId, options, call);
-          if (Object.keys(batch.keys).length === 0) return result;
+          if ('isError' in result || Object.keys(batch.keys).length === 0) {
+            return result;
+          }
           return {
             ...result,
             content: [
@@ -4644,6 +4655,12 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
         withToolTimeout(
           'video_detect_beats',
           async () => {
+            const proposal = await proposalOnlyServiceMutationResult(
+              projectId,
+              options,
+              'video_detect_beats',
+            );
+            if (proposal) return proposal;
             const project = await loadProjectForTool(projectId, options);
             const resolvedClipId = resolveClipRef(
               clipId,

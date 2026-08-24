@@ -20,7 +20,11 @@ export function AssetAudioHoverPreview({ src }: { src: string }) {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !soundEnabled) return;
+    if (!audio) return;
+    if (!soundEnabled) {
+      audio.pause();
+      return;
+    }
     void audio.play().catch(() => {
       // Audible playback needs a gesture this page hasn't seen yet — typical on
       // a fresh load where the preference came from storage. Leave it paused

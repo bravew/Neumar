@@ -1444,6 +1444,7 @@ export default {
       relinkAsset: 'Revincular…',
       relinkedToast: '{count} arquivo(s) revinculados',
       relinkNoneToast: 'Nenhum arquivo corresponde a essa pasta',
+      requestFailedToast: 'Falha na solicitação ({status})',
       variantCount: '{count} variantes',
       showMore: 'Mostrar mais {count}',
       kindAll: 'Todos',

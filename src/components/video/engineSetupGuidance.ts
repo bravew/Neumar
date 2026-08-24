@@ -24,15 +24,15 @@ const GUIDANCE: Record<
 > = {
   hyperframes: {
     'not-found': {
-      command: 'npm install -g hyperframes',
+      command: 'npm install -g hyperframes@0.8.7',
       docsUrl: HYPERFRAMES_DOCS,
     },
     'version-too-old': {
-      command: 'npm install -g hyperframes@latest',
+      command: 'npm install -g hyperframes@0.8.7',
       docsUrl: HYPERFRAMES_DOCS,
     },
     'browser-missing': {
-      command: 'hyperframes browser install',
+      command: 'hyperframes browser ensure',
       docsUrl: HYPERFRAMES_DOCS,
     },
   },

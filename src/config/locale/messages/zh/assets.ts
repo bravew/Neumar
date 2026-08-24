@@ -26,6 +26,7 @@ export default {
   attachSucceededToast: '已附加 {count} 个素材',
   attachPartialToast: '{succeeded} 个成功 · {failed} 个失败',
   previewFullscreen: '全屏',
+  previewScrub: '拖动预览',
   previewPlay: '播放预览',
   previewPause: '暂停预览',
   previewMute: '静音预览',

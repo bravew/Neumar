@@ -57,13 +57,19 @@ export function useTimelineTrackDropZone({
 } {
   const [insertSide, setInsertSide] = useState<TrackInsertSide | null>(null);
 
-  const zoneFor = (event: DragEvent<HTMLElement>) =>
-    onDropOnNewTrack
-      ? resolveTrackDropZone(
-          event.clientY,
-          event.currentTarget.getBoundingClientRect(),
-        )
-      : 'lane';
+  // A drag that carries no new-track kind (an OS file drop, in particular —
+  // `newTrackKindForDrag` only recognizes the app's own drag payloads) can
+  // never become a new lane, so the edge band degrades to an ordinary lane
+  // drop instead of refusing the drop outright.
+  const zoneFor = (event: DragEvent<HTMLElement>) => {
+    if (!onDropOnNewTrack) return 'lane';
+    const zone = resolveTrackDropZone(
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
+    );
+    if (zone === 'lane') return 'lane';
+    return newTrackKindForDrag(event.dataTransfer) ? zone : 'lane';
+  };
 
   const startMsFor = (event: DragEvent<HTMLElement>) =>
     pixelsToMs(
@@ -80,7 +86,6 @@ export function useTimelineTrackDropZone({
         if (zone !== 'lane') {
           // The drop makes a new lane, so a locked track — or one that would
           // reject this media — is no reason to refuse it.
-          if (!newTrackKindForDrag(event.dataTransfer)) return;
           setInsertSide(zone);
           event.preventDefault();
           event.dataTransfer.dropEffect = 'copy';

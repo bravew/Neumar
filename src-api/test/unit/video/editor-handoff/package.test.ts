@@ -129,12 +129,14 @@ describe('editor handoff package', () => {
     ) as { mediaRefs: Array<Record<string, unknown>> };
     const ref = manifest.mediaRefs.find((item) => item.id === firstAsset!.id);
     // The editor is pointed at the user's own library path, which needs no
-    // repointing — unlike a managed master inside this app's storage.
+    // repointing — unlike a managed master inside this app's storage. The
+    // trusted-root check resolves symlinks first, so on macOS this is the
+    // `/private/var/...` real path behind the `/var/...` tmpdir alias.
     expect(ref).toMatchObject({
       external: true,
       missing: false,
       relinkRequired: false,
-      originalPathHint: externalPath,
+      originalPathHint: await fs.realpath(externalPath),
     });
   });
 

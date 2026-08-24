@@ -127,7 +127,7 @@ export interface HyperframesInspectDeps {
 }
 
 /** Timeouts are per-command: a browser session is the slow part everywhere. */
-const COMPARE_TIMEOUT_MS = 180_000;
+export const COMPARE_TIMEOUT_MS = 180_000;
 const CHECK_TIMEOUT_MS = 240_000;
 
 export interface CompareVariantInput {
@@ -406,24 +406,37 @@ export function parseTrailingJson(stdout: string): unknown {
 }
 
 function tryParseTrailingJson(stdout: string): unknown {
-  for (let start = stdout.indexOf('{'); start !== -1;) {
+  let found = false;
+  let last: unknown;
+  let start = stdout.indexOf('{');
+  while (start !== -1) {
     const candidate = stdout.slice(start);
     try {
-      return JSON.parse(candidate);
+      // The whole remainder is one JSON document — nothing follows it, so
+      // there is nothing left to scan for a later top-level object.
+      last = JSON.parse(candidate);
+      found = true;
+      break;
     } catch {
       /* the object is followed by trailing output, or starts later */
     }
     const end = matchingBraceEnd(candidate);
     if (end !== -1) {
       try {
-        return JSON.parse(candidate.slice(0, end));
+        last = JSON.parse(candidate.slice(0, end));
+        found = true;
       } catch {
         /* not a JSON object after all — keep scanning */
       }
+      // Skip past this whole balanced span, valid or not, so a `{` nested
+      // inside it (e.g. a sub-object's own field) is never mistaken for the
+      // start of a separate, later top-level object.
+      start = stdout.indexOf('{', start + end);
+      continue;
     }
     start = stdout.indexOf('{', start + 1);
   }
-  return undefined;
+  return found ? last : undefined;
 }
 
 function matchingBraceEnd(text: string): number {

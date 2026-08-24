@@ -71,7 +71,7 @@ describe('EnginePicker', () => {
     expect(prompt).toHaveTextContent(
       'HyperFrames is installed, but its rendering browser is missing.',
     );
-    expect(prompt).toHaveTextContent('hyperframes browser install');
+    expect(prompt).toHaveTextContent('hyperframes browser ensure');
     expect(prompt).toHaveTextContent('Chrome not found');
   });
 

@@ -26,6 +26,7 @@ export default {
   attachSucceededToast: '{count} assets attaches',
   attachPartialToast: '{succeeded} attaches · {failed} echoues',
   previewFullscreen: 'Plein écran',
+  previewScrub: 'Défilement de l’aperçu',
   previewPlay: 'Lire l’aperçu',
   previewPause: 'Mettre l’aperçu en pause',
   previewMute: 'Couper le son des aperçus',

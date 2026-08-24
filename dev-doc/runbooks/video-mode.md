@@ -6,7 +6,7 @@ Video Mode builds an approved storyboard into generated assets and rendered outp
 2. The storyboard agent (phase 2) reads project prompt, script, assets, template, and brand kit, then writes `Storyboard`.
 3. Approval (phase 3) validates asset plans, duration, and budget before queueing spend-capable jobs.
 4. Generation (phase 4) routes image/video plans through `src-api/src/shared/services/media-generation/` via the Video provider facade.
-5. Render (phase 5) resolves approved scenes to materialized assets and calls the shared FFmpeg executor. Captions are applied after scene assembly.
+5. Render (phase 5) resolves approved scenes to materialized assets and calls the selected render engine (Remotion, HTML/Playwright, or HyperFrames) — FFmpeg handles export/mux and the fallback path. Captions are applied after scene assembly.
 6. Audio and captions (phase 6) use the shared `Subtitle[]` model. Local TTS/STT fallbacks are deterministic; paid providers must log usage.
 7. B-roll, music, and reframe (phase 7) write provenance and license metadata to `MediaItem.provenance`.
 8. MCP (phase 8) exposes the same project verbs through `neuma mcp video-server`.
@@ -400,7 +400,7 @@ stopped the run.
 
 ## Hard Rules
 
-The render pipeline in `src-api/src/shared/video/pipeline.ts` keeps command arguments as arrays, validates workspace paths, writes durable outputs under `<workDir>/videos/<projectId>/` and regenerable artifacts under `<workDir>/.cache/videos/<projectId>/`, supports reproducible mode flags, and keeps captions as the last overlay step. Source-cut rules live with source analysis/caption sync so no LLM decides destructive edits during encoding.
+The render pipeline in `src-api/src/shared/video/pipeline.ts` keeps command arguments as arrays, validates workspace paths, writes durable outputs under `<workDir>/videos/<projectId>/` and regenerable artifacts under `<workDir>/.cache/videos/<projectId>/`, supports reproducible mode flags, and keeps captions as the last overlay step — except the documented forced ffmpeg/webcodecs fallback (see Vivid Overlays above), where vivid overlays intentionally composite above captions and the render must log `video.render.vivid_overlays_above_captions`. Source-cut rules live with source analysis/caption sync so no LLM decides destructive edits during encoding.
 
 ## Release Gates
 

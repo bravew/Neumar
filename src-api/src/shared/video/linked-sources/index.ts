@@ -703,7 +703,15 @@ async function linkedAssetDestination(
     .replaceAll('\u0000', '_')
     .replace(/[/\\]/g, '_')
     .slice(0, 80);
-  return path.join(dir, `linked-${asset.id}-${safeName || 'asset'}${ext}`);
+  // A per-call unique token, not just `asset.id`: two concurrent attaches of
+  // the same linked asset would otherwise resolve to the identical path and
+  // race each other's `createWriteStream`/cleanup. The lock in
+  // `attachLinkedAsset` still dedupes by content hash afterward; this only
+  // keeps the materialize step itself collision-free.
+  return path.join(
+    dir,
+    `linked-${asset.id}-${randomUUID()}-${safeName || 'asset'}${ext}`,
+  );
 }
 
 function patchStoryboardScene(

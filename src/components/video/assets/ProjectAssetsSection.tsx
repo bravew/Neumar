@@ -328,6 +328,7 @@ export function ProjectAssetsSection({
       ) : (
         <ProjectAssetsGroupedList
           project={project}
+          onProjectUpdated={actions.onProjectUpdated}
           newIds={newIds}
           materializationStates={materializationStates}
           materializationActions={materializationActions}

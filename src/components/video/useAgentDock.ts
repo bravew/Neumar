@@ -220,6 +220,7 @@ export function useAgentDock({ projectId }: UseAgentDockOptions) {
     aguiAccumulatorRef.current = createChatPanelAguiState().accumulator;
     setStreaming(false);
     setError(null);
+    setTurnBudget(null);
     skipNextPersistRef.current = true;
     commitMessages(readStoredMessages(projectId));
   }, [commitMessages, projectId]);

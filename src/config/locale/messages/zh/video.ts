@@ -1405,6 +1405,7 @@ export default {
       relinkAsset: '重新链接…',
       relinkedToast: '已重新链接 {count} 个文件',
       relinkNoneToast: '没有文件与该文件夹匹配',
+      requestFailedToast: '请求失败（{status}）',
       variantCount: '{count} 个变体',
       showMore: '再显示 {count} 个',
       kindAll: '全部',

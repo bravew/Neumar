@@ -67,30 +67,46 @@ export function isTrackRef(value: unknown): value is string {
   return typeof value === 'string' && value.startsWith('trackIndex:');
 }
 
-/** True when any field anywhere in `input` needs the project to resolve. */
-export function hasVideoRefs(input: unknown): boolean {
-  return walk(input, (value) => isClipRef(value) || isTrackRef(value));
-}
-
-function walk(value: unknown, predicate: (value: unknown) => boolean): boolean {
-  if (predicate(value)) return true;
-  if (Array.isArray(value)) {
-    return value.some((entry) => walk(entry, predicate));
-  }
-  if (value && typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>).some((entry) =>
-      walk(entry, predicate),
-    );
-  }
-  return false;
-}
-
 /** Field names whose string value is a clip id. */
 const CLIP_ID_FIELDS = new Set(['clipId', 'toClipId', 'targetClipId']);
 /** Field names whose value is an array of clip ids. */
 const CLIP_ID_LIST_FIELDS = new Set(['clipIds']);
 /** Field names whose string value is a track id. */
 const TRACK_ID_FIELDS = new Set(['trackId', 'toTrackId', 'duckUnderTrackId']);
+/** Field names whose value is an array of track ids. */
+const TRACK_ID_LIST_FIELDS = new Set(['trackIds']);
+
+/**
+ * True when a known ref-bearing field anywhere in `input` holds a ref. Only
+ * inspects the field names `resolveVideoRefs` itself rewrites, so a
+ * search/text field whose value happens to look like a ref (e.g. the literal
+ * string "selection") does not trigger project loading.
+ */
+export function hasVideoRefs(input: unknown): boolean {
+  if (Array.isArray(input)) return input.some((entry) => hasVideoRefs(entry));
+  if (!input || typeof input !== 'object') return false;
+
+  for (const [key, entry] of Object.entries(input as Record<string, unknown>)) {
+    if (CLIP_ID_FIELDS.has(key) && isClipRef(entry)) return true;
+    if (
+      CLIP_ID_LIST_FIELDS.has(key) &&
+      Array.isArray(entry) &&
+      entry.some((item) => isClipRef(item))
+    ) {
+      return true;
+    }
+    if (TRACK_ID_FIELDS.has(key) && isTrackRef(entry)) return true;
+    if (
+      TRACK_ID_LIST_FIELDS.has(key) &&
+      Array.isArray(entry) &&
+      entry.some((item) => isTrackRef(item))
+    ) {
+      return true;
+    }
+    if (hasVideoRefs(entry)) return true;
+  }
+  return false;
+}
 
 export interface ResolveVideoRefsInput {
   value: unknown;
@@ -126,6 +142,12 @@ function rewrite(value: unknown, ctx: ResolveVideoRefsInput): unknown {
     }
     if (TRACK_ID_FIELDS.has(key) && isTrackRef(entry)) {
       out[key] = resolveTrackRef(entry, ctx.project);
+      continue;
+    }
+    if (TRACK_ID_LIST_FIELDS.has(key) && Array.isArray(entry)) {
+      out[key] = entry.map((item) =>
+        isTrackRef(item) ? resolveTrackRef(item, ctx.project) : item,
+      );
       continue;
     }
     out[key] = rewrite(entry, ctx);

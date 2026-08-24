@@ -2724,6 +2724,7 @@ ${formattedMessages}${truncationNotice}\n\n---\n## Current Request\n`;
       sentToolIds.clear();
       toolNames.clear();
       this.sessions.delete(session.id);
+      this.effectiveMaxTurns.delete(session.id);
     };
 
     // Wrap generator with guaranteed cleanup
@@ -5001,6 +5002,7 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
       const cleanup = () => {
         this.deletePlan(options.planId);
         this.sessions.delete(session.id);
+        this.effectiveMaxTurns.delete(session.id);
       };
       yield* safeAsyncGenerator(
         this.executePTCGenerator(options, session, plan),
@@ -5021,6 +5023,7 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
       toolNames.clear();
       this.deletePlan(options.planId);
       this.sessions.delete(session.id);
+      this.effectiveMaxTurns.delete(session.id);
     };
 
     // Wrap generator with guaranteed cleanup
@@ -5157,6 +5160,11 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       options.additionalUserDirs,
     );
 
+    // Typed turn budget (P2-5): remember the ceiling this run was given so the
+    // `result` message can report it alongside the normalized stop reason.
+    const execEffectiveMaxTurns = options.maxTurns ?? 200;
+    this.effectiveMaxTurns.set(session.id, execEffectiveMaxTurns);
+
     const execDenialTracker = new DenialTracker();
     const execLoopGuard = new LoopGuard();
     const execPermissionRegistry = createPermissionRegistry(
@@ -5207,7 +5215,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
           }
         : {}),
       pathToClaudeCodeExecutable: claudeCodePath,
-      maxTurns: options.maxTurns ?? 200,
+      maxTurns: execEffectiveMaxTurns,
       enableFileCheckpointing: true,
       // Provides user message UUIDs in stream (required for rewindFiles targeting)
       extraArgs: { 'replay-user-messages': null },
