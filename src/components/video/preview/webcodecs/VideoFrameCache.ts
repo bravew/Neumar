@@ -272,23 +272,34 @@ export class VideoFrameCache {
     timeSec: number,
   ): Promise<WrappedCanvas | null> {
     let result = cursor.lastFrame;
+    let caughtUp = false;
     for (let guard = 0; guard < SEQUENTIAL_ADVANCE_GUARD; guard += 1) {
       let next = cursor.lookahead;
       cursor.lookahead = null;
       if (next === null) {
         const step = await cursor.iterator.next();
-        if (step.done) break;
+        if (step.done) {
+          caughtUp = true;
+          break;
+        }
         next = step.value;
       }
       if (next === null) continue; // no frame at this position; keep walking
       if (next.timestamp > timeSec) {
         cursor.lookahead = next;
+        caughtUp = true;
         break;
       }
       result = next;
       cursor.lastFrame = next;
     }
-    cursor.cursorTimeSec = timeSec;
+    // If the guard expired before reaching `timeSec` (a high-fps source
+    // needing more advances than the guard allows), the cursor is still
+    // behind — record where it actually got to instead of the requested
+    // time, so the next call's gap check keeps walking it forward (or
+    // starts a fresh cursor once the real gap grows past the threshold)
+    // rather than assuming this cursor already caught up.
+    cursor.cursorTimeSec = caughtUp ? timeSec : (result?.timestamp ?? timeSec);
     return result;
   }
 

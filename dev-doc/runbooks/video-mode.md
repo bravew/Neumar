@@ -298,11 +298,11 @@ otherwise. Two rules keep that fallback honest:
 
 - **`onUnsupported` retires the WebCodecs renderer for the whole session.**
   Only a genuine picture-path failure may call it. Audio failures must not:
-  a clip's audio source is the same URL as its picture, and the scrub proxy is
-  generated with `-an` (`src-api/src/shared/video/proxy.ts`), so "this source
-  has no decodable audio" is the normal case. `WebCodecsAudioEngine` records
-  such sources as silent and keeps playing; see
-  `preview/webcodecs/audioFailure.ts`.
+  a clip's audio source is the same URL as its picture, and the proxy maps
+  audio optionally (`0:a:0?`, `src-api/src/shared/video/proxy.ts`), so "this
+  source has no decodable audio" is the normal case whenever the source
+  itself has no audio stream. `WebCodecsAudioEngine` records such sources as
+  silent and keeps playing; see `preview/webcodecs/audioFailure.ts`.
 - **Clip effects are approximated in the preview.** `@remotion/effects` runs
   real shaders on the Remotion canvas and stays authoritative for output. The
   live preview maps the stack onto `ctx.filter`

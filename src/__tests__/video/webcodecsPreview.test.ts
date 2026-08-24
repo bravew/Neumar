@@ -27,6 +27,7 @@ interface MockVideoTrack {
 
 const mediabunnyMockState = vi.hoisted(() => ({
   batchTimestamps: [] as number[][],
+  canvasesFps: 30,
   canvasesStarts: [] as number[],
   disposedInputs: [] as Array<{ disposed: boolean }>,
   primaryTrackResolvers: [] as Array<(track: MockVideoTrack | null) => void>,
@@ -83,7 +84,7 @@ vi.mock('mediabunny', () => {
       duration: number;
     }> {
       mediabunnyMockState.canvasesStarts.push(startTimestamp);
-      const frameDuration = 1 / 30;
+      const frameDuration = 1 / mediabunnyMockState.canvasesFps;
       let timestamp = startTimestamp;
       for (;;) {
         const canvas = document.createElement('canvas');
@@ -114,6 +115,7 @@ vi.mock('mediabunny', () => {
 describe('WebCodecs preview foundations', () => {
   beforeEach(() => {
     mediabunnyMockState.batchTimestamps.length = 0;
+    mediabunnyMockState.canvasesFps = 30;
     mediabunnyMockState.canvasesStarts.length = 0;
     mediabunnyMockState.disposedInputs.length = 0;
     mediabunnyMockState.primaryTrackResolvers.length = 0;
@@ -220,6 +222,30 @@ describe('WebCodecs preview foundations', () => {
     await cache.getFramesAt([{ id: 'frame', src: '/seek.mp4', timeSec: 10 }]);
 
     expect(mediabunnyMockState.canvasesStarts).toEqual([0, 10]);
+  });
+
+  it('does not claim a guard-limited cursor caught up on a high-fps source', async () => {
+    mediabunnyMockState.canvasesFps = 120;
+    const cache = new VideoFrameCache();
+    const first = cache.getFramesAt([
+      { id: 'frame', src: '/hifps.mp4', timeSec: 0 },
+    ]);
+    mediabunnyMockState.primaryTrackResolvers[0]?.({
+      canDecode: async () => true,
+    });
+    await first;
+
+    // 1.5s at 120fps needs ~180 advances, but a single call is capped at
+    // SEQUENTIAL_ADVANCE_GUARD (90) — this reuse can only walk the cursor
+    // to roughly 0.75s, not all the way to 1.5s.
+    await cache.getFramesAt([{ id: 'frame', src: '/hifps.mp4', timeSec: 1.5 }]);
+
+    // Requesting far beyond the cursor's *actual* position (~0.75s) must
+    // fall back to a fresh cursor. Reusing it here (as if it had really
+    // reached 1.5s) would silently skip ~2.25s of frames.
+    await cache.getFramesAt([{ id: 'frame', src: '/hifps.mp4', timeSec: 3 }]);
+
+    expect(mediabunnyMockState.canvasesStarts).toEqual([0, 3]);
   });
 
   it('falls back to the sparse lookup for a multi-timestamp batch on one source', async () => {
