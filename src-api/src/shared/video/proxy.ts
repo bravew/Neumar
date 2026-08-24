@@ -18,7 +18,15 @@ const logger = createLogger('VideoProxy');
 export const VIDEO_PROXY_SIZE_THRESHOLD_BYTES = 50 * 1024 * 1024;
 export const VIDEO_PROXY_MAX_SOURCE_PIXELS = 1920 * 1080;
 export const VIDEO_PROXY_TARGET_HEIGHT_PX = 720;
-export const VIDEO_PROXY_CRF = 30;
+// CRF 30 at `veryfast` looked visibly blocky on detailed footage (busy
+// night scenes, on-screen text) once actually played back at preview size —
+// `veryfast` needs a lower CRF than a slower preset to hit the same visual
+// quality, since it skips motion-estimation work that would otherwise spend
+// bits more efficiently. `fast` + CRF 23 is a well-worn "good enough to
+// judge a shot by" preview quality; proxy generation already runs as a
+// background job, so the extra encode time is not on any interactive path.
+export const VIDEO_PROXY_CRF = 23;
+export const VIDEO_PROXY_PRESET = 'fast';
 export const VIDEO_PROXY_ESTIMATED_BITRATE_BPS = 3_000_000;
 
 const activeProxyJobs = new Set<string>();
@@ -79,7 +87,7 @@ export function buildVideoProxyArgs(
     '-c:v',
     'libx264',
     '-preset',
-    'veryfast',
+    VIDEO_PROXY_PRESET,
     '-crf',
     String(VIDEO_PROXY_CRF),
     '-pix_fmt',

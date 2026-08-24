@@ -133,6 +133,13 @@ function drawViewportWebCodecsFrame({
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   ctx.filter = 'none';
   ctx.globalAlpha = 1;
+  // The default `imageSmoothingQuality` is `'low'`. Every visual layer here
+  // is a proxy-resolution decode (or a still image) scaled up to fill the
+  // viewport, so the difference between 'low' and 'high' is the difference
+  // between a soft, blocky preview and one that actually looks like the
+  // source — worth the small extra cost of a single per-frame blit.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.clearRect(0, 0, viewport.viewportWidth, viewport.viewportHeight);
   ctx.fillStyle = WORKING_AREA_BACKGROUND;
   ctx.fillRect(0, 0, viewport.viewportWidth, viewport.viewportHeight);
@@ -173,6 +180,11 @@ function drawCompositionWebCodecsFrame({
   transition?: ResolvedWebCodecsTransition;
   transitionRenderer?: WebGLTransitionRenderer;
 }): void {
+  // Covers every caller: the viewport wrapper already sets this on its own
+  // context, but the transition scratch canvases (fresh 2D contexts) and the
+  // no-viewport path never have — defaults to 'low' otherwise.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   if (transition && transition.kind !== 'cut') {
     const transitionCanvas = renderTransitionFrame({
       data,
