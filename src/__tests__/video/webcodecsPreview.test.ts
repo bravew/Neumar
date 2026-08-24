@@ -27,6 +27,7 @@ interface MockVideoTrack {
 
 const mediabunnyMockState = vi.hoisted(() => ({
   batchTimestamps: [] as number[][],
+  canvasesStarts: [] as number[],
   disposedInputs: [] as Array<{ disposed: boolean }>,
   primaryTrackResolvers: [] as Array<(track: MockVideoTrack | null) => void>,
 }));
@@ -73,6 +74,24 @@ vi.mock('mediabunny', () => {
       }
       mediabunnyMockState.batchTimestamps.push(seen);
     }
+
+    // A synthetic 30fps forward stream, matching the real CanvasSink.canvases
+    // contract: an open-ended generator of frames from startTimestamp onward.
+    async *canvases(startTimestamp = 0): AsyncGenerator<{
+      canvas: HTMLCanvasElement;
+      timestamp: number;
+      duration: number;
+    }> {
+      mediabunnyMockState.canvasesStarts.push(startTimestamp);
+      const frameDuration = 1 / 30;
+      let timestamp = startTimestamp;
+      for (;;) {
+        const canvas = document.createElement('canvas');
+        canvas.dataset.timestamp = String(timestamp);
+        yield { canvas, duration: frameDuration, timestamp };
+        timestamp += frameDuration;
+      }
+    }
   }
 
   return {
@@ -95,6 +114,7 @@ vi.mock('mediabunny', () => {
 describe('WebCodecs preview foundations', () => {
   beforeEach(() => {
     mediabunnyMockState.batchTimestamps.length = 0;
+    mediabunnyMockState.canvasesStarts.length = 0;
     mediabunnyMockState.disposedInputs.length = 0;
     mediabunnyMockState.primaryTrackResolvers.length = 0;
   });
@@ -162,6 +182,59 @@ describe('WebCodecs preview foundations', () => {
       (frames.get('later')?.canvas as HTMLCanvasElement | undefined)?.dataset
         .timestamp,
     ).toBe('2');
+  });
+
+  it('reuses one sequential cursor across consecutive forward playback frames instead of a sparse lookup per frame', async () => {
+    const cache = new VideoFrameCache();
+    const first = cache.getFramesAt([
+      { id: 'frame', src: '/seq.mp4', timeSec: 0 },
+    ]);
+    mediabunnyMockState.primaryTrackResolvers[0]?.({
+      canDecode: async () => true,
+    });
+    await first;
+
+    await cache.getFramesAt([
+      { id: 'frame', src: '/seq.mp4', timeSec: 1 / 30 },
+    ]);
+    await cache.getFramesAt([
+      { id: 'frame', src: '/seq.mp4', timeSec: 2 / 30 },
+    ]);
+
+    // One cursor opened for the whole run — not one sparse lookup per frame.
+    expect(mediabunnyMockState.canvasesStarts).toHaveLength(1);
+    expect(mediabunnyMockState.batchTimestamps).toHaveLength(0);
+  });
+
+  it('starts a fresh cursor instead of walking frame-by-frame on a seek', async () => {
+    const cache = new VideoFrameCache();
+    const first = cache.getFramesAt([
+      { id: 'frame', src: '/seek.mp4', timeSec: 0 },
+    ]);
+    mediabunnyMockState.primaryTrackResolvers[0]?.({
+      canDecode: async () => true,
+    });
+    await first;
+
+    // Far beyond MAX_SEQUENTIAL_GAP_SEC — a scrub, not a continuing frame.
+    await cache.getFramesAt([{ id: 'frame', src: '/seek.mp4', timeSec: 10 }]);
+
+    expect(mediabunnyMockState.canvasesStarts).toEqual([0, 10]);
+  });
+
+  it('falls back to the sparse lookup for a multi-timestamp batch on one source', async () => {
+    const cache = new VideoFrameCache();
+    const framesPromise = cache.getFramesAt([
+      { id: 'from', src: '/transition.mp4', timeSec: 0 },
+      { id: 'to', src: '/transition.mp4', timeSec: 5 },
+    ]);
+    mediabunnyMockState.primaryTrackResolvers[0]?.({
+      canDecode: async () => true,
+    });
+    await framesPromise;
+
+    expect(mediabunnyMockState.canvasesStarts).toHaveLength(0);
+    expect(mediabunnyMockState.batchTimestamps).toEqual([[0, 5]]);
   });
 
   it('selects active visual layers with source timestamps and z-order', () => {
