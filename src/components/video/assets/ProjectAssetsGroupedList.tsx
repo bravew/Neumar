@@ -14,6 +14,7 @@ import {
 } from './ProjectAssetTile';
 import { useExternalAssetActions } from './useExternalAssetActions';
 import { useExternalAssetStatus } from './useExternalAssetStatus';
+import { useRevealProjectAsset } from './useRevealProjectAsset';
 
 type ProjectAsset = VideoProject['assets'][number];
 type Kind = ProjectAsset['kind'];
@@ -63,6 +64,7 @@ export function ProjectAssetsGroupedList({
     refresh,
     onProjectUpdated,
   );
+  const revealAsset = useRevealProjectAsset(project.id);
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
@@ -173,6 +175,7 @@ export function ProjectAssetsGroupedList({
               offlineAssetIds={offlineAssetIds}
               onConsolidate={(assetId) => void consolidateAsset(assetId)}
               onRelink={(target) => void relinkAsset(target)}
+              onReveal={(assetId) => void revealAsset(assetId)}
               variantCount={
                 variantCounts.get(projectAssetDedupeKey(asset)) ?? 1
               }

@@ -8,6 +8,16 @@ import { useLanguage } from '@/shared/providers/language-provider';
 
 import { AssetPreviewSoundToggle } from './AssetPreviewSoundToggle';
 
+/**
+ * `HTMLMediaElement.play()` always returns a Promise per spec, but test
+ * environments (jsdom has no media pipeline) and some embedded webviews
+ * return `undefined` instead — `Promise.resolve` normalizes either into
+ * something safe to `.then()`/`.catch()`.
+ */
+function safePlay(video: HTMLVideoElement): Promise<void> {
+  return Promise.resolve(video.play());
+}
+
 function formatClock(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
   const whole = Math.floor(seconds);
@@ -38,6 +48,12 @@ export function AssetVideoHoverPreview({
 }: AssetVideoHoverPreviewProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const resumeAfterScrubRef = useRef(false);
+  // The native `autoplay` attribute fires before this component's effects
+  // run, and Chrome silently blocks it when unmuted with no gesture yet —
+  // leaving the video paused with `onPlay` never called. Once it has truly
+  // played at least once, a later pause is the user's (or a scrub's) own
+  // doing, and the sound effect below must not fight that.
+  const hasPlayedRef = useRef(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   // Driven only by the element's own play/pause events. Assuming "playing"
@@ -54,14 +70,18 @@ export function AssetVideoHoverPreview({
     const video = videoRef.current;
     if (!video) return;
     video.muted = !soundEnabled;
-    if (video.paused) return;
-    void video.play().catch(() => {
+    // A video that has never actually started is not "paused" in any
+    // meaningful sense — it's autoplay-blocked, and turning sound on is
+    // exactly the gesture that should recover it. A video paused after
+    // playing (by the user, or mid-scrub) must stay that way.
+    if (video.paused && hasPlayedRef.current) return;
+    void safePlay(video).catch(() => {
       // Audible playback needs a gesture this page hasn't seen yet — typical
       // on a fresh load where the preference came from storage. Keep the
       // preference (the user asked for sound, and their next click unlocks it)
       // and play muted so the preview still moves.
       video.muted = true;
-      void video.play().catch(() => {});
+      void safePlay(video).catch(() => {});
     });
   }, [soundEnabled]);
 
@@ -75,14 +95,14 @@ export function AssetVideoHoverPreview({
   const endScrub = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (resumeAfterScrubRef.current) void video.play().catch(() => {});
+    if (resumeAfterScrubRef.current) void safePlay(video).catch(() => {});
     resumeAfterScrubRef.current = false;
   }, []);
 
   const togglePlayback = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) void video.play().catch(() => {});
+    if (video.paused) void safePlay(video).catch(() => {});
     else video.pause();
   }, []);
 
@@ -138,7 +158,10 @@ export function AssetVideoHoverPreview({
         onTimeUpdate={(event) =>
           setCurrentTime(event.currentTarget.currentTime)
         }
-        onPlay={() => setPlaying(true)}
+        onPlay={() => {
+          hasPlayedRef.current = true;
+          setPlaying(true);
+        }}
         onPause={() => setPlaying(false)}
         onError={(event) => {
           event.currentTarget.style.display = 'none';

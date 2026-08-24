@@ -140,6 +140,11 @@ export function canDownloadProjectAsset(asset: ProjectAsset): boolean {
   );
 }
 
+/** True once the asset's master is actually on disk — reveal needs a real file to point Finder at. */
+export function canRevealProjectAsset(asset: ProjectAsset): boolean {
+  return !canDownloadProjectAsset(asset);
+}
+
 function choosePlacementTrack(
   tracks: VideoTimelineTrack[],
   assetKind: ProjectAsset['kind'],

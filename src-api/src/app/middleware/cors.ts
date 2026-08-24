@@ -19,5 +19,16 @@ export const corsMiddleware = cors({
     return ''; // Reject unknown origins
   },
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-Neuma-Admin-Origin'],
+  // `Range` is required for cross-origin <video>/<audio> playback: the app
+  // and the API sidecar run on different ports (3420 vs 5126), so seeking —
+  // and every hover/fullscreen preview's autoplay, which starts with a range
+  // request — is a cross-origin request the browser preflights. Missing it
+  // here doesn't error visibly; the media element just never loads any data.
+  allowHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Neuma-Admin-Origin',
+    'Range',
+  ],
+  exposeHeaders: ['Content-Range', 'Content-Length', 'Accept-Ranges', 'ETag'],
 });

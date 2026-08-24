@@ -24,6 +24,7 @@ import { AssetsRail } from './assets/AssetsRail';
 import type { VideoProjectEditorActions } from './editorTypes';
 import { openVideoProjectFolder } from './openVideoProjectFolder';
 import { CaptionOverlay } from './preview/CaptionOverlay';
+import { PreviewFullscreenButton } from './preview/PreviewFullscreenButton';
 import { openRenderedOutput } from './preview/previewOutputActions';
 import {
   DEFAULT_PREVIEW_PLAYBACK_RATE,
@@ -215,7 +216,11 @@ export function StepPreviewCanvas({
             <Panel
               id="assets"
               defaultSize="20%"
-              minSize="12%"
+              // A percentage floor collapses to unreadable widths on a
+              // narrow window — a tile's thumbnail, checkbox, and origin
+              // badge alone need this much room before the filename gets
+              // anything to truncate into.
+              minSize={220}
               collapsible
               collapsedSize="0%"
               className="min-w-0"
@@ -241,6 +246,7 @@ export function StepPreviewCanvas({
                   ref={previewContainerRef}
                   className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-black"
                 >
+                  <PreviewFullscreenButton containerRef={previewContainerRef} />
                   {hasTimelinePreview ? (
                     <>
                       <PreviewRenderer

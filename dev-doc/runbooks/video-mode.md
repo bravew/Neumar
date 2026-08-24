@@ -311,9 +311,12 @@ otherwise. Two rules keep that fallback honest:
   approximate for white balance and single-axis blur. Any new effect kind has
   to be added in both places or it will render only on export.
 
-Known gap: because the proxy is video-only, preview playback is silent. Giving
-the preview sound needs an audio-only proxy (or an audio-bearing variant), not
-a change to the audio engine.
+The video proxy (`src-api/src/shared/video/proxy.ts`) is an audio-bearing
+variant: 128 kbps AAC alongside the downscaled picture, with the audio map
+optional (`0:a:0?`) so a silent source (screen recording, muted b-roll) still
+produces a valid proxy. Both the picture and the `WebCodecsAudioEngine` stream
+from the same proxy file, so an asset generated before this changed video-only
+still needs its proxy regenerated (`regenerateAssetProxy`) to gain sound.
 
 ## Render Engines
 

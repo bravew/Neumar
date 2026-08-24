@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import {
   CloudDownload,
+  FolderOpen,
   HardDriveDownload,
   Link2,
   Plus,
@@ -17,6 +18,7 @@ interface ProjectAssetActionGroupProps {
   /** Only needed when the matching handler is supplied. */
   consolidateLabel?: string;
   relinkLabel?: string;
+  revealLabel?: string;
   assetName?: string;
   canDownload: boolean;
   onPlace?: () => void;
@@ -26,6 +28,8 @@ interface ProjectAssetActionGroupProps {
   onConsolidate?: () => void;
   /** Point an external master at its new home. Offered when it's missing. */
   onRelink?: () => void;
+  /** Open the OS file manager on the asset's own master file. */
+  onReveal?: () => void;
   className?: string;
 }
 
@@ -35,6 +39,7 @@ export function ProjectAssetActionGroup({
   deleteLabel,
   consolidateLabel,
   relinkLabel,
+  revealLabel,
   assetName,
   canDownload,
   onPlace,
@@ -42,9 +47,17 @@ export function ProjectAssetActionGroup({
   onDelete,
   onConsolidate,
   onRelink,
+  onReveal,
   className,
 }: ProjectAssetActionGroupProps) {
-  if (!onPlace && !onDownload && !onDelete && !onConsolidate && !onRelink) {
+  if (
+    !onPlace &&
+    !onDownload &&
+    !onDelete &&
+    !onConsolidate &&
+    !onRelink &&
+    !onReveal
+  ) {
     return null;
   }
   return (
@@ -60,6 +73,14 @@ export function ProjectAssetActionGroup({
           onClick={onPlace}
         >
           <Plus className="size-3.5" aria-hidden />
+        </ActionButton>
+      ) : null}
+      {onReveal ? (
+        <ActionButton
+          label={assetActionLabel(revealLabel ?? '', assetName)}
+          onClick={onReveal}
+        >
+          <FolderOpen className="size-3.5" aria-hidden />
         </ActionButton>
       ) : null}
       {onDownload && canDownload ? (

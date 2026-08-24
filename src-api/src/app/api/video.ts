@@ -39,6 +39,7 @@ import {
   upsertRenderProviderConfig,
 } from '@/shared/services/render/router';
 import { createLogger } from '@/shared/utils/logger';
+import { revealInFileManager } from '@/shared/utils/reveal-in-file-manager';
 import {
   getVideoAgentHistory,
   setVideoAgentHistory,
@@ -2961,6 +2962,26 @@ videoRoutes.get('/projects/:id/assets/:assetId/stream', async (c) => {
       `/files/stream?path=${encodeURIComponent(absolute)}`,
       307,
     );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+// Reveals the asset's own master file, never a derivative — the point is
+// finding the file the user (or a connector) actually put on disk.
+videoRoutes.post('/projects/:id/assets/:assetId/reveal', async (c) => {
+  try {
+    const project = await getProject(c.req.param('id'));
+    const asset = project.assets.find(
+      (item) => item.id === c.req.param('assetId'),
+    );
+    if (!asset) {
+      return c.json({ error: 'Asset not found' }, 404);
+    }
+    const root = getVideoProjectRoot(project.id);
+    const absolute = resolveProjectAssetPath(asset, root);
+    await revealInFileManager(absolute);
+    return c.json({ success: true });
   } catch (error) {
     return jsonError(c, error);
   }

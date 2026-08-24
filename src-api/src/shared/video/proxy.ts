@@ -1,12 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import {
-  probeFile,
-  runFFmpeg,
-  validateInputFile,
-  validatePath,
-} from '@/shared/services/ffmpeg';
+import { probeFile, runFFmpeg, validatePath } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 
 import { resolveProjectAssetPath } from './asset-files';
@@ -61,6 +56,8 @@ export function proxyPathForAsset(projectId: string, asset: MediaItem): string {
   );
 }
 
+export const VIDEO_PROXY_AUDIO_BITRATE_BPS = 128_000;
+
 export function buildVideoProxyArgs(
   inputPath: string,
   outputPath: string,
@@ -70,6 +67,13 @@ export function buildVideoProxyArgs(
     inputPath,
     '-map',
     '0:v:0',
+    // `?` makes the audio map optional, so a source with no audio stream
+    // (a screen recording, a silent b-roll clip) still produces a proxy
+    // instead of failing. The preview and its audio engine both stream from
+    // this same file, so a proxy without an audio track means silent
+    // playback for anything large/high-res enough to get one.
+    '-map',
+    '0:a:0?',
     '-vf',
     `scale=-2:${VIDEO_PROXY_TARGET_HEIGHT_PX}`,
     '-c:v',
@@ -80,7 +84,10 @@ export function buildVideoProxyArgs(
     String(VIDEO_PROXY_CRF),
     '-pix_fmt',
     'yuv420p',
-    '-an',
+    '-c:a',
+    'aac',
+    '-b:a',
+    `${VIDEO_PROXY_AUDIO_BITRATE_BPS}`,
     '-movflags',
     '+faststart',
     outputPath,

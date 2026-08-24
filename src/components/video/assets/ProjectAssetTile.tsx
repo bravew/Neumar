@@ -31,7 +31,10 @@ import {
   resolveProvider,
   type ProjectAssetLabels,
 } from './projectAssetSource';
-import { canDownloadProjectAsset } from './useProjectAssetTimelineActions';
+import {
+  canDownloadProjectAsset,
+  canRevealProjectAsset,
+} from './useProjectAssetTimelineActions';
 
 export {
   filenameFromPath,
@@ -66,6 +69,7 @@ interface ProjectAssetTileProps {
   offlineAssetIds?: ReadonlySet<string>;
   onConsolidate?: (assetId: string) => void;
   onRelink?: (asset: ProjectAsset) => void;
+  onReveal?: (assetId: string) => void;
   selectedForContext?: boolean;
   onToggleContext?: (asset: ProjectAsset) => void;
 }
@@ -98,6 +102,7 @@ export function ProjectAssetTile({
   offlineAssetIds,
   onConsolidate,
   onRelink,
+  onReveal,
   selectedForContext = false,
   onToggleContext,
 }: ProjectAssetTileProps) {
@@ -187,7 +192,7 @@ export function ProjectAssetTile({
             {filename}
           </div>
           {metaSummary ? (
-            <div className="text-muted-foreground text-[10px] uppercase">
+            <div className="text-muted-foreground truncate text-[10px] uppercase">
               {metaSummary}
             </div>
           ) : null}
@@ -221,6 +226,7 @@ export function ProjectAssetTile({
           onDelete={onDelete ? () => onDelete(asset.id) : undefined}
           consolidateLabel={t.video.editor.assetsRail.consolidateAsset}
           relinkLabel={t.video.editor.assetsRail.relinkAsset}
+          revealLabel={t.video.editor.assetsRail.revealAsset}
           onConsolidate={
             isExternal && onConsolidate
               ? () => onConsolidate(asset.id)
@@ -229,6 +235,11 @@ export function ProjectAssetTile({
           onRelink={
             isExternal && !externalOnline && onRelink
               ? () => onRelink(asset)
+              : undefined
+          }
+          onReveal={
+            onReveal && canRevealProjectAsset(asset)
+              ? () => onReveal(asset.id)
               : undefined
           }
         />
