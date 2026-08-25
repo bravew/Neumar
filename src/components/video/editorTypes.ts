@@ -60,6 +60,7 @@ export interface VideoProjectEditorActions {
   attachAssetPaths: (
     paths: string[],
     mode?: 'copy' | 'reference',
+    sessionId?: string,
   ) => Promise<VideoProject | null>;
   deleteAsset: (assetId: string) => Promise<VideoProject | null>;
   regenerateAssetProxy: (assetId: string) => Promise<{
@@ -255,6 +256,7 @@ export interface VideoProjectEditorActions {
   attachLinkedAsset: (
     assetId: string,
     sceneId?: string,
+    sessionId?: string,
   ) => Promise<{
     project: VideoProject;
     asset: VideoProject['assets'][number];

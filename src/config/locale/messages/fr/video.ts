@@ -905,6 +905,12 @@ export default {
       showTrack: 'Afficher la piste',
       hideTrack: 'Masquer la piste',
       deleteTrack: 'Supprimer la piste',
+      deleteTrackConfirm: {
+        title: 'Supprimer la piste avec ses clips ?',
+        body: '« {name} » contient {count} clip(s). Supprimer cette piste retirera aussi ces clips de la timeline.',
+        confirm: 'Supprimer la piste et les clips',
+        cancel: 'Annuler',
+      },
       markerDefaultLabel: 'Marqueur',
       markerLabel: 'Libellé du marqueur',
       markerTimeMs: 'Temps du marqueur',
@@ -1470,12 +1476,32 @@ export default {
         'Ajoutez des fichiers, liez un dossier, connectez le cloud ou parcourez le catalogue.',
       inContext: '{count} dans le contexte',
       inContextHint: 'Médias pris en compte par l’agent',
+      batchProgress: {
+        processing: 'Traitement de {count} média(s) · {percent}%',
+        attention: '{count} média(s) nécessitent une action',
+        more: '+{count} de plus',
+        folderIndexing: 'Indexation du dossier « {name} »…',
+        folderAttaching: 'Ajout de {current}/{total} depuis « {name} »…',
+        folderEmpty: 'Aucun média trouvé dans « {name} »',
+        folderSkippedUnsupported:
+          '{count} fichier(s) non pris en charge ignoré(s)',
+      },
+      bulkActions: {
+        selectedCount: '{count} sélectionné(s)',
+        placeSelected: 'Ajouter à la timeline',
+        deleteSelected: 'Supprimer',
+        clearSelection: 'Effacer la sélection',
+      },
       deleteConfirm: {
         title: 'Supprimer un média utilisé ?',
         body: '« {name} » est placé sur la timeline dans {count} clip(s). Le supprimer retirera aussi ces clips de la timeline.',
         confirm: 'Supprimer le média et les clips',
         cancel: 'Annuler',
         failed: 'Échec de la suppression du média : {message}',
+        titleMany: 'Supprimer {count} médias ?',
+        bodyMany:
+          '{count} médias sont sélectionnés, placés dans {clipCount} clip(s) au total. Les supprimer retirera aussi ces clips de la timeline.',
+        confirmMany: 'Supprimer {count} médias',
       },
     },
     overlayRail: {

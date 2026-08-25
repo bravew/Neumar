@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { publishAssetMaterializeEvent } from '@/shared/assets';
 import { probeFile, runFFmpeg, validatePath } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 
@@ -105,11 +106,12 @@ export function buildVideoProxyArgs(
 export function scheduleVideoProxyGeneration(
   projectId: string,
   assetId: string,
+  sessionId?: string,
 ): void {
   const key = `${projectId}:${assetId}`;
   if (activeProxyJobs.has(key)) return;
   activeProxyJobs.add(key);
-  void generateVideoProxyForAsset(projectId, assetId)
+  void generateVideoProxyForAsset(projectId, assetId, { sessionId })
     .catch((error: unknown) => {
       logger.warn('video.proxy.generation_failed', {
         project_id: projectId,
@@ -125,7 +127,7 @@ export function scheduleVideoProxyGeneration(
 export async function generateVideoProxyForAsset(
   projectId: string,
   assetId: string,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; sessionId?: string } = {},
 ): Promise<VideoProxyGenerationResult> {
   const project = await getProject(projectId);
   const asset = findAsset(project, assetId);
@@ -144,34 +146,67 @@ export async function generateVideoProxyForAsset(
   const outputPath = validatePath(proxyPathForAsset(projectId, asset), root);
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
-  const result = await runFFmpeg(buildVideoProxyArgs(inputPath, outputPath), {
-    inputDuration:
-      asset.metadata.durationMs > 0
-        ? asset.metadata.durationMs / 1000
-        : undefined,
-  });
-  if (result.exitCode !== 0) {
-    throw new Error(`Proxy generation failed: ${result.stderr.slice(0, 500)}`);
-  }
-
-  const proxy = await proxyMetadataFromFile(outputPath, root);
-  const latest = await getProject(projectId);
-  const now = new Date().toISOString();
-  const next: VideoProject = {
-    ...latest,
-    assets: latest.assets.map((candidate) =>
-      candidate.id === assetId ? { ...candidate, proxy } : candidate,
-    ),
-    updatedAt: now,
+  // Reuses the generic materialize.* lifecycle events (started/complete/
+  // error) rather than the proxy.*/derivative events — those are meant to
+  // layer a secondary "proxy ready" badge on top of an asset whose base
+  // materialize state is already settled elsewhere; here the proxy encode
+  // *is* the whole job, so the base lifecycle is the right level.
+  const eventBase = {
+    assetId,
+    scope: 'video-project',
+    scopeId: projectId,
+    sessionId: options.sessionId,
   };
-  await writeProject(next);
-  const updatedAsset = findAsset(next, assetId);
-  logger.info('video.proxy.generated', {
-    project_id: projectId,
-    asset_id: assetId,
-    proxy_path: proxy.path,
-  });
-  return { project: next, asset: updatedAsset, generated: true };
+  publishAssetMaterializeEvent({ ...eventBase, type: 'materialize.started' });
+  try {
+    const result = await runFFmpeg(buildVideoProxyArgs(inputPath, outputPath), {
+      inputDuration:
+        asset.metadata.durationMs > 0
+          ? asset.metadata.durationMs / 1000
+          : undefined,
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `Proxy generation failed: ${result.stderr.slice(0, 500)}`,
+      );
+    }
+
+    const proxy = await proxyMetadataFromFile(outputPath, root);
+    const latest = await getProject(projectId);
+    const now = new Date().toISOString();
+    const next: VideoProject = {
+      ...latest,
+      assets: latest.assets.map((candidate) =>
+        candidate.id === assetId ? { ...candidate, proxy } : candidate,
+      ),
+      updatedAt: now,
+    };
+    await writeProject(next);
+    const updatedAsset = findAsset(next, assetId);
+    logger.info('video.proxy.generated', {
+      project_id: projectId,
+      asset_id: assetId,
+      proxy_path: proxy.path,
+    });
+    const proxyStat = await fs.stat(outputPath).catch(() => null);
+    publishAssetMaterializeEvent({
+      ...eventBase,
+      type: 'materialize.complete',
+      materializationId: assetId,
+      cacheHit: false,
+      bytes: proxyStat?.size ?? 0,
+    });
+    return { project: next, asset: updatedAsset, generated: true };
+  } catch (error) {
+    publishAssetMaterializeEvent({
+      ...eventBase,
+      type: 'materialize.error',
+      code: 'PROXY_GENERATION_FAILED',
+      message: error instanceof Error ? error.message : String(error),
+      retryable: true,
+    });
+    throw error;
+  }
 }
 
 export async function clearVideoProxyForAsset(

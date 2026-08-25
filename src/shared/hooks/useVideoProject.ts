@@ -376,13 +376,17 @@ export function useVideoProject(projectId: string | undefined) {
   );
 
   const attachAssetPaths = useCallback(
-    async (paths: string[], mode: 'copy' | 'reference' = 'copy') => {
+    async (
+      paths: string[],
+      mode: 'copy' | 'reference' = 'copy',
+      sessionId?: string,
+    ) => {
       if (!projectId) return null;
       const data = await videoApi<{ project: VideoProject }>(
         `/projects/${encodeURIComponent(projectId)}/assets`,
         {
           method: 'POST',
-          body: JSON.stringify({ paths, mode }),
+          body: JSON.stringify({ paths, mode, sessionId }),
         },
       );
       setProject(data.project);
@@ -1126,7 +1130,7 @@ export function useVideoProject(projectId: string | undefined) {
   );
 
   const attachLinkedAsset = useCallback(
-    async (assetId: string, sceneId?: string) => {
+    async (assetId: string, sceneId?: string, sessionId?: string) => {
       if (!projectId) return null;
       const data = await videoApi<{
         project: VideoProject;
@@ -1135,7 +1139,7 @@ export function useVideoProject(projectId: string | undefined) {
         `/projects/${encodeURIComponent(projectId)}/linked-assets/${encodeURIComponent(assetId)}/attach`,
         {
           method: 'POST',
-          body: JSON.stringify({ sceneId, role: 'asset' }),
+          body: JSON.stringify({ sceneId, role: 'asset', sessionId }),
         },
       );
       setProject(data.project);

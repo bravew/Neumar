@@ -10,9 +10,10 @@ import {
 import { useLanguage } from '@/shared/providers/language-provider';
 
 interface ProjectAssetDeleteDialogProps {
-  // When set, the asset is referenced by `clipCount` timeline clips and the
-  // confirm dialog is shown. Null keeps the dialog closed.
-  pending: { assetName: string; clipCount: number } | null;
+  // When set, these assets are pending deletion — a single-entry list for
+  // the per-tile delete action, multiple for a bulk selection delete. Null
+  // keeps the dialog closed.
+  pending: { assetNames: string[]; clipCount: number } | null;
   deleting: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -26,6 +27,21 @@ export function ProjectAssetDeleteDialog({
 }: ProjectAssetDeleteDialogProps) {
   const { t } = useLanguage();
   const labels = t.video.editor.assetsRail.deleteConfirm;
+  const count = pending?.assetNames.length ?? 0;
+  const isMany = count > 1;
+  const title = isMany
+    ? labels.titleMany.replace('{count}', String(count))
+    : labels.title;
+  const body = isMany
+    ? labels.bodyMany
+        .replace('{count}', String(count))
+        .replace('{clipCount}', String(pending?.clipCount ?? 0))
+    : labels.body
+        .replace('{name}', pending?.assetNames[0] ?? '')
+        .replace('{count}', String(pending?.clipCount ?? 0));
+  const confirm = isMany
+    ? labels.confirmMany.replace('{count}', String(count))
+    : labels.confirm;
   return (
     <Dialog
       open={pending !== null}
@@ -35,19 +51,15 @@ export function ProjectAssetDeleteDialog({
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{labels.title}</DialogTitle>
-          <DialogDescription>
-            {labels.body
-              .replace('{name}', pending?.assetName ?? '')
-              .replace('{count}', String(pending?.clipCount ?? 0))}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{body}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={deleting}>
             {labels.cancel}
           </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={deleting}>
-            {labels.confirm}
+            {confirm}
           </Button>
         </DialogFooter>
       </DialogContent>

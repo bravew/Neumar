@@ -35,6 +35,14 @@ const labels = {
   materializeFailed: 'Asset failed: {message}',
 };
 
+const folderLabels = {
+  ...labels,
+  folderIndexing: 'Indexing folder "{name}"…',
+  folderAttaching: 'Adding {current}/{total} from "{name}"…',
+  folderEmpty: 'No media found in "{name}"',
+  folderSkippedUnsupported: 'Skipped {count} unsupported file(s)',
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -44,9 +52,10 @@ describe('useAddLocalFolder', () => {
     pickLocalFolder.mockResolvedValue(null);
     const actions = {} as VideoProjectEditorActions;
 
-    const { result } = renderHook(() => useAddLocalFolder(actions, 'Pick'), {
-      wrapper: StrictMode,
-    });
+    const { result } = renderHook(
+      () => useAddLocalFolder(actions, 'Pick', folderLabels),
+      { wrapper: StrictMode },
+    );
 
     await act(async () => {
       await result.current.addLocalFolder();
@@ -56,6 +65,101 @@ describe('useAddLocalFolder', () => {
     // ref false forever, wedging `addingFolder` on and disabling the menu item.
     expect(result.current.addingFolder).toBe(false);
   });
+
+  it('attaches every file the crawl discovers into project assets', async () => {
+    pickLocalFolder.mockResolvedValue('/Users/x/Dali');
+    const discovered = [
+      { id: 'a1', name: 'a1.mp4', kind: 'video', sizeBytes: 5_000_000 },
+      { id: 'a2', name: 'a2.mp4', kind: 'video', sizeBytes: 5_000_000 },
+    ];
+    const grantLocalFolder = vi
+      .fn()
+      .mockResolvedValue({ token: 't', rootPath: '/Users/x/Dali' });
+    const addLinkedSource = vi
+      .fn()
+      .mockResolvedValue({ project: {}, source: { id: 'src1' } });
+    const syncLinkedSource = vi.fn().mockResolvedValue({
+      project: {},
+      source: { id: 'src1' },
+      job: { id: 'j1', status: 'queued' },
+    });
+    const listLinkedAssets = vi.fn().mockResolvedValue({ assets: discovered });
+    const attachLinkedAsset = vi
+      .fn()
+      .mockResolvedValue({ project: {}, asset: {} });
+    const actions = {
+      grantLocalFolder,
+      addLinkedSource,
+      syncLinkedSource,
+      listLinkedAssets,
+      attachLinkedAsset,
+    } as unknown as VideoProjectEditorActions;
+
+    const { result } = renderHook(() =>
+      useAddLocalFolder(actions, 'Pick', folderLabels),
+    );
+
+    await act(async () => {
+      await result.current.addLocalFolder();
+    });
+
+    expect(attachLinkedAsset).toHaveBeenCalledTimes(2);
+    expect(attachLinkedAsset).toHaveBeenCalledWith('a1', undefined, undefined);
+    expect(attachLinkedAsset).toHaveBeenCalledWith('a2', undefined, undefined);
+    const { toast } = await import('sonner');
+    expect(toast.success).toHaveBeenCalledWith('2 assets attached');
+  }, 10_000);
+
+  it('skips AppleDouble sidecars and other non-media noise instead of attaching them', async () => {
+    pickLocalFolder.mockResolvedValue('/Users/x/Dali');
+    const discovered = [
+      { id: 'real', name: 'Clip.MP4', kind: 'video', sizeBytes: 5_000_000 },
+      // AppleDouble resource fork: real media extension, dotfile name.
+      { id: 'dot', name: '._Clip.MP4', kind: 'video', sizeBytes: 4096 },
+      // Same extension, no dot, but implausibly small for real video.
+      { id: 'tiny', name: 'Stray.MP4', kind: 'video', sizeBytes: 4096 },
+      { id: 'ds', name: '.DS_Store', kind: 'other', sizeBytes: 4096 },
+    ];
+    const grantLocalFolder = vi
+      .fn()
+      .mockResolvedValue({ token: 't', rootPath: '/Users/x/Dali' });
+    const addLinkedSource = vi
+      .fn()
+      .mockResolvedValue({ project: {}, source: { id: 'src1' } });
+    const syncLinkedSource = vi.fn().mockResolvedValue({
+      project: {},
+      source: { id: 'src1' },
+      job: { id: 'j1', status: 'queued' },
+    });
+    const listLinkedAssets = vi.fn().mockResolvedValue({ assets: discovered });
+    const attachLinkedAsset = vi
+      .fn()
+      .mockResolvedValue({ project: {}, asset: {} });
+    const actions = {
+      grantLocalFolder,
+      addLinkedSource,
+      syncLinkedSource,
+      listLinkedAssets,
+      attachLinkedAsset,
+    } as unknown as VideoProjectEditorActions;
+
+    const { result } = renderHook(() =>
+      useAddLocalFolder(actions, 'Pick', folderLabels),
+    );
+
+    await act(async () => {
+      await result.current.addLocalFolder();
+    });
+
+    expect(attachLinkedAsset).toHaveBeenCalledTimes(1);
+    expect(attachLinkedAsset).toHaveBeenCalledWith(
+      'real',
+      undefined,
+      undefined,
+    );
+    const { toast } = await import('sonner');
+    expect(toast.info).toHaveBeenCalledWith('Skipped 3 unsupported file(s)');
+  }, 10_000);
 });
 
 describe('useAddLocalFiles', () => {
@@ -79,6 +183,7 @@ describe('useAddLocalFiles', () => {
     expect(attachAssetPaths).toHaveBeenCalledWith(
       ['/Volumes/Card/a.mp4', '/Volumes/Card/b.mp4'],
       'reference',
+      undefined,
     );
     expect(uploadAssets).not.toHaveBeenCalled();
     expect(result.current.addingFiles).toBe(false);

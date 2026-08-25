@@ -902,6 +902,12 @@ export default {
       showTrack: 'Mostrar trilha',
       hideTrack: 'Ocultar trilha',
       deleteTrack: 'Excluir trilha',
+      deleteTrackConfirm: {
+        title: 'Excluir trilha com clipes?',
+        body: '"{name}" tem {count} clipe(s). Excluir esta trilha também removerá esses clipes da linha do tempo.',
+        confirm: 'Excluir trilha e clipes',
+        cancel: 'Cancelar',
+      },
       markerDefaultLabel: 'Marcador',
       markerLabel: 'Rótulo do marcador',
       markerTimeMs: 'Tempo do marcador',
@@ -1466,12 +1472,32 @@ export default {
         'Adicione arquivos, vincule uma pasta, conecte a nuvem ou navegue pelo catálogo.',
       inContext: '{count} no contexto',
       inContextHint: 'Mídias que o agente considera',
+      batchProgress: {
+        processing: 'Processando {count} recurso(s) · {percent}%',
+        attention: '{count} recurso(s) precisam de atenção',
+        more: '+{count} mais',
+        folderIndexing: 'Indexando a pasta "{name}"…',
+        folderAttaching: 'Adicionando {current}/{total} de "{name}"…',
+        folderEmpty: 'Nenhuma mídia encontrada em "{name}"',
+        folderSkippedUnsupported:
+          '{count} arquivo(s) não suportado(s) ignorado(s)',
+      },
+      bulkActions: {
+        selectedCount: '{count} selecionado(s)',
+        placeSelected: 'Adicionar à linha do tempo',
+        deleteSelected: 'Excluir',
+        clearSelection: 'Limpar seleção',
+      },
       deleteConfirm: {
         title: 'Excluir recurso em uso?',
         body: '"{name}" está posicionado na linha do tempo em {count} clipe(s). Excluí-lo também removerá esses clipes da linha do tempo.',
         confirm: 'Excluir recurso e clipes',
         cancel: 'Cancelar',
         failed: 'Falha ao excluir o recurso: {message}',
+        titleMany: 'Excluir {count} recursos?',
+        bodyMany:
+          '{count} recursos estão selecionados, posicionados em {clipCount} clipe(s) no total. Excluí-los também removerá esses clipes da linha do tempo.',
+        confirmMany: 'Excluir {count} recursos',
       },
     },
     overlayRail: {

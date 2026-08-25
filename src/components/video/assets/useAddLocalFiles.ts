@@ -29,6 +29,7 @@ interface AddLocalFilesLabels {
 export function useAddLocalFiles(
   actions: VideoProjectEditorActions,
   labels: AddLocalFilesLabels,
+  sessionId?: string,
 ): {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   addingFiles: boolean;
@@ -75,7 +76,7 @@ export function useAddLocalFiles(
           return;
         }
         if (paths.length === 0) return;
-        await actions.attachAssetPaths(paths, 'reference');
+        await actions.attachAssetPaths(paths, 'reference', sessionId);
         reportOutcome(paths.length, paths.length, null);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -84,7 +85,7 @@ export function useAddLocalFiles(
         setAddingFiles(false);
       }
     })();
-  }, [actions, labels.materializeFailed, reportOutcome]);
+  }, [actions, labels.materializeFailed, reportOutcome, sessionId]);
 
   const handleFilesSelected = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {

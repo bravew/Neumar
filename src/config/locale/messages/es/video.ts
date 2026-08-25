@@ -907,6 +907,12 @@ export default {
       showTrack: 'Mostrar pista',
       hideTrack: 'Ocultar pista',
       deleteTrack: 'Eliminar pista',
+      deleteTrackConfirm: {
+        title: '¿Eliminar pista con clips?',
+        body: '"{name}" tiene {count} clip(s). Eliminar esta pista también quitará esos clips de la línea de tiempo.',
+        confirm: 'Eliminar pista y clips',
+        cancel: 'Cancelar',
+      },
       markerDefaultLabel: 'Marcador',
       markerLabel: 'Etiqueta del marcador',
       markerTimeMs: 'Tiempo del marcador',
@@ -1472,12 +1478,32 @@ export default {
         'Añade archivos, vincula una carpeta, conecta la nube o explora el catálogo.',
       inContext: '{count} en contexto',
       inContextHint: 'Recursos que el agente considera',
+      batchProgress: {
+        processing: 'Procesando {count} recurso(s) · {percent}%',
+        attention: '{count} recurso(s) necesitan atención',
+        more: '+{count} más',
+        folderIndexing: 'Indexando carpeta "{name}"…',
+        folderAttaching: 'Añadiendo {current}/{total} desde "{name}"…',
+        folderEmpty: 'No se encontraron medios en "{name}"',
+        folderSkippedUnsupported:
+          'Se omitieron {count} archivo(s) no compatibles',
+      },
+      bulkActions: {
+        selectedCount: '{count} seleccionados',
+        placeSelected: 'Añadir a la línea de tiempo',
+        deleteSelected: 'Eliminar',
+        clearSelection: 'Borrar selección',
+      },
       deleteConfirm: {
         title: '¿Eliminar recurso en uso?',
         body: '«{name}» está colocado en la línea de tiempo en {count} clip(s). Al eliminarlo también se quitarán esos clips de la línea de tiempo.',
         confirm: 'Eliminar recurso y clips',
         cancel: 'Cancelar',
         failed: 'No se pudo eliminar el recurso: {message}',
+        titleMany: '¿Eliminar {count} recursos?',
+        bodyMany:
+          'Hay {count} recursos seleccionados, colocados en {clipCount} clip(s) en total. Al eliminarlos también se quitarán esos clips de la línea de tiempo.',
+        confirmMany: 'Eliminar {count} recursos',
       },
     },
     overlayRail: {

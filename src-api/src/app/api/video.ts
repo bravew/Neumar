@@ -294,6 +294,7 @@ const assetPathSchema = z.object({
    * project and expect it to own the bytes) duplicates it into the project.
    */
   mode: z.enum(['copy', 'reference']).optional(),
+  sessionId: z.string().min(1).optional(),
 });
 
 const relinkExternalSchema = z.object({
@@ -820,6 +821,7 @@ const localFolderGrantSchema = z.object({
 const linkedAssetAttachSchema = z.object({
   sceneId: z.string().min(1).optional(),
   role: z.enum(['asset', 'reference']).optional(),
+  sessionId: z.string().min(1).optional(),
 });
 
 const catalogAssetAttachSchema = z.object({
@@ -2481,12 +2483,17 @@ videoRoutes.post(
   zValidator('json', linkedAssetAttachSchema),
   async (c) => {
     try {
+      const body = c.req.valid('json');
       const result = await attachLinkedAsset(
         c.req.param('id'),
         c.req.param('assetId'),
-        c.req.valid('json'),
+        body,
       );
-      scheduleVideoProxyGeneration(c.req.param('id'), result.asset.id);
+      scheduleVideoProxyGeneration(
+        c.req.param('id'),
+        result.asset.id,
+        body.sessionId,
+      );
       return c.json(result, 201);
     } catch (error) {
       return jsonError(c, error);
@@ -2499,16 +2506,21 @@ videoRoutes.post(
   zValidator('json', catalogAssetAttachSchema),
   async (c) => {
     try {
+      const body = c.req.valid('json');
       const result = await attachCatalogAssetToProject(
         c.req.param('id'),
         c.req.param('assetId'),
-        c.req.valid('json'),
+        body,
       );
       // Skip proxy generation for reference-only attaches — there are
       // no bytes on disk to proxy. Hydration triggers proxy generation
       // when it copies the file in.
       if (result.asset.materializationState !== 'referenced') {
-        scheduleVideoProxyGeneration(c.req.param('id'), result.asset.id);
+        scheduleVideoProxyGeneration(
+          c.req.param('id'),
+          result.asset.id,
+          body.sessionId,
+        );
       }
       return c.json(result, 201);
     } catch (error) {
@@ -2522,12 +2534,17 @@ videoRoutes.post(
   zValidator('json', projectAssetHydrateSchema),
   async (c) => {
     try {
+      const body = c.req.valid('json');
       const result = await hydrateProjectAsset(
         c.req.param('id'),
         c.req.param('assetId'),
-        c.req.valid('json'),
+        body,
       );
-      scheduleVideoProxyGeneration(c.req.param('id'), result.asset.id);
+      scheduleVideoProxyGeneration(
+        c.req.param('id'),
+        result.asset.id,
+        body.sessionId,
+      );
       return c.json(result, 200);
     } catch (error) {
       return jsonError(c, error);
@@ -2871,7 +2888,11 @@ videoRoutes.post('/projects/:id/assets', async (c) => {
             : await addProjectAssetFromPath(projectId, sourcePath);
         project = result.project;
         assets.push(result.asset);
-        scheduleVideoProxyGeneration(projectId, result.asset.id);
+        scheduleVideoProxyGeneration(
+          projectId,
+          result.asset.id,
+          parsed.sessionId,
+        );
       }
       return c.json({ project, assets });
     }

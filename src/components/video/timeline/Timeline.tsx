@@ -39,6 +39,7 @@ import { useTimelineTrackHeights } from './useTimelineTrackHeights';
 import { useTimelineUiBindings } from './useTimelineUiStore';
 import { useTimelineUndoArbitration } from './useTimelineUndoArbitration';
 import { useTimelineViewportWidth } from './useTimelineViewportWidth';
+import { useTrackDeleteConfirmation } from './useTrackDeleteConfirmation';
 
 export function Timeline({
   project,
@@ -244,11 +245,12 @@ export function Timeline({
     handleToggleTrackSyncLock,
     handleToggleTrackMute,
     handleToggleTrackVisibility,
-    handleDeleteTrack,
   } = useTimelineTrackActions({
     updateTrack: editor.updateTrack,
     removeTrack: editor.removeTrack,
   });
+  const { requestDeleteTrack, dialog: trackDeleteDialog } =
+    useTrackDeleteConfirmation(editor.removeTrack);
   const selectedLinkGroupIds = useMemo(
     () => getSelectedLinkGroupIds(tracks, editor.selectedClipIds),
     [editor.selectedClipIds, tracks],
@@ -361,8 +363,9 @@ export function Timeline({
         onToggleTrackMute={handleToggleTrackMute}
         onToggleTrackSyncLock={handleToggleTrackSyncLock}
         onToggleTrackVisibility={handleToggleTrackVisibility}
-        onDeleteTrack={handleDeleteTrack}
+        onDeleteTrack={requestDeleteTrack}
       />
+      {trackDeleteDialog}
     </section>
   );
 }

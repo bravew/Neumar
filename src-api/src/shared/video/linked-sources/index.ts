@@ -619,7 +619,10 @@ export async function attachLinkedAsset(
         source.provider === 'local-fs'
           ? `local-fs:${linkedAsset.externalId}`
           : linkedAsset.externalId,
-      sourceDisplayName: source.displayName,
+      // The individual file's own name, not the linked source's (folder's)
+      // name — every asset attached from one folder previously displayed
+      // under the same folder name because this used `source.displayName`.
+      sourceDisplayName: linkedAsset.name,
       attribution: source.displayName,
     };
     if (contentHash) {
