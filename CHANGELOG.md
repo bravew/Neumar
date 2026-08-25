@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## [26.8.25] - 2026-08-25
+
+### Added
+
+- **video**: implement the post-upgrade video plan
+- **library**: make project grids responsive
+- **video**: improve project library management
+
+### Fixed
+
+- **video**: harden project library controls
+- **task-v2**: isolate task state and recover interrupted runs
+- **agent**: recover interrupted task runs
+
 ## [26.8.20] - 2026-08-20
 
 ### Added
