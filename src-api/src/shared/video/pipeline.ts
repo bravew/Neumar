@@ -44,6 +44,7 @@ import type {
 import { logUsage } from '@/shared/services/usage-logger';
 import { createLogger } from '@/shared/utils/logger';
 
+import { resolveProjectAssetPath } from './asset-files';
 import {
   normalizeRenderedAudio,
   type LoudnessMetadata,
@@ -1414,7 +1415,7 @@ async function materializeLipsyncScene(
   if (opts.signal?.aborted) throw new Error('Render cancelled');
 
   const afterTts = tts.project;
-  const audioPath = validateInputFile(tts.asset.path, root);
+  const audioPath = resolveProjectAssetPath(tts.asset, root);
   const audioBase64 = (await fs.readFile(audioPath)).toString('base64');
   const background = await lipsyncBackgroundToRouterInput(afterTts, plan, root);
   const requestedProvider =
@@ -1678,7 +1679,7 @@ async function assetToDataUri(
   if (!asset || asset.kind !== 'image') {
     throw new Error('Reference image asset not found');
   }
-  const filePath = validateInputFile(asset.path, root);
+  const filePath = resolveProjectAssetPath(asset, root);
   const buffer = await fs.readFile(filePath);
   assertSupportedImageBuffer(buffer, filePath);
   return `data:${imageMimeFromPath(filePath)};base64,${buffer.toString('base64')}`;
@@ -1945,7 +1946,7 @@ async function collectRenderableScenes(
     if (!asset || (asset.kind !== 'image' && asset.kind !== 'video')) continue;
 
     const isVideo = asset.kind === 'video';
-    const inputPath = validateInputFile(asset.path, root);
+    const inputPath = resolveProjectAssetPath(asset, root);
     const probe = isVideo
       ? await probeRenderableVideo(inputPath, root, probeCache)
       : undefined;
@@ -2168,7 +2169,7 @@ async function collectProjectOverlays(
   for (const overlay of [...edl.overlays].sort(compareEdlSegments)) {
     const { asset, imagePan } = visualAssetForSegment(project, overlay) ?? {};
     if (!asset || (asset.kind !== 'image' && asset.kind !== 'video')) continue;
-    const inputPath = validateInputFile(asset.path, root);
+    const inputPath = resolveProjectAssetPath(asset, root);
     const probe =
       asset.kind === 'video'
         ? await probeRenderableVideo(inputPath, root, probeCache)
@@ -2248,7 +2249,7 @@ export function collectSoundtrackAudioTracks(
     // mismatch) or fails path validation — a missing soundtrack asset must not
     // abort the whole render. validateInputFile throws in both cases.
     try {
-      return validateInputFile(asset.path, root);
+      return resolveProjectAssetPath(asset, root);
     } catch (error) {
       logger.warn('video.soundtrack.audio_asset_unresolved', {
         assetId,
@@ -2346,7 +2347,7 @@ function audioTrackClipFromEdl(
   root: string,
 ): AudioTrackClip {
   return {
-    inputPath: validateInputFile(asset.path, root),
+    inputPath: resolveProjectAssetPath(asset, root),
     role: audioRoleFromTrack(track),
     volume: dbToVolume((track.volumeDb ?? 0) + (clip.gainDb ?? 0)),
     gainDb: clip.gainDb,

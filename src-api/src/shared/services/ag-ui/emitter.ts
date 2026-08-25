@@ -21,6 +21,10 @@ import {
   type ToolCallStartEvent,
 } from '@ag-ui/core';
 
+import {
+  normalizeStopReason,
+  TURN_BUDGET_EVENT_NAME,
+} from '@/core/agent/turn-budget';
 import type { AgentMessage } from '@/core/agent/types';
 
 import { CustomEventName } from './event-schema';
@@ -393,6 +397,21 @@ export class AGUIEmitter {
           });
           this.currentMessageId = null;
         }
+        // Typed turn budget (P2-5): normalize the provider's stop protocol
+        // once, here, so every mode's UI reads the same reason.
+        const budget =
+          msg.turnBudget ??
+          normalizeStopReason({
+            subtype: msg.subtype,
+            terminalReason: msg.terminalReason,
+            code: msg.code,
+            message: msg.message,
+            limit: msg.maxTurns,
+          });
+        yield this.event<CustomEvent>(EventType.CUSTOM, {
+          name: TURN_BUDGET_EVENT_NAME,
+          value: budget,
+        });
         if (msg.subtype === 'interrupt') {
           yield this.event<CustomEvent>(EventType.CUSTOM, {
             name: 'interrupt',

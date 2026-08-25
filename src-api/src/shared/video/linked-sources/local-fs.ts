@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, realpathSync } from 'node:fs';
+import { createReadStream, existsSync, realpathSync, statSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -123,6 +123,24 @@ export class LocalFsLinkedSourceAdapter implements CloudStorageAdapter {
     return pathToCloudFile(filePath, stat, this.rootPath);
   }
 
+  /**
+   * Absolute path of a file inside the granted root, containment-checked the
+   * same way `download` checks it.
+   *
+   * Callers that only need the bytes on this machine (attaching linked media
+   * into a project, for instance) can copy straight from this path instead of
+   * pulling the file through a `Response` — no in-memory buffer, and on a
+   * copy-on-write filesystem the copy costs no extra disk at all.
+   */
+  async resolveLocalFilePath(providerItemId: string): Promise<string> {
+    const filePath = await this.resolveWithinRoot(providerItemId);
+    const stat = await fs.stat(filePath);
+    if (!stat.isFile()) {
+      throw new CloudStorageError('unsupported', 'Cannot download a folder');
+    }
+    return filePath;
+  }
+
   async download(
     providerItemId: string,
     init: DownloadInit = {},
@@ -238,6 +256,34 @@ export class LocalFsLinkedSourceAdapter implements CloudStorageAdapter {
     const stat = await fs.stat(filePath);
     return pathToCloudFile(filePath, stat, this.rootPath);
   }
+}
+
+/**
+ * Same trust rules as `assertSafeLocalSourceRoot`, for a single file rather
+ * than a folder, and synchronous so it can stand in for `validateInputFile`
+ * at the many places that resolve an asset's bytes.
+ *
+ * Used when a project references a master the user keeps outside the
+ * workspace. The path is persisted in `project.json`, so it is re-checked on
+ * every read rather than trusted because it passed once.
+ */
+export function assertSafeExternalMediaFile(rawPath: string): string {
+  const resolved = path.resolve(expandPath(rawPath.trim()));
+  if (!existsSync(resolved)) {
+    throw new Error(`External media file not found: ${resolved}`);
+  }
+  const real = realpathSync(resolved);
+  if (!statSync(real).isFile()) {
+    throw new Error('External media must be a file');
+  }
+  if (!isTrustedLocalRoot(real)) {
+    throw new Error('External media is outside trusted local roots');
+  }
+  const sensitive = sensitivePathMatch(real);
+  if (sensitive) {
+    throw new Error(`External media cannot use sensitive path ${sensitive}`);
+  }
+  return real;
 }
 
 export async function assertSafeLocalSourceRoot(

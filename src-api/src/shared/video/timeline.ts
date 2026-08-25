@@ -483,6 +483,7 @@ function edlSegmentFromClip(
   if (transition.kind !== 'cut') segment.transitionToNext = transition;
   if (clip.audioSeamToNext) segment.audioSeamToNext = clip.audioSeamToNext;
   if (clip.filters) segment.filters = clip.filters;
+  if (clip.effects) segment.effects = clip.effects;
   const playback = clipPlaybackFromFields(clip);
   if (playback) segment.playback = playback;
   if (clip.muted != null) segment.muted = clip.muted;

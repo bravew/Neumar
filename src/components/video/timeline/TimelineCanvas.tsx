@@ -15,6 +15,7 @@ import type {
 import type { LinkedAssetDragPayload } from '../linkedAssetDrag';
 import type { OverlayPresetDragPayload } from '../overlays/overlayDragPayload';
 import type { ProjectAssetDragPayload } from '../projectAssetDrag';
+import { BeatGridOverlay } from './BeatGridOverlay';
 import { SnapOverlay } from './SnapOverlay';
 import type { TimelineClientPoint } from './timelineClipDrag';
 import { TimelineHoverIndicator } from './TimelineHoverIndicator';
@@ -23,8 +24,10 @@ import { TimelineLassoOverlay } from './TimelineLassoOverlay';
 import { TRACK_HEADER_WIDTH } from './timelineLayout';
 import { formatTimelineTime } from './timelineMath';
 import { TimelineMoveOverlay } from './TimelineMoveOverlay';
+import { TimelineNewTrackDropZone } from './TimelineNewTrackDropZone';
 import { TimelinePlayhead } from './TimelinePlayhead';
 import { TimelineRuler } from './TimelineRuler';
+import type { TrackInsertSide } from './timelineTrackInsertion';
 import { TimelineTrackRows } from './TimelineTrackRows';
 import type { useTimelineClipMove } from './useTimelineClipMove';
 import type { useTimelineEditorBindings } from './useTimelineEditorStore';
@@ -45,6 +48,7 @@ interface TimelineCanvasProps {
   labels: TimelineLabels;
   lasso: TimelineLasso;
   markers: VideoTimelineMarker[];
+  beatTimesMs: number[];
   materializationStates?: MaterializationStateMap;
   pixelsPerSecond: number;
   playheadMs: number;
@@ -75,6 +79,12 @@ interface TimelineCanvasProps {
     startMs: number,
     files: File[],
   ) => void;
+  onDropOnNewTrack?: (
+    dataTransfer: DataTransfer,
+    anchorTrackId: string | null,
+    side: TrackInsertSide,
+    startMs: number,
+  ) => boolean;
   onDropLinkedAsset?: (
     track: VideoTimelineTrack,
     startMs: number,
@@ -117,6 +127,7 @@ export function TimelineCanvas({
   labels,
   lasso,
   markers,
+  beatTimesMs,
   materializationStates,
   pixelsPerSecond,
   playheadMs,
@@ -140,6 +151,7 @@ export function TimelineCanvas({
   onDropLinkedAsset,
   onDropProjectAsset,
   onDropOverlayPreset,
+  onDropOnNewTrack,
   onMoveClip,
   onRenameTrack,
   onSeek,
@@ -164,6 +176,8 @@ export function TimelineCanvas({
     trackHeaderWidth: TRACK_HEADER_WIDTH,
   });
 
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
   return (
     <div
       ref={scrollRef}
@@ -186,6 +200,20 @@ export function TimelineCanvas({
         onPointerUp={lasso.handlePointerUp}
         onPointerCancel={lasso.handlePointerCancel}
       >
+        {onDropOnNewTrack ? (
+          <TimelineNewTrackDropZone
+            pixelsPerSecond={pixelsPerSecond}
+            timelineWidth={timelineWidth}
+            hint={labels.track.newTrackDropHint}
+            onDropOnNewTrack={onDropOnNewTrack}
+          />
+        ) : null}
+        <BeatGridOverlay
+          beatTimesMs={beatTimesMs}
+          headerWidth={TRACK_HEADER_WIDTH}
+          height={Math.max(totalHeight, rowVirtualizer.getTotalSize())}
+          pixelsPerSecond={pixelsPerSecond}
+        />
         <TimelineRuler
           durationMs={timelineDurationMs}
           headerWidth={TRACK_HEADER_WIDTH}
@@ -224,7 +252,7 @@ export function TimelineCanvas({
           onSeek={onSeek}
         />
         <TimelineTrackRows
-          rows={rowVirtualizer.getVirtualItems()}
+          rows={virtualRows}
           tracks={tracks}
           project={project}
           materializationStates={materializationStates}
@@ -251,6 +279,7 @@ export function TimelineCanvas({
           onDropOverlayPreset={onDropOverlayPreset}
           onDropProjectAsset={onDropProjectAsset}
           onDropFiles={onDropFiles}
+          onDropOnNewTrack={onDropOnNewTrack}
           onToggleTrackMute={onToggleTrackMute}
           onToggleTrackLock={onToggleTrackLock}
           onToggleTrackSyncLock={onToggleTrackSyncLock}

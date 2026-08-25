@@ -55,6 +55,7 @@ export function useTimelineLabels() {
       trimStart: t.video.editor.timeline.trimStart,
       trimEnd: t.video.editor.timeline.trimEnd,
       trackEmptyDropHint: t.video.editor.timeline.trackEmptyDropHint,
+      newTrackDropHint: t.video.editor.timeline.newTrackDropHint,
       moveLayerUp: t.video.editor.timeline.moveLayerUp,
       moveLayerDown: t.video.editor.timeline.moveLayerDown,
       renameTrack: t.video.editor.timeline.renameTrack,

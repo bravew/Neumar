@@ -2,12 +2,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import {
   constants as fsConstants,
   createReadStream,
+  createWriteStream,
   existsSync,
   readdirSync,
 } from 'node:fs';
 import fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import { pipeline as streamPipeline } from 'node:stream/promises';
 
 import type { TimelineOp } from '@neumar/video-ir';
@@ -19,6 +21,7 @@ import { getSetting } from '@/shared/db/operations';
 import { readMediaMetadata } from '@/shared/media/probe';
 import { validateInputFile, validatePath } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
+import { expandPath } from '@/shared/utils/paths';
 
 import {
   buildAutoCutCandidates,
@@ -38,6 +41,7 @@ import {
   assertSupportedImageUpload,
   imageExtensionFromName,
 } from './image-validation';
+import { assertSafeExternalMediaFile } from './linked-sources/local-fs';
 import {
   VIDEO_PROVIDER_CAPABILITIES,
   type ProviderCapability,
@@ -505,6 +509,27 @@ export function getVideoSourcesDir(projectId: string): string {
   return path.join(getVideoProjectDir(projectId), 'sources');
 }
 
+/**
+ * Where generated stand-ins for an asset live — proxies, filmstrips, waveform
+ * peaks. Always inside the project, never beside the master: a master may sit
+ * on a read-only card or in the user's own media library, and neither is a
+ * place for this app to scatter cache files.
+ *
+ * One directory per asset, so deleting an asset can drop everything derived
+ * from it without having to guess which files belonged to it.
+ */
+export function getVideoDerivativesDir(projectId: string): string {
+  return path.join(getVideoProjectDir(projectId), 'derivatives');
+}
+
+export function getVideoAssetDerivativesDir(
+  projectId: string,
+  assetId: string,
+): string {
+  assertSafeId(assetId);
+  return path.join(getVideoDerivativesDir(projectId), assetId);
+}
+
 export async function createProject(
   input: CreateVideoProjectInput,
 ): Promise<VideoProject> {
@@ -717,16 +742,188 @@ export async function deleteProject(projectId: string): Promise<void> {
   logger.info('video.project.deleted', { project_id: projectId });
 }
 
+/**
+ * Registers a file the user keeps outside the project as an asset, without
+ * copying a byte. `path` becomes the absolute location of their own master;
+ * everything the editor needs beyond the original — proxy, filmstrip, peaks —
+ * is generated into the project.
+ *
+ * Re-referencing a file the project already holds (referenced or copied)
+ * returns the existing asset.
+ */
+export async function addExternalProjectAsset(
+  projectId: string,
+  sourcePath: string,
+): Promise<{ project: VideoProject; asset: MediaItem; deduped: boolean }> {
+  const real = assertSafeExternalMediaFile(sourcePath);
+  const root = getVideoProjectRoot(projectId);
+  const contentHash = await hashFile(real).catch(() => undefined);
+  const asset = await externalMediaItem(real, 'user', contentHash);
+
+  let resultAsset = asset;
+  let deduped = false;
+  const project = await updateProjectDocument(projectId, async (current) => {
+    const duplicate = contentHash
+      ? await findProjectAssetByContentHash(root, current.assets, contentHash)
+      : undefined;
+    if (duplicate) {
+      resultAsset = duplicate;
+      deduped = true;
+      return current;
+    }
+    return {
+      ...current,
+      assets: [...current.assets, asset],
+      updatedAt: new Date().toISOString(),
+    };
+  });
+  return { project, asset: resultAsset, deduped };
+}
+
+/**
+ * Builds a `MediaItem` for a file that stays where the user put it.
+ *
+ * `mediaItemFromPath` stores a path relative to the workspace, which is
+ * meaningless for a master outside it, and probes against the workspace root,
+ * which rejects one. Callers must have run the external trust check first.
+ */
+export async function externalMediaItem(
+  realPath: string,
+  source: MediaItem['source'],
+  contentHash?: string,
+): Promise<MediaItem> {
+  // Probing against the file's own directory keeps the workspace check a no-op
+  // rather than rejecting a path we deliberately allow. Without it the probe
+  // fails and the asset lands with no duration or dimensions.
+  const metadata = await enrichImageMetadata(
+    realPath,
+    await readMediaMetadata(realPath, path.dirname(realPath)),
+  );
+  return {
+    id: randomUUID(),
+    kind: inferKind(realPath, metadata),
+    source,
+    origin: 'external',
+    path: realPath,
+    metadata: contentHash ? { ...metadata, contentHash } : metadata,
+  };
+}
+
+/**
+ * Which external masters are currently reachable. A referenced file lives on
+ * the user's own disk, so it can be renamed, moved, or sit on a volume that
+ * isn't mounted right now; the editor needs to say so rather than fail at
+ * render time.
+ */
+export function externalAssetAvailability(
+  project: VideoProject,
+): Array<{ assetId: string; path: string; online: boolean }> {
+  return project.assets
+    .filter((asset) => asset.origin === 'external')
+    .map((asset) => ({
+      assetId: asset.id,
+      path: asset.path,
+      online: existsSync(asset.path),
+    }));
+}
+
+/**
+ * Repoints external masters after their storage moved — a drive remounted
+ * under a different name, a library reorganised. Rewrites every external asset
+ * whose path sits under `from` to the matching path under `to`, and re-runs the
+ * trust check on each result so a relink can't be used to reach somewhere the
+ * original import could not.
+ */
+export async function relinkExternalProjectAssets(
+  projectId: string,
+  from: string,
+  to: string,
+): Promise<{ project: VideoProject; relinked: number; missing: string[] }> {
+  const fromRoot = path.resolve(expandPath(from));
+  const toRoot = path.resolve(expandPath(to));
+  const missing: string[] = [];
+  let relinked = 0;
+
+  const project = await updateProjectDocument(projectId, (current) => {
+    const assets = current.assets.map((asset) => {
+      if (asset.origin !== 'external') return asset;
+      const relative = path.relative(fromRoot, asset.path);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) return asset;
+      const candidate = path.join(toRoot, relative);
+      try {
+        const real = assertSafeExternalMediaFile(candidate);
+        relinked += 1;
+        return { ...asset, path: real };
+      } catch {
+        missing.push(candidate);
+        return asset;
+      }
+    });
+    if (relinked === 0) return current;
+    return { ...current, assets, updatedAt: new Date().toISOString() };
+  });
+  return { project, relinked, missing };
+}
+
+/**
+ * Copies an external master into the project and takes ownership of it. The
+ * counterpart to referencing: what you run before archiving a project, handing
+ * it to someone else, or unplugging the drive it was cut from.
+ */
+export async function consolidateExternalProjectAsset(
+  projectId: string,
+  assetId: string,
+): Promise<{ project: VideoProject; asset: MediaItem }> {
+  const project = await getProject(projectId);
+  const asset = project.assets.find((item) => item.id === assetId);
+  if (!asset) throw new Error('Asset not found');
+  if (asset.origin !== 'external') return { project, asset };
+
+  const real = assertSafeExternalMediaFile(asset.path);
+  const dest = await allocateAssetPath(projectId, path.basename(real));
+  await fs.copyFile(real, dest, fsConstants.COPYFILE_FICLONE);
+  const root = getVideoProjectRoot(projectId);
+  const managedPath = path.relative(root, dest);
+
+  let updated = asset;
+  const next = await updateProjectDocument(projectId, (current) => ({
+    ...current,
+    assets: current.assets.map((item) => {
+      if (item.id !== assetId) return item;
+      const { origin: _origin, ...rest } = item;
+      updated = { ...rest, path: managedPath };
+      return updated;
+    }),
+    updatedAt: new Date().toISOString(),
+  }));
+  return { project: next, asset: updated };
+}
+
 export async function addProjectAssetFromPath(
   projectId: string,
   sourcePath: string,
 ): Promise<{ project: VideoProject; asset: MediaItem }> {
   const root = getVideoProjectRoot(projectId);
   const resolvedSource = validateInputFile(sourcePath, root);
+  // Hash the file where it sits. Attaching media the project already holds is
+  // then free: no copy is written only to be hashed and deleted a moment
+  // later, which for a multi-GB master is the difference between seconds of
+  // disk churn and none.
+  const contentHash = await hashFile(resolvedSource).catch(() => undefined);
+  if (contentHash) {
+    const current = await getProject(projectId);
+    const duplicate = await findProjectAssetByContentHash(
+      root,
+      current.assets,
+      contentHash,
+    );
+    if (duplicate) return { project: current, asset: duplicate };
+  }
   const asset = await copyAssetIntoProject(projectId, resolvedSource);
   const { project, asset: attached } = await attachCopiedProjectAsset(
     projectId,
     asset,
+    contentHash,
   );
   return { project, asset: attached };
 }
@@ -787,10 +984,13 @@ export async function findProjectAssetByContentHash(
 export async function attachCopiedProjectAsset(
   projectId: string,
   asset: MediaItem,
+  /** Pass when the caller already hashed the bytes, to skip a second read. */
+  knownContentHash?: string,
 ): Promise<{ project: VideoProject; asset: MediaItem; deduped: boolean }> {
   const root = getVideoProjectRoot(projectId);
   const abs = path.join(root, asset.path);
-  const contentHash = await hashFile(abs).catch(() => undefined);
+  const contentHash =
+    knownContentHash ?? (await hashFile(abs).catch(() => undefined));
   if (contentHash) {
     asset.metadata = { ...asset.metadata, contentHash };
   }
@@ -864,7 +1064,13 @@ export async function addProjectAssetFromUpload(
   file: File,
 ): Promise<{ project: VideoProject; asset: MediaItem }> {
   const dest = await allocateAssetPath(projectId, file.name || 'asset');
-  await fs.writeFile(dest, Buffer.from(await file.arrayBuffer()));
+  // Stream the part to disk rather than `Buffer.from(await file.arrayBuffer())`
+  // — a 4K clip is hundreds of MB and the extra full copy pushed the process
+  // past its RSS budget, stalling the upload it was meant to finish.
+  await streamPipeline(
+    Readable.fromWeb(file.stream() as Parameters<typeof Readable.fromWeb>[0]),
+    createWriteStream(dest),
+  );
   const asset = await mediaItemFromPath(
     dest,
     'user',
@@ -955,16 +1161,20 @@ export async function deleteProjectAsset(
   await writeProject(next);
   if (asset) {
     const root = getVideoProjectRoot(projectId);
-    try {
-      await fs.rm(validatePath(asset.path, root, 'write'), {
-        force: true,
-      });
-    } catch (error) {
-      logger.warn('video.asset.delete_file_failed', {
-        project_id: projectId,
-        asset_id: assetId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+    // An external master is the user's own file. Removing it from the project
+    // removes the reference, never the media.
+    if (asset.origin !== 'external') {
+      try {
+        await fs.rm(validatePath(asset.path, root, 'write'), {
+          force: true,
+        });
+      } catch (error) {
+        logger.warn('video.asset.delete_file_failed', {
+          project_id: projectId,
+          asset_id: assetId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
     if (asset.proxy && asset.proxy.source !== 'asset_catalog') {
       try {
@@ -979,6 +1189,20 @@ export async function deleteProjectAsset(
         });
       }
     }
+    // Everything generated from this asset lives under one directory, so the
+    // filmstrips and waveform caches go with it instead of piling up unowned.
+    await fs
+      .rm(getVideoAssetDerivativesDir(projectId, assetId), {
+        recursive: true,
+        force: true,
+      })
+      .catch((error: unknown) => {
+        logger.warn('video.asset.delete_derivatives_failed', {
+          project_id: projectId,
+          asset_id: assetId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
   }
   return next;
 }
@@ -1913,7 +2137,7 @@ function safeJson(raw: string): Record<string, unknown> {
   }
 }
 
-async function hashFile(filePath: string): Promise<string> {
+export async function hashFile(filePath: string): Promise<string> {
   // Source videos can be multi-GB; loading the whole file into memory OOMs
   // the sidecar. Stream the file through the hash instead.
   const hash = createHash('sha256');

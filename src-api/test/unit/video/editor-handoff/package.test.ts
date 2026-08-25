@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createEditorHandoffPackage } from '@/shared/video/editor-handoff/package';
@@ -103,6 +104,82 @@ describe('editor handoff package', () => {
     );
     expect(edl).toContain('TITLE: Editor handoff & "XML" <fixture>');
     expect(result.conformance.summary.errorCount).toBe(1);
+  });
+
+  it('carries an external master through link mode without a relink flag', async () => {
+    const project = await createEditorHandoffFixtureProject(workDir);
+    const externalPath = path.join(workDir, 'outside-the-project.mp4');
+    await fs.writeFile(externalPath, 'external master');
+    const [firstAsset] = project.assets;
+    project.assets = [
+      { ...firstAsset!, origin: 'external', path: externalPath },
+      ...project.assets.slice(1),
+    ];
+
+    const result = await createEditorHandoffPackage(project, {
+      jobId: 'job-external',
+      targets: ['premiere-pro'],
+      mediaMode: 'link',
+      outputRoot: path.join(workDir, 'external-package'),
+      workspaceRoot: workDir,
+    });
+
+    const manifest = JSON.parse(
+      await fs.readFile(result.manifestPath, 'utf8'),
+    ) as { mediaRefs: Array<Record<string, unknown>> };
+    const ref = manifest.mediaRefs.find((item) => item.id === firstAsset!.id);
+    // The editor is pointed at the user's own library path, which needs no
+    // repointing — unlike a managed master inside this app's storage. The
+    // trusted-root check resolves symlinks first, so on macOS this is the
+    // `/private/var/...` real path behind the `/var/...` tmpdir alias.
+    expect(ref).toMatchObject({
+      external: true,
+      missing: false,
+      relinkRequired: false,
+      originalPathHint: await fs.realpath(externalPath),
+    });
+  });
+
+  // The archive is streamed to disk rather than built as one Buffer, because a
+  // copy-mode package carries every master the timeline uses. Streaming fails
+  // quietly — a truncated or empty file still "exists" — so read it back.
+  it('writes a complete, readable zip archive', async () => {
+    const project = await createEditorHandoffFixtureProject(workDir);
+    const result = await createEditorHandoffPackage(project, {
+      jobId: 'job-zip',
+      targets: ['neuma-package'],
+      outputRoot: path.join(workDir, 'zip-package'),
+      workspaceRoot: workDir,
+    });
+
+    const archive = await JSZip.loadAsync(
+      await fs.readFile(result.packagePath),
+    );
+    const entries = Object.keys(archive.files);
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        'manifest.json',
+        'cut-list.json',
+        'interchange/timeline.otio',
+        'media/asset-video-alpha.mp4',
+      ]),
+    );
+    expect(entries).not.toContain('neuma-video-handoff.zip');
+
+    // Contents survive the stream, not just the entry names.
+    const manifestInZip = await archive.file('manifest.json')?.async('string');
+    expect(JSON.parse(manifestInZip ?? '{}')).toMatchObject({
+      schema: 'neuma.video.editor-handoff.manifest.v1',
+      projectId: 'handoff-fixture',
+    });
+
+    const mediaInZip = await archive
+      .file('media/asset-video-alpha.mp4')
+      ?.async('nodebuffer');
+    const mediaOnDisk = await fs.readFile(
+      path.join(result.packageDir, 'media', 'asset-video-alpha.mp4'),
+    );
+    expect(mediaInZip?.equals(mediaOnDisk)).toBe(true);
   });
 });
 

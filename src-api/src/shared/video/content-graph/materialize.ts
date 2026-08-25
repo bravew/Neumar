@@ -2,8 +2,13 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { normalizeFrameRate } from '@neumar/video-ir';
+
 import { createLogger } from '@/shared/utils/logger';
-import { type VideoEngineAdapter } from '@/shared/video/engines';
+import {
+  assertEngineAdapterAvailable,
+  type VideoEngineAdapter,
+} from '@/shared/video/engines';
 import type {
   EngineRenderContext,
   EngineRenderInput,
@@ -98,6 +103,15 @@ export async function materializeHtmlStoryboard(
   const outScenes: StoryboardScene[] = [];
   const mediaItems: MediaItem[] = [];
   const sceneIdToAssetId: Record<string, string> = {};
+  // Runtime-selection contract (P2-6): probe an engine once per run before the
+  // first real render through it, and escalate the typed unavailable reason
+  // rather than substituting a different engine.
+  const checkedEngines = new Set<string>();
+  const requireEngine = async (adapter: VideoEngineAdapter): Promise<void> => {
+    if (checkedEngines.has(adapter.id)) return;
+    await assertEngineAdapterAvailable(adapter);
+    checkedEngines.add(adapter.id);
+  };
 
   for (let idx = 0; idx < total; idx++) {
     if (options.signal?.aborted) {
@@ -202,7 +216,7 @@ export async function materializeHtmlStoryboard(
             width: options.renderConfig.width,
             height: options.renderConfig.height,
           },
-          fps: options.renderConfig.fps,
+          fps: normalizeFrameRate(options.renderConfig.fps),
           duration: scene.durationMs / 1000,
           outputPath,
         },
@@ -216,6 +230,7 @@ export async function materializeHtmlStoryboard(
         },
       };
 
+      await requireEngine(renderPlan.adapter);
       const adapterResult = await renderPlan.adapter.render(
         renderInput,
         renderCtx,

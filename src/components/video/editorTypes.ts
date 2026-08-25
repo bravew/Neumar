@@ -44,13 +44,24 @@ export const VIDEO_EDITOR_STEPS: VideoEditorStep[] = [
 ];
 
 export interface VideoProjectEditorActions {
+  /**
+   * Replace local project state with a server response's `project` when the
+   * caller already has the authoritative document (e.g. a mutation route
+   * that returns the full project) and a round trip through `patchProject`
+   * would be redundant.
+   */
+  onProjectUpdated?: (project: VideoProject) => void;
   patchProject: (patch: Partial<VideoProject>) => Promise<VideoProject | null>;
   uploadAssets: (files: FileList | File[]) => Promise<VideoProject | null>;
   uploadReferenceImages: (files: FileList | File[]) => Promise<{
     project: VideoProject;
     assets: VideoProject['assets'];
   } | null>;
-  attachAssetPaths: (paths: string[]) => Promise<VideoProject | null>;
+  attachAssetPaths: (
+    paths: string[],
+    mode?: 'copy' | 'reference',
+    sessionId?: string,
+  ) => Promise<VideoProject | null>;
   deleteAsset: (assetId: string) => Promise<VideoProject | null>;
   regenerateAssetProxy: (assetId: string) => Promise<{
     project: VideoProject;
@@ -245,6 +256,7 @@ export interface VideoProjectEditorActions {
   attachLinkedAsset: (
     assetId: string,
     sceneId?: string,
+    sessionId?: string,
   ) => Promise<{
     project: VideoProject;
     asset: VideoProject['assets'][number];

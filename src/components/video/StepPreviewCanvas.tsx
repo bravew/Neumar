@@ -24,6 +24,7 @@ import { AssetsRail } from './assets/AssetsRail';
 import type { VideoProjectEditorActions } from './editorTypes';
 import { openVideoProjectFolder } from './openVideoProjectFolder';
 import { CaptionOverlay } from './preview/CaptionOverlay';
+import { PreviewFullscreenButton } from './preview/PreviewFullscreenButton';
 import { openRenderedOutput } from './preview/previewOutputActions';
 import {
   DEFAULT_PREVIEW_PLAYBACK_RATE,
@@ -40,6 +41,10 @@ import { RenderQueuePanel } from './RenderQueuePanel';
 import { Timeline } from './timeline/Timeline';
 import type { TimelineSceneSelectionSource } from './timeline/TimelineTypes';
 import { useTimelineUiStore } from './timeline/useTimelineUiStore';
+import {
+  INSPECTOR_PANEL_DEFAULT_SIZE,
+  useAutoExpandInspectorPanel,
+} from './useAutoExpandInspectorPanel';
 
 interface StepPreviewCanvasProps {
   project: VideoProject;
@@ -92,6 +97,7 @@ export function StepPreviewCanvas({
   const hasTimelinePreview = Boolean(project.timeline || scenes.length);
   const previewRef = useRef<RemotionPreviewHandle | null>(null);
   const previewContainerRef = useRef<HTMLDivElement | null>(null);
+  const inspectorPanelRef = useAutoExpandInspectorPanel();
   const playheadMs = useTimelineUiStore((state) => state.playheadMs);
   const playheadUpdateSource = useTimelineUiStore(
     (state) => state.playheadUpdateSource,
@@ -210,7 +216,11 @@ export function StepPreviewCanvas({
             <Panel
               id="assets"
               defaultSize="20%"
-              minSize="12%"
+              // A percentage floor collapses to unreadable widths on a
+              // narrow window — a tile's thumbnail, checkbox, and origin
+              // badge alone need this much room before the filename gets
+              // anything to truncate into.
+              minSize={220}
               collapsible
               collapsedSize="0%"
               className="min-w-0"
@@ -236,6 +246,7 @@ export function StepPreviewCanvas({
                   ref={previewContainerRef}
                   className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-black"
                 >
+                  <PreviewFullscreenButton containerRef={previewContainerRef} />
                   {hasTimelinePreview ? (
                     <>
                       <PreviewRenderer
@@ -285,7 +296,8 @@ export function StepPreviewCanvas({
             <ResizeHandle id="preview-inspector-handle" />
             <Panel
               id="inspector"
-              defaultSize="28%"
+              panelRef={inspectorPanelRef}
+              defaultSize={INSPECTOR_PANEL_DEFAULT_SIZE}
               minSize="16%"
               maxSize="42%"
               collapsible
@@ -327,7 +339,7 @@ export function StepPreviewCanvas({
           </div>
         </Panel>
       </PanelGroup>
-      <QaReportPanel output={selectedOutput} />
+      <QaReportPanel output={selectedOutput} projectId={project.id} />
       <RenderQueuePanel projectId={project.id} />
       <RenderProgressBar project={project} onCancel={handleCancelRender} />
     </div>

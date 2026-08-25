@@ -97,9 +97,15 @@ export function applyVisualTransformOverrides(
   });
 }
 
+// Above 2x, more backing-store pixels buys no visible detail for a source
+// that's already a 720p proxy — it only means more pixels to blit every
+// frame. Capping keeps a 3x-DPR display from paying nearly double the
+// composite cost of a 2x one for a picture that looks the same.
+const MAX_CANVAS_DPR = 2;
+
 export function getCanvasDpr(): number {
   if (typeof window === 'undefined') return 1;
-  return Math.max(1, window.devicePixelRatio || 1);
+  return Math.min(MAX_CANVAS_DPR, Math.max(1, window.devicePixelRatio || 1));
 }
 
 export function getFrameForMs(ms: number, data: RemotionPreviewData): number {

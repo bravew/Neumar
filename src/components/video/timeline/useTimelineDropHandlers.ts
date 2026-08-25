@@ -20,8 +20,14 @@ import {
   type DroppableMediaKind,
 } from './droppedAssetClip';
 import { timelineClipFromOverlayPreset } from './droppedOverlayClip';
+import {
+  newTrackKindForDrag,
+  readTrackDropPayload,
+} from './timelineNewTrackDrop';
 import { findNextOpenClipStartMs } from './timelinePlacement';
+import type { TrackInsertSide } from './timelineTrackInsertion';
 import type { TimelineProps } from './TimelineTypes';
+import { useTimelineEditorStore } from './useTimelineEditorStore';
 
 interface UseTimelineDropHandlersParams {
   project: VideoProject;
@@ -196,12 +202,66 @@ export function useTimelineDropHandlers({
     },
     [insertClip],
   );
+  /**
+   * Drop into the gap beside a lane, or into the empty space under all of
+   * them: create the track the media needs, then place the clip on it at the
+   * time it was dropped.
+   *
+   * The payload is decoded before the track exists, because a `DataTransfer`
+   * is only readable during the drop event and creating the track yields to
+   * the store first.
+   */
+  const handleDropOnNewTrack = useCallback(
+    (
+      dataTransfer: DataTransfer,
+      anchorTrackId: string | null,
+      side: TrackInsertSide,
+      startMs: number,
+    ): boolean => {
+      const kind = newTrackKindForDrag(dataTransfer);
+      if (!kind) return false;
+      const payload = readTrackDropPayload(dataTransfer, kind);
+      if (!payload) return false;
+
+      // Straight to the store rather than through props: `addTrack` commits
+      // synchronously, and the caller's `tracks` memo is a render behind.
+      const store = useTimelineEditorStore.getState();
+      const trackId = store.addTrack(
+        kind,
+        anchorTrackId ? { anchorTrackId, side } : undefined,
+      );
+      if (!trackId) return false;
+      const track = useTimelineEditorStore
+        .getState()
+        .timeline?.tracks.find((candidate) => candidate.id === trackId);
+      if (!track) return false;
+
+      if (payload.type === 'overlay') {
+        void handleDropOverlayPreset(track, startMs, payload.payload);
+      } else if (payload.type === 'project') {
+        void handleDropProjectAsset(track, startMs, payload.payload);
+      } else if (payload.type === 'catalog') {
+        void handleDropCatalogAssets(track, startMs, payload.payload);
+      } else {
+        void handleDropLinkedAsset(track, startMs, payload.payload);
+      }
+      return true;
+    },
+    [
+      handleDropCatalogAssets,
+      handleDropLinkedAsset,
+      handleDropOverlayPreset,
+      handleDropProjectAsset,
+    ],
+  );
+
   return {
     handleDropLinkedAsset,
     handleDropCatalogAssets,
     handleDropProjectAsset,
     handleDropOverlayPreset,
     handleDropFiles,
+    handleDropOnNewTrack,
   };
 }
 

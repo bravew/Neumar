@@ -59,6 +59,10 @@ describe('video asset peaks route', () => {
         durationMs: 3000,
         reverse: false,
       },
+      // Waveform caches belong to the project, not to the master's directory.
+      expect.objectContaining({
+        cacheDir: expect.stringContaining(path.join('derivatives', 'audio-1')),
+      }),
     );
   });
 });

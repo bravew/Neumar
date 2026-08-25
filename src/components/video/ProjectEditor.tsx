@@ -93,8 +93,13 @@ export function ProjectEditor({
   const [contextSearchSceneId, setContextSearchSceneId] = useState<
     string | null
   >(null);
-  const { editorActions, regeneratingSceneIds } =
-    useRegeneratingSceneActions(actions);
+  const actionsWithProjectUpdates = useMemo<VideoProjectEditorActions>(
+    () => ({ ...actions, onProjectUpdated: setProject }),
+    [actions, setProject],
+  );
+  const { editorActions, regeneratingSceneIds } = useRegeneratingSceneActions(
+    actionsWithProjectUpdates,
+  );
   const handleSelectScene = useCallback(
     (sceneId: string, options?: TimelineSceneSelectOptions) => {
       setSelectedSceneSource(options?.source ?? 'user');

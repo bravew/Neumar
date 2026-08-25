@@ -2,13 +2,23 @@ import type { Timeline } from './timeline-types.js';
 
 export interface SnapTarget {
   ms: number;
-  kind: 'playhead' | 'clip-start' | 'clip-end' | 'range-edge' | 'marker';
+  kind:
+    | 'playhead'
+    | 'clip-start'
+    | 'clip-end'
+    | 'range-edge'
+    | 'marker'
+    | 'beat';
   refId?: string;
 }
 
 export function computeSnapTargets(
   timeline: Timeline,
-  ctx: { playheadMs?: number; rangeMs?: [number, number] },
+  ctx: {
+    playheadMs?: number;
+    rangeMs?: [number, number];
+    beats?: Array<{ ms: number; refId?: string }>;
+  },
 ): SnapTarget[] {
   const targets: SnapTarget[] = [];
   if (typeof ctx.playheadMs === 'number') {
@@ -17,6 +27,9 @@ export function computeSnapTargets(
   if (ctx.rangeMs) {
     targets.push({ ms: ctx.rangeMs[0], kind: 'range-edge' });
     targets.push({ ms: ctx.rangeMs[1], kind: 'range-edge' });
+  }
+  for (const beat of ctx.beats ?? []) {
+    targets.push({ ms: beat.ms, kind: 'beat', refId: beat.refId });
   }
   for (const marker of timeline.markers ?? []) {
     targets.push({ ms: marker.timeMs, kind: 'marker', refId: marker.id });
@@ -83,10 +96,12 @@ function kindRank(kind: SnapTarget['kind']): number {
       return 1;
     case 'marker':
       return 2;
-    case 'clip-start':
+    case 'beat':
       return 3;
-    case 'clip-end':
+    case 'clip-start':
       return 4;
+    case 'clip-end':
+      return 5;
     default: {
       const exhaustive: never = kind;
       return exhaustive;

@@ -225,6 +225,64 @@ describe('WebCodecs AudioEngine foundations', () => {
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
+  it('treats an undecodable source as silent instead of failing playback', async () => {
+    // The scrub proxy is generated with `-an`, so a video clip's audio source
+    // routinely has no audio track. decodeAudioData rejects for those. That
+    // used to reject play(), which the preview read as "WebCodecs
+    // unsupported" and answered by retiring the live canvas renderer.
+    const fetchFn = vi.fn<typeof fetch>(
+      async () => new Response(new ArrayBuffer(8)),
+    );
+    const audioContext = createMockAudioContext();
+    vi.mocked(audioContext.decodeAudioData).mockRejectedValue(
+      new Error('Unable to decode audio data'),
+    );
+    const engine = new WebCodecsAudioEngine({
+      createAudioContext: () => audioContext,
+      fetchFn,
+    });
+
+    await expect(
+      engine.play(audioOnlyPreviewData('/silent.mp4'), 0),
+    ).resolves.toBeUndefined();
+    expect(engine.getSilentSources()).toEqual(['/silent.mp4']);
+  });
+
+  it('does not refetch a source already known to be silent', async () => {
+    const fetchFn = vi.fn<typeof fetch>(
+      async () => new Response(new ArrayBuffer(8)),
+    );
+    const audioContext = createMockAudioContext();
+    vi.mocked(audioContext.decodeAudioData).mockRejectedValue(
+      new Error('Unable to decode audio data'),
+    );
+    const engine = new WebCodecsAudioEngine({
+      createAudioContext: () => audioContext,
+      fetchFn,
+    });
+
+    await engine.play(audioOnlyPreviewData('/silent.mp4'), 0);
+    await engine.play(audioOnlyPreviewData('/silent.mp4'), 0);
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('still surfaces an abort so a stopped playback does not look silent', async () => {
+    const abortError = new DOMException('Aborted', 'AbortError');
+    const fetchFn = vi.fn<typeof fetch>(async () => {
+      throw abortError;
+    });
+    const engine = new WebCodecsAudioEngine({
+      createAudioContext: createMockAudioContext,
+      fetchFn,
+    });
+
+    await expect(
+      engine.play(audioOnlyPreviewData('/voice.mp3'), 0),
+    ).rejects.toBe(abortError);
+    expect(engine.getSilentSources()).toEqual([]);
+  });
+
   it('applies playback rate to source speed and timeline timing', async () => {
     const fetchFn = vi.fn<typeof fetch>(
       async () => new Response(new ArrayBuffer(8)),

@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
+import { deriveProjectBeatTimelineMs } from '@/shared/video/beatGrid';
 import { useVideoFlags } from '@/shared/video/useVideoFlags';
 
 import { compareTimelineRows, getProjectTimeline } from './projectTimeline';
@@ -38,6 +39,7 @@ import { useTimelineTrackHeights } from './useTimelineTrackHeights';
 import { useTimelineUiBindings } from './useTimelineUiStore';
 import { useTimelineUndoArbitration } from './useTimelineUndoArbitration';
 import { useTimelineViewportWidth } from './useTimelineViewportWidth';
+import { useTrackDeleteConfirmation } from './useTrackDeleteConfirmation';
 
 export function Timeline({
   project,
@@ -101,6 +103,10 @@ export function Timeline({
     [activeTimeline.tracks],
   );
   const markers = activeTimeline.markers ?? [];
+  const beatTimesMs = useMemo(
+    () => deriveProjectBeatTimelineMs({ ...project, timeline: activeTimeline }),
+    [activeTimeline, project],
+  );
   const activePlayheadSceneId = useMemo(
     () => findSceneIdAtPlayhead(tracks, playheadMs),
     [playheadMs, tracks],
@@ -158,6 +164,7 @@ export function Timeline({
     tracks,
     scrollRef,
     markers,
+    beatTimesMs,
     playheadMs,
     timelineDurationMs,
     pixelsPerSecond,
@@ -172,6 +179,7 @@ export function Timeline({
     handleDropProjectAsset,
     handleDropOverlayPreset,
     handleDropFiles,
+    handleDropOnNewTrack,
   } = useTimelineDropHandlers({
     project,
     aspectRatio,
@@ -237,11 +245,12 @@ export function Timeline({
     handleToggleTrackSyncLock,
     handleToggleTrackMute,
     handleToggleTrackVisibility,
-    handleDeleteTrack,
   } = useTimelineTrackActions({
     updateTrack: editor.updateTrack,
     removeTrack: editor.removeTrack,
   });
+  const { requestDeleteTrack, dialog: trackDeleteDialog } =
+    useTrackDeleteConfirmation(editor.removeTrack);
   const selectedLinkGroupIds = useMemo(
     () => getSelectedLinkGroupIds(tracks, editor.selectedClipIds),
     [editor.selectedClipIds, tracks],
@@ -320,6 +329,7 @@ export function Timeline({
         labels={labels}
         lasso={lasso}
         markers={markers}
+        beatTimesMs={beatTimesMs}
         materializationStates={materializationStates}
         pixelsPerSecond={pixelsPerSecond}
         playheadMs={playheadMs}
@@ -340,6 +350,7 @@ export function Timeline({
         onDeleteSelectedClip={handleDeleteSelectedClip}
         onDropCatalogAssets={handleDropCatalogAssets}
         onDropFiles={handleDropFiles}
+        onDropOnNewTrack={handleDropOnNewTrack}
         onDropLinkedAsset={handleDropLinkedAsset}
         onDropOverlayPreset={handleDropOverlayPreset}
         onDropProjectAsset={handleDropProjectAsset}
@@ -352,8 +363,9 @@ export function Timeline({
         onToggleTrackMute={handleToggleTrackMute}
         onToggleTrackSyncLock={handleToggleTrackSyncLock}
         onToggleTrackVisibility={handleToggleTrackVisibility}
-        onDeleteTrack={handleDeleteTrack}
+        onDeleteTrack={requestDeleteTrack}
       />
+      {trackDeleteDialog}
     </section>
   );
 }

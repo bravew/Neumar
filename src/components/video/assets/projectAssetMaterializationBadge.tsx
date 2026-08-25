@@ -37,21 +37,30 @@ export function projectAssetMaterializationBadge(
   actions: ProjectAssetBadgeActions = {},
 ): ReactNode {
   const catalogAssetId = asset.provenance?.catalogAssetId;
-  const liveState = catalogAssetId ? states?.[catalogAssetId] : undefined;
-  const handleCancel = actions.onCancel
-    ? (event: MouseEvent) => {
-        event.stopPropagation();
-        event.preventDefault();
-        actions.onCancel?.(asset.id);
-      }
-    : undefined;
-  const handleRetry = actions.onRetry
-    ? (event: MouseEvent) => {
-        event.stopPropagation();
-        event.preventDefault();
-        actions.onRetry?.(asset.id);
-      }
-    : undefined;
+  // Locally-attached assets (linked-source or direct-path) have no catalog
+  // id — their proxy-generation lifecycle events are published keyed by the
+  // project asset id itself instead. Cancel/retry stay catalog-only below:
+  // those actions call `cancelProjectAssetHydration`/`hydrateProjectAsset`,
+  // which is the wrong endpoint for a local proxy encode (there's no
+  // in-flight download to cancel, and retrying means
+  // `regenerateAssetProxy`, not re-hydrating).
+  const liveState = states?.[catalogAssetId ?? asset.id];
+  const handleCancel =
+    catalogAssetId && actions.onCancel
+      ? (event: MouseEvent) => {
+          event.stopPropagation();
+          event.preventDefault();
+          actions.onCancel?.(asset.id);
+        }
+      : undefined;
+  const handleRetry =
+    catalogAssetId && actions.onRetry
+      ? (event: MouseEvent) => {
+          event.stopPropagation();
+          event.preventDefault();
+          actions.onRetry?.(asset.id);
+        }
+      : undefined;
 
   // Live SSE state from an in-flight hydration wins over the persisted
   // lifecycle field — it has the up-to-the-second progress percent.

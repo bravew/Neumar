@@ -24,13 +24,17 @@ import {
   projectAssetPreviewMedia,
   projectAssetThumbnailUrl,
 } from './projectAssetMedia';
+import { ProjectAssetOriginBadge } from './ProjectAssetOriginBadge';
 import {
   HAS_CLOUD_PROVIDER_ICON,
   prettyProviderName,
   resolveProvider,
   type ProjectAssetLabels,
 } from './projectAssetSource';
-import { canDownloadProjectAsset } from './useProjectAssetTimelineActions';
+import {
+  canDownloadProjectAsset,
+  canRevealProjectAsset,
+} from './useProjectAssetTimelineActions';
 
 export {
   filenameFromPath,
@@ -61,6 +65,11 @@ interface ProjectAssetTileProps {
   onPlace?: (asset: ProjectAsset) => void;
   onDownload?: (asset: ProjectAsset) => void;
   onDelete?: (assetId: string) => void;
+  /** Asset ids whose external master could not be found on the last check. */
+  offlineAssetIds?: ReadonlySet<string>;
+  onConsolidate?: (assetId: string) => void;
+  onRelink?: (asset: ProjectAsset) => void;
+  onReveal?: (assetId: string) => void;
   selectedForContext?: boolean;
   onToggleContext?: (asset: ProjectAsset) => void;
 }
@@ -90,6 +99,10 @@ export function ProjectAssetTile({
   onPlace,
   onDownload,
   onDelete,
+  offlineAssetIds,
+  onConsolidate,
+  onRelink,
+  onReveal,
   selectedForContext = false,
   onToggleContext,
 }: ProjectAssetTileProps) {
@@ -108,6 +121,8 @@ export function ProjectAssetTile({
     asset.kind === 'image' || asset.kind === 'video' || asset.kind === 'audio';
   const thumbnailUrl = projectAssetThumbnailUrl(projectId, asset);
   const metaSummary = projectAssetMetaSummary(asset);
+  const isExternal = asset.origin === 'external';
+  const externalOnline = !offlineAssetIds?.has(asset.id);
   // For videos, hand the tooltip the playable stream + first-frame poster
   // so it loops a real preview instead of a static thumbnail.
   const preview = projectAssetPreviewMedia(projectId, asset);
@@ -177,11 +192,15 @@ export function ProjectAssetTile({
             {filename}
           </div>
           {metaSummary ? (
-            <div className="text-muted-foreground text-[10px] uppercase">
+            <div className="text-muted-foreground truncate text-[10px] uppercase">
               {metaSummary}
             </div>
           ) : null}
         </div>
+        <ProjectAssetOriginBadge
+          origin={asset.origin}
+          online={externalOnline}
+        />
         {isNew ? (
           <span className="bg-primary text-primary-foreground rounded-sm px-1 text-[9px] font-semibold uppercase">
             New
@@ -205,6 +224,24 @@ export function ProjectAssetTile({
           onPlace={onPlace ? () => onPlace(asset) : undefined}
           onDownload={onDownload ? () => onDownload(asset) : undefined}
           onDelete={onDelete ? () => onDelete(asset.id) : undefined}
+          consolidateLabel={t.video.editor.assetsRail.consolidateAsset}
+          relinkLabel={t.video.editor.assetsRail.relinkAsset}
+          revealLabel={t.video.editor.assetsRail.revealAsset}
+          onConsolidate={
+            isExternal && onConsolidate
+              ? () => onConsolidate(asset.id)
+              : undefined
+          }
+          onRelink={
+            isExternal && !externalOnline && onRelink
+              ? () => onRelink(asset)
+              : undefined
+          }
+          onReveal={
+            onReveal && canRevealProjectAsset(asset)
+              ? () => onReveal(asset.id)
+              : undefined
+          }
         />
       </div>
     </AssetHoverPreview>

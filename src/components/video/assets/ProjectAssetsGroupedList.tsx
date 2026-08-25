@@ -6,12 +6,21 @@ import type { MaterializationStateMap } from '@/shared/hooks/useAssetMaterializa
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoProject } from '@/shared/types/video';
 
+import { ProjectAssetBulkActionsBar } from './ProjectAssetBulkActionsBar';
+import {
+  ProjectAssetFolderSection,
+  useAssetFolderGroups,
+  useCollapsedFolders,
+} from './ProjectAssetFolderGroups';
 import type { ProjectAssetBadgeActions } from './projectAssetMaterializationBadge';
 import {
   projectAssetDisplayName,
   projectAssetDisplaySubtitle,
   ProjectAssetTile,
 } from './ProjectAssetTile';
+import { useExternalAssetActions } from './useExternalAssetActions';
+import { useExternalAssetStatus } from './useExternalAssetStatus';
+import { useRevealProjectAsset } from './useRevealProjectAsset';
 
 type ProjectAsset = VideoProject['assets'][number];
 type Kind = ProjectAsset['kind'];
@@ -23,33 +32,49 @@ const PAGE_SIZE = 30;
 
 interface ProjectAssetsGroupedListProps {
   project: VideoProject;
+  onProjectUpdated?: (project: VideoProject) => void;
   newIds: Set<string>;
   materializationStates?: MaterializationStateMap;
   materializationActions?: ProjectAssetBadgeActions;
   selectedContextAssetIds?: string[];
   contextOnly?: boolean;
   onPlace?: (asset: ProjectAsset) => void;
+  onPlaceMany?: (assets: ProjectAsset[]) => void;
   onDownload?: (asset: ProjectAsset) => void;
   onDelete: (assetId: string) => void;
+  onDeleteMany?: (assetIds: string[]) => void;
   onPreview: (asset: ProjectAsset) => void;
   onToggleContext?: (asset: ProjectAsset) => void;
 }
 
 export function ProjectAssetsGroupedList({
   project,
+  onProjectUpdated,
   newIds,
   materializationStates,
   materializationActions,
   selectedContextAssetIds = [],
   contextOnly = false,
   onPlace,
+  onPlaceMany,
   onDownload,
   onDelete,
+  onDeleteMany,
   onPreview,
   onToggleContext,
 }: ProjectAssetsGroupedListProps) {
   const { t } = useLanguage();
   const labels = t.video.editor.assetsRail;
+  const { offlineAssetIds, refresh } = useExternalAssetStatus(
+    project.id,
+    project.assets,
+  );
+  const { consolidateAsset, relinkAsset } = useExternalAssetActions(
+    project.id,
+    refresh,
+    onProjectUpdated,
+  );
+  const revealAsset = useRevealProjectAsset(project.id);
   const [query, setQuery] = useState('');
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
@@ -80,6 +105,16 @@ export function ProjectAssetsGroupedList({
     () => new Set(selectedContextAssetIds),
     [selectedContextAssetIds],
   );
+  // Bulk actions operate on every selected asset, not just the ones the
+  // current search/kind filter happens to be showing.
+  const selectedAssets = useMemo(
+    () =>
+      project.assets.filter((asset) => selectedContextAssetIdSet.has(asset.id)),
+    [project.assets, selectedContextAssetIdSet],
+  );
+  const handleClearSelection = () => {
+    for (const asset of selectedAssets) onToggleContext?.(asset);
+  };
   // The header "in context" chip toggles this to filter the list down to the
   // assets the agent currently reasons over.
   const displayedAssets = useMemo(
@@ -91,7 +126,34 @@ export function ProjectAssetsGroupedList({
         : visibleAssets,
     [contextOnly, visibleAssets, selectedContextAssetIdSet],
   );
-  const hiddenCount = Math.max(0, displayedAssets.length - pageSize);
+  // Folder-sourced assets (origin: 'external', real filesystem path) render
+  // as collapsible sections above the flat list; everything else — the
+  // common case — lands in `ungrouped` untouched, so pagination below
+  // behaves exactly as it did before folder grouping existed.
+  const { folders, ungrouped } = useAssetFolderGroups(displayedAssets);
+  const { collapsedFolderKeys, toggleFolder } = useCollapsedFolders();
+  const hiddenCount = Math.max(0, ungrouped.length - pageSize);
+  const renderAssetTile = (asset: ProjectAsset) => (
+    <ProjectAssetTile
+      key={asset.id}
+      projectId={project.id}
+      asset={asset}
+      isNew={newIds.has(asset.id)}
+      materializationStates={materializationStates}
+      materializationActions={materializationActions}
+      offlineAssetIds={offlineAssetIds}
+      onConsolidate={(assetId) => void consolidateAsset(assetId)}
+      onRelink={(target) => void relinkAsset(target)}
+      onReveal={(assetId) => void revealAsset(assetId)}
+      variantCount={variantCounts.get(projectAssetDedupeKey(asset)) ?? 1}
+      selectedForContext={selectedContextAssetIdSet.has(asset.id)}
+      onPreview={onPreview}
+      onPlace={onPlace}
+      onDownload={onDownload}
+      onDelete={onDelete}
+      onToggleContext={onToggleContext}
+    />
+  );
   const kindFilterLabel: Record<KindFilter, string> = {
     all: labels.kindAll,
     video: labels.kindVideo,
@@ -143,31 +205,30 @@ export function ProjectAssetsGroupedList({
         })}
       </div>
 
+      <ProjectAssetBulkActionsBar
+        selectedCount={selectedAssets.length}
+        labels={labels.bulkActions}
+        onPlace={onPlaceMany ? () => onPlaceMany(selectedAssets) : undefined}
+        onDelete={() => onDeleteMany?.(selectedAssets.map((asset) => asset.id))}
+        onClear={handleClearSelection}
+      />
+
       {displayedAssets.length === 0 ? (
         <p className="text-muted-foreground text-xs">
           {labels.noMatchingProjectAssets}
         </p>
       ) : (
         <div className="space-y-1.5">
-          {displayedAssets.slice(0, pageSize).map((asset) => (
-            <ProjectAssetTile
-              key={asset.id}
-              projectId={project.id}
-              asset={asset}
-              isNew={newIds.has(asset.id)}
-              materializationStates={materializationStates}
-              materializationActions={materializationActions}
-              variantCount={
-                variantCounts.get(projectAssetDedupeKey(asset)) ?? 1
-              }
-              selectedForContext={selectedContextAssetIdSet.has(asset.id)}
-              onPreview={onPreview}
-              onPlace={onPlace}
-              onDownload={onDownload}
-              onDelete={onDelete}
-              onToggleContext={onToggleContext}
+          {folders.map((group) => (
+            <ProjectAssetFolderSection
+              key={group.key}
+              group={group}
+              collapsed={collapsedFolderKeys.has(group.key)}
+              onToggle={() => toggleFolder(group.key)}
+              renderAsset={renderAssetTile}
             />
           ))}
+          {ungrouped.slice(0, pageSize).map(renderAssetTile)}
         </div>
       )}
 

@@ -71,6 +71,8 @@ src-api/.env
 src-api/dist/
 # Video Mode runtime output (project bundles + render/scene cache)
 src-api/videos/
+# App data written into the server's cwd when workDir is unset
+src-api/.neuma/
 src-api/.cache/
 src-cli/dist/
 src-site/

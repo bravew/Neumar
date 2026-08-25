@@ -3,10 +3,6 @@
     "current": 1112,
     "target": 350
   },
-  "src/components/video/assets/ProjectAssetsSection.tsx": {
-    "current": 367,
-    "target": 350
-  },
   "src/components/library/CloudStorageLibraryTab.tsx": {
     "current": 626,
     "target": 350
@@ -235,7 +231,7 @@
     "target": 350
   },
   "src/components/video/timeline/Timeline.tsx": {
-    "current": 369,
+    "current": 371,
     "target": 350
   },
   "src/components/video/timeline/TimelineClip.tsx": {

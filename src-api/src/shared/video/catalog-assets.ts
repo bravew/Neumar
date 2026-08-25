@@ -14,6 +14,7 @@ import { validateInputFile } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 import { extensionFromMime } from '@/shared/utils/mime-extension';
 
+import { resolveProjectAssetPath } from './asset-files';
 import {
   getProject,
   getVideoAssetsDir,
@@ -69,7 +70,7 @@ export function shouldHydrateProjectAsset(
   if (isReferencedProjectAsset(asset)) return true;
   if (!asset.provenance?.catalogAssetId) return false;
   try {
-    validateInputFile(asset.path, getVideoProjectRoot(projectId));
+    resolveProjectAssetPath(asset, getVideoProjectRoot(projectId));
     return false;
   } catch (error) {
     return isInputFileNotFoundError(error);

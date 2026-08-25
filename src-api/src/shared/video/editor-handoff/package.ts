@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline as streamPipeline } from 'node:stream/promises';
@@ -201,12 +201,17 @@ async function zipDirectory(
     const relativePath = path.relative(packageDir, file);
     zip.file(relativePath, createReadStream(file));
   }
-  const bytes = await zip.generateAsync({
-    type: 'nodebuffer',
-    compression: 'DEFLATE',
-    streamFiles: true,
-  });
-  await fs.writeFile(packagePath, bytes);
+  // Stream the archive to disk. `generateAsync` returns the whole zip as one
+  // Buffer, and a `copy`-mode package carries every master the timeline uses —
+  // gigabytes for a real project, against a process budget far smaller.
+  await streamPipeline(
+    zip.generateNodeStream({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+      streamFiles: true,
+    }),
+    createWriteStream(packagePath),
+  );
 }
 
 async function listFiles(root: string): Promise<string[]> {

@@ -221,6 +221,7 @@ function mediaRefFromAsset(asset: MediaItem): EditorHandoffMediaRef {
     source: asset.source,
     path: isPlaceholder ? undefined : asset.path,
     originalPathHint: asset.path,
+    external: asset.origin === 'external',
     metadata: asset.metadata,
     collectionId: asset.collectionId,
     collectionLabel: asset.collectionLabel,

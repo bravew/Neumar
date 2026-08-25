@@ -6,6 +6,7 @@ import type {
   RemotionPreviewData,
   RemotionVisualClip,
 } from '../remotionPreviewData';
+import { buildClipEffectsCanvasFilter } from './clipEffectsCanvasFilter';
 import {
   applyLayerCanvasTransform,
   getLayerTransformGeometry,
@@ -132,6 +133,13 @@ function drawViewportWebCodecsFrame({
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   ctx.filter = 'none';
   ctx.globalAlpha = 1;
+  // The default `imageSmoothingQuality` is `'low'`. Every visual layer here
+  // is a proxy-resolution decode (or a still image) scaled up to fill the
+  // viewport, so the difference between 'low' and 'high' is the difference
+  // between a soft, blocky preview and one that actually looks like the
+  // source — worth the small extra cost of a single per-frame blit.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.clearRect(0, 0, viewport.viewportWidth, viewport.viewportHeight);
   ctx.fillStyle = WORKING_AREA_BACKGROUND;
   ctx.fillRect(0, 0, viewport.viewportWidth, viewport.viewportHeight);
@@ -172,6 +180,11 @@ function drawCompositionWebCodecsFrame({
   transition?: ResolvedWebCodecsTransition;
   transitionRenderer?: WebGLTransitionRenderer;
 }): void {
+  // Covers every caller: the viewport wrapper already sets this on its own
+  // context, but the transition scratch canvases (fresh 2D contexts) and the
+  // no-viewport path never have — defaults to 'low' otherwise.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   if (transition && transition.kind !== 'cut') {
     const transitionCanvas = renderTransitionFrame({
       data,
@@ -368,7 +381,10 @@ export function drawVisualLayer({
 }: {
   clip: RemotionVisualClip;
   ctx: CanvasRenderingContext2D;
-  data: Pick<RemotionPreviewData, 'compositionHeight' | 'compositionWidth'>;
+  data: Pick<
+    RemotionPreviewData,
+    'compositionHeight' | 'compositionWidth' | 'fps'
+  >;
   frame: number;
   source: WebCodecsDrawableSource;
 }): void {
@@ -383,7 +399,7 @@ export function drawVisualLayer({
   applyLayerCanvasTransform(ctx, transform);
   drawClipSource({
     clip,
-    cssFilter: buildVideoClipCssFilter(clip.filters) ?? 'none',
+    cssFilter: buildLayerCanvasFilter(clip, data.fps, frame),
     ctx,
     frame,
     source,
@@ -753,6 +769,36 @@ function getDrawableSize(source: WebCodecsDrawableSource): {
   const height = maybe.videoHeight ?? maybe.naturalHeight ?? maybe.height;
   if (!width || !height || width <= 0 || height <= 0) return null;
   return { width, height };
+}
+
+/**
+ * The legacy `clip.filters` CSS fields and the Phase A2 `clip.effects` stack
+ * are separate, co-existing data (A2 deliberately did not migrate one into the
+ * other). Both have to reach the preview, so compose them into one canvas
+ * filter — legacy first, effects on top, matching the render order.
+ */
+function buildLayerCanvasFilter(
+  clip: RemotionVisualClip,
+  fps: number,
+  frame: number,
+): string {
+  const legacy = buildVideoClipCssFilter(clip.filters);
+  const localMs = clipLocalMs(clip, fps, frame);
+  const effects = buildClipEffectsCanvasFilter(clip.effects, localMs);
+  const parts = [legacy, effects].filter(
+    (part): part is string => Boolean(part) && part !== 'none',
+  );
+  return parts.length > 0 ? parts.join(' ') : 'none';
+}
+
+/** Effect parameters can be keyframed, so they resolve against clip-local time. */
+function clipLocalMs(
+  clip: RemotionVisualClip,
+  fps: number,
+  frame: number,
+): number {
+  if (!Number.isFinite(fps) || fps <= 0) return 0;
+  return Math.max(0, ((frame - clip.fromFrame) / fps) * 1000);
 }
 
 function combineCanvasFilters(baseFilter: string, nextFilter: string): string {

@@ -297,6 +297,7 @@ const labels: TimelineTrackLabels = {
   trimStart: 'Trim start',
   trimEnd: 'Trim end',
   trackEmptyDropHint: 'Drag clips here',
+  newTrackDropHint: 'Drop here to add a new track',
   moveLayerUp: 'Move layer up',
   moveLayerDown: 'Move layer down',
   renameTrack: 'Rename track',

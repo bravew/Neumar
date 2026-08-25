@@ -1,12 +1,19 @@
 import { z } from 'zod';
 
+import { getClipEffectParameterDefinition } from './clip-effects.js';
 import {
   KEYFRAMEABLE_PROPERTIES,
   KEYFRAME_INTERPOLATIONS,
   keyframeTrackValidationError,
   keyframeValueValidationError,
 } from './keyframes.js';
-import type { Keyframe, KeyframeableProperty } from './timeline-types.js';
+import type {
+  ClipEffect,
+  ClipEffectKind,
+  ClipEffectParameter,
+  Keyframe,
+  KeyframeableProperty,
+} from './timeline-types.js';
 
 export const TimelineTransitionKindSchema = z.enum([
   'cut',
@@ -185,6 +192,219 @@ export const ClipFiltersSchema = z
   })
   .strict();
 
+export const ClipEffectParameterSchema = z.enum([
+  'amount',
+  'temperature',
+  'tint',
+  'radius',
+]);
+
+const ClipEffectBaseSchema = z.object({
+  version: z.literal(1),
+  id: z.string().uuid(),
+  disabled: z.boolean().optional(),
+});
+
+// Ranges come from CLIP_EFFECT_CATALOG so the schema, the MCP input contract,
+// and the inspector sliders can never disagree about a parameter's bounds.
+function effectParam(kind: ClipEffectKind, key: ClipEffectParameter) {
+  const definition = getClipEffectParameterDefinition(kind, key);
+  if (!definition) throw new Error(`${key} is not valid for ${kind}`);
+  return z.number().min(definition.min).max(definition.max);
+}
+
+const CLIP_EFFECT_PARAMS = {
+  brightness: z
+    .object({ amount: effectParam('brightness', 'amount') })
+    .strict(),
+  contrast: z.object({ amount: effectParam('contrast', 'amount') }).strict(),
+  saturation: z
+    .object({ amount: effectParam('saturation', 'amount') })
+    .strict(),
+  'white-balance': z
+    .object({
+      temperature: effectParam('white-balance', 'temperature'),
+      tint: effectParam('white-balance', 'tint'),
+    })
+    .strict(),
+  blur: z
+    .object({
+      radius: effectParam('blur', 'radius'),
+      horizontal: z.boolean(),
+      vertical: z.boolean(),
+    })
+    .strict(),
+} as const;
+
+export const ClipEffectSchema = z.discriminatedUnion('kind', [
+  ClipEffectBaseSchema.extend({
+    kind: z.literal('brightness'),
+    params: CLIP_EFFECT_PARAMS.brightness,
+  }).strict(),
+  ClipEffectBaseSchema.extend({
+    kind: z.literal('contrast'),
+    params: CLIP_EFFECT_PARAMS.contrast,
+  }).strict(),
+  ClipEffectBaseSchema.extend({
+    kind: z.literal('saturation'),
+    params: CLIP_EFFECT_PARAMS.saturation,
+  }).strict(),
+  ClipEffectBaseSchema.extend({
+    kind: z.literal('white-balance'),
+    params: CLIP_EFFECT_PARAMS['white-balance'],
+  }).strict(),
+  ClipEffectBaseSchema.extend({
+    kind: z.literal('blur'),
+    params: CLIP_EFFECT_PARAMS.blur,
+  }).strict(),
+]);
+
+const ClipEffectInputBaseSchema = z.object({
+  id: z.string().uuid().optional(),
+  disabled: z.boolean().optional(),
+});
+
+/**
+ * Agent-facing shape of a clip effect: same parameter bounds as
+ * `ClipEffectSchema`, but `id` is optional and `version` is supplied by
+ * `clipEffectFromInput` rather than the caller.
+ */
+export const ClipEffectInputSchema = z.discriminatedUnion('kind', [
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('brightness'),
+    params: CLIP_EFFECT_PARAMS.brightness,
+  }).strict(),
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('contrast'),
+    params: CLIP_EFFECT_PARAMS.contrast,
+  }).strict(),
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('saturation'),
+    params: CLIP_EFFECT_PARAMS.saturation,
+  }).strict(),
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('white-balance'),
+    params: CLIP_EFFECT_PARAMS['white-balance'],
+  }).strict(),
+  ClipEffectInputBaseSchema.extend({
+    kind: z.literal('blur'),
+    params: z
+      .object({
+        radius: effectParam('blur', 'radius'),
+        horizontal: z.boolean().default(true),
+        vertical: z.boolean().default(true),
+      })
+      .strict(),
+  }).strict(),
+]);
+
+export type ClipEffectInput = z.infer<typeof ClipEffectInputSchema>;
+
+export function clipEffectFromInput(input: ClipEffectInput): ClipEffect {
+  return {
+    id: input.id ?? crypto.randomUUID(),
+    version: 1,
+    ...(input.disabled === undefined ? {} : { disabled: input.disabled }),
+    kind: input.kind,
+    params: input.params,
+  } as ClipEffect;
+}
+
+export const EffectParameterKeyframeTrackSchema = z
+  .object({
+    effectId: z.string().uuid(),
+    parameter: ClipEffectParameterSchema,
+    keys: z.array(KeyframeSchema).min(1),
+  })
+  .strict()
+  // Only the timing invariants are checked here. Value bounds are effect-kind
+  // specific and are enforced against the catalog in `ClipEffectStackSchema`;
+  // borrowing another property's bounds would abort this loop early and let
+  // duplicate or descending `atMs` through.
+  .superRefine((track, ctx) => {
+    let previousAtMs = -1;
+    for (const [index, key] of track.keys.entries()) {
+      if (!Number.isInteger(key.atMs) || key.atMs < 0) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Keyframe atMs must be a non-negative integer',
+          path: ['keys', index, 'atMs'],
+        });
+      } else if (key.atMs <= previousAtMs) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Keyframe keys must be strictly sorted and unique by atMs',
+          path: ['keys', index, 'atMs'],
+        });
+      }
+      previousAtMs = key.atMs;
+    }
+  });
+
+export const ClipEffectStackSchema = z
+  .object({
+    schema: z.literal('neuma.video.clip-effects.v1'),
+    effects: z.array(ClipEffectSchema),
+    keyframes: z.array(EffectParameterKeyframeTrackSchema).optional(),
+  })
+  .strict()
+  .superRefine((stack, ctx) => {
+    const effectsById = new Map<string, (typeof stack.effects)[number]>();
+    for (const [index, effect] of stack.effects.entries()) {
+      if (effectsById.has(effect.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Duplicate effect id: ${effect.id}`,
+          path: ['effects', index, 'id'],
+        });
+      }
+      effectsById.set(effect.id, effect);
+    }
+
+    const targets = new Set<string>();
+    for (const [index, track] of (stack.keyframes ?? []).entries()) {
+      const effect = effectsById.get(track.effectId);
+      if (!effect) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Effect keyframe target does not exist: ${track.effectId}`,
+          path: ['keyframes', index, 'effectId'],
+        });
+        continue;
+      }
+      const definition = getClipEffectParameterDefinition(
+        effect.kind,
+        track.parameter,
+      );
+      if (!definition) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `${track.parameter} is not valid for ${effect.kind}`,
+          path: ['keyframes', index, 'parameter'],
+        });
+        continue;
+      }
+      const target = `${track.effectId}:${track.parameter}`;
+      if (targets.has(target)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Duplicate effect keyframe target: ${target}`,
+          path: ['keyframes', index],
+        });
+      }
+      targets.add(target);
+      for (const [keyIndex, key] of track.keys.entries()) {
+        if (key.value < definition.min || key.value > definition.max) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `${track.parameter} must be between ${definition.min} and ${definition.max}`,
+            path: ['keyframes', index, 'keys', keyIndex, 'value'],
+          });
+        }
+      }
+    }
+  });
+
 export const ClipPlaybackSchema = z
   .object({
     speed: z.number().min(0.1).max(20),
@@ -244,6 +464,7 @@ export const VisualTimelineClipSchema = BaseClipSchema.extend({
   transitionToNext: TimelineTransitionSchema.optional(),
   audioSeamToNext: z.enum(['follow', 'cut']).optional(),
   filters: ClipFiltersSchema.optional(),
+  effects: ClipEffectStackSchema.optional(),
   muted: z.boolean().optional(),
 }).strict();
 
@@ -540,6 +761,14 @@ export const TimelineOpSchema = z.discriminatedUnion('kind', [
     .strict(),
   z
     .object({
+      kind: z.literal('clip.setEffects'),
+      clipId: z.string().min(1),
+      before: ClipEffectStackSchema.nullable(),
+      after: ClipEffectStackSchema.nullable(),
+    })
+    .strict(),
+  z
+    .object({
       kind: z.literal('clip.setParams'),
       clipId: z.string().min(1),
       before: z.record(z.string(), z.unknown()).nullable(),
@@ -610,6 +839,52 @@ export const TimelineOpSchema = z.discriminatedUnion('kind', [
           message: 'after track property must match op property',
           path: ['after', 'property'],
         });
+      }
+    }),
+  z
+    .object({
+      kind: z.literal('effectKeyframe.upsert'),
+      clipId: z.string().min(1),
+      effectId: z.string().uuid(),
+      parameter: ClipEffectParameterSchema,
+      key: KeyframeSchema,
+      before: KeyframeSchema.nullable().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('effectKeyframe.remove'),
+      clipId: z.string().min(1),
+      effectId: z.string().uuid(),
+      parameter: ClipEffectParameterSchema,
+      atMs: z.number().int().min(0),
+      snapshot: KeyframeSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('effectKeyframe.setTrack'),
+      clipId: z.string().min(1),
+      effectId: z.string().uuid(),
+      parameter: ClipEffectParameterSchema,
+      before: EffectParameterKeyframeTrackSchema.nullable(),
+      after: EffectParameterKeyframeTrackSchema.nullable(),
+    })
+    .strict()
+    .superRefine((op, ctx) => {
+      for (const side of ['before', 'after'] as const) {
+        const track = op[side];
+        if (!track) continue;
+        if (
+          track.effectId !== op.effectId ||
+          track.parameter !== op.parameter
+        ) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `${side} track target must match the operation target`,
+            path: [side],
+          });
+        }
       }
     }),
   z

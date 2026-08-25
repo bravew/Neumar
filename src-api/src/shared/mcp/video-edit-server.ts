@@ -7,10 +7,16 @@
 
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import {
   ContentGraphSchema,
+  CLIP_EFFECT_CATALOG,
+  ClipEffectInputSchema,
+  ClipEffectStackSchema,
+  clipEffectFromInput,
+  deriveBeatTimelinePoints,
   deriveTimelineClipFrameFields,
   durationMsToFrames,
   KeyframeSchema,
@@ -22,6 +28,9 @@ import {
   VIVID_OVERLAY_MOTION_TEMPLATE_STRENGTHS,
 } from '@neumar/video-ir';
 import type {
+  BeatGridArtifact,
+  ClipEffect,
+  ClipEffectStack,
   FrameRate,
   TimelineOp,
   VividOverlayPresetDef,
@@ -49,6 +58,8 @@ import type {
   VideoAgentToolCall,
   VideoAgentToolName,
 } from '@/shared/video/agent-tools';
+import { analyzeSourceBeats } from '@/shared/video/analysis/beats';
+import { analyzeClipGradeImage } from '@/shared/video/analysis/clip-grade';
 import {
   indexProjectFrames,
   searchProjectFrames,
@@ -79,9 +90,28 @@ import {
 } from '@/shared/video/editor-context';
 import { buildEditorHandoffModel } from '@/shared/video/editor-handoff/build-model';
 import { evaluateHandoffConformance } from '@/shared/video/editor-handoff/conformance';
-import { listVideoEnginesWithBuiltins } from '@/shared/video/engines';
+import {
+  EngineSelectionError,
+  listEngineSelectionOptions,
+  listVideoEnginesWithBuiltins,
+  selectVideoEngine,
+} from '@/shared/video/engines';
 import { getVideoFeatureFlag } from '@/shared/video/flags';
+import {
+  checkHyperframesComposition,
+  COMPARE_TIMEOUT_MS,
+  compareHyperframesGrades,
+  compareHyperframesVariants,
+  HyperframesInspectError,
+  summarizeHyperframesCheck,
+} from '@/shared/video/hyperframes-inspect';
+import {
+  getHyperframesStudioBridge,
+  HyperframesStudioError,
+  resolveHyperframesStudioProjectDir,
+} from '@/shared/video/hyperframes-studio';
 import { analyzeImageFocalPoint } from '@/shared/video/image-analysis';
+import { readInlinePng } from '@/shared/video/inline-image';
 import { enqueueEditorHandoffJob } from '@/shared/video/jobs';
 import {
   attachLinkedAsset,
@@ -122,6 +152,7 @@ import {
   getVideoProjectJsonPath,
   getVideoWorkspaceRoot,
   setVideoProjectAspectRatio,
+  updateProjectDocument,
   writeProject,
 } from '@/shared/video/store';
 import { saveProjectAsTemplate } from '@/shared/video/templates/agent-bridge';
@@ -142,6 +173,11 @@ import {
   buildTimelineWindow,
   findTimelineClips,
 } from '@/shared/video/timeline-window';
+import {
+  hasVideoRefs,
+  resolveVideoRefs,
+  VideoRefResolutionError,
+} from '@/shared/video/tool-refs';
 import { transitionQualityEntry } from '@/shared/video/transition-quality';
 import {
   deriveTimelineTransitionSeams,
@@ -215,12 +251,18 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_list_assets',
   'video_describe_scene',
   'video_list_transition_presets',
+  'video_list_effect_presets',
   'video_list_overlay_presets',
   'video_save_overlay_preset',
   'video_save_overlay_style_from_template',
   'video_save_user_overlay_document',
   'video_get_transition_seams',
   'video_list_engines',
+  'video_select_engine',
+  'video_get_html_selection',
+  'video_compare_variants',
+  'video_compare_grades',
+  'video_check_html_composition',
   'video_search_templates',
   'video_list_custom_templates',
   'video_inspect_template',
@@ -266,6 +308,10 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_rotate_clip',
   'video_flip_clip',
   'video_set_clip_transform',
+  'video_set_clip_effects',
+  'video_analyze_clip_grade',
+  'video_detect_beats',
+  'video_snap_cuts_to_beats',
   'video_set_overlay_controls',
   'video_set_overlay_control_keyframes',
   'video_apply_overlay_motion_template',
@@ -513,6 +559,47 @@ function jsonResult(value: unknown) {
 
 function errorResult(message: string) {
   return { ...textResult(message), isError: true };
+}
+
+/**
+ * HyperFrames diagnostics escalate their typed reason so the agent can point
+ * the user at the doctor/setup surface instead of retrying blindly.
+ */
+function hyperframesInspectErrorResult(error: unknown) {
+  if (error instanceof HyperframesInspectError) {
+    return errorResult(`[${error.code}] ${error.message}`);
+  }
+  return errorResult(error instanceof Error ? error.message : String(error));
+}
+
+/**
+ * Image-bearing tool result: `[{type:'text'},{type:'image'}]`. The text half
+ * always carries the on-disk path, so an oversized sheet that cannot be
+ * inlined still leaves the agent something actionable.
+ */
+async function imageResult(value: unknown, absolutePngPath: string) {
+  const inline = await readInlinePng(absolutePngPath).catch(() => null);
+  const text = JSON.stringify(
+    {
+      ...(typeof value === 'object' && value !== null ? value : { value }),
+      inlineImage: inline
+        ? { included: true, downscaled: inline.downscaled, bytes: inline.bytes }
+        : { included: false, reason: 'too-large-or-unreadable' },
+    },
+    null,
+    2,
+  );
+  if (!inline) return textResult(text);
+  return {
+    content: [
+      { type: 'text' as const, text },
+      {
+        type: 'image' as const,
+        data: inline.base64,
+        mimeType: inline.mimeType,
+      },
+    ],
+  };
 }
 
 function withToolTimeout<T>(
@@ -869,6 +956,7 @@ function timelineApplyProposalPayload(
     summary: input.summary,
     opCount: ops.length,
     opKinds: ops.map((op) => op.kind),
+    ops,
     inverses: proposal.inverses,
     conflicts: proposal.conflicts,
     metadata: input.metadata,
@@ -960,23 +1048,92 @@ function camelToolCall<Name extends VideoAgentToolName>(
   };
 }
 
+/**
+ * Symbolic-key batch ops (P2-4). A batch op may carry `key`, which mints a
+ * clip id for a clip the caller did not pre-generate; later ops in the same
+ * batch reference it as `$key:<name>`, and the tool returns the key → id map.
+ * That is what turns multi-clip construction into one call instead of one
+ * round-trip per id, and it removes the need to hand `clip.removeTimeRange`
+ * caller-built replacement clips just to control their ids.
+ */
+const SYMBOLIC_KEY_PATTERN = /^[A-Za-z0-9_.-]{1,60}$/;
+
+interface ParsedTimelineBatch {
+  ops: TimelineOp[];
+  /** Symbolic key → minted clip id, in declaration order. */
+  keys: Record<string, string>;
+}
+
 function parseTimelineOpsWithResolverRefs(
   rawOps: Array<Record<string, unknown>>,
   refs: TimelineResolverRefs | undefined,
-): TimelineOp[] {
-  return rawOps.map((rawOp) =>
-    TimelineOpSchema.parse(resolveTimelineOpRefs(rawOp, refs)),
+  project?: VideoProject,
+): ParsedTimelineBatch {
+  const keyedClipIds: Record<string, string> = {};
+  const ops = rawOps.map((rawOp) =>
+    TimelineOpSchema.parse(
+      resolveTimelineOpRefs(rawOp, refs, keyedClipIds, project),
+    ),
   );
+  return { ops, keys: keyedClipIds };
 }
 
 function resolveTimelineOpRefs(
   rawOp: Record<string, unknown>,
   refs: TimelineResolverRefs | undefined,
+  keyedClipIds: Record<string, string>,
+  project: VideoProject | undefined,
 ): Record<string, unknown> {
-  const op = { ...rawOp };
+  const { key, ...rest } = rawOp;
+  const op: Record<string, unknown> = { ...rest };
+
+  if (key !== undefined) {
+    if (typeof key !== 'string' || !SYMBOLIC_KEY_PATTERN.test(key)) {
+      throw new Error(
+        'Batch op "key" must be 1-60 characters of [A-Za-z0-9_.-].',
+      );
+    }
+    if (keyedClipIds[key]) {
+      throw new Error(`Duplicate symbolic key "${key}" in this batch.`);
+    }
+    const clip = op.clip;
+    if (!clip || typeof clip !== 'object') {
+      throw new Error(
+        `Batch op "key" is only valid on clip-creating ops; op "${String(op.kind)}" has no clip.`,
+      );
+    }
+    const clipRecord = clip as Record<string, unknown>;
+    const mintedId =
+      typeof clipRecord.id === 'string' && clipRecord.id.length > 0
+        ? clipRecord.id
+        : randomUUID();
+    op.clip = { ...clipRecord, id: mintedId };
+    keyedClipIds[key] = mintedId;
+  }
+
+  // Every clip/track ref form the dispatcher understands works inside a batch
+  // too, plus `$key:` which only makes sense here.
+  if (project && hasVideoRefs(op)) {
+    return applyRefs(
+      resolveVideoRefs({
+        value: op,
+        project,
+        refs: { ...refs, keyedClipIds },
+      }) as Record<string, unknown>,
+      refs,
+    );
+  }
   if (typeof op.clipId === 'string') {
     op.clipId = resolveClipRef(op.clipId, refs);
   }
+  return applyRefs(op, refs);
+}
+
+/** The transcript range resolver, which is a range rewrite, not an id lookup. */
+function applyRefs(
+  op: Record<string, unknown>,
+  refs: TimelineResolverRefs | undefined,
+): Record<string, unknown> {
   if (
     op.kind === 'clip.removeTimeRange' &&
     op.rangeRef === 'transcript_selection'
@@ -985,9 +1142,13 @@ function resolveTimelineOpRefs(
     if (!range) {
       throw new Error('transcript_selection range resolver was not provided');
     }
-    op.startMs = range.startMs;
-    op.endMs = range.endMs;
-    delete op.rangeRef;
+    const next: Record<string, unknown> = {
+      ...op,
+      startMs: range.startMs,
+      endMs: range.endMs,
+    };
+    delete next.rangeRef;
+    return next;
   }
   return op;
 }
@@ -1009,6 +1170,21 @@ function selectionResolverRefs(
     : undefined;
 }
 
+/** Explicit caller refs win over the live editor selection. */
+function mergeResolverRefs(
+  base: TimelineResolverRefs | undefined,
+  explicit: TimelineResolverRefs | undefined,
+): TimelineResolverRefs | undefined {
+  if (!base) return explicit;
+  if (!explicit) return base;
+  return { ...base, ...explicit };
+}
+
+/** Only load the project when some ref actually needs the timeline. */
+function needsProjectForRefs(value: unknown): boolean {
+  return hasVideoRefs(value);
+}
+
 function resolveClipRef(
   value: string,
   refs: TimelineResolverRefs | undefined,
@@ -1028,6 +1204,73 @@ function resolveClipRef(
     return clipId;
   }
   return value;
+}
+
+function findProjectTimelineClip(
+  project: VideoProject,
+  clipId: string,
+): TimelineClip {
+  for (const track of project.timeline?.tracks ?? []) {
+    const clip = track.clips.find((candidate) => candidate.id === clipId);
+    if (clip) return clip;
+  }
+  throw new Error(`Timeline clip not found: ${clipId}`);
+}
+
+function isVisualTimelineMediaClip(
+  clip: TimelineClip,
+): clip is Extract<TimelineClip, { kind: 'video' | 'image' | 'overlay' }> {
+  return (
+    clip.kind === 'video' || clip.kind === 'image' || clip.kind === 'overlay'
+  );
+}
+
+function proposedGradeEffects(
+  current: ClipEffectStack | undefined,
+  correction: {
+    brightness: number;
+    contrast: number;
+    temperature: number;
+  },
+): ClipEffectStack {
+  const effects = [...(current?.effects ?? [])];
+  upsertGradeEffect(effects, 'brightness', { amount: correction.brightness });
+  upsertGradeEffect(effects, 'contrast', { amount: correction.contrast });
+  const whiteBalance = effects.find(
+    (effect) => effect.kind === 'white-balance',
+  );
+  if (whiteBalance?.kind === 'white-balance') {
+    const index = effects.indexOf(whiteBalance);
+    effects[index] = {
+      ...whiteBalance,
+      params: { ...whiteBalance.params, temperature: correction.temperature },
+    };
+  } else {
+    effects.push({
+      id: randomUUID(),
+      version: 1,
+      kind: 'white-balance',
+      params: { temperature: correction.temperature, tint: 0 },
+    });
+  }
+  return {
+    schema: 'neuma.video.clip-effects.v1',
+    effects,
+    ...(current?.keyframes ? { keyframes: current.keyframes } : {}),
+  };
+}
+
+function upsertGradeEffect(
+  effects: ClipEffect[],
+  kind: 'brightness' | 'contrast',
+  params: { amount: number },
+): void {
+  const existing = effects.find((effect) => effect.kind === kind);
+  if (existing?.kind === kind) {
+    effects[effects.indexOf(existing)] = { ...existing, params };
+    return;
+  }
+  effects.push({ id: randomUUID(), version: 1, kind, params });
 }
 
 function assetCounts(assets: MediaItem[]) {
@@ -1855,6 +2098,187 @@ function rankProjectMoments(
   };
 }
 
+function beatGridForAudioClip(
+  project: VideoProject,
+  clip: TimelineClip,
+): BeatGridArtifact | undefined {
+  if (clip.kind !== 'audio' || clip.sourceRef.kind !== 'asset')
+    return undefined;
+  const assetId = clip.sourceRef.assetId;
+  const source = project.sources?.find(
+    (entry) => entry.mediaItemId === assetId,
+  );
+  if (!source) return undefined;
+  for (const artifact of project.analysisArtifacts ?? []) {
+    if (
+      artifact.kind !== 'beat-markers' ||
+      artifact.sourceMediaId !== source.id ||
+      artifact.contentHash !== source.contentHash
+    ) {
+      continue;
+    }
+    const grid = readBeatGrid(artifact.metadata?.beatGrid);
+    if (grid) return grid;
+  }
+  return undefined;
+}
+
+function readBeatGrid(value: unknown): BeatGridArtifact | undefined {
+  if (!isUnknownRecord(value)) return undefined;
+  const record = value;
+  if (
+    record.schema !== 'neuma.video.beat-grid.v1' ||
+    typeof record.sourceMediaId !== 'string' ||
+    typeof record.contentHash !== 'string' ||
+    !Array.isArray(record.points)
+  ) {
+    return undefined;
+  }
+  const points = record.points.flatMap((point) => {
+    if (!isUnknownRecord(point)) return [];
+    const entry = point;
+    if (
+      typeof entry.sourceMs !== 'number' ||
+      typeof entry.confidence !== 'number'
+    ) {
+      return [];
+    }
+    return [
+      {
+        sourceMs: entry.sourceMs,
+        confidence: entry.confidence,
+        ...(typeof entry.bar === 'number' ? { bar: entry.bar } : {}),
+        ...(typeof entry.beat === 'number' ? { beat: entry.beat } : {}),
+      },
+    ];
+  });
+  return {
+    schema: 'neuma.video.beat-grid.v1',
+    sourceMediaId: record.sourceMediaId,
+    contentHash: record.contentHash,
+    ...(typeof record.tempoBpm === 'number'
+      ? { tempoBpm: record.tempoBpm }
+      : {}),
+    points,
+  };
+}
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function buildSnapCutsToBeatOps(
+  project: VideoProject,
+  beatTimesMs: number[],
+  toleranceMs: number,
+): TimelineOp[] {
+  const ops: TimelineOp[] = [];
+  for (const track of project.timeline?.tracks ?? []) {
+    if (track.kind !== 'video' && track.kind !== 'broll') continue;
+    const clips = [...track.clips].sort(
+      (left, right) => left.startMs - right.startMs,
+    );
+    // A clip sits on two boundaries when both of its neighbours snap. Each op
+    // must therefore build on the timing the previous op left behind, not on
+    // the clip's original timing — otherwise the second op silently reverts
+    // the first and the cut reopens.
+    const pending = new Map(clips.map((clip) => [clip.id, clipTiming(clip)]));
+    for (let index = 1; index < clips.length; index += 1) {
+      const previous = clips[index - 1]!;
+      const next = clips[index]!;
+      const previousFrom = pending.get(previous.id)!;
+      const nextFrom = pending.get(next.id)!;
+      const boundary = nextFrom.startMs;
+      if (
+        Math.abs(previousFrom.startMs + previousFrom.durationMs - boundary) > 1
+      ) {
+        continue;
+      }
+      const beat = nearestNumber(boundary, beatTimesMs, toleranceMs);
+      if (beat === undefined || Math.round(beat) === boundary) continue;
+      const deltaMs = Math.round(beat) - boundary;
+      const previousTo = retimeCutSide(previous, previousFrom, deltaMs, 'end');
+      const nextTo = retimeCutSide(next, nextFrom, deltaMs, 'start');
+      if (!previousTo || !nextTo) continue;
+      const previousOp: TimelineOp = {
+        kind: 'clip.trim',
+        clipId: previous.id,
+        from: previousFrom,
+        to: previousTo,
+      };
+      const nextOp: TimelineOp = {
+        kind: 'clip.trim',
+        clipId: next.id,
+        from: nextFrom,
+        to: nextTo,
+      };
+      // Move the clip that vacates the boundary first so the batch never
+      // passes through a transient overlap, which would read as a conflict.
+      ops.push(...(deltaMs > 0 ? [nextOp, previousOp] : [previousOp, nextOp]));
+      pending.set(previous.id, previousTo);
+      pending.set(next.id, nextTo);
+    }
+  }
+  return ops;
+}
+
+function retimeCutSide(
+  clip: TimelineClip,
+  from: ReturnType<typeof clipTiming>,
+  deltaMs: number,
+  side: 'start' | 'end',
+) {
+  const speed = clip.playback?.speed ?? 1;
+  const sourceDeltaMs = Math.round(deltaMs * speed);
+  const reverse = clip.playback?.reverse === true;
+  const next = { ...from };
+  if (side === 'end') {
+    next.durationMs += deltaMs;
+    if (reverse) next.trimStartMs -= sourceDeltaMs;
+    else next.trimEndMs += sourceDeltaMs;
+  } else {
+    next.startMs += deltaMs;
+    next.durationMs -= deltaMs;
+    if (reverse) next.trimEndMs -= sourceDeltaMs;
+    else next.trimStartMs += sourceDeltaMs;
+  }
+  if (
+    next.startMs < 0 ||
+    next.durationMs <= 0 ||
+    next.trimStartMs < 0 ||
+    next.trimEndMs <= next.trimStartMs
+  ) {
+    return undefined;
+  }
+  return next;
+}
+
+function clipTiming(clip: TimelineClip) {
+  return {
+    startMs: clip.startMs,
+    durationMs: clip.durationMs,
+    trimStartMs: clip.trimStartMs,
+    trimEndMs: clip.trimEndMs,
+  };
+}
+
+function nearestNumber(
+  value: number,
+  candidates: number[],
+  tolerance: number,
+): number | undefined {
+  let best: number | undefined;
+  let distance = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const nextDistance = Math.abs(candidate - value);
+    if (nextDistance <= tolerance && nextDistance < distance) {
+      best = candidate;
+      distance = nextDistance;
+    }
+  }
+  return best;
+}
+
 async function attachVideoAsset(
   inputProjectId: string | undefined,
   options: VideoEditServerOptions,
@@ -1915,6 +2339,58 @@ async function attachVideoAsset(
 }
 
 export function createVideoEditTools(options: VideoEditServerOptions = {}) {
+  return withVideoRefResolution(buildVideoEditTools(options), options);
+}
+
+/**
+ * Ref resolution in the MCP dispatcher (P2-2).
+ *
+ * Every clip-taking tool — not just `video_apply_timeline_ops` — accepts the
+ * shared ref vocabulary in its `clipId`, `clipIds`, and `trackId` fields. The
+ * project is loaded only when a ref is actually present, so literal-id calls
+ * pay nothing. `video_apply_timeline_ops` opts out: its batch pass has to run
+ * op-by-op so `$key:` refs can see keys minted earlier in the same batch.
+ */
+const SELF_RESOLVING_TOOLS = new Set(['video_apply_timeline_ops']);
+
+function withVideoRefResolution<
+  Tools extends ReadonlyArray<{
+    name: string;
+    handler: (args: never, extra: unknown) => Promise<unknown>;
+  }>,
+>(tools: Tools, options: VideoEditServerOptions): Tools {
+  return tools.map((definition) => {
+    if (SELF_RESOLVING_TOOLS.has(definition.name)) return definition;
+    const inner = definition.handler;
+    return {
+      ...definition,
+      handler: async (args: never, extra: unknown) => {
+        if (!hasVideoRefs(args)) return inner(args, extra);
+        let resolved: unknown;
+        try {
+          const input = args as unknown as { projectId?: string };
+          const project = await loadProjectForTool(input.projectId, options);
+          resolved = resolveVideoRefs({
+            value: args,
+            project,
+            refs: selectionResolverRefs(options),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof VideoRefResolutionError
+              ? `${definition.name}: could not resolve "${error.ref}" — ${error.message}`
+              : error instanceof Error
+                ? error.message
+                : String(error),
+          );
+        }
+        return inner(resolved as never, extra);
+      },
+    };
+  }) as unknown as Tools;
+}
+
+function buildVideoEditTools(options: VideoEditServerOptions) {
   return [
     tool(
       'video_get_project_summary',
@@ -2253,6 +2729,24 @@ export function createVideoEditTools(options: VideoEditServerOptions = {}) {
       },
     ),
     tool(
+      'video_list_effect_presets',
+      'Return the installed clip-effect catalog with closed parameter ranges and defaults. This tool is read-only.',
+      { projectId: PROJECT_ID_SCHEMA },
+      async ({ projectId }) => {
+        try {
+          return jsonResult({
+            schema: 'neuma.video.effect-presets.v1',
+            projectId: resolveProjectId(projectId, options),
+            presets: CLIP_EFFECT_CATALOG,
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
       'video_list_overlay_presets',
       'Return the vivid-overlay preset catalog: id, category, tags (the video-to-template classifier label space), control schema, durations, placement metadata, and optional taste metadata for routing choices. Use this to pick the closest preset when recreating an overlay seen in reference footage. This tool is read-only.',
       {
@@ -2510,19 +3004,301 @@ export function createVideoEditTools(options: VideoEditServerOptions = {}) {
     ),
     tool(
       'video_list_engines',
-      'List the registered video render engines (id, name, version, installed, capabilities). ' +
+      'List the registered video render engines (id, name, version, installed, capabilities) with their honest tradeoffs and, when an engine is unusable, the typed unavailable reason. ' +
         'Read-only. Surfaces the engine adapter seam from dev-doc/html-video Phase 1.',
       {},
       async () => {
         try {
           const engines = await listVideoEnginesWithBuiltins();
-          return jsonResult({ engines });
+          const options = await listEngineSelectionOptions();
+          return jsonResult({ engines, options });
         } catch (error) {
           return errorResult(
             error instanceof Error ? error.message : String(error),
           );
         }
       },
+    ),
+    tool(
+      'video_select_engine',
+      'Choose a render engine under the runtime-selection contract: returns a logged decision listing every engine considered with its tradeoffs. ' +
+        'When the requested engine is unavailable this escalates with the typed reason (not-found / version-too-old / browser-missing) instead of silently substituting another engine — present the options to the user and let them choose.',
+      {
+        engineId: z
+          .string()
+          .min(1)
+          .max(60)
+          .optional()
+          .describe(
+            'Engine to select (remotion | html | hyperframes). Omit to get the preference-order recommendation.',
+          ),
+      },
+      async ({ engineId }) => {
+        try {
+          await listVideoEnginesWithBuiltins();
+          const decision = await selectVideoEngine(
+            engineId ? { requestedEngineId: engineId } : {},
+          );
+          return jsonResult(decision);
+        } catch (error) {
+          if (error instanceof EngineSelectionError) {
+            return errorResult(
+              JSON.stringify(
+                {
+                  schema: 'neuma.video.engine-selection-error.v1',
+                  code: error.code,
+                  message: error.message,
+                  requestedEngineId: error.decisionInput.requestedEngineId,
+                  unavailableReason: error.decisionInput.unavailableReason,
+                  optionsConsidered: error.decisionInput.options,
+                },
+                null,
+                2,
+              ),
+            );
+          }
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_get_html_selection',
+      'Read the element currently selected in the managed HyperFrames Studio preview. Prefer the stable data-hf-id target; if no element is selected, ask the user to click it in Studio.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        compositionDir: z.string().min(1).max(500).default('hyperframes'),
+      },
+      async ({ projectId, compositionDir }) => {
+        try {
+          const resolvedProjectId = resolveProjectId(projectId, options);
+          const projectDir = resolveHyperframesStudioProjectDir(
+            getVideoProjectRoot(resolvedProjectId),
+            compositionDir,
+          );
+          const selection =
+            await getHyperframesStudioBridge().getSelection(projectDir);
+          return jsonResult({
+            schema: 'neuma.video.hyperframes-selection.v1',
+            projectId: resolvedProjectId,
+            selection,
+            contextTarget: selection.stableTarget,
+          });
+        } catch (error) {
+          if (
+            error instanceof HyperframesStudioError &&
+            error.code === 'no-selection'
+          ) {
+            return errorResult(
+              'No element is selected in HyperFrames Studio. Ask the user to click the target element, then retry.',
+            );
+          }
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_compare_variants',
+      'Render two or more HyperFrames composition variants at one timestamp into a single labeled contact sheet, returned as an inline image plus its path. Use this to choose between alternatives instead of describing them.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        variants: z
+          .array(
+            z
+              .object({
+                label: z.string().min(1).max(40),
+                compositionDir: z
+                  .string()
+                  .min(1)
+                  .max(500)
+                  .describe(
+                    'Composition directory relative to the video project root.',
+                  ),
+              })
+              .strict(),
+          )
+          .min(2)
+          .max(8),
+        atSec: z
+          .number()
+          .min(0)
+          .optional()
+          .describe('Timeline time to seek in every variant before capture.'),
+        cols: z.number().int().min(1).max(4).optional(),
+      },
+      async ({ projectId, variants, atSec, cols }) =>
+        withToolTimeout(
+          'video_compare_variants',
+          async () => {
+            const resolvedProjectId = resolveProjectId(projectId, options);
+            const root = getVideoProjectRoot(resolvedProjectId);
+            const resolvedVariants = variants.map((variant) => ({
+              label: variant.label,
+              compositionPath: resolveHyperframesStudioProjectDir(
+                root,
+                variant.compositionDir,
+              ),
+            }));
+            const outputPath = path.join(
+              root,
+              '.neuma-cache',
+              'compare',
+              `variants-${randomUUID()}.png`,
+            );
+            const result = await compareHyperframesVariants({
+              variants: resolvedVariants,
+              ...(atSec !== undefined ? { atSec } : {}),
+              ...(cols !== undefined ? { cols } : {}),
+              outputPath,
+              cwd: root,
+            });
+            const sheet = result.sheet
+              ? path.resolve(root, result.sheet)
+              : outputPath;
+            return imageResult(
+              {
+                schema: 'neuma.video.compare-variants.v1',
+                projectId: resolvedProjectId,
+                atSec: atSec ?? 0,
+                sheetPath: sheet,
+                variants: resolvedVariants.map((variant) => variant.label),
+                rendered: result.rendered ?? resolvedVariants.length,
+              },
+              sheet,
+            );
+          },
+          COMPARE_TIMEOUT_MS + 30_000,
+        ).catch(hyperframesInspectErrorResult),
+    ),
+    tool(
+      'video_compare_grades',
+      'Render candidate color grades (and/or .cube LUTs) onto one reference frame as a single labeled comparison sheet, returned as an inline image plus its path. Proposes; applies nothing. Pair with video_analyze_clip_grade and video_set_clip_effects.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referencePath: z
+          .string()
+          .min(1)
+          .max(500)
+          .describe(
+            'Reference image, or a video sampled at t=0, relative to the video project root.',
+          ),
+        grades: z
+          .array(
+            z
+              .object({
+                label: z.string().min(1).max(40),
+                grading: z.record(z.string(), z.unknown()),
+              })
+              .strict(),
+          )
+          .max(8)
+          .optional(),
+        luts: z.array(z.string().min(1).max(500)).max(8).optional(),
+        baseline: z
+          .boolean()
+          .optional()
+          .describe('Prepend the ungraded frame as an "original" cell.'),
+      },
+      async ({ projectId, referencePath, grades, luts, baseline }) =>
+        withToolTimeout(
+          'video_compare_grades',
+          async () => {
+            const resolvedProjectId = resolveProjectId(projectId, options);
+            const root = getVideoProjectRoot(resolvedProjectId);
+            const reference = validatePath(referencePath, root, 'read');
+            const resolvedLuts = (luts ?? []).map((lut) =>
+              validatePath(lut, root, 'read'),
+            );
+            const outputPath = path.join(
+              root,
+              '.neuma-cache',
+              'compare',
+              `grades-${randomUUID()}.png`,
+            );
+            const result = await compareHyperframesGrades({
+              referencePath: reference,
+              ...(grades ? { grades } : {}),
+              ...(resolvedLuts.length > 0 ? { luts: resolvedLuts } : {}),
+              ...(baseline !== undefined ? { baseline } : {}),
+              outputPath,
+              projectDir: root,
+              cwd: root,
+            });
+            const sheet = result.sheet
+              ? path.resolve(root, result.sheet)
+              : outputPath;
+            return imageResult(
+              {
+                schema: 'neuma.video.compare-grades.v1',
+                projectId: resolvedProjectId,
+                sheetPath: sheet,
+                cells: result.cells ?? 0,
+                candidates: [
+                  ...(grades ?? []).map((grade) => grade.label),
+                  ...resolvedLuts.map((lut) => path.basename(lut)),
+                ],
+              },
+              sheet,
+            );
+          },
+          COMPARE_TIMEOUT_MS + 30_000,
+        ).catch(hyperframesInspectErrorResult),
+    ),
+    tool(
+      'video_check_html_composition',
+      'Run the HyperFrames lint + runtime + layout + motion + WCAG AA contrast gate over an HTML composition in one browser session. Read-only. Findings are a result, not a failure — a non-clean report still returns.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        compositionDir: z.string().min(1).max(500).default('hyperframes'),
+        samples: z.number().int().min(1).max(60).optional(),
+        atSec: z.array(z.number().min(0)).max(20).optional(),
+        atTransitions: z.boolean().optional(),
+        contrast: z.boolean().optional(),
+        strict: z.boolean().optional(),
+        maxIssues: z.number().int().min(1).max(400).optional(),
+      },
+      async ({
+        projectId,
+        compositionDir,
+        samples,
+        atSec,
+        atTransitions,
+        contrast,
+        strict,
+        maxIssues,
+      }) =>
+        withToolTimeout(
+          'video_check_html_composition',
+          async () => {
+            const resolvedProjectId = resolveProjectId(projectId, options);
+            const root = getVideoProjectRoot(resolvedProjectId);
+            const dir = resolveHyperframesStudioProjectDir(
+              root,
+              compositionDir,
+            );
+            const report = await checkHyperframesComposition({
+              compositionDir: dir,
+              ...(samples !== undefined ? { samples } : {}),
+              ...(atSec?.length ? { atSec } : {}),
+              ...(atTransitions !== undefined ? { atTransitions } : {}),
+              ...(contrast !== undefined ? { contrast } : {}),
+              ...(strict !== undefined ? { strict } : {}),
+              ...(maxIssues !== undefined ? { maxIssues } : {}),
+              cwd: root,
+            });
+            return jsonResult({
+              schema: 'neuma.video.html-check.v1',
+              projectId: resolvedProjectId,
+              compositionDir,
+              summary: summarizeHyperframesCheck(report),
+              report,
+            });
+          },
+          300_000,
+        ).catch(hyperframesInspectErrorResult),
     ),
     tool(
       'video_search_templates',
@@ -3496,7 +4272,9 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
     ),
     tool(
       'video_apply_timeline_ops',
-      'Apply an ordered timeline operation batch atomically. The batch is one audit entry and one undo unit; if any op fails, no project write is committed.',
+      'Apply an ordered timeline operation batch atomically. The batch is one audit entry and one undo unit; if any op fails, no project write is committed. ' +
+        'A clip-creating op may carry a symbolic "key" instead of a pre-generated clip id; later ops in the same batch reference it as "$key:<name>", and the result returns the key → clip id map. ' +
+        'Clip and track fields also accept the shared refs: $selection, $transcript_selection, clipIndex:<n>, trackIndex:<n>:clipIndex:<m>, atSec:<seconds>, trackIndex:<n>.',
       {
         projectId: PROJECT_ID_SCHEMA,
         reasoning: REASONING_SCHEMA,
@@ -3507,15 +4285,31 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
       async (input) =>
         withToolTimeout('video_apply_timeline_ops', async () => {
           const { resolverRefs, ops, ...rest } = input;
-          const resolvedOps = parseTimelineOpsWithResolverRefs(
-            ops,
-            resolverRefs,
-          );
+          const refs = mergeResolverRefs(selectionResolverRefs(options), {
+            ...(resolverRefs ?? {}),
+          });
+          const project = needsProjectForRefs(ops)
+            ? await loadProjectForTool(input.projectId, options)
+            : undefined;
+          const batch = parseTimelineOpsWithResolverRefs(ops, refs, project);
           const { projectId, call } = camelToolCall('applyTimelineOps', {
             ...rest,
-            ops: resolvedOps,
+            ops: batch.ops,
           });
-          return toolCallResult(projectId, options, call);
+          const result = await toolCallResult(projectId, options, call);
+          if ('isError' in result || Object.keys(batch.keys).length === 0) {
+            return result;
+          }
+          return {
+            ...result,
+            content: [
+              ...result.content,
+              {
+                type: 'text' as const,
+                text: JSON.stringify({ symbolicKeys: batch.keys }, null, 2),
+              },
+            ],
+          };
         }).catch((error) =>
           errorResult(error instanceof Error ? error.message : String(error)),
         ),
@@ -3722,6 +4516,244 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
         const { applyMode, ...rest } = input;
         const { projectId, call } = camelToolCall('setClipTransform', rest);
         return timelineEditToolCallResult(projectId, options, call, applyMode);
+      },
+    ),
+    tool(
+      'video_set_clip_effects',
+      'Replace a visual clip canvas-effect stack with validated grading and blur effects. Legacy CSS filters remain unchanged. Pass clipId "selection" for the inspected clip.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        clipId: z.string().min(1),
+        effects: z.array(ClipEffectInputSchema).max(12),
+        applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
+        summary: z.string().max(280).optional(),
+      },
+      async ({ projectId, clipId, effects, applyMode, summary }) => {
+        try {
+          const project = await loadProjectForTool(projectId, options);
+          const resolvedClipId = resolveClipRef(
+            clipId,
+            selectionResolverRefs(options),
+          );
+          const clip = findProjectTimelineClip(project, resolvedClipId);
+          if (!isVisualTimelineMediaClip(clip)) {
+            return errorResult(`Clip is not visual media: ${resolvedClipId}`);
+          }
+          const after =
+            effects.length > 0
+              ? ClipEffectStackSchema.parse({
+                  schema: 'neuma.video.clip-effects.v1',
+                  effects: effects.map(clipEffectFromInput),
+                })
+              : null;
+          const op: TimelineOp = {
+            kind: 'clip.setEffects',
+            clipId: resolvedClipId,
+            before: clip.effects ?? null,
+            after,
+          };
+          if (applyMode === 'propose') {
+            return jsonResult(
+              timelineApplyProposalPayload(project, [op], {
+                tool: 'video_set_clip_effects',
+                summary,
+              }),
+            );
+          }
+          const resolved = camelToolCall('applyTimelineOps', {
+            projectId: project.id,
+            ops: [op],
+            summary,
+          });
+          return toolCallResult(resolved.projectId, options, resolved.call);
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_analyze_clip_grade',
+      'Measure a rendered clip frame and propose a bounded brightness, contrast, and white-balance correction. This tool never applies its proposal.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        clipId: z.string().min(1),
+        intent: z
+          .enum(['neutral', 'warmer', 'cooler', 'less-contrasty'])
+          .default('neutral'),
+        aspectRatio: ASPECT_RATIO_SCHEMA.optional(),
+      },
+      async ({ projectId, clipId, intent, aspectRatio }) =>
+        withToolTimeout(
+          'video_analyze_clip_grade',
+          async () => {
+            const project = await loadProjectForTool(projectId, options);
+            const resolvedClipId = resolveClipRef(
+              clipId,
+              selectionResolverRefs(options),
+            );
+            const clip = findProjectTimelineClip(project, resolvedClipId);
+            if (!isVisualTimelineMediaClip(clip)) {
+              return errorResult(`Clip is not visual media: ${resolvedClipId}`);
+            }
+            const sampleMs = Math.floor(clip.startMs + clip.durationMs / 2);
+            const frames = await renderTimelineFramesWithRemotion({
+              project,
+              startMs: sampleMs,
+              endMs: sampleMs + 1,
+              frameCount: 1,
+              aspectRatio:
+                aspectRatio ??
+                project.settings?.defaultAspectRatios?.[0] ??
+                '16:9',
+              maxEdgePx: 480,
+              root: getVideoProjectRoot(project.id),
+            });
+            const frame = frames.frames[0];
+            if (!frame) return errorResult('Grade analysis produced no frame.');
+            const analysis = await analyzeClipGradeImage(
+              frame.imageBase64,
+              intent,
+            );
+            const effects = proposedGradeEffects(
+              clip.effects,
+              analysis.correction,
+            );
+            const op: TimelineOp = {
+              kind: 'clip.setEffects',
+              clipId: resolvedClipId,
+              before: clip.effects ?? null,
+              after: effects,
+            };
+            return jsonResult({
+              ...analysis,
+              projectId: project.id,
+              clipId: resolvedClipId,
+              sampleMs,
+              proposal: timelineApplyProposalPayload(project, [op], {
+                tool: 'video_analyze_clip_grade',
+                summary: `Apply bounded grade correction to ${resolvedClipId}`,
+              }),
+            });
+          },
+          90_000,
+        ).catch((error) =>
+          errorResult(error instanceof Error ? error.message : String(error)),
+        ),
+    ),
+    tool(
+      'video_detect_beats',
+      'Detect a source-relative beat grid for an audio timeline clip and persist the derived analysis artifact. Moving, trimming, or retiming the clip does not require re-analysis.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        clipId: z.string().min(1),
+        bins: z.number().int().min(128).max(2048).default(2048),
+      },
+      async ({ projectId, clipId, bins }) =>
+        withToolTimeout(
+          'video_detect_beats',
+          async () => {
+            const proposal = await proposalOnlyServiceMutationResult(
+              projectId,
+              options,
+              'video_detect_beats',
+            );
+            if (proposal) return proposal;
+            const project = await loadProjectForTool(projectId, options);
+            const resolvedClipId = resolveClipRef(
+              clipId,
+              selectionResolverRefs(options),
+            );
+            const clip = findProjectTimelineClip(project, resolvedClipId);
+            if (clip.kind !== 'audio' || clip.sourceRef.kind !== 'asset') {
+              return errorResult(
+                `Clip is not project audio: ${resolvedClipId}`,
+              );
+            }
+            const assetId = clip.sourceRef.assetId;
+            const source = project.sources?.find(
+              (entry) => entry.mediaItemId === assetId,
+            );
+            const asset = project.assets.find((entry) => entry.id === assetId);
+            if (!source || !asset) {
+              return errorResult('Audio clip is missing its source or asset.');
+            }
+            const analysis = await analyzeSourceBeats({
+              source,
+              asset,
+              workspaceRoot: getVideoProjectRoot(project.id),
+              bins,
+            });
+            // `updateProjectDocument` has its own lock map, so it does not
+            // exclude the `withProjectLock` writers every other tool uses.
+            // Hold the shared lock too, or a concurrent edit can be lost.
+            await withProjectLock(project.id, () =>
+              updateProjectDocument(project.id, (current) => ({
+                ...current,
+                analysisArtifacts: [
+                  ...(current.analysisArtifacts ?? []).filter(
+                    (artifact) =>
+                      artifact.kind !== 'beat-markers' ||
+                      artifact.sourceMediaId !== source.id,
+                  ),
+                  analysis.artifact,
+                ],
+                updatedAt: new Date().toISOString(),
+              })),
+            );
+            return jsonResult({
+              projectId: project.id,
+              clipId: resolvedClipId,
+              artifact: analysis.artifact,
+              grid: analysis.grid,
+              timelinePoints: deriveBeatTimelinePoints(analysis.grid, clip),
+            });
+          },
+          90_000,
+        ).catch((error) =>
+          errorResult(error instanceof Error ? error.message : String(error)),
+        ),
+    ),
+    tool(
+      'video_snap_cuts_to_beats',
+      'Propose an invertible op batch that snaps touching visual cut boundaries to the nearest derived beat. This tool never applies the proposal.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        sourceClipId: z.string().min(1),
+        toleranceMs: z.number().int().min(10).max(1000).default(150),
+      },
+      async ({ projectId, sourceClipId, toleranceMs }) => {
+        try {
+          const project = await loadProjectForTool(projectId, options);
+          const resolvedClipId = resolveClipRef(
+            sourceClipId,
+            selectionResolverRefs(options),
+          );
+          const sourceClip = findProjectTimelineClip(project, resolvedClipId);
+          const grid = beatGridForAudioClip(project, sourceClip);
+          if (!grid) {
+            return errorResult(
+              'No current beat-grid artifact exists for this audio clip.',
+            );
+          }
+          const beatTimesMs = deriveBeatTimelinePoints(grid, sourceClip)
+            .map((point) => point.timelineMs)
+            .sort((a, b) => a - b);
+          const ops = buildSnapCutsToBeatOps(project, beatTimesMs, toleranceMs);
+          return jsonResult(
+            timelineApplyProposalPayload(project, ops, {
+              tool: 'video_snap_cuts_to_beats',
+              summary: `Snap ${ops.length / 2} cut boundaries to detected beats`,
+              metadata: { sourceClipId: resolvedClipId, toleranceMs },
+            }),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       },
     ),
     tool(

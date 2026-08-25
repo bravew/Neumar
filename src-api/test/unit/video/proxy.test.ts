@@ -22,7 +22,7 @@ import { probeFile, runFFmpeg } from '@/shared/services/ffmpeg';
 import {
   buildVideoProxyArgs,
   generateVideoProxyForAsset,
-  proxyPathForAssetPath,
+  proxyPathForAsset,
   shouldGenerateVideoProxy,
   VIDEO_PROXY_SIZE_THRESHOLD_BYTES,
 } from '@/shared/video/proxy';
@@ -94,26 +94,32 @@ describe('video proxy generation', () => {
     ).toBe(false);
   });
 
-  it('derives a sibling proxy filename and stable ffmpeg args', () => {
-    expect(proxyPathForAssetPath('videos/p1/assets/source.mov')).toBe(
-      'videos/p1/assets/source.proxy.mp4',
-    );
+  it('writes proxies into the project derivatives dir, with stable args', () => {
+    // Never beside the master: it may be an external file we only read.
+    expect(
+      proxyPathForAsset('p1', mediaAsset({ path: '/Volumes/Card/source.mov' })),
+    ).toMatch(/[/\\]p1[/\\]derivatives[/\\]asset-video[/\\]proxy\.mp4$/);
     expect(buildVideoProxyArgs('/in.mov', '/out.proxy.mp4')).toEqual([
       '-i',
       '/in.mov',
       '-map',
       '0:v:0',
+      '-map',
+      '0:a:0?',
       '-vf',
       'scale=-2:720',
       '-c:v',
       'libx264',
       '-preset',
-      'veryfast',
+      'fast',
       '-crf',
-      '30',
+      '23',
       '-pix_fmt',
       'yuv420p',
-      '-an',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128000',
       '-movflags',
       '+faststart',
       '/out.proxy.mp4',
@@ -134,16 +140,18 @@ describe('video proxy generation', () => {
     const result = await generateVideoProxyForAsset('project-1', asset.id);
 
     expect(result.generated).toBe(true);
+    const proxyRelativePath =
+      'videos/project-1/derivatives/asset-video/proxy.mp4';
     expect(mockedRunFFmpeg).toHaveBeenCalledWith(
       expect.arrayContaining([
         path.join(workDir, asset.path),
-        path.join(workDir, 'videos/project-1/assets/source.proxy.mp4'),
+        path.join(workDir, proxyRelativePath),
       ]),
       { inputDuration: 10 },
     );
     const updated = await getProject('project-1');
     expect(updated.assets[0]?.proxy).toMatchObject({
-      path: 'videos/project-1/assets/source.proxy.mp4',
+      path: proxyRelativePath,
       widthPx: 1280,
       heightPx: 720,
       bitrateBps: 1_800_000,

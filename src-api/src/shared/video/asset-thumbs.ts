@@ -42,6 +42,21 @@ export interface PeaksResult {
   durationMs: number;
 }
 
+export interface AssetThumbCacheOptions {
+  /**
+   * Directory to write cached derivatives into. Defaults to writing a hidden
+   * file beside the source, which is only appropriate when the source is
+   * inside a directory this app owns.
+   */
+  cacheDir?: string;
+  /**
+   * Pre-resolved absolute source path. Callers that already validated the file
+   * against a per-project rule (an external master, say) pass it here so this
+   * module doesn't re-check it against the workspace root and reject it.
+   */
+  resolvedPath?: string;
+}
+
 export interface PeaksRange {
   startMs: number;
   durationMs: number;
@@ -70,7 +85,26 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-async function cacheKey(absPath: string, suffix: string): Promise<string> {
+/**
+ * ffprobe re-validates its input against a root. When the caller already
+ * resolved the path under its own rule — an external master the project only
+ * references — validating it again against the workspace would reject a file
+ * we deliberately allow, so the file's own directory stands in.
+ */
+function probeRootFor(
+  absPath: string,
+  options: AssetThumbCacheOptions,
+): string {
+  return options.resolvedPath
+    ? path.dirname(absPath)
+    : (getSetting('workDir') ?? process.cwd());
+}
+
+async function cacheKey(
+  absPath: string,
+  suffix: string,
+  cacheDir?: string,
+): Promise<string> {
   const stat = await fs.stat(absPath);
   const hash = createHash('sha1')
     .update(absPath)
@@ -79,9 +113,14 @@ async function cacheKey(absPath: string, suffix: string): Promise<string> {
     .update(suffix)
     .digest('hex')
     .slice(0, 12);
-  const dir = path.dirname(absPath);
   const base = path.basename(absPath);
-  return path.join(dir, `.${base}.${suffix}-${hash}`);
+  if (cacheDir) {
+    await fs.mkdir(cacheDir, { recursive: true });
+    // The hash already carries the absolute source path, so two masters with
+    // the same basename can share this directory without colliding.
+    return path.join(cacheDir, `${base}.${suffix}-${hash}`);
+  }
+  return path.join(path.dirname(absPath), `.${base}.${suffix}-${hash}`);
 }
 
 /**
@@ -94,12 +133,13 @@ export async function getFilmstrip(
   assetPath: string,
   count: number,
   validationRoot?: string,
+  options: AssetThumbCacheOptions = {},
 ): Promise<FilmstripResult> {
   const workDir = validationRoot ?? getSetting('workDir') ?? process.cwd();
-  const absPath = validateInputFile(assetPath, workDir);
+  const absPath = options.resolvedPath ?? validateInputFile(assetPath, workDir);
   const clampedCount = clampCount(count);
 
-  const probe = await probeFile(absPath, workDir);
+  const probe = await probeFile(absPath, probeRootFor(absPath, options));
   const durationSec = probe.duration ?? 0;
   const videoStream = probe.streams.find(
     (s) => s.width != null && s.height != null,
@@ -116,7 +156,7 @@ export async function getFilmstrip(
   const aspect = srcW / Math.max(srcH, 1);
   const frameHeight = Math.max(2, Math.round(FILMSTRIP_FRAME_WIDTH / aspect));
 
-  const cachePath = `${await cacheKey(absPath, `strip-${clampedCount}-${FILMSTRIP_FRAME_WIDTH}`)}.png`;
+  const cachePath = `${await cacheKey(absPath, `strip-${clampedCount}-${FILMSTRIP_FRAME_WIDTH}`, options.cacheDir)}.png`;
   if (await pathExists(cachePath)) {
     return {
       stripPath: cachePath,
@@ -183,12 +223,13 @@ export async function getPeaks(
   bins: number,
   validationRoot?: string,
   range?: PeaksRange,
+  options: AssetThumbCacheOptions = {},
 ): Promise<PeaksResult> {
   const workDir = validationRoot ?? getSetting('workDir') ?? process.cwd();
-  const absPath = validateInputFile(assetPath, workDir);
+  const absPath = options.resolvedPath ?? validateInputFile(assetPath, workDir);
   const clampedBins = clampBins(bins);
 
-  const probe = await probeFile(absPath, workDir);
+  const probe = await probeFile(absPath, probeRootFor(absPath, options));
   const durationSec = probe.duration ?? 0;
   if (durationSec <= 0) {
     throw new Error('Asset has no detectable duration');
@@ -201,7 +242,7 @@ export async function getPeaks(
   const cacheSuffix = normalizedRange
     ? `peaks-${clampedBins}-${normalizedRange.startMs}-${normalizedRange.durationMs}-${normalizedRange.reverse === true ? 'reverse' : 'forward'}`
     : `peaks-${clampedBins}`;
-  const cachePath = `${await cacheKey(absPath, cacheSuffix)}.json`;
+  const cachePath = `${await cacheKey(absPath, cacheSuffix, options.cacheDir)}.json`;
   if (await pathExists(cachePath)) {
     const raw = await fs.readFile(cachePath, 'utf8');
     const parsed = JSON.parse(raw) as PeaksResult;

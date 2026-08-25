@@ -10,6 +10,10 @@ import type {
   AssetStorageStats,
 } from './types';
 
+// Backstop for the native folder picker: 30s past the server's own 120s
+// osascript/zenity timeout.
+const NATIVE_FOLDER_DIALOG_TIMEOUT_MS = 150_000;
+
 export interface AssetListResult {
   assets: Asset[];
   nextCursor: string | null;
@@ -102,13 +106,51 @@ export async function openNativeFolderDialog(): Promise<{
   supported: boolean;
   path: string | null;
 }> {
-  const response = await fetch(`${API_BASE_URL}/assets/native-folder-dialog`, {
-    method: 'POST',
-  });
+  // The server kills the OS picker after 120s, so anything past that means the
+  // request never reached it (a saturated connection pool does exactly this).
+  // Without the cap the caller waits forever with its button stuck disabled.
+  const timeout = AbortSignal.timeout(NATIVE_FOLDER_DIALOG_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/assets/native-folder-dialog`, {
+      method: 'POST',
+      signal: timeout,
+    });
+  } catch (error) {
+    if (timeout.aborted) throw new Error('Folder picker did not respond');
+    throw error;
+  }
   if (response.status === 501) return { supported: false, path: null };
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const body = (await response.json()) as { path: string | null };
   return { supported: true, path: body.path ?? null };
+}
+
+/**
+ * File counterpart of `openNativeFolderDialog`: asks the local API server to
+ * raise the OS file chooser and hand back absolute paths. A browser `File`
+ * carries bytes but no path, so this is the only way the web build can add
+ * media without uploading a copy of it.
+ */
+export async function openNativeFileDialog(): Promise<{
+  supported: boolean;
+  paths: string[];
+}> {
+  const timeout = AbortSignal.timeout(NATIVE_FOLDER_DIALOG_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/assets/native-file-dialog`, {
+      method: 'POST',
+      signal: timeout,
+    });
+  } catch (error) {
+    if (timeout.aborted) throw new Error('File picker did not respond');
+    throw error;
+  }
+  if (response.status === 501) return { supported: false, paths: [] };
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const body = (await response.json()) as { paths?: string[] };
+  return { supported: true, paths: body.paths ?? [] };
 }
 
 export async function deleteAsset(id: string): Promise<void> {

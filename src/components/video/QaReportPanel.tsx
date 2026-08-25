@@ -16,8 +16,14 @@ import type { TranslationKeys } from '@/config/locale';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoQaReport, VideoRenderOutput } from '@/shared/types/video';
 
+import { QaHtmlCheckSection } from './QaHtmlCheckSection';
+
 interface QaReportPanelProps {
   output?: VideoRenderOutput;
+  /** Enables the HyperFrames HTML-composition check (P2-1) when provided. */
+  projectId?: string;
+  /** Composition directory under the project root, for the HTML check. */
+  htmlCompositionDir?: string;
 }
 
 type QaReportSectionKey =
@@ -39,7 +45,11 @@ const SECTION_ICONS = {
 
 const QA_EXPANDED_STORAGE_KEY = 'neuma.video.qaReport.expanded';
 
-export function QaReportPanel({ output }: QaReportPanelProps) {
+export function QaReportPanel({
+  output,
+  projectId,
+  htmlCompositionDir,
+}: QaReportPanelProps) {
   const { t } = useLanguage();
   const report = output?.qaReport;
   const [expanded, setExpanded] = useState<boolean>(() => {
@@ -59,14 +69,14 @@ export function QaReportPanel({ output }: QaReportPanelProps) {
     }
   }, [expanded]);
 
-  if (!report) return null;
-
-  const sections = qaSections(report, t);
+  const sections = report ? qaSections(report, t) : [];
   const issueCount = sections.reduce(
     (total, section) => total + section.count,
     0,
   );
-  if (issueCount === 0) return null;
+  // The HTML check is a pre-render composition gate, so the panel stays
+  // mounted for it even when a render produced no QA findings.
+  if (issueCount === 0 && !projectId) return null;
 
   return (
     <div className="border-border bg-background/95 shrink-0 border-t px-4 py-1.5">
@@ -82,48 +92,74 @@ export function QaReportPanel({ output }: QaReportPanelProps) {
           ) : (
             <ChevronRight className="text-muted-foreground size-3.5 shrink-0" />
           )}
-          <AlertTriangle className="text-destructive size-4 shrink-0" />
+          <AlertTriangle
+            className={
+              issueCount > 0
+                ? 'text-destructive size-4 shrink-0'
+                : 'text-muted-foreground size-4 shrink-0'
+            }
+          />
           <span className="text-foreground text-xs font-medium">
             {t.video.editor.qa.title}
           </span>
-          <span className="text-destructive text-xs">
-            {t.video.editor.qa.issueCount.replace(
-              '{count}',
-              String(issueCount),
-            )}
+          <span
+            className={
+              issueCount > 0
+                ? 'text-destructive text-xs'
+                : 'text-muted-foreground text-xs'
+            }
+          >
+            {issueCount > 0
+              ? t.video.editor.qa.issueCount.replace(
+                  '{count}',
+                  String(issueCount),
+                )
+              : t.video.editor.qa.passed}
           </span>
         </div>
-        <span className="text-muted-foreground text-xs">
-          {output.aspectRatio} · {formatSeconds(output.durationSec)}
-        </span>
+        {output ? (
+          <span className="text-muted-foreground text-xs">
+            {output.aspectRatio} · {formatSeconds(output.durationSec)}
+          </span>
+        ) : null}
       </button>
       {expanded ? (
-        <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-          {sections
-            .filter((section) => section.count > 0)
-            .map((section) => {
-              const Icon = SECTION_ICONS[section.key];
-              return (
-                <div
-                  key={section.key}
-                  className="border-border bg-muted/40 rounded-md border px-2 py-1.5"
-                >
-                  <div className="text-foreground flex items-center gap-1.5 text-xs font-medium">
-                    <Icon className="size-3.5 shrink-0" />
-                    <span>{section.label}</span>
-                    <span className="text-muted-foreground">
-                      {section.count}
-                    </span>
-                  </div>
-                  {section.detail ? (
-                    <div className="text-muted-foreground mt-1 truncate text-[11px]">
-                      {section.detail}
+        <>
+          <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {sections
+              .filter((section) => section.count > 0)
+              .map((section) => {
+                const Icon = SECTION_ICONS[section.key];
+                return (
+                  <div
+                    key={section.key}
+                    className="border-border bg-muted/40 rounded-md border px-2 py-1.5"
+                  >
+                    <div className="text-foreground flex items-center gap-1.5 text-xs font-medium">
+                      <Icon className="size-3.5 shrink-0" />
+                      <span>{section.label}</span>
+                      <span className="text-muted-foreground">
+                        {section.count}
+                      </span>
                     </div>
-                  ) : null}
-                </div>
-              );
-            })}
-        </div>
+                    {section.detail ? (
+                      <div className="text-muted-foreground mt-1 truncate text-[11px]">
+                        {section.detail}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+          </div>
+          {projectId ? (
+            <QaHtmlCheckSection
+              projectId={projectId}
+              {...(htmlCompositionDir
+                ? { compositionDir: htmlCompositionDir }
+                : {})}
+            />
+          ) : null}
+        </>
       ) : null}
     </div>
   );

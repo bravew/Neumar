@@ -8,6 +8,7 @@ import {
   resolveTimelineProperty,
 } from '@neumar/video-ir';
 import type { KeyframeableProperty } from '@neumar/video-ir';
+import { Video as MediaVideo, type VideoObjectFit } from '@remotion/media';
 import { TransitionSeries } from '@remotion/transitions';
 import React, { type CSSProperties } from 'react';
 import {
@@ -19,7 +20,7 @@ import {
   OffthreadVideo,
   useCurrentFrame,
 } from 'remotion';
-import type { CalculateMetadataFunction } from 'remotion';
+import type { CalculateMetadataFunction, EffectsProp } from 'remotion';
 import { Sequence } from 'remotion';
 
 import {
@@ -28,6 +29,7 @@ import {
   resolveCaptionWords,
 } from './caption-word-render';
 import { buildClipCssFilter } from './clip-filters';
+import { buildRemotionClipEffects } from './remotion-clip-effects';
 import {
   REMOTION_OVERLAY_PASS_COMPOSITION_ID,
   REMOTION_RENDER_COMPOSITION_ID,
@@ -69,7 +71,9 @@ const DEFAULT_RENDER_INPUT: RemotionCompositionProps = {
   visualClips: [],
   audioClips: [],
   captions: [],
+  useRemotionMedia: true,
 };
+const NO_EFFECTS: EffectsProp = [];
 const calculateMetadata: CalculateMetadataFunction<
   RemotionCompositionProps
 > = ({ props }) => ({
@@ -124,10 +128,15 @@ export function RemotionRenderComposition(
   return React.createElement(
     AbsoluteFill,
     { style: { backgroundColor: '#000000' } },
-    ...visualTrackNodes(props.visualClips, props.fps, {
-      width: props.compositionWidth,
-      height: props.compositionHeight,
-    }),
+    ...visualTrackNodes(
+      props.visualClips,
+      props.fps,
+      {
+        width: props.compositionWidth,
+        height: props.compositionHeight,
+      },
+      props.useRemotionMedia ?? true,
+    ),
     ...props.audioClips.map((clip) =>
       React.createElement(
         Sequence,
@@ -176,14 +185,17 @@ function VisualClip({
   clip,
   transitionTailFrames,
   fps,
+  useRemotionMedia,
 }: {
   clip: RemotionRenderVisualClip;
   transitionTailFrames: number;
   fps: number;
+  useRemotionMedia: boolean;
 }) {
   const frame = useCurrentFrame();
   const localMs = frameToMs(frame, fps);
   const style = transformStyle(clip, localMs);
+  const effects = buildRemotionClipEffects(clip.effects, localMs);
   const blurPad = clip.transforms?.fit === 'blur-pad';
   const trimBefore = clip.sourceStartFrame;
   const trimAfter = sourceEndFrameWithTail(clip, transitionTailFrames);
@@ -200,8 +212,8 @@ function VisualClip({
       return React.createElement(
         AbsoluteFill,
         { style },
-        React.createElement(Img, { src: clip.src, style: bg }),
-        React.createElement(Img, { src: clip.src, style: fg }),
+        React.createElement(Img, { src: clip.src, style: bg, effects }),
+        React.createElement(Img, { src: clip.src, style: fg, effects }),
       );
     }
     return React.createElement(
@@ -210,6 +222,7 @@ function VisualClip({
       React.createElement(Img, {
         src: clip.src,
         style: mediaElementStyle(clip, localMs),
+        effects,
       }),
     );
   }
@@ -229,30 +242,36 @@ function VisualClip({
           return React.createElement(
             React.Fragment,
             null,
-            React.createElement(OffthreadVideo, {
+            React.createElement(RenderVideo, {
               src: clip.src,
               style: bg,
               muted: true,
               trimBefore,
               trimAfter,
+              useRemotionMedia,
+              effects,
               ...playbackProps,
             }),
-            React.createElement(OffthreadVideo, {
+            React.createElement(RenderVideo, {
               src: clip.src,
               style: fg,
               muted,
               trimBefore,
               trimAfter,
+              useRemotionMedia,
+              effects,
               ...playbackProps,
             }),
           );
         })()
-      : React.createElement(OffthreadVideo, {
+      : React.createElement(RenderVideo, {
           src: clip.src,
           style: mediaElementStyle(clip, localMs),
           muted,
           trimBefore,
           trimAfter,
+          useRemotionMedia,
+          effects,
           ...playbackProps,
         });
 
@@ -279,6 +298,84 @@ function VisualClip({
           frame: reverseFrame,
         }),
   );
+}
+
+interface RenderVideoProps {
+  src: string;
+  muted: boolean;
+  trimBefore: number;
+  trimAfter: number;
+  playbackRate?: number;
+  preservePitch?: boolean;
+  style?: CSSProperties;
+  useRemotionMedia: boolean;
+  effects?: EffectsProp;
+}
+
+/** Selects the new renderer or the legacy rollback path per render input. */
+function RenderVideo({
+  src,
+  muted,
+  trimBefore,
+  trimAfter,
+  playbackRate,
+  preservePitch,
+  style,
+  useRemotionMedia,
+  effects = NO_EFFECTS,
+}: RenderVideoProps): React.ReactElement {
+  if (!useRemotionMedia) {
+    if (effects.length > 0) {
+      throw new UnsupportedMediaEffectError();
+    }
+    return React.createElement(OffthreadVideo, {
+      src,
+      muted,
+      trimBefore,
+      trimAfter,
+      playbackRate,
+      preservePitch,
+      style,
+    });
+  }
+
+  const { objectFit, ...canvasStyle } = style ?? {};
+  return React.createElement(MediaVideo, {
+    src,
+    muted,
+    trimBefore,
+    trimAfter,
+    playbackRate,
+    objectFit: toMediaObjectFit(objectFit),
+    style: canvasStyle,
+    disallowFallbackToOffthreadVideo: effects.length > 0,
+    effects,
+    fallbackOffthreadVideoProps: { preservePitch },
+  });
+}
+
+export class UnsupportedMediaEffectError extends Error {
+  readonly code = 'unsupported_media_effect_renderer';
+
+  constructor() {
+    super('Clip effects require the @remotion/media canvas renderer');
+    this.name = 'UnsupportedMediaEffectError';
+  }
+}
+
+function toMediaObjectFit(
+  objectFit: CSSProperties['objectFit'],
+): VideoObjectFit | undefined {
+  switch (objectFit) {
+    case 'fill':
+    case 'contain':
+    case 'cover':
+    case 'none':
+    case 'scale-down':
+      return objectFit;
+    default:
+      return undefined;
+  }
 }
 
 // blur-pad: whole media (contain) over a blurred, zoomed cover copy. Mirrors the
@@ -633,11 +730,22 @@ function visualTrackNodes(
   clips: RemotionRenderVisualClip[],
   fps: number,
   size: { width: number; height: number },
+  useRemotionMedia: boolean,
 ): React.ReactNode[] {
   return groupVisualClipsByTrack(clips, fps).flatMap((track) =>
     track.hasTransitions
-      ? [transitionTrackNode(track.id, track.clips, fps, size)]
-      : track.clips.map((clip) => visualClipSequenceNode(clip, fps)),
+      ? [
+          transitionTrackNode(
+            track.id,
+            track.clips,
+            fps,
+            size,
+            useRemotionMedia,
+          ),
+        ]
+      : track.clips.map((clip) =>
+          visualClipSequenceNode(clip, fps, useRemotionMedia),
+        ),
   );
 }
 
@@ -646,6 +754,7 @@ function transitionTrackNode(
   clips: RemotionRenderVisualClip[],
   fps: number,
   size: { width: number; height: number },
+  useRemotionMedia: boolean,
 ): React.ReactNode {
   let cursorFrame = 0;
   const children = clips.flatMap((clip, index) => {
@@ -673,6 +782,7 @@ function transitionTrackNode(
           clip,
           transitionTailFrames: transitionFrames,
           fps,
+          useRemotionMedia,
         }),
       ),
     );
@@ -693,6 +803,7 @@ function transitionTrackNode(
 function visualClipSequenceNode(
   clip: RemotionRenderVisualClip,
   fps: number,
+  useRemotionMedia: boolean,
 ): React.ReactNode {
   return React.createElement(
     Sequence,
@@ -701,7 +812,12 @@ function visualClipSequenceNode(
       from: clip.fromFrame,
       durationInFrames: clip.durationInFrames,
     },
-    React.createElement(VisualClip, { clip, transitionTailFrames: 0, fps }),
+    React.createElement(VisualClip, {
+      clip,
+      transitionTailFrames: 0,
+      fps,
+      useRemotionMedia,
+    }),
   );
 }
 

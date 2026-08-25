@@ -161,11 +161,18 @@ describe('template gallery loader', () => {
 });
 
 describe('engine registry', () => {
-  it('honestly reports both engines as installed (Playwright + Remotion)', async () => {
+  it('honestly reports engine availability (Playwright + Remotion)', async () => {
     const engines = await listVideoEnginesWithBuiltins();
     const byId = Object.fromEntries(engines.map((e) => [e.id, e]));
     expect(byId.remotion?.installed).toBe(true);
-    expect(byId.html?.installed).toBe(true);
+    // html tracks the real Chromium binary, which may not be downloaded here.
+    expect(typeof byId.html?.installed).toBe('boolean');
+    if (!byId.html?.installed) {
+      expect(byId.html?.availability).toMatchObject({
+        installed: false,
+        reason: 'browser-missing',
+      });
+    }
     expect(byId.html?.capabilities.paradigms).toContain('html-css-gsap');
   });
 
@@ -189,7 +196,7 @@ describe('engine registry', () => {
           config: {
             format: 'mp4',
             resolution: { width: 320, height: 240 },
-            fps: 30,
+            fps: { num: 30, den: 1 },
             duration: 0.5,
             outputPath: path.join(workDir, 'no-such-source.mp4'),
           },
@@ -483,10 +490,10 @@ describe.each(projects)('render-path slice: $name', (fixture) => {
         audio: 'multi' as const,
         subtitles: 'burn-in' as const,
         renderTarget: ['local-chromium'] as const,
-        fps: [30],
+        fps: [{ num: 30, den: 1 }],
         licensing: 'Apache-2.0',
       },
-      isInstalled: () => true,
+      probeAvailability: () => ({ installed: true, version: 'test' }),
       validate: () => ({ ok: true, issues: [] }),
       async render(
         input: import('@/shared/video/engines/types').EngineRenderInput,
@@ -504,7 +511,7 @@ describe.each(projects)('render-path slice: $name', (fixture) => {
                 : Number(input.config.duration),
             fileSizeBytes: 32,
             actualResolution: input.config.resolution,
-            fps: input.config.fps,
+            fps: 30,
             renderedFrames: 1,
             renderWallClockSec: 0.01,
             engineVersion: 'stub/0.0.0',

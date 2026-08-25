@@ -311,7 +311,11 @@ export async function renderTimelineFramesWithRemotion({
     applied: {
       transforms: stillInputProps.visualClips.some((clip) =>
         Boolean(
-          clip.transforms || clip.filters || clip.reframe || clip.imagePan,
+          clip.transforms ||
+          clip.filters ||
+          clip.effects ||
+          clip.reframe ||
+          clip.imagePan,
         ),
       ),
       overlays: stillInputProps.visualClips.some(

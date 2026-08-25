@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { API_BASE_URL } from '@/config';
 import type { VideoJob } from '@/shared/types/video';
@@ -40,6 +40,12 @@ export function useRenderQueueJobs(
   }: { enabled?: boolean; pollIntervalMs?: number } = {},
 ) {
   const [jobs, setJobs] = useState<VideoJob[]>([]);
+  // Browsers allow ~6 sockets per host. When the API stalls (a large upload
+  // hogging the event loop, say) an unguarded 3s poll stacks a new request on
+  // every tick until the whole pool is queued behind them and *nothing* else in
+  // the app — uploads, the folder picker — can reach the server again. Skip the
+  // tick instead of piling on.
+  const inFlightRef = useRef(false);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -47,6 +53,8 @@ export function useRenderQueueJobs(
         setJobs([]);
         return;
       }
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
       try {
         const res = await fetch(
           `${API_BASE_URL}/video/render-queue?projectId=${encodeURIComponent(
@@ -59,6 +67,8 @@ export function useRenderQueueJobs(
         if (!signal?.aborted) setJobs(parseVideoJobs(data));
       } catch {
         if (!signal?.aborted) setJobs([]);
+      } finally {
+        inFlightRef.current = false;
       }
     },
     [enabled, projectId],

@@ -4,7 +4,12 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { isAssetMaterializationBudgetError } from '@/shared/assets';
 import type { AssetMaterializationBudgetError } from '@/shared/assets';
-import type { VideoProject, VideoTimelineTrack } from '@/shared/types/video';
+import type {
+  VideoProject,
+  VideoTimeline,
+  VideoTimelineClip,
+  VideoTimelineTrack,
+} from '@/shared/types/video';
 
 import type { VideoProjectEditorActions } from '../editorTypes';
 import {
@@ -70,17 +75,24 @@ export function useProjectAssetTimelineActions(params: {
     [actions, onBudgetIssue, onError, sessionId],
   );
 
-  const placeAsset = useCallback(
-    (asset: ProjectAsset) => {
+  // Shared by both the single-asset and bulk placement paths. Takes the
+  // timeline/insertClip explicitly (rather than closing over `editor`) so
+  // the bulk path can re-read the live store between placements — insert
+  // one clip, then look up the next open slot against the timeline that
+  // now includes it, instead of every clip in a multi-select computing its
+  // slot from the same stale snapshot and landing on top of each other.
+  const placeOneAsset = useCallback(
+    (
+      asset: ProjectAsset,
+      timeline: VideoTimeline,
+      insertClip: (trackId: string, clip: VideoTimelineClip) => void,
+    ) => {
       const track = choosePlacementTrack(
-        activeTimeline.tracks,
+        timeline.tracks,
         asset.kind,
         selectedTrackId,
       );
       if (!track) return;
-      if (editor.projectId !== project.id || !editor.timeline) {
-        editor.setProjectTimeline(project.id, activeTimeline);
-      }
       const clip = timelineClipFromDroppedAsset(asset, track, playheadMs, {
         aspectRatio,
       });
@@ -94,7 +106,7 @@ export function useProjectAssetTimelineActions(params: {
         placementStartMs === clip.startMs
           ? clip
           : { ...clip, startMs: placementStartMs };
-      editor.insertClip(track.id, placedClip);
+      insertClip(track.id, placedClip);
       if (!canDownloadProjectAsset(asset)) return;
       void actions
         .hydrateProjectAsset(asset.id, { sessionId })
@@ -114,21 +126,45 @@ export function useProjectAssetTimelineActions(params: {
     },
     [
       actions,
-      activeTimeline,
       aspectRatio,
       editor,
       onBudgetIssue,
       onError,
       playheadMs,
-      project.id,
       selectedTrackId,
       sessionId,
     ],
   );
 
+  const ensureProjectTimeline = useCallback(() => {
+    if (editor.projectId !== project.id || !editor.timeline) {
+      editor.setProjectTimeline(project.id, activeTimeline);
+    }
+  }, [activeTimeline, editor, project.id]);
+
+  const placeAsset = useCallback(
+    (asset: ProjectAsset) => {
+      ensureProjectTimeline();
+      placeOneAsset(asset, activeTimeline, editor.insertClip);
+    },
+    [activeTimeline, editor.insertClip, ensureProjectTimeline, placeOneAsset],
+  );
+
+  const placeAssets = useCallback(
+    (assets: ProjectAsset[]) => {
+      ensureProjectTimeline();
+      for (const asset of assets) {
+        const state = useTimelineEditorStore.getState();
+        const timeline = state.timeline ?? activeTimeline;
+        placeOneAsset(asset, timeline, state.insertClip);
+      }
+    },
+    [activeTimeline, ensureProjectTimeline, placeOneAsset],
+  );
+
   return useMemo(
-    () => ({ placeAsset, downloadAsset }),
-    [downloadAsset, placeAsset],
+    () => ({ placeAsset, placeAssets, downloadAsset }),
+    [downloadAsset, placeAsset, placeAssets],
   );
 }
 
@@ -138,6 +174,11 @@ export function canDownloadProjectAsset(asset: ProjectAsset): boolean {
     asset.materializationState === 'hydrating' ||
     asset.materializationState === 'error'
   );
+}
+
+/** True once the asset's master is actually on disk — reveal needs a real file to point Finder at. */
+export function canRevealProjectAsset(asset: ProjectAsset): boolean {
+  return !canDownloadProjectAsset(asset);
 }
 
 function choosePlacementTrack(

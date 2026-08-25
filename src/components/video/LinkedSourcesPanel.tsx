@@ -284,12 +284,13 @@ export async function pickLocalFolder(title: string): Promise<string | null> {
   // Web build: spawn the OS-native folder picker via the local API server,
   // which returns a real path the indexer can read. Only if the platform has
   // no native dialog do we fall back to a manual path prompt.
-  try {
-    const native = await openNativeFolderDialog();
-    if (native.supported) return native.path;
-  } catch {
-    // Dialog route unreachable — fall through to manual entry.
-  }
+  //
+  // A *failed* request must not land in that fallback: `window.prompt` blocks
+  // the renderer outright, so a transient API error would freeze the whole app
+  // behind a bare browser prompt instead of failing one action. Let the error
+  // reach the caller, which reports it as a toast.
+  const native = await openNativeFolderDialog();
+  if (native.supported) return native.path;
   return window.prompt(title);
 }
 

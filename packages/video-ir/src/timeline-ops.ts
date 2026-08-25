@@ -1,4 +1,8 @@
 import {
+  findEffectParameterTrack,
+  getClipEffectParameterDefinition,
+} from './clip-effects.js';
+import {
   findKeyframeAt,
   findKeyframeTrack,
   keyframeTrackValidationError,
@@ -18,6 +22,9 @@ import type {
   CaptionTimelineClip,
   ClipLinkState,
   ClipTimingState,
+  ClipEffectParameter,
+  ClipEffectStack,
+  EffectParameterKeyframeTrack,
   Keyframe,
   KeyframeTrack,
   KeyframeableProperty,
@@ -92,6 +99,8 @@ export function applyTimelineOp(
       return applyClipSetTransform(timeline, op);
     case 'clip.setFilters':
       return applyClipSetFilters(timeline, op);
+    case 'clip.setEffects':
+      return applyClipSetEffects(timeline, op);
     case 'clip.setParams':
       return applyClipSetParams(timeline, op);
     case 'clip.setPlayback':
@@ -102,6 +111,12 @@ export function applyTimelineOp(
       return applyKeyframeRemove(timeline, op);
     case 'keyframe.setTrack':
       return applyKeyframeSetTrack(timeline, op);
+    case 'effectKeyframe.upsert':
+      return applyEffectKeyframeUpsert(timeline, op);
+    case 'effectKeyframe.remove':
+      return applyEffectKeyframeRemove(timeline, op);
+    case 'effectKeyframe.setTrack':
+      return applyEffectKeyframeSetTrack(timeline, op);
     case 'caption.splitAtTime':
       return applyCaptionSplitAtTime(timeline, op);
     case 'caption.mergeSibling':
@@ -962,6 +977,24 @@ function applyClipSetFilters(
   }));
 }
 
+function applyClipSetEffects(
+  timeline: Timeline,
+  op: Extract<TimelineOp, { kind: 'clip.setEffects' }>,
+): TimelineOpResult {
+  return applyVisualClipPatch(timeline, op.clipId, (clip) => ({
+    clip:
+      op.after === null
+        ? omitKey(clip, 'effects')
+        : { ...clip, effects: op.after },
+    inverse: {
+      kind: 'clip.setEffects',
+      clipId: op.clipId,
+      before: op.after,
+      after: clip.effects ?? op.before ?? null,
+    },
+  }));
+}
+
 function applyClipSetParams(
   timeline: Timeline,
   op: Extract<TimelineOp, { kind: 'clip.setParams' }>,
@@ -1125,7 +1158,7 @@ function applyKeyframeRemove(
     assertKeyframeValueValid(op.property, op.snapshot.value);
     const track = findKeyframeTrack(clip.keyframes, op.property);
     const snapshot = findKeyframeAt(track, op.atMs);
-    if (!snapshot) {
+    if (!track || !snapshot) {
       throw new TimelineOpError(
         `Keyframe not found at ${op.atMs}ms on ${op.property}`,
         'keyframe_missing',
@@ -1163,6 +1196,125 @@ function applyKeyframeSetTrack(
         kind: 'keyframe.setTrack',
         clipId: op.clipId,
         property: op.property,
+        before: op.after,
+        after: before,
+      },
+    };
+  });
+}
+
+function applyEffectKeyframeUpsert(
+  timeline: Timeline,
+  op: Extract<TimelineOp, { kind: 'effectKeyframe.upsert' }>,
+): TimelineOpResult {
+  return applyVisualClipPatch(timeline, op.clipId, (clip) => {
+    const stack = requireEffectStack(clip, op.effectId, op.parameter);
+    assertKeyframeFitsClip(clip, op.key);
+    assertEffectKeyframeValueValid(stack, op.effectId, op.parameter, op.key);
+    const track = findEffectParameterTrack(stack, op.effectId, op.parameter);
+    const before = track?.keys.find((key) => key.atMs === op.key.atMs) ?? null;
+    const keys = [
+      ...(track?.keys.filter((key) => key.atMs !== op.key.atMs) ?? []),
+      op.key,
+    ].sort((left, right) => left.atMs - right.atMs);
+    return {
+      clip: withEffectParameterTrack(
+        clip,
+        {
+          effectId: op.effectId,
+          parameter: op.parameter,
+          keys,
+        },
+        op.effectId,
+        op.parameter,
+      ),
+      inverse:
+        before === null
+          ? {
+              kind: 'effectKeyframe.remove',
+              clipId: op.clipId,
+              effectId: op.effectId,
+              parameter: op.parameter,
+              atMs: op.key.atMs,
+              snapshot: op.key,
+            }
+          : {
+              kind: 'effectKeyframe.upsert',
+              clipId: op.clipId,
+              effectId: op.effectId,
+              parameter: op.parameter,
+              key: before,
+              before: op.key,
+            },
+    };
+  });
+}
+
+function applyEffectKeyframeRemove(
+  timeline: Timeline,
+  op: Extract<TimelineOp, { kind: 'effectKeyframe.remove' }>,
+): TimelineOpResult {
+  return applyVisualClipPatch(timeline, op.clipId, (clip) => {
+    const stack = requireEffectStack(clip, op.effectId, op.parameter);
+    assertKeyframeLocalMsFitsClip(clip, op.atMs);
+    const track = findEffectParameterTrack(stack, op.effectId, op.parameter);
+    const snapshot = track?.keys.find((key) => key.atMs === op.atMs);
+    if (!track || !snapshot) {
+      throw new TimelineOpError(
+        `Effect keyframe not found at ${op.atMs}ms`,
+        'effect_keyframe_missing',
+      );
+    }
+    const nextKeys = track.keys.filter((key) => key.atMs !== op.atMs);
+    return {
+      clip: withEffectParameterTrack(
+        clip,
+        nextKeys.length > 0 ? { ...track, keys: nextKeys } : null,
+        op.effectId,
+        op.parameter,
+      ),
+      inverse: {
+        kind: 'effectKeyframe.upsert',
+        clipId: op.clipId,
+        effectId: op.effectId,
+        parameter: op.parameter,
+        key: snapshot,
+        before: null,
+      },
+    };
+  });
+}
+
+function applyEffectKeyframeSetTrack(
+  timeline: Timeline,
+  op: Extract<TimelineOp, { kind: 'effectKeyframe.setTrack' }>,
+): TimelineOpResult {
+  return applyVisualClipPatch(timeline, op.clipId, (clip) => {
+    const stack = requireEffectStack(clip, op.effectId, op.parameter);
+    const before = findEffectParameterTrack(stack, op.effectId, op.parameter);
+    if (op.after) {
+      for (const key of op.after.keys) {
+        assertKeyframeFitsClip(clip, key);
+        assertEffectKeyframeValueValid(stack, op.effectId, op.parameter, key);
+      }
+    }
+    return {
+      clip: withEffectParameterTrack(
+        clip,
+        op.after
+          ? {
+              ...op.after,
+              keys: [...op.after.keys].sort((a, b) => a.atMs - b.atMs),
+            }
+          : null,
+        op.effectId,
+        op.parameter,
+      ),
+      inverse: {
+        kind: 'effectKeyframe.setTrack',
+        clipId: op.clipId,
+        effectId: op.effectId,
+        parameter: op.parameter,
         before: op.after,
         after: before,
       },
@@ -2169,6 +2321,79 @@ function withKeyframeTrack<T extends TimelineClip>(
   return { ...clip, keyframes } as T;
 }
 
+function requireEffectStack(
+  clip: VisualTimelineClip,
+  effectId: string,
+  parameter: ClipEffectParameter,
+): ClipEffectStack {
+  const stack = clip.effects;
+  const effect = stack?.effects.find((candidate) => candidate.id === effectId);
+  if (!stack || !effect) {
+    throw new TimelineOpError(
+      `Effect not found on clip: ${effectId}`,
+      'effect_missing',
+    );
+  }
+  if (!getClipEffectParameterDefinition(effect.kind, parameter)) {
+    throw new TimelineOpError(
+      `${parameter} is not valid for ${effect.kind}`,
+      'effect_parameter_invalid',
+    );
+  }
+  return stack;
+}
+
+function withEffectParameterTrack(
+  clip: VisualTimelineClip,
+  track: EffectParameterKeyframeTrack | null,
+  effectId: string,
+  parameter: ClipEffectParameter,
+): VisualTimelineClip {
+  if (track && (track.effectId !== effectId || track.parameter !== parameter)) {
+    throw new TimelineOpError(
+      'Effect keyframe track target must match the operation target',
+      'effect_keyframe_target_mismatch',
+    );
+  }
+  const stack = requireEffectStack(clip, effectId, parameter);
+  const keyframes = [
+    ...(stack.keyframes ?? []).filter(
+      (candidate) =>
+        candidate.effectId !== effectId || candidate.parameter !== parameter,
+    ),
+    ...(track ? [track] : []),
+  ];
+  return {
+    ...clip,
+    effects:
+      keyframes.length > 0
+        ? { ...stack, keyframes }
+        : omitKey(stack, 'keyframes'),
+  };
+}
+
+function assertEffectKeyframeValueValid(
+  stack: ClipEffectStack,
+  effectId: string,
+  parameter: ClipEffectParameter,
+  key: Keyframe,
+): void {
+  if (!Number.isFinite(key.value)) {
+    throw new TimelineOpError(
+      'Effect keyframe value must be finite',
+      'effect_keyframe_value_invalid',
+    );
+  }
+  const effect = stack.effects.find((candidate) => candidate.id === effectId)!;
+  const definition = getClipEffectParameterDefinition(effect.kind, parameter)!;
+  if (key.value < definition.min || key.value > definition.max) {
+    throw new TimelineOpError(
+      `${parameter} must be between ${definition.min} and ${definition.max}`,
+      'effect_keyframe_value_invalid',
+    );
+  }
+}
+
 function assertKeyframeFitsClip(clip: TimelineClip, key: Keyframe): void {
   assertKeyframeLocalMsFitsClip(clip, key.atMs);
 }
@@ -2361,11 +2586,15 @@ function detectDirectSyncLockConflicts(
     case 'clip.setAudioTransition':
     case 'clip.setTransform':
     case 'clip.setFilters':
+    case 'clip.setEffects':
     case 'clip.setParams':
     case 'clip.setPlayback':
     case 'keyframe.upsert':
     case 'keyframe.remove':
     case 'keyframe.setTrack':
+    case 'effectKeyframe.upsert':
+    case 'effectKeyframe.remove':
+    case 'effectKeyframe.setTrack':
     case 'caption.splitAtTime':
     case 'caption.mergeSibling':
     case 'caption.regroup':
@@ -2438,11 +2667,15 @@ function isMagneticOp(op: TimelineOp): boolean {
     case 'clip.setAudioTransition':
     case 'clip.setTransform':
     case 'clip.setFilters':
+    case 'clip.setEffects':
     case 'clip.setParams':
     case 'clip.setPlayback':
     case 'keyframe.upsert':
     case 'keyframe.remove':
     case 'keyframe.setTrack':
+    case 'effectKeyframe.upsert':
+    case 'effectKeyframe.remove':
+    case 'effectKeyframe.setTrack':
     case 'caption.splitAtTime':
     case 'caption.mergeSibling':
     case 'caption.regroup':

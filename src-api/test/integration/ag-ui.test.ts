@@ -17,6 +17,45 @@ async function collectEvents(messages: AgentMessage[]) {
 }
 
 describe('AGUIEmitter', () => {
+  it('emits a normalized turn budget on every result (P2-5)', async () => {
+    const events = await collectEvents([
+      {
+        type: 'result',
+        subtype: 'error_max_turns',
+        maxTurns: 60,
+      } as AgentMessage,
+    ]);
+    const budget = events.find(
+      (event) =>
+        event.type === EventType.CUSTOM &&
+        (event as { name?: string }).name === 'neuma.turn_budget',
+    );
+    expect(budget).toBeDefined();
+    expect((budget as { value?: unknown }).value).toMatchObject({
+      reason: 'max_steps',
+      exhausted: true,
+      limit: 60,
+    });
+  });
+
+  it('passes an adapter-supplied turn budget through unchanged', async () => {
+    const events = await collectEvents([
+      {
+        type: 'result',
+        subtype: 'success',
+        turnBudget: { reason: 'refusal', exhausted: false },
+      } as AgentMessage,
+    ]);
+    const budget = events.find(
+      (event) =>
+        event.type === EventType.CUSTOM &&
+        (event as { name?: string }).name === 'neuma.turn_budget',
+    );
+    expect((budget as { value?: unknown }).value).toMatchObject({
+      reason: 'refusal',
+    });
+  });
+
   it('turns an explicit abort into one cancellation terminal event', async () => {
     const emitter = new AGUIEmitter('thread-abort', 'run-abort');
     async function* source() {

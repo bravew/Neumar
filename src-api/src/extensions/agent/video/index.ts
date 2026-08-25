@@ -19,7 +19,10 @@ import {
   videoMediaAssetIngestHook,
 } from '@/extensions/agent/video/asset-ingest-hook';
 import { videoCostTelemetryHook } from '@/extensions/agent/video/cost-hook';
-import { buildVideoToolClassifications } from '@/extensions/agent/video/permissions';
+import {
+  buildVideoToolCapabilityReference,
+  buildVideoToolClassifications,
+} from '@/extensions/agent/video/permissions';
 
 import { composeCatalogPreamble } from '@/shared/assets';
 import { isAssetsCatalogEnabled } from '@/shared/assets/flags';
@@ -182,6 +185,13 @@ export class VideoAgent extends BaseAgent {
           youtubeCapabilityGranted,
         })
       : [];
+    const permittedVideoEditTools = pluginGate
+      ? filterMcpToolDefinitionsForVideoPluginRun(
+          'video-edit',
+          videoEditTools,
+          pluginGate,
+        )
+      : videoEditTools;
     const toolGroups: VideoPluginToolGroup[] = [
       ...(pluginGate ? [{ serverName: 'video', tools: videoSourceTools }] : []),
       { serverName: 'video-edit', tools: videoEditTools },
@@ -216,11 +226,7 @@ export class VideoAgent extends BaseAgent {
             videoSourceTools,
             pluginGate,
           ),
-          ...filterMcpToolDefinitionsForVideoPluginRun(
-            'video-edit',
-            videoEditTools,
-            pluginGate,
-          ),
+          ...permittedVideoEditTools,
           ...(assetsCatalogEnabled
             ? filterMcpToolDefinitionsForVideoPluginRun(
                 'assets',
@@ -287,6 +293,9 @@ export class VideoAgent extends BaseAgent {
     // URL/answer the user gave in an earlier turn (e.g. a pasted YouTube link
     // followed by a rights confirmation).
     const conversationContext = formatVideoConversation(options?.conversation);
+    const capabilityReference = buildVideoToolCapabilityReference(
+      permittedVideoEditTools,
+    );
 
     // The video tool surface, as fresh-instance factories. The Claude path
     // mounts these in-process; the Codex (subprocess) path bridges them over
@@ -329,7 +338,7 @@ export class VideoAgent extends BaseAgent {
       cwd: projectDir,
       userWorkspaceDir: workspaceRoot,
       allowWorkspaceWrite: false,
-      systemContext: `${VIDEO_AGENT_SYSTEM_PROMPT}\n\n${skillContext}${systemPrompt}${conversationContext}`,
+      systemContext: `${VIDEO_AGENT_SYSTEM_PROMPT}\n\n${capabilityReference}\n\n${skillContext}${systemPrompt}${conversationContext}`,
       allowedTools,
       disallowedTools: [...VIDEO_DISALLOWED_TOOLS],
       // Scope the run to the video tool surface only. On Claude this skips the

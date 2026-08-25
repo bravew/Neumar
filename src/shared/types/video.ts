@@ -9,6 +9,7 @@ import {
   AudioFadeCurve,
   AudioTransitionSpec,
   ClipPlayback,
+  ClipEffectStack,
   FrameRate,
   KeyframeTrack,
   TimelineHistoryEntry,
@@ -169,6 +170,7 @@ export interface VideoAnalysisArtifact {
   id: string;
   kind: VideoAnalysisArtifactKind;
   sourceMediaId?: string;
+  contentHash?: string;
   summary?: string;
   ranges?: VideoAnalysisRange[];
   proposedActionBatch?: {
@@ -963,6 +965,7 @@ export interface VideoVisualTimelineClip extends VideoBaseTimelineClip {
   transitionToNext?: VideoTimelineTransition;
   audioSeamToNext?: VideoAudioSeamMode;
   filters?: VideoClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
 }
 
@@ -1054,6 +1057,7 @@ export interface VideoEdlSegment {
   transitionToNext?: VideoTimelineTransition;
   audioSeamToNext?: VideoAudioSeamMode;
   filters?: VideoClipFilters;
+  effects?: ClipEffectStack;
   muted?: boolean;
 }
 
@@ -1195,6 +1199,12 @@ export interface VideoMediaItem {
   // Thumbnail/preview/timeline code paths watch for it to swap to the
   // catalog stream URL until hydration has copied real bytes in.
   path: string;
+  /**
+   * `'managed'` (default when absent) — the app owns the bytes inside the
+   * project. `'external'` — the user's own file is the master and stays where
+   * it is; `path` is absolute and outside the project.
+   */
+  origin?: 'managed' | 'external';
   materializationState?: 'referenced' | 'hydrating' | 'ready' | 'error';
   bytesTotal?: number;
   proxy?: VideoMediaProxy;

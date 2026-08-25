@@ -24,6 +24,7 @@ export interface TimelineTrackLabels extends TimelineClipLabels {
   syncLocked: string;
   syncUnlocked: string;
   trackEmptyDropHint: string;
+  newTrackDropHint: string;
   moveLayerUp: string;
   moveLayerDown: string;
   renameTrack: string;

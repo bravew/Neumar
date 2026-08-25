@@ -39,6 +39,7 @@ import {
   upsertRenderProviderConfig,
 } from '@/shared/services/render/router';
 import { createLogger } from '@/shared/utils/logger';
+import { revealInFileManager } from '@/shared/utils/reveal-in-file-manager';
 import {
   getVideoAgentHistory,
   setVideoAgentHistory,
@@ -54,6 +55,7 @@ import {
   undoVideoAgentJournalEntry,
   videoAgentToolCallSchema,
 } from '@/shared/video/agent-tools';
+import { resolveProjectAssetPath } from '@/shared/video/asset-files';
 import { downloadBrollHit, searchBroll } from '@/shared/video/broll';
 import {
   mergeCaption,
@@ -80,11 +82,27 @@ import {
   writeContentGraph,
   writeTemplateVariables,
 } from '@/shared/video/content-graph/persistence';
+import {
+  EngineSelectionError,
+  listEngineSelectionOptions,
+  listVideoEnginesWithBuiltins,
+  selectVideoEngine,
+} from '@/shared/video/engines';
 import { runVideoEvalReport } from '@/shared/video/eval';
 import {
   getVideoFeatureFlag,
   snapshotVideoFeatureFlags,
 } from '@/shared/video/flags';
+import {
+  checkHyperframesComposition,
+  HyperframesInspectError,
+  summarizeHyperframesCheck,
+} from '@/shared/video/hyperframes-inspect';
+import {
+  getHyperframesStudioBridge,
+  HyperframesStudioError,
+  resolveHyperframesStudioProjectDir,
+} from '@/shared/video/hyperframes-studio';
 import {
   getRenderStreamBufferSize,
   getRenderStreamSeqBounds,
@@ -186,6 +204,9 @@ import {
   parseVideoStorageRoot,
 } from '@/shared/video/storage-tree';
 import {
+  addExternalProjectAsset,
+  consolidateExternalProjectAsset,
+  externalAssetAvailability,
   addProjectAssetFromPath,
   addProjectAssetFromUpload,
   addProjectImageAssetFromUpload,
@@ -200,6 +221,7 @@ import {
   getSourceAnalysis,
   getProject,
   getProviderConfig,
+  getVideoAssetDerivativesDir,
   getVideoProjectRoot,
   getVideoWorkspaceRoot,
   getStoryboard,
@@ -214,6 +236,7 @@ import {
   updateProject,
   upsertProviderConfig,
   writeProject,
+  relinkExternalProjectAssets,
 } from '@/shared/video/store';
 import {
   createCustomVideoTemplate,
@@ -265,6 +288,18 @@ export const videoRoutes = new Hono();
 
 const assetPathSchema = z.object({
   paths: z.array(z.string().min(1)).min(1).max(50),
+  /**
+   * `'reference'` registers the user's own file where it already is.
+   * `'copy'` (the default, for agent and ingest callers that write into the
+   * project and expect it to own the bytes) duplicates it into the project.
+   */
+  mode: z.enum(['copy', 'reference']).optional(),
+  sessionId: z.string().min(1).optional(),
+});
+
+const relinkExternalSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
 });
 
 const providerUpdateSchema = z.object({
@@ -786,6 +821,7 @@ const localFolderGrantSchema = z.object({
 const linkedAssetAttachSchema = z.object({
   sceneId: z.string().min(1).optional(),
   role: z.enum(['asset', 'reference']).optional(),
+  sessionId: z.string().min(1).optional(),
 });
 
 const catalogAssetAttachSchema = z.object({
@@ -849,6 +885,14 @@ function errorResponse(error: unknown): {
     return {
       body: { error: message, detail: error.detail },
       status: error.status as ContentfulStatusCode,
+    };
+  }
+  if (error instanceof HyperframesStudioError) {
+    // Surface the code so the client can distinguish an empty project from a
+    // real bridge fault without string-matching the message.
+    return {
+      body: { error: message, detail: { code: error.code } },
+      status: error.code === 'invalid-project' ? 422 : 502,
     };
   }
   if (message.includes('not found') || message.includes('ENOENT')) {
@@ -915,7 +959,7 @@ function validateProjectAssetInputFile(
       });
     }
   }
-  return validateInputFile(asset.path, root);
+  return resolveProjectAssetPath(asset, root);
 }
 
 function htmlTemplatePreview(template: GalleryTemplate) {
@@ -1138,6 +1182,34 @@ videoRoutes.get('/templates/:id', async (c) => {
 // default (see flags.ts).
 videoRoutes.get('/flags', (c) => {
   return c.json({ flags: snapshotVideoFeatureFlags() });
+});
+
+// Runtime-selection contract (P2-6) + packaged-runtime setup surface.
+// Every registered engine, with its honest tradeoffs and — when it is not
+// usable — the typed reason (`not-found` / `version-too-old` /
+// `browser-missing`) the setup prompt turns into install guidance.
+videoRoutes.get('/engines', async (c) => {
+  try {
+    await listVideoEnginesWithBuiltins();
+    const options = await listEngineSelectionOptions();
+    let recommendedEngineId: string | undefined;
+    try {
+      recommendedEngineId = (await selectVideoEngine({ options }))
+        .selectedEngineId;
+    } catch (error) {
+      if (!(error instanceof EngineSelectionError)) throw error;
+    }
+    return c.json({
+      schema: 'neuma.video.engine-options.v1',
+      engines: options,
+      ...(recommendedEngineId ? { recommendedEngineId } : {}),
+    });
+  } catch (error) {
+    logger.error(
+      `Failed to list video engines: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return c.json({ error: 'Failed to list video engines' }, 500);
+  }
 });
 
 // "My overlays" — user-saved overlay presets (07-07 plan CP6). Data-only
@@ -1859,6 +1931,110 @@ videoRoutes.patch(
   },
 );
 
+const hyperframesPreviewInputSchema = z.object({
+  compositionDir: z.string().min(1).max(500).default('hyperframes'),
+  subscriberId: z.string().uuid(),
+});
+
+videoRoutes.post(
+  '/projects/:id/hyperframes-preview/open',
+  zValidator('json', hyperframesPreviewInputSchema),
+  async (c) => {
+    try {
+      const projectId = c.req.param('id');
+      const projectDir = resolveHyperframesStudioProjectDir(
+        getVideoProjectRoot(projectId),
+        c.req.valid('json').compositionDir,
+      );
+      return c.json({
+        session: await getHyperframesStudioBridge().acquire(
+          projectDir,
+          c.req.valid('json').subscriberId,
+        ),
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+videoRoutes.post(
+  '/projects/:id/hyperframes-preview/release',
+  zValidator('json', hyperframesPreviewInputSchema),
+  async (c) => {
+    try {
+      const projectDir = resolveHyperframesStudioProjectDir(
+        getVideoProjectRoot(c.req.param('id')),
+        c.req.valid('json').compositionDir,
+      );
+      return c.json({
+        stopped: await getHyperframesStudioBridge().release(
+          projectDir,
+          c.req.valid('json').subscriberId,
+        ),
+      });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+const htmlCheckInputSchema = z.object({
+  compositionDir: z.string().min(1).max(500).default('hyperframes'),
+  samples: z.number().int().min(1).max(60).optional(),
+  atSec: z.array(z.number().min(0)).max(20).optional(),
+  atTransitions: z.boolean().optional(),
+  contrast: z.boolean().optional(),
+  strict: z.boolean().optional(),
+  maxIssues: z.number().int().min(1).max(400).optional(),
+});
+
+// Phase E (P2-1): route HyperFrames' one-session lint + runtime + layout +
+// motion + WCAG AA gate into the QA panel. Findings are a result, not a
+// failure, so a non-clean report still returns 200.
+videoRoutes.post(
+  '/projects/:id/html-check',
+  zValidator('json', htmlCheckInputSchema),
+  async (c) => {
+    const input = c.req.valid('json');
+    try {
+      const root = getVideoProjectRoot(c.req.param('id'));
+      const report = await checkHyperframesComposition({
+        compositionDir: resolveHyperframesStudioProjectDir(
+          root,
+          input.compositionDir,
+        ),
+        ...(input.samples !== undefined ? { samples: input.samples } : {}),
+        ...(input.atSec?.length ? { atSec: input.atSec } : {}),
+        ...(input.atTransitions !== undefined
+          ? { atTransitions: input.atTransitions }
+          : {}),
+        ...(input.contrast !== undefined ? { contrast: input.contrast } : {}),
+        ...(input.strict !== undefined ? { strict: input.strict } : {}),
+        ...(input.maxIssues !== undefined
+          ? { maxIssues: input.maxIssues }
+          : {}),
+        cwd: root,
+        signal: c.req.raw.signal,
+      });
+      return c.json({
+        schema: 'neuma.video.html-check.v1',
+        compositionDir: input.compositionDir,
+        summary: summarizeHyperframesCheck(report),
+        report,
+      });
+    } catch (error) {
+      if (error instanceof HyperframesInspectError) {
+        return c.json(
+          { error: error.message, detail: { code: error.code } },
+          error.code === 'invalid-input' ? 400 : 502,
+        );
+      }
+      return jsonError(c, error);
+    }
+  },
+);
+
 videoRoutes.patch(
   '/projects/:id/storyboard',
   zValidator('json', storyboardPatchSchema),
@@ -2307,12 +2483,17 @@ videoRoutes.post(
   zValidator('json', linkedAssetAttachSchema),
   async (c) => {
     try {
+      const body = c.req.valid('json');
       const result = await attachLinkedAsset(
         c.req.param('id'),
         c.req.param('assetId'),
-        c.req.valid('json'),
+        body,
       );
-      scheduleVideoProxyGeneration(c.req.param('id'), result.asset.id);
+      scheduleVideoProxyGeneration(
+        c.req.param('id'),
+        result.asset.id,
+        body.sessionId,
+      );
       return c.json(result, 201);
     } catch (error) {
       return jsonError(c, error);
@@ -2325,16 +2506,21 @@ videoRoutes.post(
   zValidator('json', catalogAssetAttachSchema),
   async (c) => {
     try {
+      const body = c.req.valid('json');
       const result = await attachCatalogAssetToProject(
         c.req.param('id'),
         c.req.param('assetId'),
-        c.req.valid('json'),
+        body,
       );
       // Skip proxy generation for reference-only attaches — there are
       // no bytes on disk to proxy. Hydration triggers proxy generation
       // when it copies the file in.
       if (result.asset.materializationState !== 'referenced') {
-        scheduleVideoProxyGeneration(c.req.param('id'), result.asset.id);
+        scheduleVideoProxyGeneration(
+          c.req.param('id'),
+          result.asset.id,
+          body.sessionId,
+        );
       }
       return c.json(result, 201);
     } catch (error) {
@@ -2348,12 +2534,17 @@ videoRoutes.post(
   zValidator('json', projectAssetHydrateSchema),
   async (c) => {
     try {
+      const body = c.req.valid('json');
       const result = await hydrateProjectAsset(
         c.req.param('id'),
         c.req.param('assetId'),
-        c.req.valid('json'),
+        body,
       );
-      scheduleVideoProxyGeneration(c.req.param('id'), result.asset.id);
+      scheduleVideoProxyGeneration(
+        c.req.param('id'),
+        result.asset.id,
+        body.sessionId,
+      );
       return c.json(result, 200);
     } catch (error) {
       return jsonError(c, error);
@@ -2691,10 +2882,17 @@ videoRoutes.post('/projects/:id/assets', async (c) => {
       const assets = [];
       let project = await getProject(projectId);
       for (const sourcePath of parsed.paths) {
-        const result = await addProjectAssetFromPath(projectId, sourcePath);
+        const result =
+          parsed.mode === 'reference'
+            ? await addExternalProjectAsset(projectId, sourcePath)
+            : await addProjectAssetFromPath(projectId, sourcePath);
         project = result.project;
         assets.push(result.asset);
-        scheduleVideoProxyGeneration(projectId, result.asset.id);
+        scheduleVideoProxyGeneration(
+          projectId,
+          result.asset.id,
+          parsed.sessionId,
+        );
       }
       return c.json({ project, assets });
     }
@@ -2726,6 +2924,49 @@ videoRoutes.post('/projects/:id/assets', async (c) => {
   }
 });
 
+// Which referenced masters are reachable right now — a drive may be unplugged.
+videoRoutes.get('/projects/:id/assets/external-status', async (c) => {
+  try {
+    const project = await getProject(c.req.param('id'));
+    return c.json({ assets: externalAssetAvailability(project) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post(
+  '/projects/:id/assets/relink',
+  zValidator('json', relinkExternalSchema),
+  async (c) => {
+    try {
+      const { from, to } = c.req.valid('json');
+      const result = await relinkExternalProjectAssets(
+        c.req.param('id'),
+        from,
+        to,
+      );
+      return c.json(result);
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+// Takes ownership of a referenced master: copy it in, stop depending on the
+// user's own storage. What you run before archiving or handing a project off.
+videoRoutes.post('/projects/:id/assets/:assetId/consolidate', async (c) => {
+  try {
+    return c.json(
+      await consolidateExternalProjectAsset(
+        c.req.param('id'),
+        c.req.param('assetId'),
+      ),
+    );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
 videoRoutes.get('/projects/:id/assets/:assetId/stream', async (c) => {
   try {
     const project = await getProject(c.req.param('id'));
@@ -2747,6 +2988,26 @@ videoRoutes.get('/projects/:id/assets/:assetId/stream', async (c) => {
   }
 });
 
+// Reveals the asset's own master file, never a derivative — the point is
+// finding the file the user (or a connector) actually put on disk.
+videoRoutes.post('/projects/:id/assets/:assetId/reveal', async (c) => {
+  try {
+    const project = await getProject(c.req.param('id'));
+    const asset = project.assets.find(
+      (item) => item.id === c.req.param('assetId'),
+    );
+    if (!asset) {
+      return c.json({ error: 'Asset not found' }, 404);
+    }
+    const root = getVideoProjectRoot(project.id);
+    const absolute = resolveProjectAssetPath(asset, root);
+    await revealInFileManager(absolute);
+    return c.json({ success: true });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
 videoRoutes.get('/projects/:id/assets/:assetId/filmstrip', async (c) => {
   try {
     const project = await getProject(c.req.param('id'));
@@ -2758,11 +3019,22 @@ videoRoutes.get('/projects/:id/assets/:assetId/filmstrip', async (c) => {
     }
     const count = Number.parseInt(c.req.query('count') ?? '8', 10);
     const { getFilmstrip } = await import('@/shared/video/asset-thumbs');
-    const absolute = await resolveProjectAssetInputFile(project.id, asset);
+    // Sample frames from the proxy when there is one. Walking a 4K HEVC master
+    // to pick N evenly-spaced frames means decoding the whole file — measured at
+    // 22s for a 1.1GB clip, against 0.76s for its 27MB 720p proxy. A timeline
+    // holding several clips would otherwise spend minutes generating strips,
+    // and hold open every connection the browser allows while it did.
+    const absolute = await resolveProjectAssetInputFile(project.id, asset, {
+      preferProxy: true,
+    });
     const result = await getFilmstrip(
       absolute,
       count,
       getVideoProjectRoot(project.id),
+      {
+        cacheDir: getVideoAssetDerivativesDir(project.id, asset.id),
+        resolvedPath: absolute,
+      },
     );
     return c.redirect(
       `/files/stream?path=${encodeURIComponent(result.stripPath)}`,
@@ -2804,6 +3076,10 @@ videoRoutes.get('/projects/:id/assets/:assetId/peaks', async (c) => {
             reverse: c.req.query('reverse') === '1',
           }
         : undefined,
+      {
+        cacheDir: getVideoAssetDerivativesDir(project.id, asset.id),
+        resolvedPath: absolute,
+      },
     );
     return c.json(payload, 200, {
       'Cache-Control': 'public, max-age=86400, immutable',

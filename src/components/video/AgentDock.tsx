@@ -13,7 +13,6 @@ import type {
   VideoTranscriptSelectionContext,
 } from '@/shared/types/video';
 
-import { executeAgentAction } from './agentDockActions';
 import {
   attachmentFiles,
   isVideoAgentAttachment,
@@ -22,20 +21,17 @@ import {
 import { AgentDockEmptyState } from './AgentDockEmptyState';
 import { AgentDockHeader } from './AgentDockHeader';
 import { AgentDockMessageList } from './AgentDockMessageList';
-import { respondToAgentPermission } from './agentDockPermissions';
-import {
-  agentActionTitle,
-  buildAgentDockSuggestions,
-} from './agentDockViewUtils';
+import { AgentDockTurnBudget } from './AgentDockTurnBudget';
+import { buildAgentDockSuggestions } from './agentDockViewUtils';
 import { AgentJournalList } from './AgentJournalList';
-import { agentActionToToolCall } from './agentToolMapping';
 import { ProjectAssetPreviewDialog } from './assets/ProjectAssetPreviewDialog';
 import {
   projectAssetDisplayName,
   projectAssetMetaSummary,
 } from './assets/ProjectAssetTile';
 import type { VideoEditorStep, VideoProjectEditorActions } from './editorTypes';
-import { type AgentActionRecord, useAgentDock } from './useAgentDock';
+import { useAgentDock } from './useAgentDock';
+import { useAgentDockActionHandlers } from './useAgentDockActionHandlers';
 import { useAgentDockSubmit } from './useAgentDockSubmit';
 import { useAgentPluginSubmit } from './useAgentPluginSubmit';
 import { useAgentProjectAssetDrop } from './useAgentProjectAssetDrop';
@@ -75,7 +71,6 @@ export function AgentDock({
   const { t } = useLanguage();
   const [draft, setDraft] = useState('');
   const [draftNonce, setDraftNonce] = useState(0);
-  const [journalBusyId, setJournalBusyId] = useState<string | null>(null);
   const [previewAsset, setPreviewAsset] = useState<VideoMediaItem | null>(null);
   const aspectRatio = useMemo<VideoAspectRatio>(
     () => project.settings?.defaultAspectRatios?.[0] ?? '16:9',
@@ -90,6 +85,7 @@ export function AgentDock({
     appendText,
     updateAction,
     model,
+    turnBudget,
   } = useAgentDock({ projectId: project.id });
   const editorSelection = useVideoEditorSelectionContext({
     projectId: project.id,
@@ -172,82 +168,23 @@ export function AgentDock({
     attachments?: MessageAttachment[],
   ) => sendWithAttachments(content, attachmentFiles(attachments));
 
-  const acceptAction = async (action: AgentActionRecord) => {
-    updateAction(action.id, { status: 'running', error: undefined });
-    try {
-      if (action.permissionId) {
-        await respondToAgentPermission(action.permissionId, true);
-        updateAction(action.id, { status: 'completed' });
-        return;
-      }
-      const toolCall = agentActionToToolCall(action);
-      if (toolCall) {
-        await actions.applyAgentTool(toolCall);
-      } else {
-        await executeAgentAction({ action, project, actions, aspectRatio });
-      }
-      updateAction(action.id, { status: 'completed' });
-      appendText(
-        'assistant',
-        t.video.editor.agentDock.actionCompleted.replace(
-          '{action}',
-          agentActionTitle(action.name, t.video.editor.agentDock.actions),
-        ),
-      );
-    } catch (error) {
-      updateAction(action.id, {
-        status: 'failed',
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
-  const rejectAction = (action: AgentActionRecord) => {
-    if (action.permissionId) {
-      void respondToAgentPermission(action.permissionId, false);
-    }
-    updateAction(action.id, { status: 'rejected' });
-    appendText(
-      'system',
-      t.video.editor.agentDock.actionRejected.replace(
-        '{action}',
-        agentActionTitle(action.name, t.video.editor.agentDock.actions),
-      ),
-    );
-  };
-
-  const refineAction = (action: AgentActionRecord) => {
-    setDraft(
-      t.video.editor.agentDock.refinePrompt.replace('{action}', action.summary),
-    );
-    setDraftNonce((value) => value + 1);
-  };
-
-  const cancelAction = (action: AgentActionRecord) => {
-    updateAction(action.id, { status: 'cancelled' });
-  };
-
-  const runJournalAction = async (entryId: string, mode: 'undo' | 'redo') => {
-    if (journalBusyId) return;
-    setJournalBusyId(entryId);
-    try {
-      if (mode === 'undo') {
-        await actions.undoAgentJournalEntry(entryId);
-      } else {
-        await actions.redoAgentJournalEntry(entryId);
-      }
-    } catch (error) {
-      appendText(
-        'system',
-        t.video.editor.agentDock.journal.actionFailed.replace(
-          '{error}',
-          error instanceof Error ? error.message : String(error),
-        ),
-      );
-    } finally {
-      setJournalBusyId(null);
-    }
-  };
+  const {
+    journalBusyId,
+    acceptAction,
+    rejectAction,
+    refineAction,
+    cancelAction,
+    runJournalAction,
+  } = useAgentDockActionHandlers({
+    project,
+    actions,
+    aspectRatio,
+    t,
+    appendText,
+    updateAction,
+    setDraft,
+    bumpDraftNonce: () => setDraftNonce((value) => value + 1),
+  });
 
   const assetContextPills = useMemo(() => {
     const labels = t.video.editor.agentDock.composer;
@@ -315,6 +252,14 @@ export function AgentDock({
           onCancelAction={cancelAction}
         />
       </ChatPanel.Messages>
+
+      <AgentDockTurnBudget
+        outcome={turnBudget}
+        disabled={streaming}
+        onContinue={() =>
+          send(t.video.editor.agentDock.turnBudget.continuePrompt)
+        }
+      />
 
       <ChatPanel.Composer className="p-3" {...projectAssetDropHandlers}>
         <ChatInput

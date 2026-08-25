@@ -1,15 +1,17 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import {
-  probeFile,
-  runFFmpeg,
-  validateInputFile,
-  validatePath,
-} from '@/shared/services/ffmpeg';
+import { publishAssetMaterializeEvent } from '@/shared/assets';
+import { probeFile, runFFmpeg, validatePath } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 
-import { getProject, getVideoProjectRoot, writeProject } from './store';
+import { resolveProjectAssetPath } from './asset-files';
+import {
+  getProject,
+  getVideoAssetDerivativesDir,
+  getVideoProjectRoot,
+  writeProject,
+} from './store';
 import type { MediaItem, MediaProxy, VideoProject } from './types';
 
 const logger = createLogger('VideoProxy');
@@ -17,7 +19,15 @@ const logger = createLogger('VideoProxy');
 export const VIDEO_PROXY_SIZE_THRESHOLD_BYTES = 50 * 1024 * 1024;
 export const VIDEO_PROXY_MAX_SOURCE_PIXELS = 1920 * 1080;
 export const VIDEO_PROXY_TARGET_HEIGHT_PX = 720;
-export const VIDEO_PROXY_CRF = 30;
+// CRF 30 at `veryfast` looked visibly blocky on detailed footage (busy
+// night scenes, on-screen text) once actually played back at preview size —
+// `veryfast` needs a lower CRF than a slower preset to hit the same visual
+// quality, since it skips motion-estimation work that would otherwise spend
+// bits more efficiently. `fast` + CRF 23 is a well-worn "good enough to
+// judge a shot by" preview quality; proxy generation already runs as a
+// background job, so the extra encode time is not on any interactive path.
+export const VIDEO_PROXY_CRF = 23;
+export const VIDEO_PROXY_PRESET = 'fast';
 export const VIDEO_PROXY_ESTIMATED_BITRATE_BPS = 3_000_000;
 
 const activeProxyJobs = new Set<string>();
@@ -40,10 +50,22 @@ export function shouldGenerateVideoProxy(asset: MediaItem): boolean {
   );
 }
 
-export function proxyPathForAssetPath(assetPath: string): string {
-  const parsed = path.parse(assetPath);
-  return path.join(parsed.dir, `${parsed.name}.proxy.mp4`);
+/**
+ * Where a newly generated proxy is written: inside the project's derivatives
+ * dir, never beside the master. The master may be an external file the user
+ * only lent us read access to.
+ *
+ * Existing assets keep whatever `asset.proxy.path` already records, so proxies
+ * written beside older masters stay valid.
+ */
+export function proxyPathForAsset(projectId: string, asset: MediaItem): string {
+  return path.join(
+    getVideoAssetDerivativesDir(projectId, asset.id),
+    'proxy.mp4',
+  );
 }
+
+export const VIDEO_PROXY_AUDIO_BITRATE_BPS = 128_000;
 
 export function buildVideoProxyArgs(
   inputPath: string,
@@ -54,17 +76,27 @@ export function buildVideoProxyArgs(
     inputPath,
     '-map',
     '0:v:0',
+    // `?` makes the audio map optional, so a source with no audio stream
+    // (a screen recording, a silent b-roll clip) still produces a proxy
+    // instead of failing. The preview and its audio engine both stream from
+    // this same file, so a proxy without an audio track means silent
+    // playback for anything large/high-res enough to get one.
+    '-map',
+    '0:a:0?',
     '-vf',
     `scale=-2:${VIDEO_PROXY_TARGET_HEIGHT_PX}`,
     '-c:v',
     'libx264',
     '-preset',
-    'veryfast',
+    VIDEO_PROXY_PRESET,
     '-crf',
     String(VIDEO_PROXY_CRF),
     '-pix_fmt',
     'yuv420p',
-    '-an',
+    '-c:a',
+    'aac',
+    '-b:a',
+    `${VIDEO_PROXY_AUDIO_BITRATE_BPS}`,
     '-movflags',
     '+faststart',
     outputPath,
@@ -74,11 +106,12 @@ export function buildVideoProxyArgs(
 export function scheduleVideoProxyGeneration(
   projectId: string,
   assetId: string,
+  sessionId?: string,
 ): void {
   const key = `${projectId}:${assetId}`;
   if (activeProxyJobs.has(key)) return;
   activeProxyJobs.add(key);
-  void generateVideoProxyForAsset(projectId, assetId)
+  void generateVideoProxyForAsset(projectId, assetId, { sessionId })
     .catch((error: unknown) => {
       logger.warn('video.proxy.generation_failed', {
         project_id: projectId,
@@ -94,7 +127,7 @@ export function scheduleVideoProxyGeneration(
 export async function generateVideoProxyForAsset(
   projectId: string,
   assetId: string,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; sessionId?: string } = {},
 ): Promise<VideoProxyGenerationResult> {
   const project = await getProject(projectId);
   const asset = findAsset(project, assetId);
@@ -109,38 +142,71 @@ export async function generateVideoProxyForAsset(
   }
 
   const root = getVideoProjectRoot(projectId);
-  const inputPath = validateInputFile(asset.path, root);
-  const outputPath = validatePath(proxyPathForAssetPath(asset.path), root);
+  const inputPath = resolveProjectAssetPath(asset, root);
+  const outputPath = validatePath(proxyPathForAsset(projectId, asset), root);
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
 
-  const result = await runFFmpeg(buildVideoProxyArgs(inputPath, outputPath), {
-    inputDuration:
-      asset.metadata.durationMs > 0
-        ? asset.metadata.durationMs / 1000
-        : undefined,
-  });
-  if (result.exitCode !== 0) {
-    throw new Error(`Proxy generation failed: ${result.stderr.slice(0, 500)}`);
-  }
-
-  const proxy = await proxyMetadataFromFile(outputPath, root);
-  const latest = await getProject(projectId);
-  const now = new Date().toISOString();
-  const next: VideoProject = {
-    ...latest,
-    assets: latest.assets.map((candidate) =>
-      candidate.id === assetId ? { ...candidate, proxy } : candidate,
-    ),
-    updatedAt: now,
+  // Reuses the generic materialize.* lifecycle events (started/complete/
+  // error) rather than the proxy.*/derivative events — those are meant to
+  // layer a secondary "proxy ready" badge on top of an asset whose base
+  // materialize state is already settled elsewhere; here the proxy encode
+  // *is* the whole job, so the base lifecycle is the right level.
+  const eventBase = {
+    assetId,
+    scope: 'video-project',
+    scopeId: projectId,
+    sessionId: options.sessionId,
   };
-  await writeProject(next);
-  const updatedAsset = findAsset(next, assetId);
-  logger.info('video.proxy.generated', {
-    project_id: projectId,
-    asset_id: assetId,
-    proxy_path: proxy.path,
-  });
-  return { project: next, asset: updatedAsset, generated: true };
+  publishAssetMaterializeEvent({ ...eventBase, type: 'materialize.started' });
+  try {
+    const result = await runFFmpeg(buildVideoProxyArgs(inputPath, outputPath), {
+      inputDuration:
+        asset.metadata.durationMs > 0
+          ? asset.metadata.durationMs / 1000
+          : undefined,
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `Proxy generation failed: ${result.stderr.slice(0, 500)}`,
+      );
+    }
+
+    const proxy = await proxyMetadataFromFile(outputPath, root);
+    const latest = await getProject(projectId);
+    const now = new Date().toISOString();
+    const next: VideoProject = {
+      ...latest,
+      assets: latest.assets.map((candidate) =>
+        candidate.id === assetId ? { ...candidate, proxy } : candidate,
+      ),
+      updatedAt: now,
+    };
+    await writeProject(next);
+    const updatedAsset = findAsset(next, assetId);
+    logger.info('video.proxy.generated', {
+      project_id: projectId,
+      asset_id: assetId,
+      proxy_path: proxy.path,
+    });
+    const proxyStat = await fs.stat(outputPath).catch(() => null);
+    publishAssetMaterializeEvent({
+      ...eventBase,
+      type: 'materialize.complete',
+      materializationId: assetId,
+      cacheHit: false,
+      bytes: proxyStat?.size ?? 0,
+    });
+    return { project: next, asset: updatedAsset, generated: true };
+  } catch (error) {
+    publishAssetMaterializeEvent({
+      ...eventBase,
+      type: 'materialize.error',
+      code: 'PROXY_GENERATION_FAILED',
+      message: error instanceof Error ? error.message : String(error),
+      retryable: true,
+    });
+    throw error;
+  }
 }
 
 export async function clearVideoProxyForAsset(
