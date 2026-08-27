@@ -18,6 +18,7 @@ import {
   Html5Audio,
   Img,
   OffthreadVideo,
+  interpolate,
   useCurrentFrame,
 } from 'remotion';
 import type { CalculateMetadataFunction, EffectsProp } from 'remotion';
@@ -181,6 +182,65 @@ export function RemotionRenderComposition(
   );
 }
 
+type KenBurnsRect = { x: number; y: number; width: number; height: number };
+
+// Mirrors frontend KenBurnsImage / FFmpeg zoompan: zoom = max(1/w, 1/h)
+// clamped [1,10], centered on the rect, eased from `from` to `to`.
+function KenBurnsImage({
+  src,
+  kenBurns,
+  durationInFrames,
+  mediaStyle,
+  effects,
+}: {
+  src: string;
+  kenBurns: { from: KenBurnsRect; to: KenBurnsRect };
+  durationInFrames: number;
+  mediaStyle: CSSProperties;
+  effects?: EffectsProp;
+}): React.ReactElement {
+  const frame = useCurrentFrame();
+  const progress = interpolate(
+    frame,
+    [0, Math.max(1, durationInFrames - 1)],
+    [0, 1],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+  );
+  const from = normalizeKenBurnsRect(kenBurns.from);
+  const to = normalizeKenBurnsRect(kenBurns.to);
+  const zoom = lerp(rectZoom(from), rectZoom(to), progress);
+  const cx = lerp(from.x + from.width / 2, to.x + to.width / 2, progress);
+  const cy = lerp(from.y + from.height / 2, to.y + to.height / 2, progress);
+  return React.createElement(Img, {
+    src,
+    style: {
+      ...mediaStyle,
+      transformOrigin: `${cx * 100}% ${cy * 100}%`,
+      transform: `translate(${(0.5 - cx) * 100}%, ${(0.5 - cy) * 100}%) scale(${zoom})`,
+    },
+    effects,
+  });
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function normalizeKenBurnsRect(rect: KenBurnsRect): KenBurnsRect {
+  const width = Math.min(1, Math.max(0.05, rect.width));
+  const height = Math.min(1, Math.max(0.05, rect.height));
+  return {
+    x: Math.min(1 - width, Math.max(0, rect.x)),
+    y: Math.min(1 - height, Math.max(0, rect.y)),
+    width,
+    height,
+  };
+}
+
+function rectZoom(rect: Pick<KenBurnsRect, 'width' | 'height'>): number {
+  return Math.min(10, Math.max(1, Math.max(1 / rect.width, 1 / rect.height)));
+}
+
 function VisualClip({
   clip,
   transitionTailFrames,
@@ -216,14 +276,23 @@ function VisualClip({
         React.createElement(Img, { src: clip.src, style: fg, effects }),
       );
     }
+    const kenBurns = clip.imagePan?.kenBurns;
     return React.createElement(
       AbsoluteFill,
       { style },
-      React.createElement(Img, {
-        src: clip.src,
-        style: mediaElementStyle(clip, localMs),
-        effects,
-      }),
+      kenBurns
+        ? React.createElement(KenBurnsImage, {
+            src: clip.src,
+            kenBurns,
+            durationInFrames: clip.durationInFrames + transitionTailFrames,
+            mediaStyle: mediaElementStyle(clip, localMs),
+            effects,
+          })
+        : React.createElement(Img, {
+            src: clip.src,
+            style: mediaElementStyle(clip, localMs),
+            effects,
+          }),
     );
   }
 
