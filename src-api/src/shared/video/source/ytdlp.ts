@@ -39,9 +39,9 @@ export function buildYtDlpArgs(input: YtDlpImportInput): string[] {
     outputTemplate,
   ];
 
-  if (input.maxDurationSec) {
-    args.push('--match-filter', `duration <= ${input.maxDurationSec}`);
-  }
+  // Keep the full source. maxDurationSec is accepted for caller compatibility
+  // but must not skip or section-download — editing may grow the picture
+  // timeline later and still need more of this audio.
   if (input.format === 'mp4') {
     args.push('-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4/best');
   } else {

@@ -49,6 +49,7 @@ import {
 import { buildYtDlpArgs, validateYtDlpUrl } from './source/ytdlp';
 import {
   migrateStoryboardToTimeline,
+  pictureTimelineDurationMs,
   rebuildTimelineFromStoryboard,
 } from './timeline';
 import { applyProjectTimelineOps } from './timeline-ops';
@@ -1171,14 +1172,7 @@ function removeTimelineClipsForAsset(
       : ({ ...track, clips } as (typeof timeline.tracks)[number]);
   });
   if (!changed) return timeline;
-  const durationMs = tracks.reduce(
-    (max, track) =>
-      track.clips.reduce(
-        (clipMax, clip) => Math.max(clipMax, clip.startMs + clip.durationMs),
-        max,
-      ),
-    0,
-  );
+  const durationMs = pictureTimelineDurationMs(tracks);
   return { ...timeline, tracks, durationMs };
 }
 

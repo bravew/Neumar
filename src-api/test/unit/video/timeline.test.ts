@@ -213,6 +213,58 @@ describe('video timeline migration and EDL compilation', () => {
     });
   });
 
+  it('does not let a long music bed extend EDL or timeline duration', () => {
+    const project = projectFixture();
+    project.assets = [
+      ...project.assets,
+      asset('asset-long-music', 'audio', 1_809_000),
+    ];
+    project.storyboard = {
+      ...project.storyboard!,
+      music: {
+        prompt: 'Hour-long bed',
+        durationMs: 1_809_000,
+        assetId: 'asset-long-music',
+      },
+    };
+
+    const rebuilt = rebuildTimelineFromStoryboard(project);
+    const music = rebuilt.timeline?.tracks.find(
+      (track) => track.kind === 'audio-music',
+    )?.clips[0];
+
+    expect(rebuilt.timeline?.durationMs).toBe(6000);
+    expect(music).toMatchObject({
+      durationMs: 6000,
+      sourceDurationMs: 1_809_000,
+    });
+
+    const inflated: VideoProject = {
+      ...rebuilt,
+      timeline: {
+        ...rebuilt.timeline!,
+        durationMs: 1_809_000,
+        tracks: rebuilt.timeline!.tracks.map((track) =>
+          track.kind === 'audio-music'
+            ? {
+                ...track,
+                clips: track.clips.map((clip) => ({
+                  ...clip,
+                  durationMs: 1_809_000,
+                  trimEndMs: 1_809_000,
+                })),
+              }
+            : track,
+        ),
+      },
+    };
+    const edl = compileTimelineToEdl(inflated);
+    expect(edl.durationMs).toBe(6000);
+    expect(
+      edl.audioTracks.find((track) => track.kind === 'audio-music')?.clips[0],
+    ).toMatchObject({ durationMs: 6000 });
+  });
+
   it('infers logo-safe transforms when compiling timeline EDL for vertical output', () => {
     const project: VideoProject = {
       ...projectFixture(),

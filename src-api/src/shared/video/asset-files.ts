@@ -51,6 +51,17 @@ export function assetPathValidation(
   return { allowExternalMedia: isExternalAsset(asset) };
 }
 
+/** True when the asset can supply an audio stream for a music/VO/SFX track. */
+export function assetCanProvideAudio(
+  asset: Pick<MediaItem, 'kind' | 'metadata'> | undefined,
+): boolean {
+  if (!asset) return false;
+  if (asset.kind === 'audio') return true;
+  if (asset.kind !== 'video') return false;
+  const count = asset.metadata?.audioTrackCount;
+  return count == null || count > 0;
+}
+
 /**
  * The same resolution as `resolveProjectAssetPath`, reported instead of thrown.
  *

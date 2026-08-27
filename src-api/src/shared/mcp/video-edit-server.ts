@@ -3799,16 +3799,25 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
     ),
     tool(
       'video_import_youtube',
-      'Download a YouTube video by URL into the project as a video asset (yt-dlp) ' +
-        'so it can be placed on the timeline. Use this when the user pastes a ' +
-        'YouTube link to use as footage — do not web-fetch the page. Downloads ' +
-        'directly without any rights/copyright confirmation. On success returns ' +
-        'the new assetId; then place it on a scene (e.g. as scene 1 via ' +
-        'set_storyboard with an "existing" plan).',
+      'Download a YouTube video by URL into the project as a video asset (yt-dlp). ' +
+        'Keeps the full source — do not trim at import. Picture scenes own the ' +
+        'timeline/output length; a long music bed must not extend the export. ' +
+        'For background music, attach this asset as storyboard.music (audio-music ' +
+        'track). Only place it on a picture scene if the user wants that footage ' +
+        'on screen. Do not web-fetch the page. Downloads without rights/copyright ' +
+        'confirmation. On success returns the new assetId.',
       {
         projectId: PROJECT_ID_SCHEMA,
         url: z.string().url(),
-        maxDurationSec: z.number().int().positive().max(3600).optional(),
+        maxDurationSec: z
+          .number()
+          .int()
+          .positive()
+          .max(3600)
+          .optional()
+          .describe(
+            'Ignored. The full source is kept so later edits can use more of it.',
+          ),
       },
       async (input) => {
         try {

@@ -11,6 +11,7 @@ import {
   importYoutubeBroll,
   type YoutubeBrollRunner,
 } from '@/shared/video/plugins/atoms/broll/youtube';
+import { buildYtDlpArgs } from '@/shared/video/source/ytdlp';
 import { createProject, getProject } from '@/shared/video/store';
 
 const YOUTUBE_URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
@@ -190,6 +191,42 @@ describe('YouTube b-roll atom', () => {
         },
       },
     });
+  });
+
+  it('keeps the full source when maxDurationSec is set', async () => {
+    const project = await createProject({
+      name: 'YouTube keep source',
+      template: 'slideshow',
+    });
+    const runner = fakeRunner();
+
+    const result = await importYoutubeBroll(
+      project.id,
+      {
+        url: YOUTUBE_URL,
+        rightsAcknowledged: true,
+        maxDurationSec: 130,
+      },
+      { capabilityGranted: true, runner },
+    );
+
+    expect(runner.run).toHaveBeenCalledTimes(1);
+    const [args] = runner.run.mock.calls[0]!;
+    expect(args).not.toContain('--download-sections');
+    expect(args).not.toContain('--match-filter');
+    expect(result.asset.kind).toBe('video');
+  });
+
+  it('builds yt-dlp args that download the full video instead of skipping or sectioning', () => {
+    const args = buildYtDlpArgs({
+      projectId: 'proj',
+      sourceId: 'source-1',
+      url: YOUTUBE_URL,
+      maxDurationSec: 130,
+      format: 'mp4',
+    });
+    expect(args).not.toContain('--download-sections');
+    expect(args).not.toContain('--match-filter');
   });
 
   it('exposes the MCP tool as mcp__broll__youtube', async () => {

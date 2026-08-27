@@ -84,21 +84,40 @@ describe('collectSoundtrackAudioTracks', () => {
     expect(narration.fadeOutMs).toBeUndefined();
   });
 
-  it('skips a soundtrack asset that is missing or not audio', () => {
+  it('skips a soundtrack asset that is missing or not audio-capable', () => {
     const tracks = collectSoundtrackAudioTracks(
       project({ musicAssetId: 'ghost', narrationAssetId: 'n' }, [
         audioAsset('n', 'narration.mp3'),
         {
           id: 'ghost',
-          kind: 'video',
+          kind: 'image',
           source: 'upload',
-          path: 'clip.mp4',
+          path: 'still.png',
         } as MediaItem,
       ]),
       root,
       30,
     );
     expect(tracks.map((t) => t.role)).toEqual(['narration']);
+  });
+
+  it('uses a video file as a music bed when it can provide audio', () => {
+    writeFileSync(path.join(root, 'score.mp4'), 'x');
+    const tracks = collectSoundtrackAudioTracks(
+      project({ musicAssetId: 'yt' }, [
+        {
+          id: 'yt',
+          kind: 'video',
+          source: 'broll',
+          path: 'score.mp4',
+        } as MediaItem,
+      ]),
+      root,
+      12,
+    );
+    expect(tracks).toHaveLength(1);
+    expect(tracks[0]?.role).toBe('music');
+    expect(tracks[0]?.inputPath).toBe(path.join(root, 'score.mp4'));
   });
 
   it('skips an audio asset whose backing file is absent on disk', () => {

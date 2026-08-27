@@ -14,7 +14,11 @@ import {
 
 import { validateInputFile } from '@/shared/services/ffmpeg';
 
-import { isExternalAsset, resolveProjectAssetPath } from './asset-files';
+import {
+  assetCanProvideAudio,
+  isExternalAsset,
+  resolveProjectAssetPath,
+} from './asset-files';
 import { getVideoFeatureFlag } from './flags';
 import { getImportedOverlayAsset } from './overlays/imported-items';
 import { buildVividOverlayRenderEntriesWithPlugins } from './overlays/server-resolve';
@@ -389,7 +393,7 @@ function audioClipFromEdl(
   fps: number,
 ): RemotionRenderAudioClip[] {
   const asset = assetForSourceRef(project, clip.sourceRef);
-  if (asset?.kind !== 'audio') return [];
+  if (!assetCanProvideAudio(asset) || !asset) return [];
 
   const sourcePath = resolveProjectAssetPath(asset, root);
   const sourceStartFrame = msToFrame(clip.sourceStartMs, fps);

@@ -10,6 +10,7 @@ import {
 import { randomUUID } from '@/shared/utils/uuid';
 
 import { getProjectTimeline } from './projectTimeline';
+import { getTimelineDurationMs } from './timelineMath';
 
 export interface ApplyCaptureTimelineInput {
   project: VideoProject;
@@ -217,15 +218,6 @@ function findClip(
     if (clip) return { track, clip };
   }
   return null;
-}
-
-function getTimelineDurationMs(tracks: VideoTimelineTrack[]): number {
-  return Math.max(
-    0,
-    ...tracks.flatMap((track) =>
-      track.clips.map((clip) => clip.startMs + clip.durationMs),
-    ),
-  );
 }
 
 function captureDurationMs(asset: VideoMediaItem): number {

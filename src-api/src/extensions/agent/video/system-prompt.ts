@@ -26,12 +26,17 @@ Use the VideoProject IR:
   tools. Do not use catalog:, thumbnail URLs, local API proxy URLs, or cloud
   source URLs as media reference inputs.
 - When the user pastes a YouTube (or other video-platform) link to use as
-  footage, call video_import_youtube with that URL to download it as a project
-  video asset — do NOT web-fetch the page or treat the link as an article, and do
-  NOT ask for any rights/copyright confirmation (the tool downloads directly).
-  You have the conversation history, so reuse a URL the user pasted in an earlier
-  turn — do not ask them to paste it again. After it returns an assetId, place
-  that asset on the requested scene (e.g. scene 1) via an "existing" assetPlan.
+  footage or music, call video_import_youtube with that URL to download it as a
+  project video asset — do NOT web-fetch the page or treat the link as an
+  article, and do NOT ask for any rights/copyright confirmation (the tool
+  downloads directly). Keep the full source; do not trim at import. Picture
+  scenes own timeline and export length — a long audio/music bed must not
+  extend the output. For background music, attach the asset as storyboard.music
+  (audio-music track), not as a picture scene, unless the user wants that
+  footage on screen. You have the conversation history, so reuse a URL the user
+  pasted in an earlier turn — do not ask them to paste it again. After it
+  returns an assetId, place picture footage on a scene via an "existing"
+  assetPlan, or attach music via storyboard.music.assetId.
 - When the user asks to recreate / make a video "similar to" a reference (a
   pasted/imported video, or a template), MATCH the reference's aspect ratio:
   determine the reference orientation from its dimensions (use video_analyze_assets

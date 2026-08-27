@@ -45,7 +45,11 @@ import type {
 import { logUsage } from '@/shared/services/usage-logger';
 import { createLogger } from '@/shared/utils/logger';
 
-import { assetPathValidation, resolveProjectAssetPath } from './asset-files';
+import {
+  assetCanProvideAudio,
+  assetPathValidation,
+  resolveProjectAssetPath,
+} from './asset-files';
 import {
   normalizeRenderedAudio,
   type LoudnessMetadata,
@@ -105,6 +109,7 @@ import {
 } from './store';
 import {
   compileTimelineToEdl,
+  pictureTimelineDurationMs,
   rebuildTimelineFromStoryboard,
 } from './timeline';
 import {
@@ -2219,7 +2224,7 @@ function collectProjectAudioTracks(
     for (const clip of track.clips) {
       if (clip.muted) continue;
       const asset = assetForSourceRef(project, clip.sourceRef);
-      if (asset?.kind !== 'audio') continue;
+      if (!assetCanProvideAudio(asset)) continue;
       tracks.push(audioTrackClipFromEdl(track, clip, asset, root));
     }
   }
@@ -2251,7 +2256,7 @@ export function collectSoundtrackAudioTracks(
   const resolveAudioPath = (assetId?: string): string | undefined => {
     if (!assetId) return undefined;
     const asset = project.assets.find((item) => item.id === assetId);
-    if (asset?.kind !== 'audio') return undefined;
+    if (!assetCanProvideAudio(asset)) return undefined;
     // Skip non-fatally when the backing file is gone (purged upload, path
     // mismatch) or fails path validation — a missing soundtrack asset must not
     // abort the whole render. validateInputFile throws in both cases.
@@ -3959,8 +3964,10 @@ async function finalizeRenderOutput(input: {
 }
 
 function expectedProjectDurationMs(project: VideoProject): number | undefined {
-  const durationMs =
-    project.timeline?.durationMs ?? project.storyboard?.totalDurationMs;
+  const durationMs = project.timeline
+    ? pictureTimelineDurationMs(project.timeline.tracks) ||
+      project.timeline.durationMs
+    : project.storyboard?.totalDurationMs;
   return typeof durationMs === 'number' && Number.isFinite(durationMs)
     ? Math.max(0, Math.round(durationMs))
     : undefined;

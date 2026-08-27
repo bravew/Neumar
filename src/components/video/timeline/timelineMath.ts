@@ -1,5 +1,10 @@
 import { frameToMs, msToFrame } from '@neumar/video-ir';
 
+import {
+  isVisualTimelineTrack,
+  type VideoTimelineTrack,
+} from '@/shared/types/video';
+
 export const TIMELINE_ZOOM = {
   MIN: 0.5,
   DEFAULT: 80,
@@ -14,6 +19,15 @@ const WAVEFORM_BAR_EXPONENT = 1.5;
 export interface VisibleTimeRange {
   startMs: number;
   endMs: number;
+}
+
+export function getTimelineDurationMs(tracks: VideoTimelineTrack[]): number {
+  const ends = tracks
+    .filter(isVisualTimelineTrack)
+    .flatMap((track) =>
+      track.clips.map((clip) => clip.startMs + clip.durationMs),
+    );
+  return ends.length === 0 ? 0 : Math.max(0, ...ends);
 }
 
 export function clampTimelineZoom(pixelsPerSecond: number): number {

@@ -24,6 +24,7 @@ import { buildRenderPlan } from './render-plan';
 import {
   compileTimelineToEdl,
   insertCaptureCaptionClips,
+  pictureTimelineDurationMs,
   rebuildTimelineFromStoryboard,
 } from './timeline';
 import {
@@ -1897,7 +1898,7 @@ function applyCaptureToTimelineDiff(
       {
         ...timeline,
         tracks,
-        durationMs: timelineDurationMs(tracks),
+        durationMs: pictureTimelineDurationMs(tracks),
       },
       {
         captureId: source.id,
@@ -1926,7 +1927,7 @@ function applyCaptureToTimelineDiff(
     {
       ...timeline,
       tracks: nextTracks,
-      durationMs: timelineDurationMs(nextTracks),
+      durationMs: pictureTimelineDurationMs(nextTracks),
     },
     {
       captureId: source.id,
@@ -2034,15 +2035,6 @@ function findTimelineClip(
     if (clip) return { track, clip };
   }
   return null;
-}
-
-function timelineDurationMs(tracks: TimelineTrack[]): number {
-  return Math.max(
-    0,
-    ...tracks.flatMap((track) =>
-      track.clips.map((clip) => clip.startMs + clip.durationMs),
-    ),
-  );
 }
 
 function captureDurationMs(asset: MediaItem): number {
@@ -2227,7 +2219,7 @@ function trimClipDiff(
   return replaceTimelineDiff(project, {
     ...timeline,
     tracks,
-    durationMs: timelineDurationMs(tracks),
+    durationMs: pictureTimelineDurationMs(tracks),
   });
 }
 
@@ -2371,7 +2363,7 @@ function addLowerThirdDiff(
   return replaceTimelineDiff(project, {
     ...timeline,
     tracks,
-    durationMs: timelineDurationMs(tracks),
+    durationMs: pictureTimelineDurationMs(tracks),
   });
 }
 

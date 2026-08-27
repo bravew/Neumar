@@ -9,6 +9,7 @@ import {
   type VideoVisualTimelineClip,
 } from '@/shared/types/video';
 
+import { getTimelineDurationMs } from './timelineMath';
 import {
   inferDefaultVisualAssetTransform,
   targetAspectRatioForProject,
@@ -62,14 +63,7 @@ function isCaptionOrVisualTrack(track: VideoTimelineTrack): boolean {
 }
 
 function normalizeTimelineDuration(timeline: VideoTimeline): VideoTimeline {
-  const clipEndMs = timeline.tracks.reduce(
-    (maxEndMs, track) =>
-      Math.max(
-        maxEndMs,
-        ...track.clips.map((clip) => clip.startMs + clip.durationMs),
-      ),
-    0,
-  );
+  const clipEndMs = getTimelineDurationMs(timeline.tracks);
   if (timeline.durationMs >= clipEndMs) return timeline;
   return { ...timeline, durationMs: clipEndMs };
 }
