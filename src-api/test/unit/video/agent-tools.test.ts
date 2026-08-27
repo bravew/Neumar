@@ -9,6 +9,159 @@ import {
 import type { VideoProject } from '@/shared/video/types';
 
 describe('video agent tools', () => {
+  it('applies a complete storyboard in one reversible journal entry', () => {
+    const project: VideoProject = {
+      ...projectFixture(),
+      revision: 4,
+      agentPlan: {
+        schemaVersion: 1,
+        id: 'plan-1',
+        revision: 1,
+        status: 'approved',
+        title: 'Bulk storyboard',
+        request: 'Build 48 scenes.',
+        assumptions: [],
+        projectRevisionAtApproval: 4,
+        approvedAt: '2026-08-25T00:00:00.000Z',
+        approvedBy: 'user',
+        markdownDigest: 'digest',
+        steps: [],
+      },
+    };
+    const storyboard = {
+      status: 'edited' as const,
+      intent: 'Bulk authored storyboard',
+      totalDurationMs: 4000,
+      costEstimateUsd: { low: 0, high: 0 },
+      scenes: [
+        {
+          id: 'bulk-1',
+          durationMs: 4000,
+          intent: 'Opening title',
+          assetPlan: { kind: 'ai-image' as const, prompt: 'Opening title' },
+        },
+      ],
+    };
+
+    const execution = applyVideoAgentTool(
+      project,
+      { name: 'setStoryboard', args: { storyboard } },
+      { journalId: 'bulk-entry', now: '2026-08-25T01:00:00.000Z' },
+    );
+
+    expect(execution.project.storyboard).toEqual(storyboard);
+    expect(execution.project.timeline?.durationMs).toBe(4000);
+    expect(execution.entry).toMatchObject({
+      id: 'bulk-entry',
+      tool: 'setStoryboard',
+      diff: [{ op: 'replace', path: '/storyboard' }],
+      inverseDiff: [{ op: 'replace', path: '/storyboard' }],
+    });
+    expect(
+      undoVideoAgentJournalEntry(execution.project, 'bulk-entry').project
+        .storyboard,
+    ).toEqual(project.storyboard);
+  });
+
+  it('rejects a bulk storyboard before mutation when its references are invalid', () => {
+    const project: VideoProject = {
+      ...projectFixture(),
+      revision: 4,
+      agentPlan: {
+        schemaVersion: 1,
+        id: 'plan-1',
+        revision: 1,
+        status: 'approved',
+        title: 'Bulk storyboard',
+        request: 'Build it.',
+        assumptions: [],
+        projectRevisionAtApproval: 4,
+        approvedAt: '2026-08-25T00:00:00.000Z',
+        approvedBy: 'user',
+        markdownDigest: 'digest',
+        steps: [],
+      },
+    };
+
+    expect(() =>
+      applyVideoAgentTool(project, {
+        name: 'setStoryboard',
+        args: {
+          storyboard: {
+            status: 'edited',
+            intent: 'Invalid storyboard',
+            totalDurationMs: 1000,
+            costEstimateUsd: { low: 0, high: 0 },
+            scenes: [
+              {
+                id: 'scene-invalid',
+                durationMs: 1000,
+                intent: 'Missing asset',
+                assetPlan: { kind: 'existing', assetId: 'missing' },
+              },
+            ],
+          },
+        },
+      }),
+    ).toThrow('unknown asset');
+    expect(project.storyboard?.scenes).toHaveLength(2);
+  });
+
+  it('accepts a bulk storyboard at the plan cursor, not just the approval revision', () => {
+    // Regression: the check compared against the revision frozen at approval,
+    // so any earlier step in the same plan — which necessarily bumps the
+    // revision — locked the plan out of ever applying its storyboard.
+    const project: VideoProject = {
+      ...projectFixture(),
+      revision: 7,
+      agentPlan: {
+        schemaVersion: 1,
+        id: 'plan-1',
+        revision: 1,
+        status: 'approved',
+        title: 'Bulk storyboard',
+        request: 'Build it.',
+        assumptions: [],
+        projectRevisionAtApproval: 4,
+        approvedAt: '2026-08-25T00:00:00.000Z',
+        approvedBy: 'user',
+        markdownDigest: 'digest',
+        steps: [],
+      },
+    };
+    const storyboard = {
+      status: 'edited' as const,
+      intent: 'Rebuilt storyboard',
+      totalDurationMs: 1000,
+      costEstimateUsd: { low: 0, high: 0 },
+      scenes: [
+        {
+          id: 'scene-a',
+          durationMs: 1000,
+          intent: 'Title card',
+          assetPlan: { kind: 'ai-image' as const, prompt: 'title' },
+        },
+      ],
+    };
+
+    // Three steps of this plan have landed, so the cursor is 7.
+    const execution = applyVideoAgentTool(
+      project,
+      { name: 'setStoryboard', args: { storyboard } },
+      { expectedProjectRevision: 7 },
+    );
+    expect(execution.project.storyboard?.scenes).toHaveLength(1);
+
+    // An edit from outside the plan is still a conflict.
+    expect(() =>
+      applyVideoAgentTool(
+        project,
+        { name: 'setStoryboard', args: { storyboard } },
+        { expectedProjectRevision: 6 },
+      ),
+    ).toThrow('Project revision conflict: plan expects 6, current 7');
+  });
+
   it('applies a caption patch, appends a journal entry, and undoes cleanly', () => {
     const project = projectFixture();
     const execution = applyVideoAgentTool(
@@ -222,6 +375,95 @@ describe('video agent tools', () => {
         args: { sceneId: 'scene-1' },
       }),
     ).toThrow('Storyboard needs at least one scene');
+  });
+
+  it('attaches an asset while the storyboard is still unapproved', () => {
+    // Regression: `project.scenes` is the flattened projection that
+    // `approveStoryboard` writes, so it is empty for every storyboard still
+    // being built. Attach used to require the scene there and failed with
+    // "Scene not found" for scenes that plainly existed in the storyboard.
+    const project: VideoProject = {
+      ...projectFixture(),
+      scenes: [],
+      assets: [
+        {
+          id: 'asset-1',
+          kind: 'video',
+          source: 'user',
+          path: 'videos/project-1/assets/a.mp4',
+          metadata: { durationMs: 4000, width: 1920, height: 1080 },
+        },
+      ],
+    };
+
+    const { project: next, entry } = applyVideoAgentTool(project, {
+      name: 'attachAsset',
+      args: { assetId: 'asset-1', sceneId: 'scene-2', clipId: 'clip-1' },
+    });
+
+    expect(next.storyboard?.scenes[1]?.assetPlan).toEqual({
+      kind: 'existing',
+      assetId: 'asset-1',
+    });
+    // The storyboard changed, so the timeline is rebuilt from it.
+    expect(next.timeline?.tracks.length).toBeGreaterThan(0);
+    // Still reversible.
+    const undone = undoVideoAgentJournalEntry(next, entry.id).project;
+    expect(undone.storyboard?.scenes[1]?.assetPlan).toEqual({
+      kind: 'ai-image',
+      prompt: 'product detail',
+    });
+  });
+
+  it('mirrors the clip into the scene projection once it exists', () => {
+    const project: VideoProject = {
+      ...projectFixture(),
+      assets: [
+        {
+          id: 'asset-1',
+          kind: 'video',
+          source: 'user',
+          path: 'videos/project-1/assets/a.mp4',
+          metadata: { durationMs: 4000, width: 1920, height: 1080 },
+        },
+      ],
+      scenes: [
+        { id: 'scene-1', durationMs: 3000, clips: [] },
+        { id: 'scene-2', durationMs: 4000, clips: [] },
+      ],
+    };
+
+    const { project: next } = applyVideoAgentTool(project, {
+      name: 'attachAsset',
+      args: { assetId: 'asset-1', sceneId: 'scene-2', clipId: 'clip-1' },
+    });
+
+    expect(next.scenes?.[1]?.clips).toEqual([
+      { id: 'clip-1', mediaId: 'asset-1' },
+    ]);
+    expect(next.scenes?.[0]?.clips).toEqual([]);
+  });
+
+  it('still rejects a scene id the storyboard does not have', () => {
+    const project: VideoProject = {
+      ...projectFixture(),
+      assets: [
+        {
+          id: 'asset-1',
+          kind: 'video',
+          source: 'user',
+          path: 'videos/project-1/assets/a.mp4',
+          metadata: { durationMs: 4000, width: 1920, height: 1080 },
+        },
+      ],
+    };
+
+    expect(() =>
+      applyVideoAgentTool(project, {
+        name: 'attachAsset',
+        args: { assetId: 'asset-1', sceneId: 'nope', clipId: 'clip-1' },
+      }),
+    ).toThrow('Scene not found: nope');
   });
 
   it('sets and clears timeline bookends and clip audio seam modes', () => {

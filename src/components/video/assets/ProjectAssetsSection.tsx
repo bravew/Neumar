@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { AssetMaterializationNotice } from '@/components/assets/AssetMaterializationNotice';
 import { ASSET_DRAG_MIME } from '@/shared/assets';
 import { useAssetMaterializationEvents } from '@/shared/hooks/useAssetMaterializationEvents';
+import { useAssetMaterializationLease } from '@/shared/hooks/useAssetMaterializationLease';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoProject } from '@/shared/types/video';
 
@@ -53,6 +54,13 @@ export function ProjectAssetsSection({
   // threaded into the add-folder/add-files hooks so proxy generation for
   // freshly attached assets reports through the same live progress feed.
   const materializeSessionId = `video-materialize-${project.id}`;
+  // A hydration that was still running when the tab reloaded has no live
+  // holder to re-acquire its lease, so derive one from the persisted state.
+  // Idle projects hold nothing and cost no socket.
+  useAssetMaterializationLease(
+    materializeSessionId,
+    project.assets.some((asset) => asset.materializationState === 'hydrating'),
+  );
   const {
     addingFolder,
     addLocalFolder,

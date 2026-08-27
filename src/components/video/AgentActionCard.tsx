@@ -29,6 +29,7 @@ interface AgentActionCardProps {
     pending: string;
     running: string;
     completed: string;
+    partial: string;
     rejected: string;
     failed: string;
     cancelled: string;

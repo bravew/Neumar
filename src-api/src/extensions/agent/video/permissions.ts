@@ -31,12 +31,16 @@ const READ_TOOLS = [
   'video_get_content_graph',
   'video_analyze_assets',
   'video_get_handoff_conformance',
+  'video_get_plan',
+  'video_get_plan_progress',
+  'video_reconcile_plan',
   'video_search_frames',
 ] as const;
 
 const WRITE_TOOLS = [
   'video_detect_beats',
   'video_analyze_image',
+  'video_set_project_template',
   'video_set_aspect_ratio',
   'video_add_scene',
   'video_set_caption',
@@ -77,6 +81,7 @@ const WRITE_TOOLS = [
   // Commits the storyboard so it can be rendered. Reversible — any later edit
   // reverts the status to "edited" — so it is a write, not destructive.
   'video_approve_storyboard',
+  'video_write_plan',
 ] as const;
 
 const DESTRUCTIVE_TOOLS = [
@@ -127,6 +132,7 @@ const DESTRUCTIVE_TOOLS = [
   'video_crossfade_audio_clips',
   'video_set_audio_volume_keyframes',
   'video_replace_audio_clip_source',
+  'video_set_storyboard',
 ] as const;
 
 const METERED_TOOLS = new Set([

@@ -58,6 +58,7 @@ import type {
   AspectRatio,
   CutCandidate,
   MediaItem,
+  VideoAgentPlan,
   MediaMetadata,
   ProviderId,
   SourceCutPlan,
@@ -537,6 +538,7 @@ export async function createProject(
   const workspaceRoot = getVideoWorkspaceRoot();
   const project: VideoProject = {
     schemaVersion: VIDEO_PROJECT_SCHEMA_VERSION,
+    revision: 0,
     id: randomUUID(),
     name: input.name.trim() || 'Untitled video',
     template: input.template,
@@ -626,12 +628,48 @@ export async function getProject(projectId: string): Promise<VideoProject> {
   const raw = await fs.readFile(filePath, 'utf8');
   const project = JSON.parse(raw) as VideoProject;
   const migrated = withProjectSchemaVersion(
-    migrateStoryboardToTimeline(project),
+    migrateAgentPlan(migrateStoryboardToTimeline(project)),
   );
   if (migrated !== project) {
     await writeProject(migrated);
   }
   return migrated;
+}
+
+/**
+ * Bring a plan written before the draft/approval states were removed onto the
+ * current shape. `draft` and `approved` both become `active`: the separate
+ * approval transition never carried human intent — the agent drove both sides
+ * of it — so collapsing them loses nothing and unblocks plans that were left
+ * sitting in `draft`.
+ */
+function migrateAgentPlan(project: VideoProject): VideoProject {
+  const plan = project.agentPlan as
+    | (VideoAgentPlan & {
+        projectRevisionAtApproval?: number;
+        approvedAt?: string;
+      })
+    | undefined;
+  if (!plan) return project;
+  const legacyStatus = plan.status as
+    | VideoAgentPlan['status']
+    | 'draft'
+    | 'approved';
+  const needsStatus = legacyStatus === 'draft' || legacyStatus === 'approved';
+  const needsFields =
+    plan.projectRevisionAtStart === undefined || plan.createdAt === undefined;
+  if (!needsStatus && !needsFields) return project;
+  const { projectRevisionAtApproval, approvedAt, ...rest } = plan;
+  return {
+    ...project,
+    agentPlan: {
+      ...rest,
+      status: needsStatus ? 'active' : plan.status,
+      projectRevisionAtStart:
+        plan.projectRevisionAtStart ?? projectRevisionAtApproval ?? 0,
+      createdAt: plan.createdAt ?? approvedAt ?? project.createdAt,
+    },
+  };
 }
 
 async function readProjectOutputSummary(projectId: string): Promise<{
@@ -1975,15 +2013,35 @@ export async function writeProject(project: VideoProject): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
   const filePath = getVideoProjectJsonPathForRoot(root, project.id);
   const tmpPath = `${filePath}.${randomUUID()}.tmp`;
-  const document = withProjectSchemaVersion(project);
+  const document = await projectDocumentForWrite(filePath, project);
   await fs.writeFile(tmpPath, `${JSON.stringify(document, null, 2)}\n`);
   await fs.rename(tmpPath, filePath);
 }
 
+async function projectDocumentForWrite(
+  filePath: string,
+  project: VideoProject,
+): Promise<VideoProject> {
+  const normalized = withProjectSchemaVersion(project);
+  try {
+    const persisted = withProjectSchemaVersion(
+      JSON.parse(await fs.readFile(filePath, 'utf8')) as VideoProject,
+    );
+    return normalized.revision > persisted.revision
+      ? normalized
+      : { ...normalized, revision: persisted.revision + 1 };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return normalized;
+    throw error;
+  }
+}
+
 function withProjectSchemaVersion(project: VideoProject): VideoProject {
-  return project.schemaVersion === VIDEO_PROJECT_SCHEMA_VERSION
+  const revision = Number.isInteger(project.revision) ? project.revision : 0;
+  return project.schemaVersion === VIDEO_PROJECT_SCHEMA_VERSION &&
+    project.revision === revision
     ? project
-    : { ...project, schemaVersion: VIDEO_PROJECT_SCHEMA_VERSION };
+    : { ...project, schemaVersion: VIDEO_PROJECT_SCHEMA_VERSION, revision };
 }
 
 export async function updateProjectDocument(
@@ -1995,7 +2053,9 @@ export async function updateProjectDocument(
   const run = previous
     .catch(() => undefined)
     .then(async () => {
-      const next = await update(await getProject(projectId));
+      const current = await getProject(projectId);
+      const updated = await update(current);
+      const next = { ...updated, revision: current.revision + 1 };
       await writeProject(next);
       getDatabase()
         .prepare(
@@ -2542,12 +2602,7 @@ function validateStoryboardForApproval(
   project: VideoProject,
   storyboard: Storyboard,
 ): void {
-  const maxDurationMs =
-    project.template === 'ugc-ad'
-      ? 15_000
-      : project.template === 'custom'
-        ? Number.POSITIVE_INFINITY
-        : 60_000;
+  const maxDurationMs = templateMaxDurationMs(project.template);
   if (storyboard.totalDurationMs > maxDurationMs) {
     throw new Error('Storyboard exceeds template duration limit');
   }
@@ -2582,6 +2637,12 @@ function validateStoryboardForApproval(
       throw new Error('Storyboard scene has an incomplete asset plan');
     }
   }
+}
+
+export function templateMaxDurationMs(template: TemplateId): number {
+  if (template === 'ugc-ad') return 15_000;
+  if (template === 'custom') return Number.POSITIVE_INFINITY;
+  return 60_000;
 }
 
 function buildStoryboardJobs(

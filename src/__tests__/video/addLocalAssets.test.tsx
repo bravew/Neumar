@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAddLocalFiles } from '@/components/video/assets/useAddLocalFiles';
 import { useAddLocalFolder } from '@/components/video/assets/useAddLocalFolder';
 import type { VideoProjectEditorActions } from '@/components/video/editorTypes';
+import { isAssetMaterializationLeaseActive } from '@/shared/assets/materializationLease';
 
 const pickLocalFolder = vi.fn();
 vi.mock('@/components/video/LinkedSourcesPanel', () => ({
@@ -235,6 +236,58 @@ describe('useAddLocalFiles', () => {
       'c.mp4',
     ]);
     expect(result.current.addingFiles).toBe(false);
+  });
+
+  it('takes the stream lease after the chooser closes, not while it is open', async () => {
+    const leaseSeen: boolean[] = [];
+    pickLocalMediaFiles.mockImplementation(async () => {
+      // Holding an SSE socket here would compete with the very request that
+      // raises the chooser — that is the starvation this fix removes.
+      leaseSeen.push(isAssetMaterializationLeaseActive('sess-files'));
+      return ['/Volumes/Card/a.mp4'];
+    });
+    const attachAssetPaths = vi.fn(async () => {
+      leaseSeen.push(isAssetMaterializationLeaseActive('sess-files'));
+      return null;
+    });
+    const actions = {
+      attachAssetPaths,
+      uploadAssets: vi.fn(),
+    } as unknown as VideoProjectEditorActions;
+
+    const { result } = renderHook(() =>
+      useAddLocalFiles(actions, labels, 'sess-files'),
+    );
+    await act(async () => {
+      result.current.openFilePicker();
+    });
+
+    expect(leaseSeen).toEqual([false, true]);
+  });
+
+  it('re-enables the control when the picker request fails', async () => {
+    const { toast } = await import('sonner');
+    pickLocalMediaFiles.mockRejectedValue(
+      new Error('File picker did not respond'),
+    );
+    const actions = {
+      attachAssetPaths: vi.fn(),
+      uploadAssets: vi.fn(),
+    } as unknown as VideoProjectEditorActions;
+
+    const { result } = renderHook(() =>
+      useAddLocalFiles(actions, labels, 'sess-picker-error'),
+    );
+    await act(async () => {
+      result.current.openFilePicker();
+    });
+
+    expect(result.current.addingFiles).toBe(false);
+    expect(toast.error).toHaveBeenCalledWith(
+      'Asset failed: File picker did not respond',
+    );
+    // A failed pick must not leave a stream owning a socket.
+    expect(isAssetMaterializationLeaseActive('sess-picker-error')).toBe(false);
   });
 
   it('keeps going when one file fails and reports the partial result', async () => {

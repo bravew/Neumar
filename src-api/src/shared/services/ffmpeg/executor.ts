@@ -31,6 +31,7 @@ import {
 import { getExtendedPath } from '@/shared/agent-runtimes/resolve';
 import { getSetting } from '@/shared/db/operations';
 import { getMemoryBudgetSupervisor } from '@/shared/services/memory-budget';
+import { assertSafeExternalMediaFile } from '@/shared/utils/external-media-trust';
 import { createLogger } from '@/shared/utils/logger';
 import { expandPath } from '@/shared/utils/paths';
 
@@ -269,6 +270,28 @@ export function clearBinaryCache(): void {
 // ============================================================================
 
 /**
+ * Opt-in relaxations for a single validation call.
+ *
+ * Callers that already resolved a path under a different, equally explicit
+ * rule pass these so the workspace check does not reject a file the product
+ * deliberately allows.
+ */
+export interface PathValidationOptions {
+  /**
+   * Accept a read of a master the user keeps outside the workspace — footage
+   * on an external drive that a project references in place rather than
+   * copying in.
+   *
+   * This does not skip validation: the path is re-checked against
+   * `assertSafeExternalMediaFile`, which still requires a real, non-sensitive
+   * file under a trusted root. Only callers holding a `MediaItem` with
+   * `origin: 'external'` should set it, so an agent-supplied path cannot reach
+   * outside the workspace through a tool that never sees an asset record.
+   */
+  allowExternalMedia?: boolean;
+}
+
+/**
  * Validate that a file path is within the allowed session/workspace roots.
  * Reads may use sibling session folders so an attached source selected in a
  * prior task can be processed in a later task without copying the original.
@@ -278,6 +301,7 @@ export function validatePath(
   filePath: string,
   workDir: string,
   access: 'read' | 'write' = 'write',
+  options: PathValidationOptions = {},
 ): string {
   const resolved = isAbsolute(filePath)
     ? resolve(filePath)
@@ -290,6 +314,9 @@ export function validatePath(
 
   // Check the logical path first
   if (!allowedRoots.some((root) => isWithinRoot(resolved, root))) {
+    if (access === 'read' && options.allowExternalMedia) {
+      return assertSafeExternalMediaFile(resolved);
+    }
     throw new Error(
       `Path "${filePath}" is outside the allowed ${access} directories. All files must be within: ${allowedRoots.join(', ')}`,
     );
@@ -359,8 +386,12 @@ function isWithinRoot(target: string, root: string): boolean {
 /**
  * Validate that an input file exists and is readable.
  */
-export function validateInputFile(filePath: string, workDir: string): string {
-  const resolved = validatePath(filePath, workDir, 'read');
+export function validateInputFile(
+  filePath: string,
+  workDir: string,
+  options: PathValidationOptions = {},
+): string {
+  const resolved = validatePath(filePath, workDir, 'read', options);
 
   if (!existsSync(resolved)) {
     throw new Error(`Input file not found: ${resolved}`);
@@ -415,6 +446,7 @@ export function resolveOutputPath(
 export async function probeFile(
   filePath: string,
   workDir: string,
+  options: PathValidationOptions = {},
 ): Promise<ProbeResult> {
   const bins = detectBinaries();
   if (!bins) {
@@ -428,7 +460,7 @@ export async function probeFile(
     );
   }
 
-  const resolvedPath = validateInputFile(filePath, workDir);
+  const resolvedPath = validateInputFile(filePath, workDir, options);
 
   return new Promise<ProbeResult>((resolve, reject) => {
     const args = [
@@ -708,15 +740,18 @@ export async function executeFFmpegOperation(
     abortSignal?: AbortSignal;
     /** Skip input probing (for operations like concat that have no single input) */
     skipInputProbe?: boolean;
-  } = {},
+  } & PathValidationOptions = {},
 ): Promise<FFmpegResult> {
   const startTime = Date.now();
+  const readOptions: PathValidationOptions = {
+    allowExternalMedia: options.allowExternalMedia,
+  };
 
   try {
     // Validate and resolve paths
     const resolvedInput = options.skipInputProbe
-      ? validatePath(inputPath, workDir, 'read')
-      : validateInputFile(inputPath, workDir);
+      ? validatePath(inputPath, workDir, 'read', readOptions)
+      : validateInputFile(inputPath, workDir, readOptions);
     const resolvedOutput = validatePath(outputPath, workDir);
 
     // Ensure the output directory exists (session folders may not be created yet)
@@ -726,7 +761,7 @@ export async function executeFFmpegOperation(
     let inputDuration: number | undefined;
     if (!options.skipInputProbe) {
       try {
-        const probe = await probeFile(resolvedInput, workDir);
+        const probe = await probeFile(resolvedInput, workDir, readOptions);
         inputDuration = probe.duration;
       } catch {
         // Non-fatal: we just won't have progress percentage

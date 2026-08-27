@@ -50,6 +50,8 @@ export interface Message {
   subtype: string | null;
   error_message: string | null;
   attachments: string | null; // JSON string of MessageAttachment[]
+  /** SQLite boolean preserving tool-result failure state across reloads. */
+  is_error?: number;
   message_id: string | null;
   cost: number | null;
   usage_input: number | null;
@@ -90,6 +92,7 @@ export interface CreateMessageInput {
   subtype?: string;
   error_message?: string;
   attachments?: string; // JSON string of MessageAttachment[]
+  is_error?: boolean | number;
   message_id?: string | null;
   cost?: number | null;
   usage_input?: number | null;

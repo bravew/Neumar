@@ -46,6 +46,11 @@ import { withSessionContext } from '@/shared/services/session-context';
 import { findSkill, loadSkills } from '@/shared/skills/loader';
 import { createLogger } from '@/shared/utils/logger';
 import { getProviderConfig } from '@/shared/utils/provider-resolution';
+import {
+  writeVideoAgentPlan,
+  readVideoAgentPlan,
+} from '@/shared/video/agent-plan';
+import { getVideoFeatureFlag } from '@/shared/video/flags';
 import { getLatestVideoResearchBrief } from '@/shared/video/plugins/atoms/research';
 import { getVideoPlugin } from '@/shared/video/plugins/registry';
 import {
@@ -143,7 +148,7 @@ export class VideoAgent extends BaseAgent {
           ...resolveClaudeConfig(selectedModel),
           workDir: projectDir,
         });
-    const plan = buildVideoExecutionPlan(prompt);
+    const plan = buildVideoExecutionPlan(project, prompt);
     const selectedSceneId = options?.videoContext?.selectedSceneId;
     const projectAssetIds = options?.videoContext?.projectAssetIds;
     const transcriptSelection = options?.videoContext?.transcriptSelection;
@@ -330,6 +335,8 @@ export class VideoAgent extends BaseAgent {
       ? await buildVideoSkillContext(options?.pinnedSkills)
       : '';
 
+    const executionPolicy: NonNullable<AgentOptions['executionPolicy']> =
+      getVideoFeatureFlag('video.hostNative') ? 'host-native' : 'isolated';
     const baseExecuteOptions = {
       ...(options ?? {}),
       planId: plan.id,
@@ -347,6 +354,7 @@ export class VideoAgent extends BaseAgent {
       // runtimes to the same tight tool set.
       disablePolicyServers: true,
       sandbox: { enabled: false },
+      executionPolicy,
     };
 
     const sessionCtx = {
@@ -437,24 +445,39 @@ export class VideoAgent extends BaseAgent {
 
   async *plan(
     prompt: string,
-    _options?: PlanOptions,
+    options?: PlanOptions,
   ): AsyncGenerator<AgentMessage> {
     const session = this.createSession('planning');
     yield { type: 'session', sessionId: session.id };
+    const projectId = resolveVideoProjectId(options);
+    const persisted = await writeVideoAgentPlan(projectId, {
+      title: 'Video implementation plan',
+      request: prompt,
+      assumptions: [
+        'Scene and asset decisions follow the order the user confirmed in chat.',
+      ],
+      steps: [
+        {
+          id: 'draft-storyboard',
+          title: 'Draft and review the storyboard',
+          intent: prompt,
+          dependsOn: [],
+          operation: 'video_set_storyboard',
+          inputs: {},
+          verification: [
+            'The storyboard matches the order and media choices the user confirmed.',
+          ],
+          rollback:
+            'Restore the previous storyboard with its inverse journal diff.',
+        },
+      ],
+    });
+    const plan = persisted.plan!;
     yield {
       type: 'plan',
       sessionId: session.id,
       content: prompt,
-      plan: {
-        id: session.id,
-        goal: 'Create a validated video storyboard draft',
-        steps: [
-          { id: '1', description: 'Read project inputs', status: 'pending' },
-          { id: '2', description: 'Draft scene plan', status: 'pending' },
-          { id: '3', description: 'Request approval', status: 'pending' },
-        ],
-        createdAt: new Date(),
-      },
+      plan: videoAgentPlanToTaskPlan(plan),
     };
     yield { type: 'done', sessionId: session.id };
   }
@@ -564,19 +587,40 @@ function formatVideoConversation(
   return `\n\n## Conversation so far (oldest first; reuse URLs/answers the user already gave)\n${lines}`;
 }
 
-function buildVideoExecutionPlan(prompt: string): TaskPlan {
+function buildVideoExecutionPlan(
+  project: Awaited<ReturnType<typeof getProject>>,
+  prompt: string,
+): TaskPlan {
+  if (project.agentPlan) return videoAgentPlanToTaskPlan(project.agentPlan);
   return {
     id: `video-plan-${randomUUID()}`,
-    goal: 'Handle the Video Mode editing request with scoped MCP tools',
+    goal: 'Persist a durable Video Mode plan and request approval',
     steps: [
       {
-        id: '1',
-        description: prompt,
+        id: 'draft-plan',
+        description: `Draft a structured implementation plan for: ${prompt}`,
         status: 'pending',
       },
     ],
     executionMode: 'batch',
     createdAt: new Date(),
+  };
+}
+
+function videoAgentPlanToTaskPlan(
+  plan: NonNullable<Awaited<ReturnType<typeof readVideoAgentPlan>>['plan']>,
+): TaskPlan {
+  return {
+    id: plan.id,
+    goal: plan.title,
+    steps: plan.steps.map((step) => ({
+      id: step.id,
+      description: step.intent,
+      status: plan.status === 'completed' ? 'completed' : 'pending',
+    })),
+    notes: `Durable Video plan revision ${plan.revision}; status ${plan.status}.`,
+    executionMode: 'batch',
+    createdAt: new Date(plan.createdAt),
   };
 }
 

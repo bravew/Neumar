@@ -819,7 +819,20 @@ export function getWorkspaceInstruction(
   sandbox?: SandboxOptions,
   userWorkspaceDir?: string,
   allowWorkspaceWrite?: boolean,
+  executionPolicy: 'isolated' | 'host-native' = 'isolated',
 ): string {
+  const filesystemBoundary =
+    executionPolicy === 'isolated'
+      ? `You are operating under strict workspace isolation enforced at the OS level.
+- **Write access**: ONLY to ${workDir}/${userWorkspaceDir && allowWorkspaceWrite ? ` and ${userWorkspaceDir}/` : ''}
+- **Read access**: ${workDir}/${userWorkspaceDir ? ` and ${userWorkspaceDir}/` : ''}
+- **System searches FORBIDDEN**: NEVER run \`find\`, \`ls\`, \`grep\`, or any command targeting paths outside these boundaries (e.g., \`find /Users\`, \`find /home\`, \`find /tmp\`, \`ls ~/\`). These will be BLOCKED by the sandbox.
+- If the user mentions files or folders, look for them ONLY within the allowed directories above.
+- If you cannot find something within allowed directories, ask the user for the exact path — do NOT search the system.`
+      : `This run uses host-native execution through its approved tool surface.
+- **Writes**: Keep project writes inside ${workDir}/.
+- **Media reads**: Read user media only through approved, origin-aware Video tools. Registered media may remain in the user workspace or on mounted volumes.
+- **No general shell**: Host-native execution does not grant unrestricted shell or arbitrary file-write tools.`;
   let instruction = `
 ## CRITICAL: Workspace Configuration
 **MANDATORY OUTPUT DIRECTORY: ${workDir}**
@@ -827,16 +840,11 @@ export function getWorkspaceInstruction(
 ALL files you create MUST be saved to this directory. This is NON-NEGOTIABLE.
 
 ## CRITICAL: Filesystem Access Boundaries
-You are operating under strict workspace isolation enforced at the OS level.
-- **Write access**: ONLY to ${workDir}/${userWorkspaceDir && allowWorkspaceWrite ? ` and ${userWorkspaceDir}/` : ''}
-- **Read access**: ${workDir}/${userWorkspaceDir ? ` and ${userWorkspaceDir}/` : ''}
-- **System searches FORBIDDEN**: NEVER run \`find\`, \`ls\`, \`grep\`, or any command targeting paths outside these boundaries (e.g., \`find /Users\`, \`find /home\`, \`find /tmp\`, \`ls ~/\`). These will be BLOCKED by the sandbox.
-- If the user mentions files or folders, look for them ONLY within the allowed directories above.
-- If you cannot find something within allowed directories, ask the user for the exact path — do NOT search the system.
+${filesystemBoundary}
 
 Rules:
 1. ALWAYS use absolute paths starting with ${workDir}/
-2. NEVER use any other directory (no ~/.claude/, no ~/Documents/, no /tmp/, no default paths)
+2. ${executionPolicy === 'isolated' ? 'NEVER use any other directory (no ~/.claude/, no ~/Documents/, no /tmp/, no default paths)' : 'Use approved Video tools for registered media outside the project directory; never write beside external masters'}
 3. NEVER use ~/pptx-workspace, ~/docx-workspace, ~/xlsx-workspace or similar
 4. Scripts, documents, data files - EVERYTHING goes to ${workDir}/
 5. **Split code from deliverables** — Unix single-responsibility / Claude Skills convention:
@@ -1065,6 +1073,7 @@ export function formatPlanForExecution(
   sandbox?: SandboxOptions,
   userWorkspaceDir?: string,
   allowWorkspaceWrite?: boolean,
+  executionPolicy: 'isolated' | 'host-native' = 'isolated',
 ): string {
   const stepsText = plan.steps
     .map((step, index) => `${index + 1}. ${step.description}`)
@@ -1076,6 +1085,7 @@ export function formatPlanForExecution(
         sandbox,
         userWorkspaceDir,
         allowWorkspaceWrite,
+        executionPolicy,
       )
     : '';
 

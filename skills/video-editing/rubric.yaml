@@ -1,0 +1,11 @@
+version: 1
+skill: video-editing
+criteria:
+  - id: duration-preflight
+    behavior: Compare storyboard duration with the project-template ceiling before approval and offer a template change or trim when it cannot pass.
+  - id: vivid-photo-treatment
+    behavior: Treat requests for vivid photo slides as composition work using image analysis, a coherent overlay/template family, content-aware motion, and frame inspection.
+  - id: generation-failure
+    behavior: Surface failed media generation and never replace it silently with a placeholder or unrelated asset.
+  - id: preserve-simple-edits
+    behavior: Do not force vivid styling or template work onto ordinary cuts, trims, or explicitly plain slideshows.

@@ -306,15 +306,94 @@ export default {
       title: 'Séquenceur de scènes',
       empty: 'Générez ou ajoutez des scènes pour commencer le storyboard.',
     },
+    workflowSummary: {
+      progress: '{done} étapes terminées sur {total}',
+      blocked: 'Bloqué à {stage}',
+    },
+    templateField: {
+      label: 'Intention produit',
+      locked: 'Verrouillé — le storyboard a été construit pour cela.',
+      changeAnyway: 'Changer quand même',
+      confirmChange:
+        'Changer l’intention produit modifie les compétences de l’agent, la limite de durée appliquée à l’approbation et les hypothèses du storyboard actuel. Les scènes déjà créées sont conservées, mais le plan peut ne plus correspondre. Continuer ?',
+    },
+    exportBlocked: {
+      title: 'Rien à exporter pour l’instant',
+      notApproved:
+        'Le storyboard n’est pas approuvé, aucun rendu n’a donc été lancé et il n’y a pas de fichier à exporter.',
+      notRendered:
+        'Le storyboard est approuvé mais pas encore rendu, il n’y a donc pas de fichier à exporter.',
+      noStoryboard: 'Il n’y a pas encore de storyboard à rendre.',
+      overDuration:
+        'Le storyboard dure {duration}, mais le modèle « {template} » plafonne l’approbation à {max}. Passez le modèle en Personnalisé ou raccourcissez le montage : c’est l’approbation qui débloque le rendu.',
+      overBudget:
+        'Le storyboard estime ${estimate}, au-dessus du plafond de ${cap} ; il ne peut être ni approuvé ni rendu.',
+      step1: '1. Approuvez le storyboard.',
+      step2: '2. Lancez un rendu dans un format.',
+      step3: '3. Téléchargez, ouvrez ou partagez le fichier ici.',
+    },
+    approval: {
+      failed: 'Impossible d’approuver le storyboard',
+      noStoryboard: 'Il n’y a pas encore de storyboard à approuver.',
+      overDuration:
+        'Ce storyboard dure {duration}, mais le modèle « {template} » plafonne l’approbation à {max}. Passez le modèle en Personnalisé ou raccourcissez le montage.',
+      overBudget:
+        'Le storyboard estime ${estimate}, au-dessus du plafond de ${cap}. Augmentez le plafond ou réduisez la génération payante.',
+    },
     generate: {
       title: 'File de génération',
       description:
-        'Les scènes approuvées sont matérialisées ici avant le rendu FFmpeg.',
+        'Les scènes approuvées se matérialisent ici avant les rendus FFmpeg.',
+      summary:
+        'À générer : {generative} ({done} terminées) · Médias déjà présents : {ready}',
+      readyCollapsed: 'Masquées : {count} scènes qui ont déjà leurs médias.',
+      nothingToGenerate:
+        'Rien à générer : chaque scène pointe déjà vers un média existant. Approuvez le storyboard et lancez le rendu.',
+      notQueuedPending:
+        'Rien n’est en file : les tâches sont créées à l’approbation du storyboard. En attente : {count}.',
+      notQueuedApproved:
+        'Approuvé, mais ces scènes n’ont aucune tâche. Réapprouvez le storyboard pour les mettre en file. En attente : {count}.',
+      generating: 'Génération {done} sur {total}',
+      aggregate: {
+        'nothing-to-generate': 'Rien à générer',
+        'awaiting-approval': 'En attente d’approbation',
+        attention: 'Nécessite une action',
+        running: 'Génération',
+        queued: 'En file',
+        complete: 'Généré',
+      },
+      states: {
+        ready: 'Média présent',
+        'not-queued': 'Hors file',
+        queued: 'En file',
+        running: 'Génération',
+        done: 'Générée',
+        error: 'Échec',
+        cancelled: 'Annulée',
+      },
     },
     preview: {
       title: 'Aperçu rendu',
       openOutput: 'Ouvrir la sortie',
       openOutputFolder: 'Afficher dans le dossier',
+      modePreview: 'Aperçu',
+      modeOutput: 'Rendu',
+      outputUnavailable: 'Aucun rendu',
+      outputPending: 'Détails du rendu en attente',
+      factCodec: 'Codec',
+      factDuration: 'Durée',
+      factSize: 'Taille',
+      factLoudness: 'Sonie',
+      factPeak: 'Crête',
+      factColor: 'Couleur',
+      downloadOutput: 'Télécharger',
+      qaIssues: '{count} problèmes de QA',
+      qaClean: 'QA sans problème',
+      renderComplete: 'Rendu terminé',
+      renderFailed: 'Échec du rendu',
+      blockedNotApproved:
+        'Le storyboard n’est pas encore approuvé, le serveur refusera ce rendu.',
+      blockedEmptyTimeline: 'La timeline ne contient aucun clip à rendre.',
       playbackSpeed: 'Vitesse de lecture',
       fullscreen: 'Plein écran',
       exitFullscreen: 'Quitter le plein écran',
@@ -1243,9 +1322,54 @@ export default {
       pending: 'En attente',
       running: 'En cours',
       completed: 'Terminé',
+      partial: 'Succès partiel',
       rejected: 'Rejeté',
       failed: 'Échec',
       cancelled: 'Annulé',
+      planPanel: {
+        title: 'Exécution durable',
+        plan: 'Plan',
+        executionLog: 'Journal d’exécution',
+        refresh: 'Actualiser',
+        loading: 'Chargement…',
+        loadFailed: 'Impossible de charger le plan durable et son journal.',
+        driftWarning:
+          'Le plan lisible diffère du contrat enregistré. L’exécution est en pause.',
+        revisionWarning:
+          'Des modifications manuelles contredisent la révision en cours.',
+        nextStep: 'Étape suivante',
+        step: 'Étape',
+        attempt: 'Tentative',
+        verification: 'Vérification',
+        committed: 'Validé',
+        yes: 'Oui',
+        no: 'Non',
+        noRecords: 'Aucune tentative d’exécution.',
+        resume: 'Reprendre',
+        retry: 'Réessayer',
+        rollback: 'Restaurer',
+        confirmRetry:
+          'Réessayer la dernière étape échouée ou partiellement validée ?',
+        confirmRollback: 'Restaurer la dernière entrée validée du journal ?',
+        resumePrompt: 'Reprendre le plan vidéo durable à l’étape {step}.',
+        retryPrompt:
+          'Réessayer l’étape {step} du plan après vérification de son état.',
+        statuses: {
+          active: 'Actif',
+          executing: 'En cours',
+          paused: 'En pause',
+          completed: 'Terminé',
+          superseded: 'Remplacé',
+        },
+        phases: {
+          started: 'Démarré',
+          succeeded: 'Réussi',
+          failed: 'Échec',
+          'partial-success': 'Succès partiel',
+          skipped: 'Ignoré',
+          'rolled-back': 'Restauré',
+        },
+      },
       why: 'Pourquoi ?',
       hideWhy: 'Masquer pourquoi',
       considered: 'Pris en compte',
@@ -1460,6 +1584,7 @@ export default {
       requestFailedToast: 'Échec de la requête ({status})',
       variantCount: '{count} variantes',
       showMore: 'Afficher {count} de plus',
+      ungroupedHeading: 'Ajoutés directement ({count})',
       kindAll: 'Tous',
       kindVideo: 'Vidéos',
       kindImage: 'Images',

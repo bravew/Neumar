@@ -23,7 +23,9 @@ import { AgentDockHeader } from './AgentDockHeader';
 import { AgentDockMessageList } from './AgentDockMessageList';
 import { AgentDockTurnBudget } from './AgentDockTurnBudget';
 import { buildAgentDockSuggestions } from './agentDockViewUtils';
+import { latestAgentFailureDetail } from './agentFailureDetail';
 import { AgentJournalList } from './AgentJournalList';
+import { AgentPlanPanel } from './AgentPlanPanel';
 import { ProjectAssetPreviewDialog } from './assets/ProjectAssetPreviewDialog';
 import {
   projectAssetDisplayName,
@@ -87,6 +89,10 @@ export function AgentDock({
     model,
     turnBudget,
   } = useAgentDock({ projectId: project.id });
+  const turnBudgetDetail = useMemo(
+    () => latestAgentFailureDetail(messages),
+    [messages],
+  );
   const editorSelection = useVideoEditorSelectionContext({
     projectId: project.id,
     selectedSceneId: selectedScene?.id,
@@ -221,6 +227,14 @@ export function AgentDock({
         autoScrollKey={messages.length}
         followOutput={streaming}
       >
+        <AgentPlanPanel
+          projectId={project.id}
+          projectRevision={project.revision ?? 0}
+          disabled={streaming || Boolean(journalBusyId)}
+          labels={t.video.editor.agentDock.planPanel}
+          onSend={send}
+          onRollback={(entryId) => void runJournalAction(entryId, 'undo')}
+        />
         <AgentJournalList
           entries={project.agentJournal ?? []}
           labels={t.video.editor.agentDock.journal}
@@ -255,6 +269,7 @@ export function AgentDock({
 
       <AgentDockTurnBudget
         outcome={turnBudget}
+        detail={turnBudgetDetail}
         disabled={streaming}
         onContinue={() =>
           send(t.video.editor.agentDock.turnBudget.continuePrompt)

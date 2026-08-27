@@ -125,7 +125,10 @@ export function deriveVideoCreativeWorkflowState(
       },
     }),
     primaryAction: primaryActionFor(currentStep, renderFailed),
-    assetSummary: summarizeAssets(assets),
+    // Count only the project's own assets. A linked source is a *folder* the
+    // project reads from, so counting it as one asset made the header report
+    // one more than every asset list in the editor.
+    assetSummary: summarizeAssets(videoAssets),
     assets,
     source: { kind: 'video-project', status: project.render?.status },
     updatedAt: project.updatedAt,

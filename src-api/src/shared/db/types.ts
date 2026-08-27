@@ -142,6 +142,8 @@ export interface Message {
   subtype: string | null;
   error_message: string | null;
   attachments: string | null;
+  /** Whether this tool result represents an error. Stored as SQLite 0/1. */
+  is_error: number;
 
   /**
    * External identifier for correlating database records with Claude API responses.
@@ -185,6 +187,7 @@ export interface CreateMessageInput {
   subtype?: string | null;
   error_message?: string | null;
   attachments?: string | null;
+  is_error?: boolean | number;
   message_id?: string | null;
   cost?: number | null;
   usage_input?: number | null;

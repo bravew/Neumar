@@ -6,6 +6,10 @@ import { DEFAULT_AGENT_MODEL } from '@/config/constants';
 
 import { getSetting } from '@/shared/db/operations';
 import { createLogger } from '@/shared/utils/logger';
+import {
+  isAnthropicNative,
+  resolveApiCredentials,
+} from '@/shared/utils/provider-resolution';
 
 const logger = createLogger('VideoImageAnalysis');
 
@@ -54,16 +58,58 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function resolveAnthropic(): { client: Anthropic; model: string } {
-  const apiKey =
+/**
+ * Credentials for the vision call, from the same place every other
+ * lightweight LLM call in the app gets them.
+ *
+ * This deliberately prefers `resolveApiCredentials` over the legacy
+ * `anthropicApiKey`/`apiKey` settings: those two keys are not where the
+ * Settings UI writes a key any more, so reading only them made image analysis
+ * fail for users who had one configured perfectly well. The legacy keys stay
+ * as a fallback for installs that still carry them.
+ *
+ * A non-Anthropic provider is ignored rather than used. The SDK below speaks
+ * the Anthropic protocol, so handing it an OpenAI or OpenRouter key would turn
+ * a missing-credential case into a confusing 401 from the wrong vendor.
+ */
+function resolveAnthropicCredentials(): {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+} {
+  const resolved = resolveApiCredentials();
+  if (resolved.apiKey && isAnthropicNative(resolved.baseUrl)) {
+    return resolved;
+  }
+  const legacy =
     getSetting('anthropicApiKey') ||
     getSetting('apiKey') ||
     process.env.ANTHROPIC_API_KEY ||
     process.env.ANTHROPIC_AUTH_TOKEN;
+  return legacy
+    ? { apiKey: legacy, baseUrl: process.env.ANTHROPIC_BASE_URL }
+    : {};
+}
+
+function resolveAnthropic(): { client: Anthropic; model: string } {
+  const {
+    apiKey,
+    baseUrl,
+    model: configuredModel,
+  } = resolveAnthropicCredentials();
   if (!apiKey) {
-    throw new Error('No Anthropic API key configured for image analysis');
+    // Say which case this is. A Claude Max/Pro subscription authenticates the
+    // agent through the CLI's OAuth, which cannot be replayed against the HTTP
+    // API, so "configure Claude" is not the fix — an API key is.
+    throw new Error(
+      'Image analysis needs an Anthropic API key. A Claude subscription ' +
+        '(Max/Pro) signs in through the CLI and cannot authenticate this ' +
+        'call — add an API key under Settings → Models, or set ' +
+        'ANTHROPIC_API_KEY, to enable focal-point analysis. Ken Burns moves ' +
+        'fall back to a centred crop until then.',
+    );
   }
-  const baseURL = process.env.ANTHROPIC_BASE_URL;
+  const baseURL = baseUrl || process.env.ANTHROPIC_BASE_URL;
   if (baseURL) {
     // Defense-in-depth: reject a malformed/non-HTTP(S) base URL before it
     // becomes a server-side request target.
@@ -72,7 +118,8 @@ function resolveAnthropic(): { client: Anthropic; model: string } {
       throw new Error('Invalid ANTHROPIC_BASE_URL protocol');
     }
   }
-  const model = process.env.ANTHROPIC_MODEL || DEFAULT_AGENT_MODEL;
+  const model =
+    process.env.ANTHROPIC_MODEL || configuredModel || DEFAULT_AGENT_MODEL;
   return {
     client: new Anthropic({ apiKey, ...(baseURL ? { baseURL } : {}) }),
     model,

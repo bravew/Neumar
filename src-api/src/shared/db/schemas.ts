@@ -90,6 +90,7 @@ export const CreateMessageSchema = z.object({
   subtype: z.string().nullable().optional(),
   error_message: z.string().nullable().optional(),
   attachments: z.string().nullable().optional(),
+  is_error: z.union([z.boolean(), z.number().int().min(0).max(1)]).optional(),
   cost: z.number().nullable().optional(),
   usage_input: z.number().int().nullable().optional(),
   usage_output: z.number().int().nullable().optional(),

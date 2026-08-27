@@ -1817,15 +1817,19 @@ function applyToolClassifications(
  * workspace folder so the agent can inspect project files without being
  * able to write outside the session directory (unless explicitly allowed).
  */
-function buildSdkSandboxSettings(
+export function buildSdkSandboxSettings(
   sessionCwd: string,
   userWorkspaceDir?: string,
   allowWorkspaceWrite = false,
   additionalUserDirs?: string[],
-): {
-  sandbox: NonNullable<Options['sandbox']>;
-  additionalDirectories: string[];
-} {
+  executionPolicy: 'isolated' | 'host-native' = 'isolated',
+):
+  | {
+      sandbox: NonNullable<Options['sandbox']>;
+      additionalDirectories: string[];
+    }
+  | undefined {
+  if (executionPolicy === 'host-native') return undefined;
   const fsConfig = buildSandboxFilesystemConfig(
     sessionCwd,
     userWorkspaceDir,
@@ -2895,6 +2899,7 @@ User's request (answer this AFTER reading the images):
       sandboxOpts,
       userWsDir,
       allowWsWrite,
+      options?.executionPolicy ?? 'isolated',
     );
     const staticSystemContext = canUseResolvedContextSplit
       ? (options.resolvedContext?.staticContext ?? '')
@@ -2969,6 +2974,7 @@ User's request (answer this AFTER reading the images):
       userWsDir,
       allowWsWrite,
       options?.additionalUserDirs,
+      options?.executionPolicy ?? 'isolated',
     );
 
     // Typed turn budget (P2-5): remember the ceiling this run was given so the
@@ -3000,12 +3006,16 @@ User's request (answer this AFTER reading the images):
         session.id,
         loopGuard,
       ),
-      sandbox: sdkSandbox.sandbox,
-      additionalDirectories: [
-        ...sdkSandbox.additionalDirectories,
-        // When using worktree isolation, also grant access to the worktree path
-        ...(worktreePath ? [worktreePath] : []),
-      ],
+      ...(sdkSandbox
+        ? {
+            sandbox: sdkSandbox.sandbox,
+            additionalDirectories: [
+              ...sdkSandbox.additionalDirectories,
+              // When using worktree isolation, also grant access to the worktree path
+              ...(worktreePath ? [worktreePath] : []),
+            ],
+          }
+        : {}),
       abortController: options?.abortController || session.abortController,
       env: this.buildEnvConfig({
         userCredentials: options?.userCredentials,
@@ -3045,11 +3055,13 @@ User's request (answer this AFTER reading the images):
       },
     };
 
-    logger.info(`[Claude ${session.id}] Sandbox filesystem config:`, {
-      allowWrite: sdkSandbox.sandbox.filesystem?.allowWrite,
-      denyWrite: sdkSandbox.sandbox.filesystem?.denyWrite?.length,
-      denyRead: sdkSandbox.sandbox.filesystem?.denyRead?.length,
-      additionalDirectories: sdkSandbox.additionalDirectories,
+    logger.info(`[Claude ${session.id}] Execution policy:`, {
+      executionPolicy: options?.executionPolicy ?? 'isolated',
+      sandboxEnabled: Boolean(sdkSandbox),
+      allowWrite: sdkSandbox?.sandbox.filesystem?.allowWrite,
+      denyWrite: sdkSandbox?.sandbox.filesystem?.denyWrite?.length,
+      denyRead: sdkSandbox?.sandbox.filesystem?.denyRead?.length,
+      additionalDirectories: sdkSandbox?.additionalDirectories ?? [],
     });
 
     // Initialize MCP servers with user-configured servers.
@@ -5158,6 +5170,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       execUserWsDir,
       execAllowWsWrite,
       options.additionalUserDirs,
+      options.executionPolicy ?? 'isolated',
     );
 
     // Typed turn budget (P2-5): remember the ceiling this run was given so the
@@ -5194,8 +5207,12 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         session.id,
         execLoopGuard,
       ),
-      sandbox: execSdkSandbox.sandbox,
-      additionalDirectories: execSdkSandbox.additionalDirectories,
+      ...(execSdkSandbox
+        ? {
+            sandbox: execSdkSandbox.sandbox,
+            additionalDirectories: execSdkSandbox.additionalDirectories,
+          }
+        : {}),
       abortController: options.abortController || session.abortController,
       env: this.buildEnvConfig({
         userCredentials: options.userCredentials,
@@ -5261,11 +5278,13 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       ],
     };
 
-    logger.info(`[Claude ${session.id}] Execute sandbox filesystem config:`, {
-      allowWrite: execSdkSandbox.sandbox.filesystem?.allowWrite,
-      denyWrite: execSdkSandbox.sandbox.filesystem?.denyWrite?.length,
-      denyRead: execSdkSandbox.sandbox.filesystem?.denyRead?.length,
-      additionalDirectories: execSdkSandbox.additionalDirectories,
+    logger.info(`[Claude ${session.id}] Execute execution policy:`, {
+      executionPolicy: options.executionPolicy ?? 'isolated',
+      sandboxEnabled: Boolean(execSdkSandbox),
+      allowWrite: execSdkSandbox?.sandbox.filesystem?.allowWrite,
+      denyWrite: execSdkSandbox?.sandbox.filesystem?.denyWrite?.length,
+      denyRead: execSdkSandbox?.sandbox.filesystem?.denyRead?.length,
+      additionalDirectories: execSdkSandbox?.additionalDirectories ?? [],
     });
 
     // Determine which MCP servers are relevant based on plan content
@@ -5712,6 +5731,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         sandboxOpts,
         execUserWsDir,
         execAllowWsWrite,
+        options.executionPolicy ?? 'isolated',
       ) +
       '\n\nOriginal request: ' +
       options.originalPrompt;
@@ -5882,6 +5902,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         sandboxOpts,
         ptcUserWsDir,
         ptcAllowWsWrite,
+        options.executionPolicy ?? 'isolated',
       ) +
       '\n\nOriginal request: ' +
       options.originalPrompt;
@@ -5954,6 +5975,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       sandboxOpts,
       ptcUserWsDir,
       ptcAllowWsWrite,
+      options.executionPolicy ?? 'isolated',
     );
     // Prompt caching: use static context for system prompt (cached) and
     // dynamic context prepended to execution prompt (per-turn).

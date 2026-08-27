@@ -1,0 +1,40 @@
+{
+  "name": "Sanitized ChongQing interrupted montage",
+  "intent": "Recover an interrupted city montage without duplicating committed attachments.",
+  "committedSceneIds": [
+    "scene-01",
+    "scene-02",
+    "scene-03",
+    "scene-04",
+    "scene-05",
+    "scene-06",
+    "scene-07",
+    "scene-08",
+    "scene-09",
+    "scene-10",
+    "scene-11",
+    "scene-12"
+  ],
+  "scenes": [
+    { "id": "scene-01", "assetId": "asset-01" },
+    { "id": "scene-02", "assetId": "asset-02" },
+    { "id": "scene-03", "assetId": "asset-03" },
+    { "id": "scene-04", "assetId": "asset-04" },
+    { "id": "scene-05", "assetId": "asset-05" },
+    { "id": "scene-06", "assetId": "asset-06" },
+    { "id": "scene-07", "assetId": "asset-07" },
+    { "id": "scene-08", "assetId": "asset-08" },
+    { "id": "scene-09", "assetId": "asset-09" },
+    { "id": "scene-10", "assetId": "asset-10" },
+    { "id": "scene-11", "assetId": "asset-11" },
+    { "id": "scene-12", "assetId": "asset-12" },
+    { "id": "scene-13", "assetId": "asset-13" },
+    { "id": "scene-14", "assetId": "placeholder-asset" },
+    { "id": "scene-15", "assetId": "placeholder-asset" },
+    {
+      "id": "scene-16",
+      "assetId": "placeholder-asset",
+      "trimMs": [0, 1]
+    }
+  ]
+}

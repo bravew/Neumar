@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Check, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 import { saveVideoProjectAsTemplate } from '@/shared/hooks/useVideoProject';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -10,6 +10,7 @@ import type {
   VideoTemplateCategory,
 } from '@/shared/types/video';
 
+import { ApproveStoryboardButton } from './ApproveStoryboardButton';
 import type { VideoEditorStep, VideoProjectEditorActions } from './editorTypes';
 import { SceneSequencer } from './SceneSequencer';
 
@@ -55,11 +56,6 @@ export function StepBoardCanvas({
   >('proprietary');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
-  const overBudget =
-    Boolean(project.budget) &&
-    Boolean(storyboard) &&
-    (storyboard?.costEstimateUsd.high ?? 0) > (project.budget?.capUsd ?? 0);
-
   const updateScenes = async (scenes: VideoStoryboardScene[]) => {
     if (!storyboard) return;
     await actions.updateStoryboard({ ...storyboard, scenes });
@@ -106,19 +102,11 @@ export function StepBoardCanvas({
             <X className="mr-1 inline size-3" />
             {t.video.editor.actions.reject}
           </button>
-          <button
-            type="button"
-            disabled={overBudget}
-            title={overBudget ? t.video.storyboard.overBudget : undefined}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60"
-            onClick={async () => {
-              await actions.approveStoryboard();
-              onStepChange('plan');
-            }}
-          >
-            <Check className="mr-1 inline size-3" />
-            {t.video.editor.actions.approve}
-          </button>
+          <ApproveStoryboardButton
+            project={project}
+            onApprove={actions.approveStoryboard}
+            onApproved={() => onStepChange('plan')}
+          />
           <button
             type="button"
             className="border-border hover:bg-accent rounded-md border px-3 py-2 text-xs"

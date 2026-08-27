@@ -7,6 +7,7 @@ import type { VideoProject } from '@/shared/types/video';
 
 import type { VideoProjectEditorActions, VideoEditorStep } from './editorTypes';
 import { HtmlVideoPanel } from './html-video/HtmlVideoPanel';
+import { ProjectTemplateField } from './ProjectTemplateField';
 import { TemplateInlinePicker } from './TemplateInlinePicker';
 
 interface StepBriefCanvasProps {
@@ -52,10 +53,9 @@ export function StepBriefCanvas({
             String(project.assets.length),
           )}
         />
-        <Metric
-          icon={WandSparkles}
-          label={t.video.editor.brief.template}
-          value={t.video.templates[project.template]}
+        <ProjectTemplateField
+          project={project}
+          onPatch={actions.patchProject}
         />
       </div>
       <div className="mt-4">

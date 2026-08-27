@@ -228,6 +228,17 @@ export function ProjectAssetsGroupedList({
               renderAsset={renderAssetTile}
             />
           ))}
+          {/* Folder sections are labelled and counted; without a matching
+              header the leftovers look like assets the list forgot. The
+              headings have to add up to the badge above. */}
+          {folders.length > 0 && ungrouped.length > 0 ? (
+            <p className="text-muted-foreground px-1 pt-2 text-[11px] font-medium">
+              {labels.ungroupedHeading.replace(
+                '{count}',
+                String(ungrouped.length),
+              )}
+            </p>
+          ) : null}
           {ungrouped.slice(0, pageSize).map(renderAssetTile)}
         </div>
       )}

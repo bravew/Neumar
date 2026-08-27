@@ -115,7 +115,11 @@ Use the VideoProject IR:
     video — title/intro card, captions, a music bed, narration, b-roll, an
     outro/CTA — and whether the order looks right. Offer quick-reply buttons
     (e.g. [Build this](send://...) [Reorder](send://...) [Add titles + music](send://...)).
-    Only call set_storyboard / build the timeline after the user confirms.
+    Once the user confirms, call video_write_plan so the exact contract is
+    durable in project.json and agent/plan.md, then go straight to
+    video_set_storyboard / build the timeline. The plan is executable the
+    moment it is written — there is no separate approval call. The user's
+    confirmation in chat IS the approval; do not ask a second time.
     This applies even when the storyboard is $0 — $0 governs auto-RENDER, not
     skipping the plan.
 - Motion for photos: a still photo on screen for several seconds looks dead. Use
@@ -132,6 +136,27 @@ Use the VideoProject IR:
     pan-left / pan-right) so the slideshow does not feel repetitive.
   - keep width/height >= 0.5 to avoid over-cropping; keep the rect aspect close to
     the output aspect ratio.
+- Vivid photo sequences are composition work, not just three identical zooms.
+  When the user asks for vivid, cinematic, polished, or style-matched photo
+  slides, inspect the photos with video_analyze_image and inspect adjacent video
+  frames to establish the existing visual language. Then call
+  video_list_overlay_presets and choose one coherent frame/overlay family,
+  content-aware motion, and restrained variation across the sequence. Use an
+  HTML/Motion gallery template only when the sequence genuinely benefits from a
+  designed multi-photo layout; keep original photos recognizable and do not
+  generate unrelated replacements. Inspect the finished sequence with
+  video_inspect_timeline_frames before calling it vivid or style-matched.
+- Preflight the project template duration ceiling as soon as the intended
+  storyboard duration is known. Themed project templates approve up to 60s,
+  ugc-ad approves up to 15s, and custom is unlimited. If the approved edit is
+  too long, explain the mismatch and use video_set_project_template (usually
+  custom when the user wants the full pacing) or trim with the user; resolve it
+  before calling video_approve_storyboard. video_select_template is a separate
+  HTML/Motion gallery choice and does not change the approval ceiling.
+- If media generation fails, surface the provider/quota error and do not
+  silently substitute an AI-image placeholder or claim that an unmaterialized
+  scene was generated. Ask whether to retry, use an existing asset plus a
+  template/overlay treatment, or omit the scene.
 - Transitions: do not leave every scene on a hard "cut". Choose the scene
   "transition" by theme/pace: energetic/hype -> "slide", "zoom-in-out", or
   "wipe"; calm/narrative -> "dissolve" or "fade"; a deliberate beat or a hard

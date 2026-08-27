@@ -10,6 +10,10 @@ import type {
   VideoProject,
   VideoTemplateId,
 } from '@/shared/types/video';
+import {
+  DEFAULT_VIDEO_PROJECT_TEMPLATE,
+  VIDEO_PROJECT_TEMPLATES,
+} from '@/shared/video/projectTemplates';
 
 export interface NewVideoProjectDefaults {
   name?: string;
@@ -17,15 +21,6 @@ export interface NewVideoProjectDefaults {
   aspectRatio?: VideoAspectRatio;
   prompt?: string;
 }
-
-const TEMPLATE_OPTIONS: VideoTemplateId[] = [
-  'slideshow',
-  'product-reel',
-  'explainer',
-  'ugc-ad',
-  'podcast',
-  'custom',
-];
 
 const ASPECT_OPTIONS: VideoAspectRatio[] = ['16:9', '9:16', '1:1', '4:5'];
 
@@ -48,7 +43,7 @@ export function NewVideoProjectForm({
     defaults?.name ?? t.video.entry.defaultProjectName,
   );
   const [template, setTemplate] = useState<VideoTemplateId>(
-    defaults?.template ?? 'slideshow',
+    defaults?.template ?? DEFAULT_VIDEO_PROJECT_TEMPLATE,
   );
   const [aspectRatio, setAspectRatio] = useState<VideoAspectRatio>(
     defaults?.aspectRatio ?? '16:9',
@@ -62,7 +57,7 @@ export function NewVideoProjectForm({
   useEffect(() => {
     if (!defaults) return;
     setName(defaults.name ?? t.video.entry.defaultProjectName);
-    setTemplate(defaults.template ?? 'slideshow');
+    setTemplate(defaults.template ?? DEFAULT_VIDEO_PROJECT_TEMPLATE);
     setAspectRatio(defaults.aspectRatio ?? '16:9');
     setPrompt(defaults.prompt ?? '');
   }, [defaults, t.video.entry.defaultProjectName]);
@@ -113,7 +108,7 @@ export function NewVideoProjectForm({
 
       <Field label={m.templateLabel}>
         <div className="flex flex-wrap gap-2">
-          {TEMPLATE_OPTIONS.map((id) => (
+          {VIDEO_PROJECT_TEMPLATES.map((id) => (
             <Chip
               key={id}
               active={template === id}

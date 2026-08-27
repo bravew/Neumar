@@ -135,9 +135,9 @@ export function RunTreeView({ taskId }: { taskId: string }) {
   const fetchTree = useRunTreeStore((s) => s.fetch);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void fetchTree(taskId, controller.signal);
-    return () => controller.abort();
+    // The store owns this request's lifetime (bounded timeout, shared across
+    // callers), so there is no per-component signal to abort here.
+    void fetchTree(taskId);
   }, [taskId, fetchTree]);
 
   if (!taskTree || taskTree.tree.length === 0) return null;

@@ -13,6 +13,7 @@ export interface ApiInstance {
   baseUrl: string;
   stdout: string[];
   stderr: string[];
+  removeHomeOnStop: boolean;
 }
 
 const API_START_TIMEOUT_MS = 30_000;
@@ -20,10 +21,15 @@ const GRACEFUL_SHUTDOWN_MS = 5_000;
 
 export async function spawnApiInstance(
   name: string = 'default',
-  options: { env?: Record<string, string> } = {},
+  options: {
+    env?: Record<string, string>;
+    homeDir?: string;
+    preserveHome?: boolean;
+  } = {},
 ): Promise<ApiInstance> {
   const port = await getFreePort();
-  const homeDir = await mkdtemp(join(tmpdir(), `neumar-e2e-${name}-`));
+  const homeDir =
+    options.homeDir ?? (await mkdtemp(join(tmpdir(), `neumar-e2e-${name}-`)));
 
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -72,12 +78,22 @@ export async function spawnApiInstance(
     );
   }
 
-  return { port, child, homeDir, baseUrl, stdout, stderr };
+  return {
+    port,
+    child,
+    homeDir,
+    baseUrl,
+    stdout,
+    stderr,
+    removeHomeOnStop: !options.preserveHome,
+  };
 }
 
 export async function stopApiInstance(inst: ApiInstance): Promise<void> {
   if (inst.child.exitCode !== null) {
-    await rm(inst.homeDir, { recursive: true, force: true });
+    if (inst.removeHomeOnStop) {
+      await rm(inst.homeDir, { recursive: true, force: true });
+    }
     return;
   }
 
@@ -97,5 +113,7 @@ export async function stopApiInstance(inst: ApiInstance): Promise<void> {
   clearTimeout(timer);
 
   if (!exited) inst.child.kill('SIGKILL');
-  await rm(inst.homeDir, { recursive: true, force: true });
+  if (inst.removeHomeOnStop) {
+    await rm(inst.homeDir, { recursive: true, force: true });
+  }
 }

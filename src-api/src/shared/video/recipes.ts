@@ -41,6 +41,8 @@ export interface VideoIntentLogEntry {
   applyMode?: VideoIntentApplyMode;
   appliedPluginSnapshot?: VideoAppliedPluginSnapshot;
   costUsd: number;
+  planId?: string;
+  planRevision?: number;
 }
 
 export interface RecordVideoIntentLogInput {
@@ -59,6 +61,8 @@ export interface RecordVideoIntentLogInput {
   applyMode?: VideoIntentApplyMode;
   appliedPluginSnapshot?: VideoAppliedPluginSnapshot;
   costUsd?: number;
+  planId?: string;
+  planRevision?: number;
 }
 
 interface VideoRecipeRow {
@@ -91,6 +95,8 @@ interface VideoIntentLogRow {
   apply_mode: VideoIntentApplyMode | null;
   applied_plugin_json: string | null;
   cost_usd: number;
+  plan_id: string | null;
+  plan_revision: number | null;
 }
 
 export function listVideoRecipes(
@@ -167,6 +173,8 @@ export function recordVideoIntentLog(
     applyMode: input.applyMode,
     appliedPluginSnapshot: input.appliedPluginSnapshot,
     costUsd: input.costUsd ?? 0,
+    planId: input.planId,
+    planRevision: input.planRevision,
   };
 
   const insert = db.prepare(
@@ -186,8 +194,10 @@ export function recordVideoIntentLog(
         diff_summary,
         apply_mode,
         applied_plugin_json,
-        cost_usd
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cost_usd,
+        plan_id,
+        plan_revision
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
   );
 
@@ -211,6 +221,8 @@ export function recordVideoIntentLog(
         ? JSON.stringify(entry.appliedPluginSnapshot)
         : null,
       entry.costUsd,
+      entry.planId ?? null,
+      entry.planRevision ?? null,
     );
     return entry;
   });
@@ -318,6 +330,8 @@ function intentFromRow(row: VideoIntentLogRow): VideoIntentLogEntry {
       ? parseJson<VideoAppliedPluginSnapshot>(row.applied_plugin_json)
       : undefined,
     costUsd: row.cost_usd,
+    planId: row.plan_id ?? undefined,
+    planRevision: row.plan_revision ?? undefined,
   };
 }
 

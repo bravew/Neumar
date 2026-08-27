@@ -190,6 +190,8 @@ export type LipsyncProvider =
 export interface VideoProject {
   /** Project document schema version; absent means v1 and is migrated on load. */
   schemaVersion?: 2;
+  /** Monotonic project-document revision used for optimistic concurrency. */
+  revision: number;
   id: string;
   name: string;
   template: TemplateId;
@@ -208,6 +210,8 @@ export interface VideoProject {
   timeline?: VideoTimeline;
   history?: VideoTimelineHistory;
   agentJournal?: AgentJournalEntry[];
+  /** Canonical durable execution contract for the Video agent. */
+  agentPlan?: VideoAgentPlan;
   renderPlan?: RenderPlan;
   render?: RenderStatus;
   budget?: { capUsd: number; spentUsd: number };
@@ -223,6 +227,47 @@ export interface VideoProject {
   soundtrack?: ProjectSoundtrack;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * A durable video implementation plan.
+ *
+ * There is deliberately no draft/approval pair here. The human checkpoint for
+ * Video Mode is the PLAN GATE in conversation: the agent shows the scene/asset
+ * table and waits for the user to say "build it". A second, agent-callable
+ * `approve` transition would add a state the model drives on both sides — a
+ * gate in name only — while blocking every plan that never reaches it. The
+ * gates that matter guard the irreversible steps (render, publish, paid
+ * generation, destructive edits) and live on those tools instead.
+ *
+ * `request` records the user instruction the plan was written from, which is
+ * the durable evidence that a human asked for this work.
+ */
+export interface VideoAgentPlan {
+  schemaVersion: 1;
+  id: string;
+  revision: number;
+  status: 'active' | 'executing' | 'paused' | 'completed' | 'superseded';
+  title: string;
+  request: string;
+  assumptions: string[];
+  /** Project revision when this plan revision was written. Provenance only. */
+  projectRevisionAtStart: number;
+  createdAt: string;
+  steps: VideoAgentPlanStep[];
+  /** SHA-256 of the deterministic `agent/plan.md` projection. */
+  markdownDigest: string;
+}
+
+export interface VideoAgentPlanStep {
+  id: string;
+  title: string;
+  intent: string;
+  dependsOn: string[];
+  operation: string;
+  inputs: Record<string, unknown>;
+  verification: string[];
+  rollback: string;
 }
 
 export interface VideoTimelineHistory {

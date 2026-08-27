@@ -17,7 +17,6 @@ import { VIDEO_EDITOR_STEPS } from './editorTypes';
 
 interface ProjectStepperProps {
   value: VideoEditorStep;
-  derived: VideoEditorStep;
   onChange: (step: VideoEditorStep) => void;
   /** Optional content rendered before the step tabs (e.g. project title). */
   leading?: ReactNode;
@@ -35,7 +34,6 @@ const STEP_ICONS = {
 
 export function ProjectStepper({
   value,
-  derived,
   onChange,
   leading,
   trailing,
@@ -58,16 +56,19 @@ export function ProjectStepper({
         <div className="flex min-w-0 shrink items-center gap-2">{leading}</div>
       ) : null}
       <div className="flex min-w-0 flex-1 items-center gap-1">
-        {VIDEO_EDITOR_STEPS.map((step, index) => {
+        {VIDEO_EDITOR_STEPS.map((step) => {
           const active = value === step;
           const Icon = STEP_ICONS[step];
 
+          // The canvas on screen is the current step. Deriving it from
+          // progress instead let assistive tech announce Plan while
+          // Storyboard was displayed.
           return (
             <button
               key={step}
               type="button"
               aria-pressed={active}
-              aria-current={derived === step ? 'step' : undefined}
+              aria-current={active ? 'step' : undefined}
               className={
                 active
                   ? 'bg-background text-foreground flex min-w-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium shadow-sm'
@@ -77,9 +78,6 @@ export function ProjectStepper({
             >
               <Icon className="size-3.5 shrink-0" />
               <span className="truncate">{t.video.editor.step[step]}</span>
-              <span className="text-muted-foreground hidden text-[11px] xl:inline">
-                {index + 1}
-              </span>
             </button>
           );
         })}

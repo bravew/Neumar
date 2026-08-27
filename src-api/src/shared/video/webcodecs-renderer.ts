@@ -460,7 +460,9 @@ async function collectRenderableAudioClips(
     }
     let probe = probeCache.get(clip.sourcePath);
     if (!probe) {
-      probe = await probeFile(clip.sourcePath, root);
+      probe = await probeFile(clip.sourcePath, root, {
+        allowExternalMedia: clip.sourceIsExternal,
+      });
       probeCache.set(clip.sourcePath, probe);
     }
     if ((probe.audioStreamCount ?? 0) > 0) {

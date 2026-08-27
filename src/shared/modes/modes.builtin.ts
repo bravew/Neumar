@@ -32,6 +32,7 @@ import {
 
 import { createDesignProject } from '@/shared/hooks/useDesignMode';
 import { createVideoProject } from '@/shared/hooks/useVideoProject';
+import { DEFAULT_VIDEO_PROJECT_TEMPLATE } from '@/shared/video/projectTemplates';
 
 import { ModeRegistry } from './ModeRegistry';
 import type { ChipDefinition, ModeDefinition } from './types';
@@ -320,7 +321,7 @@ const videoMode: ModeDefinition = {
         try {
           const { project } = await createVideoProject({
             name: t.video.entry.defaultProjectName,
-            template: 'slideshow',
+            template: DEFAULT_VIDEO_PROJECT_TEMPLATE,
             aspectRatio: '16:9',
           });
           navigate(`/video/${project.id}`);

@@ -74,12 +74,8 @@ interface TaskRunTree {
 interface RunTreeStore {
   byTaskId: Record<string, TaskRunTree>;
   byOwner: Record<string, TaskRunTree>;
-  fetch: (taskId: string, signal?: AbortSignal) => Promise<void>;
-  fetchOwner: (
-    mode: RunTreeNode['mode'],
-    ownerKey: string,
-    signal?: AbortSignal,
-  ) => Promise<void>;
+  fetch: (taskId: string) => Promise<void>;
+  fetchOwner: (mode: RunTreeNode['mode'], ownerKey: string) => Promise<void>;
   clear: (taskId: string) => void;
 }
 
@@ -104,7 +100,21 @@ const EMPTY_TASK: TaskRunTree = {
 /** Skip refetch if we have data <2s old. Stops StrictMode double-mount races. */
 const STALE_AFTER_MS = 2_000;
 
+/**
+ * These are GETs against the API on this machine. Anything slower than this is
+ * a request that never got a socket — the browser caps concurrent connections
+ * per host, and a saturated pool leaves the request queued indefinitely. Give
+ * up rather than sit on a pool slot and a "Loading diagnostics…" spinner.
+ */
+const REQUEST_TIMEOUT_MS = 12_000;
+
 const inFlight = new Map<string, Promise<void>>();
+
+interface RunTreePayload {
+  tree: RunTreeNode[];
+  rollup: RunTreeRollup;
+  executions: ExecutionOutcomeSummary[];
+}
 
 function isAbortError(err: unknown): boolean {
   return (
@@ -115,12 +125,34 @@ function isAbortError(err: unknown): boolean {
   );
 }
 
+/**
+ * The request's lifetime belongs to the store, not to whichever component
+ * happened to trigger it. `inFlight` hands the same promise to every caller,
+ * so honouring one caller's AbortSignal would cancel the shared request out
+ * from under the others and strand them in `loading` forever — the bounded
+ * timeout is what releases the socket instead.
+ */
+async function fetchRunTree(url: string): Promise<RunTreePayload> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return (await response.json()) as RunTreePayload;
+  } catch (error) {
+    if (isAbortError(error)) throw new Error('Request timed out');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export const useRunTreeStore = create<RunTreeStore>()(
   immer((set, get) => ({
     byTaskId: {},
     byOwner: {},
 
-    fetch: async (taskId, signal) => {
+    fetch: async (taskId) => {
       const existing = get().byTaskId[taskId];
       if (existing && Date.now() - existing.fetchedAt < STALE_AFTER_MS) {
         return;
@@ -136,15 +168,9 @@ export const useRunTreeStore = create<RunTreeStore>()(
 
       const run = (async () => {
         try {
-          const res = await fetch(`${API_BASE_URL}/runs/${taskId}/tree`, {
-            signal,
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = (await res.json()) as {
-            tree: RunTreeNode[];
-            rollup: RunTreeRollup;
-            executions: ExecutionOutcomeSummary[];
-          };
+          const data = await fetchRunTree(
+            `${API_BASE_URL}/runs/${taskId}/tree`,
+          );
           set((state) => {
             state.byTaskId[taskId] = {
               tree: data.tree,
@@ -156,7 +182,6 @@ export const useRunTreeStore = create<RunTreeStore>()(
             };
           });
         } catch (err) {
-          if (isAbortError(err)) return;
           const message = err instanceof Error ? err.message : String(err);
           set((state) => {
             const prev = state.byTaskId[taskId] ?? EMPTY_TASK;
@@ -175,7 +200,7 @@ export const useRunTreeStore = create<RunTreeStore>()(
       return run;
     },
 
-    fetchOwner: async (mode, ownerKey, signal) => {
+    fetchOwner: async (mode, ownerKey) => {
       const key = `${mode}:${ownerKey}`;
       const existing = get().byOwner[key];
       if (existing && Date.now() - existing.fetchedAt < STALE_AFTER_MS) return;
@@ -187,16 +212,9 @@ export const useRunTreeStore = create<RunTreeStore>()(
       });
       const request = (async () => {
         try {
-          const response = await fetch(
+          const data = await fetchRunTree(
             `${API_BASE_URL}/runs/owner/${mode}/${encodeURIComponent(ownerKey)}/tree`,
-            { signal },
           );
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const data = (await response.json()) as {
-            tree: RunTreeNode[];
-            rollup: RunTreeRollup;
-            executions: ExecutionOutcomeSummary[];
-          };
           set((state) => {
             state.byOwner[key] = {
               ...data,
@@ -206,7 +224,6 @@ export const useRunTreeStore = create<RunTreeStore>()(
             };
           });
         } catch (error) {
-          if (isAbortError(error)) return;
           set((state) => {
             const prev = state.byOwner[key] ?? EMPTY_TASK;
             state.byOwner[key] = {
@@ -224,9 +241,9 @@ export const useRunTreeStore = create<RunTreeStore>()(
     },
 
     clear: (taskId) => {
-      // Drop any in-flight fetch too — otherwise the next fetch() returns
-      // the stale pending promise, ignoring the new AbortSignal, and its
-      // late resolve would resurrect the cleared entry.
+      // Drop any in-flight fetch too — otherwise the next fetch() returns the
+      // stale pending promise, whose late resolve would resurrect the cleared
+      // entry.
       inFlight.delete(taskId);
       set((state) => {
         delete state.byTaskId[taskId];

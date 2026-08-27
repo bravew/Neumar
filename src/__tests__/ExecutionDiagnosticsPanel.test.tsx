@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -94,6 +100,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   globalThis.fetch = originalFetch;
   vi.restoreAllMocks();
 });
@@ -159,6 +166,31 @@ describe('ExecutionDiagnosticsPanel', () => {
       expect(await screen.findByText('Retry')).toBeVisible();
     },
   );
+
+  it('settles on a failure state when the diagnostics request stalls', async () => {
+    vi.useFakeTimers();
+    globalThis.fetch = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        }),
+    ) as unknown as typeof fetch;
+
+    renderWithLanguage(<ExecutionDiagnosticsPanel runId="run-stalled" />);
+    fireEvent.click(screen.getByText('Execution diagnostics'));
+    expect(screen.getByText('Loading diagnostics…')).toBeVisible();
+
+    // A queued request used to sit here indefinitely, holding one of the ~6
+    // per-host sockets the native asset picker also needs.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(12_000);
+    });
+
+    expect(screen.getByText('Diagnostics could not be loaded')).toBeVisible();
+    expect(screen.queryByText('Loading diagnostics…')).not.toBeInTheDocument();
+  });
 
   it('exports a support bundle for the diagnostics owner', async () => {
     const fetchMock = vi.fn(

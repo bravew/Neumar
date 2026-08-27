@@ -202,8 +202,13 @@ export function toolCallToAgentAction(
     summary,
     requiresApproval: false,
     status:
-      options.status ??
-      (resultRecord?.error || resultRecord?.isError ? 'failed' : 'completed'),
+      resultRecord?.committed === true &&
+      (resultRecord.error || resultRecord.isError)
+        ? 'partial'
+        : (options.status ??
+          (resultRecord?.error || resultRecord?.isError
+            ? 'failed'
+            : 'completed')),
     error: getString(resultRecord ?? {}, 'error'),
   };
 }

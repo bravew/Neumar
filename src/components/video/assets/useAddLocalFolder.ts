@@ -6,6 +6,7 @@ import {
   lastPathSegment,
   pickLocalFolder,
 } from '@/components/video/LinkedSourcesPanel';
+import { acquireAssetMaterializationLease } from '@/shared/assets/materializationLease';
 import { grantFileReadAccess } from '@/shared/lib/tauri-scope';
 
 import type { VideoProjectEditorActions } from '../editorTypes';
@@ -86,9 +87,12 @@ export function useAddLocalFolder(
 
   const addLocalFolder = useCallback(async () => {
     setAddingFolder(true);
+    let releaseLease = () => {};
     try {
       const selected = await pickLocalFolder(pickerTitle);
       if (!selected) return;
+      // Only after the chooser closes — see the same note in useAddLocalFiles.
+      releaseLease = acquireAssetMaterializationLease(sessionId);
       const folderName = lastPathSegment(selected);
       await grantFileReadAccess([selected]);
       const grant = await actions.grantLocalFolder(selected);
@@ -169,6 +173,7 @@ export function useAddLocalFolder(
         toast.error(err instanceof Error ? err.message : String(err));
       }
     } finally {
+      releaseLease();
       if (mountedRef.current) {
         setAddingFolder(false);
         setProgress(null);

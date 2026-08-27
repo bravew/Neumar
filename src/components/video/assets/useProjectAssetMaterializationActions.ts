@@ -1,6 +1,9 @@
 import { useCallback, useMemo } from 'react';
 
-import { isAssetMaterializationBudgetError } from '@/shared/assets';
+import {
+  acquireAssetMaterializationLease,
+  isAssetMaterializationBudgetError,
+} from '@/shared/assets';
 import type { AssetMaterializationBudgetError } from '@/shared/assets';
 
 import type { VideoProjectEditorActions } from '../editorTypes';
@@ -25,6 +28,7 @@ export function useProjectAssetMaterializationActions(params: {
   );
   const handleRetry = useCallback(
     (mediaItemId: string) => {
+      const releaseLease = acquireAssetMaterializationLease(sessionId);
       void actions
         .hydrateProjectAsset(mediaItemId, { sessionId })
         .catch((error) => {
@@ -33,7 +37,8 @@ export function useProjectAssetMaterializationActions(params: {
           } else {
             onError(error);
           }
-        });
+        })
+        .finally(releaseLease);
     },
     [actions, onBudgetIssue, onError, sessionId],
   );

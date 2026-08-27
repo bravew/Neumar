@@ -12,6 +12,7 @@ import { AssetCatalogPickerDialog } from '@/components/assets/AssetCatalogPicker
 import { AssetMaterializationNotice } from '@/components/assets/AssetMaterializationNotice';
 import {
   ASSET_DRAG_MIME,
+  acquireAssetMaterializationLease,
   applyAssetMaterializationBudgetIncrease,
   isAssetMaterializationBudgetError,
   readAssetDragPayload,
@@ -135,11 +136,20 @@ export function AssetGallery({
 
   const attachCatalogAssetIds = useCallback(
     async (assetIds: string[]) => {
-      for (const assetId of assetIds) {
-        const result = await attachCatalogAssetToDesign(projectId, assetId, {
-          sessionId: sessionIdRef.current,
-        });
-        onProjectChange?.(result.project);
+      // The event stream only exists while a lease is held; releasing on
+      // settle leaves the grace window open for trailing derivative events.
+      const releaseLease = acquireAssetMaterializationLease(
+        sessionIdRef.current,
+      );
+      try {
+        for (const assetId of assetIds) {
+          const result = await attachCatalogAssetToDesign(projectId, assetId, {
+            sessionId: sessionIdRef.current,
+          });
+          onProjectChange?.(result.project);
+        }
+      } finally {
+        releaseLease();
       }
     },
     [onProjectChange, projectId],

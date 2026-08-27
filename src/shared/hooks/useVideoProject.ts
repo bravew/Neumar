@@ -287,11 +287,16 @@ export function useVideoProject(projectId: string | undefined) {
   const [project, setProject] = useState<VideoProject | null>(null);
   const [loading, setLoading] = useState(Boolean(projectId));
   const [error, setError] = useState<string | null>(null);
+  // `loading` swaps the whole editor for a spinner, so it must mean "nothing
+  // to show yet" and not "fetching". Every mutation refreshes the project, and
+  // flipping it on each time would unmount the editor — taking the agent dock
+  // and its conversation with it — on every render, approve, or scene edit.
+  const hasProjectRef = useRef(false);
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       if (!projectId) return;
-      setLoading(true);
+      if (!hasProjectRef.current) setLoading(true);
       try {
         const data = await videoApi<{ project: VideoProject }>(
           `/projects/${encodeURIComponent(projectId)}`,
@@ -299,6 +304,7 @@ export function useVideoProject(projectId: string | undefined) {
         );
         if (!signal?.aborted) {
           setProject(data.project);
+          hasProjectRef.current = true;
           setError(null);
         }
       } catch (err) {
@@ -311,6 +317,13 @@ export function useVideoProject(projectId: string | undefined) {
     },
     [projectId],
   );
+
+  // A different project starts over: the one on screen is not this one.
+  useEffect(() => {
+    hasProjectRef.current = false;
+    setProject(null);
+    setLoading(Boolean(projectId));
+  }, [projectId]);
 
   useEffect(() => {
     const ac = new AbortController();

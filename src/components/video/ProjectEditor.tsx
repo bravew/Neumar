@@ -4,12 +4,8 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Group as PanelGroup } from 'react-resizable-panels';
 
-import { CreativeWorkflowHeader } from '@/components/creative/CreativeWorkflowHeader';
 import { API_BASE_URL } from '@/config';
-import {
-  deriveVideoCreativeWorkflowState,
-  type CreativeWorkflowStep,
-} from '@/shared/creative-workflow';
+import { deriveVideoCreativeWorkflowState } from '@/shared/creative-workflow';
 import {
   deriveVideoEditorStep,
   useVideoProjectPolling,
@@ -20,6 +16,12 @@ import type {
 } from '@/shared/types/video';
 
 import { EditorLeftColumn } from './EditorLeftColumn';
+import {
+  editorLocationParams,
+  editorStepForWorkflowStep,
+  parseEditorLocation,
+  parseEditorStep,
+} from './editorLocation';
 import { EditorRightColumn } from './EditorRightColumn';
 import type { VideoEditorStep, VideoProjectEditorActions } from './editorTypes';
 import { LinkedAssetsBrowser } from './LinkedAssetsBrowser';
@@ -29,7 +31,6 @@ import {
   ProjectStepperTrailing,
 } from './ProjectEditorStepperContent';
 import { ProjectStepper } from './ProjectStepper';
-import type { SideRailTab } from './SideRail';
 import type {
   TimelineSceneSelectOptions,
   TimelineSceneSelectionSource,
@@ -37,10 +38,7 @@ import type {
 import { useAgentAssetContext } from './useAgentAssetContext';
 import { useRegeneratingSceneActions } from './useRegeneratingSceneActions';
 import { useStoredBoolean } from './useStoredEditorPreference';
-import {
-  parseVideoEditorStep,
-  videoWorkflowSelectionForStep,
-} from './workflowSelection';
+import { VideoWorkflowSummary } from './VideoWorkflowSummary';
 
 interface ProjectEditorProps {
   project: VideoProject;
@@ -69,7 +67,7 @@ export function ProjectEditor({
     () => deriveVideoCreativeWorkflowState(project),
     [project],
   );
-  const urlStep = parseVideoEditorStep(searchParams.get('step'));
+  const urlStep = parseEditorStep(searchParams.get('step'));
   const timelineRoute = location.pathname.endsWith('/timeline');
   const conversationRoute = !timelineRoute && urlStep === null;
   const activeStep =
@@ -88,8 +86,9 @@ export function ProjectEditor({
     STORAGE_KEYS.agentDock,
     false,
   );
-  const [workflowSideRailTab, setWorkflowSideRailTab] =
-    useState<SideRailTab | null>(null);
+  // Derived from the URL, so a link restores the same rail the click produced.
+  const editorLocation = parseEditorLocation(searchParams, derivedStep);
+  const railTab = editorLocation.rail;
   const [contextSearchSceneId, setContextSearchSceneId] = useState<
     string | null
   >(null);
@@ -184,28 +183,15 @@ export function ProjectEditor({
         navigate(`/video/${encodeURIComponent(project.id)}?step=${step}`);
         return;
       }
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('step', step);
-        return next;
-      });
+      setSearchParams((prev) =>
+        editorLocationParams(
+          { step, rail: null, view: null, html: false },
+          prev,
+        ),
+      );
     },
     [conversationRoute, navigate, project.id, setSearchParams, timelineRoute],
   );
-  const selectWorkflowStep = useCallback(
-    (step: CreativeWorkflowStep) => {
-      const selection = videoWorkflowSelectionForStep(step, workflowState);
-      setStep(selection.editorStep);
-      if (selection.sideRailTab) {
-        setSideRailOpen(true);
-        setWorkflowSideRailTab(selection.sideRailTab);
-        return;
-      }
-      setWorkflowSideRailTab(null);
-    },
-    [setSideRailOpen, setStep, workflowState],
-  );
-
   const toggleTimelineRoute = useCallback(() => {
     navigate(
       timelineRoute
@@ -216,7 +202,7 @@ export function ProjectEditor({
 
   const showInspector = activeStep !== 'brief';
   const showAgentDock = conversationRoute || agentDockOpen;
-  const showCreativeWorkflowHeader = !conversationRoute;
+  const showWorkflowSummary = !conversationRoute;
   // Canvas starts narrower when side panels are visible.
   const visibleSidePanels = (showAgentDock ? 1 : 0) + (sideRailOpen ? 1 : 0);
   const canvasDefaultSize =
@@ -247,11 +233,7 @@ export function ProjectEditor({
     <div className="relative isolate flex min-h-0 flex-1 flex-col">
       <ProjectStepper
         value={activeStep}
-        derived={derivedStep}
-        onChange={(step) => {
-          setWorkflowSideRailTab(null);
-          setStep(step);
-        }}
+        onChange={setStep}
         leading={
           <ProjectStepperLeading
             project={project}
@@ -272,13 +254,12 @@ export function ProjectEditor({
           />
         }
       />
-      {showCreativeWorkflowHeader && (
-        <CreativeWorkflowHeader
+      {showWorkflowSummary && (
+        <VideoWorkflowSummary
           workflow={workflowState}
           onPrimaryAction={() =>
-            selectWorkflowStep(workflowState.primaryAction.step)
+            setStep(editorStepForWorkflowStep(workflowState.primaryAction.step))
           }
-          onStepSelect={selectWorkflowStep}
         />
       )}
       <div className="relative flex min-h-0 flex-1">
@@ -328,8 +309,8 @@ export function ProjectEditor({
             onToggleAssetContext={toggleAssetContext}
             onTranscriptSelectionChange={setTranscriptSelection}
             onFindContext={(sceneId) => setContextSearchSceneId(sceneId)}
-            recommendedTab={workflowSideRailTab ?? undefined}
-            forceRecommendedTab={Boolean(workflowSideRailTab)}
+            recommendedTab={railTab ?? undefined}
+            forceRecommendedTab={Boolean(railTab)}
           />
         </PanelGroup>
       </div>

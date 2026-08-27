@@ -18,12 +18,19 @@ interface CreativeWorkflowHeaderProps {
   workflow: CreativeWorkflowState;
   onPrimaryAction?: () => void;
   onStepSelect?: (step: CreativeWorkflowStep) => void;
+  /**
+   * The step currently on screen. Distinct from each step's *status*: a step
+   * can be "not started" and still be what you are looking at. Without this
+   * the row is navigation that never acknowledges being navigated.
+   */
+  selectedStep?: CreativeWorkflowStep;
 }
 
 export function CreativeWorkflowHeader({
   workflow,
   onPrimaryAction,
   onStepSelect,
+  selectedStep,
 }: CreativeWorkflowHeaderProps) {
   const { t } = useLanguage();
   const primaryDisabled = workflow.primaryAction.disabled || !onPrimaryAction;
@@ -42,7 +49,7 @@ export function CreativeWorkflowHeader({
           {t.creative.workflowHeader.current}
         </p>
         <h2 className="text-foreground truncate text-sm font-semibold">
-          {t.creative.workflowStep[workflow.currentStep]}
+          {t.creative.workflowStep[selectedStep ?? workflow.currentStep]}
         </h2>
         <p className="text-muted-foreground mt-1 text-xs">{assetSummary}</p>
       </div>
@@ -53,6 +60,7 @@ export function CreativeWorkflowHeader({
               step={step}
               label={t.creative.workflowStep[step.step]}
               statusLabel={t.creative.workflowStatus[step.status]}
+              selected={step.step === selectedStep}
               onSelect={onStepSelect}
             />
           </li>
@@ -77,11 +85,13 @@ function WorkflowStepPill({
   step,
   label,
   statusLabel,
+  selected = false,
   onSelect,
 }: {
   step: CreativeWorkflowStepState;
   label: string;
   statusLabel: string;
+  selected?: boolean;
   onSelect?: (step: CreativeWorkflowStep) => void;
 }) {
   const content = (
@@ -96,10 +106,12 @@ function WorkflowStepPill({
   );
   const className = cn(
     'border-border bg-background text-muted-foreground flex w-full items-center gap-1.5 rounded-md border px-2.5 py-2 text-left text-xs',
-    step.status === 'active' && 'border-primary text-foreground shadow-sm',
+    step.status === 'active' && 'border-primary text-foreground',
     step.status === 'complete' && 'text-foreground',
     (step.status === 'failed' || step.status === 'blocked') &&
       'border-destructive/50 text-destructive',
+    // Selection is where you are, so it has to win visually over status.
+    selected && 'bg-accent text-foreground ring-primary shadow-sm ring-2',
     onSelect && 'hover:bg-accent cursor-pointer',
   );
   const accessibleName = `${label}: ${statusLabel}`;
@@ -109,8 +121,9 @@ function WorkflowStepPill({
       <div
         className={className}
         aria-label={accessibleName}
-        aria-current={step.status === 'active' ? 'step' : undefined}
+        aria-current={selected ? 'step' : undefined}
         data-status={step.status}
+        data-selected={selected || undefined}
       >
         {content}
       </div>
@@ -122,8 +135,10 @@ function WorkflowStepPill({
       type="button"
       className={className}
       aria-label={accessibleName}
-      aria-current={step.status === 'active' ? 'step' : undefined}
+      aria-current={selected ? 'step' : undefined}
+      aria-pressed={selected}
       data-status={step.status}
+      data-selected={selected || undefined}
       onClick={() => onSelect(step.step)}
     >
       {content}

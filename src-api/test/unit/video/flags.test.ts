@@ -31,6 +31,7 @@ describe('video feature flags (on by default)', () => {
     expect(getVideoFeatureFlag('video.webcodecsPreview')).toBe(true);
     expect(getVideoFeatureFlag('video.vividOverlays')).toBe(true);
     expect(getVideoFeatureFlag('video.remotionMedia')).toBe(true);
+    expect(getVideoFeatureFlag('video.hostNative')).toBe(true);
   });
 
   it('is enabled when explicitly "true"', () => {
@@ -68,6 +69,7 @@ describe('video feature flags (on by default)', () => {
       'video.webcodecsPreview': true,
       'video.vividOverlays': true,
       'video.remotionMedia': true,
+      'video.hostNative': true,
     });
   });
 });

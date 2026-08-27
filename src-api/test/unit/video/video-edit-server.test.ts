@@ -10,6 +10,7 @@ import {
   getVideoToolCapabilityMetadata,
 } from '@/extensions/agent/video/permissions';
 
+import { closeDatabase } from '@/shared/db';
 import {
   createVideoEditTools,
   VIDEO_EDIT_TOOL_NAMES,
@@ -27,6 +28,7 @@ describe('video-edit MCP server', () => {
   });
 
   afterEach(async () => {
+    closeDatabase();
     vi.unstubAllEnvs();
     await fs.rm(workDir, { recursive: true, force: true });
   });
@@ -63,6 +65,7 @@ describe('video-edit MCP server', () => {
         'video_set_audio_clip_gain',
         'video_set_clip_effects',
         'video_analyze_clip_grade',
+        'video_set_project_template',
         'video_detect_beats',
         'video_snap_cuts_to_beats',
         'video_crossfade_audio_clips',
@@ -163,6 +166,160 @@ describe('video-edit MCP server', () => {
     const { getProject } = await import('@/shared/video/store');
     const project = await getProject('project-1');
     expect(project.storyboard?.status).toBe('approved');
+  });
+
+  it('switches the project template separately from gallery templates', async () => {
+    const tool = findTool('video_set_project_template');
+
+    const result = await tool.handler({ template: 'custom' }, {});
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+
+    expect(result.isError).not.toBe(true);
+    expect(payload).toMatchObject({
+      projectId: 'project-1',
+      previousTemplate: 'product-reel',
+      template: 'custom',
+      maxDurationMs: null,
+      storyboardDurationMs: 4000,
+      approvalWithinDurationLimit: true,
+    });
+
+    const { getProject } = await import('@/shared/video/store');
+    expect((await getProject('project-1')).template).toBe('custom');
+  });
+
+  it('attaches external media before serialization and journals the mutation', async () => {
+    const externalPath = path.join(workDir, 'external-master.mp4');
+    await fs.writeFile(externalPath, 'video');
+    const { getProject } = await import('@/shared/video/store');
+    const before = await getProject('project-1');
+    await writeProject({
+      ...before,
+      assets: before.assets.map((asset) =>
+        asset.id === 'asset-video'
+          ? { ...asset, path: externalPath, origin: 'external' }
+          : asset,
+      ),
+    });
+
+    const result = await findTool('video_attach_asset').handler(
+      { assetId: 'asset-video', sceneId: 'scene-1' },
+      {},
+    );
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const after = await getProject('project-1');
+
+    expect(result.isError).not.toBe(true);
+    expect(payload.asset.filePath).toBe(await fs.realpath(externalPath));
+    expect(after.assets.find((asset) => asset.id === 'asset-video')?.path).toBe(
+      externalPath,
+    );
+    expect(after.revision).toBeGreaterThan(before.revision);
+    expect(after.agentJournal?.at(-1)).toMatchObject({
+      tool: 'attachAsset',
+      args: { assetId: 'asset-video', sceneId: 'scene-1' },
+      inverseDiff: expect.any(Array),
+    });
+    expect(after.agentJournal?.at(-1)?.inverseDiff?.length).toBeGreaterThan(0);
+  });
+
+  it('rejects an unsafe external media target before attachment mutation', async () => {
+    const unsafePath = path.join(workDir, 'unsafe-master.mp4');
+    await fs.symlink('/etc/hosts', unsafePath);
+    const { getProject } = await import('@/shared/video/store');
+    const initial = await getProject('project-1');
+    await writeProject({
+      ...initial,
+      assets: initial.assets.map((asset) =>
+        asset.id === 'asset-video'
+          ? { ...asset, path: unsafePath, origin: 'external' }
+          : asset,
+      ),
+    });
+    const before = await getProject('project-1');
+
+    const result = await findTool('video_attach_asset').handler(
+      { assetId: 'asset-video', sceneId: 'scene-1' },
+      {},
+    );
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const after = await getProject('project-1');
+
+    expect(result.isError).toBe(true);
+    expect(payload).toMatchObject({
+      code: 'VIDEO_TOOL_ERROR',
+      committed: false,
+    });
+    expect(after.revision).toBe(before.revision);
+    expect(after.agentJournal).toEqual(before.agentJournal);
+    expect(after.scenes).toEqual(before.scenes);
+  });
+
+  it('applies a 48-scene storyboard once and skips an identical replay', async () => {
+    const { getDatabase } = await import('@/shared/db');
+    getDatabase()
+      .prepare(
+        `INSERT OR IGNORE INTO video_projects
+          (id, name, template, updated_at, render_status)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        'project-1',
+        'Launch clip',
+        'product-reel',
+        new Date().toISOString(),
+        'idle',
+      );
+    const { writeVideoAgentPlan } = await import('@/shared/video/agent-plan');
+    const storyboard = {
+      status: 'edited' as const,
+      intent: 'Chronological montage',
+      totalDurationMs: 48_000,
+      costEstimateUsd: { low: 0, high: 0 },
+      scenes: Array.from({ length: 48 }, (_, index) => ({
+        id: `bulk-scene-${index + 1}`,
+        durationMs: 1000,
+        intent: `Shot ${index + 1}`,
+        assetPlan: { kind: 'ai-image' as const, prompt: `Shot ${index + 1}` },
+      })),
+    };
+    await writeVideoAgentPlan('project-1', {
+      title: '48-scene montage',
+      request: 'Build all 48 scenes.',
+      steps: [
+        {
+          id: 'storyboard',
+          title: 'Apply storyboard',
+          intent: 'Apply all scenes in one operation.',
+          dependsOn: [],
+          operation: 'video_set_storyboard',
+          inputs: { storyboard },
+          verification: ['The storyboard has 48 scenes.'],
+          rollback: 'Apply the single inverse journal diff.',
+        },
+      ],
+    });
+    const tool = findTool('video_set_storyboard');
+
+    const first = await tool.handler({ storyboard }, {});
+    const { getProject } = await import('@/shared/video/store');
+    const afterFirst = await getProject('project-1');
+    const second = await tool.handler({ storyboard }, {});
+    const afterSecond = await getProject('project-1');
+
+    expect(first.isError).not.toBe(true);
+    expect(second.isError).not.toBe(true);
+    expect(afterFirst.storyboard?.scenes).toHaveLength(48);
+    expect(
+      afterFirst.agentJournal?.filter(
+        (entry) => entry.tool === 'setStoryboard',
+      ),
+    ).toHaveLength(1);
+    expect(afterSecond.revision).toBe(afterFirst.revision);
+    expect(afterSecond.agentJournal).toEqual(afterFirst.agentJournal);
+    getDatabase()
+      .prepare('DELETE FROM video_projects WHERE id = ?')
+      .run('project-1');
   });
 
   it('returns a proposal instead of approving for external MCP clients', async () => {
@@ -1374,6 +1531,92 @@ describe('video-edit MCP server', () => {
         path: 'videos/project-1/assets/hero.png',
       }),
     ]);
+  });
+
+  it('lists external masters outside the workspace without failing', async () => {
+    // The ChongQing regression: an external master on a mounted volume is not
+    // a `catalog:` placeholder, so it used to fall through to the workspace
+    // validator and fail the whole listing.
+    const externalDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'video-external-'),
+    );
+    const externalFile = path.join(externalDir, 'DJI_0060_D.MP4');
+    await fs.writeFile(externalFile, 'bytes');
+    const project = projectFixture();
+    project.assets.push({
+      id: 'asset-external',
+      kind: 'video',
+      source: 'downloaded',
+      origin: 'external',
+      path: externalFile,
+      metadata: { durationMs: 45800, width: 1728, height: 3072 },
+    });
+    await writeProject(project);
+
+    const result = await findTool('video_list_assets').handler({}, {});
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+
+    expect(result.isError).toBeUndefined();
+    expect(payload.total).toBe(3);
+    const external = payload.assets.find(
+      (asset: { id: string }) => asset.id === 'asset-external',
+    );
+    expect(external).toMatchObject({
+      origin: 'external',
+      filePath: await fs.realpath(externalFile),
+      renderable: true,
+    });
+    expect(external.unavailableReason).toBeUndefined();
+
+    await fs.rm(externalDir, { recursive: true, force: true });
+  });
+
+  it('reports an offline external master instead of failing the listing', async () => {
+    const project = projectFixture();
+    project.assets.push({
+      id: 'asset-offline',
+      kind: 'video',
+      source: 'downloaded',
+      origin: 'external',
+      path: path.join(os.tmpdir(), 'not-mounted', 'DJI_0042_D.MP4'),
+      metadata: { durationMs: 1000, width: 1920, height: 1080 },
+    });
+    await writeProject(project);
+
+    const result = await findTool('video_list_assets').handler({}, {});
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+
+    expect(result.isError).toBeUndefined();
+    // The other assets still list.
+    expect(payload.total).toBe(3);
+    const offline = payload.assets.find(
+      (asset: { id: string }) => asset.id === 'asset-offline',
+    );
+    expect(offline.filePath).toBeUndefined();
+    expect(offline.renderable).toBe(false);
+    expect(offline.unavailableReason).toContain('not found');
+  });
+
+  it('keeps an untrusted external path unreadable', async () => {
+    const project = projectFixture();
+    project.assets.push({
+      id: 'asset-sensitive',
+      kind: 'video',
+      source: 'downloaded',
+      origin: 'external',
+      path: path.join(os.homedir(), '.ssh', 'id_rsa'),
+      metadata: { durationMs: 1000, width: 1920, height: 1080 },
+    });
+    await writeProject(project);
+
+    const result = await findTool('video_list_assets').handler({}, {});
+    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const sensitive = payload.assets.find(
+      (asset: { id: string }) => asset.id === 'asset-sensitive',
+    );
+
+    expect(sensitive.filePath).toBeUndefined();
+    expect(sensitive.renderable).toBe(false);
   });
 
   it('returns a descriptive scene summary', async () => {

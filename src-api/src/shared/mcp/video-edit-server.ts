@@ -41,6 +41,10 @@ import { validatePath } from '@/shared/services/ffmpeg';
 import { getSessionContext } from '@/shared/services/session-context';
 import { createLogger } from '@/shared/utils/logger';
 import {
+  writeVideoAgentPlan,
+  readVideoAgentPlan,
+} from '@/shared/video/agent-plan';
+import {
   applyVideoAgentTool,
   buildTimelineEditToolOps,
   clipInterpolationQualitySchema,
@@ -52,6 +56,7 @@ import {
   isTimelineEditAgentToolCall,
   redoVideoAgentJournalEntry,
   undoVideoAgentJournalEntry,
+  videoStoryboardSchema,
 } from '@/shared/video/agent-tools';
 import type {
   TimelineEditAgentToolCall,
@@ -65,6 +70,10 @@ import {
   searchProjectFrames,
 } from '@/shared/video/analysis/frame-index';
 import { analyzeProjectAssets } from '@/shared/video/asset-aspect';
+import {
+  describeProjectAssetPath,
+  resolveProjectAssetPath,
+} from '@/shared/video/asset-files';
 import {
   generateVideoAudio,
   transformVideoAudio,
@@ -96,6 +105,11 @@ import {
   listVideoEnginesWithBuiltins,
   selectVideoEngine,
 } from '@/shared/video/engines';
+import {
+  expectedProjectRevisionForPlan,
+  readVideoExecutionLog,
+  runLoggedVideoOperation,
+} from '@/shared/video/execution-log';
 import { getVideoFeatureFlag } from '@/shared/video/flags';
 import {
   checkHyperframesComposition,
@@ -137,10 +151,12 @@ import {
   UserOverlayStyleError,
 } from '@/shared/video/overlays/user-styles';
 import { cancelRender, renderProject } from '@/shared/video/pipeline';
+import { getVideoPlanResumeState } from '@/shared/video/plan-runner';
 import { importYoutubeBroll } from '@/shared/video/plugins/atoms/broll/youtube';
 import { recordVideoResearchBrief } from '@/shared/video/plugins/atoms/research';
 import { withProjectLock } from '@/shared/video/project-lock';
 import { recordVideoIntentLog } from '@/shared/video/recipes';
+import { reconcileVideoProjectPlan } from '@/shared/video/reconciliation';
 import { renderTimelineFramesWithRemotion } from '@/shared/video/remotion-renderer';
 import { shareVideoProject } from '@/shared/video/share';
 import { fetchSource, SourceIngestError } from '@/shared/video/source/ingest';
@@ -152,6 +168,8 @@ import {
   getVideoProjectJsonPath,
   getVideoWorkspaceRoot,
   setVideoProjectAspectRatio,
+  templateMaxDurationMs,
+  updateProject,
   updateProjectDocument,
   writeProject,
 } from '@/shared/video/store';
@@ -164,10 +182,7 @@ import {
   inspectTemplate,
   searchTemplates,
 } from '@/shared/video/templates/search';
-import {
-  migrateStoryboardToTimeline,
-  rebuildTimelineFromStoryboard,
-} from '@/shared/video/timeline';
+import { migrateStoryboardToTimeline } from '@/shared/video/timeline';
 import { proposeProjectTimelineOps } from '@/shared/video/timeline-ops';
 import {
   buildTimelineWindow,
@@ -241,6 +256,9 @@ const USER_OVERLAY_DOCUMENT_CONTROL_SCHEMA = z
   .strict();
 
 export const VIDEO_EDIT_TOOL_NAMES = [
+  'video_get_plan',
+  'video_get_plan_progress',
+  'video_reconcile_plan',
   'video_get_project_summary',
   'video_get_current_context',
   'video_get_scene',
@@ -270,6 +288,7 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_record_research_brief',
   'video_get_content_graph',
   'video_analyze_image',
+  'video_set_project_template',
   'video_set_aspect_ratio',
   'video_analyze_assets',
   'video_import_youtube',
@@ -279,7 +298,9 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_write_frame_html',
   'video_set_frame_native_enhancement',
   'video_draft_narration',
+  'video_write_plan',
   'video_estimate_plan',
+  'video_set_storyboard',
   'video_add_scene',
   'video_split_scene',
   'video_remove_scene',
@@ -382,6 +403,14 @@ const REASONING_SCHEMA = z
   .optional()
   .describe('Short rationale for the edit.');
 const ASPECT_RATIO_SCHEMA = z.enum(['16:9', '9:16', '1:1', '4:5']);
+const PROJECT_TEMPLATE_SCHEMA = z.enum([
+  'product-reel',
+  'explainer',
+  'slideshow',
+  'podcast',
+  'ugc-ad',
+  'custom',
+]);
 const BOOKEND_POSITION_SCHEMA = z.enum(['intro', 'outro']);
 const AUDIO_SEAM_SCHEMA = z.enum(['follow', 'cut']);
 const PROVIDER_KIND_SCHEMA = z.enum(['image', 'video', 'audio']);
@@ -548,6 +577,18 @@ const VIDEO_TEMPLATE_CATEGORY_SCHEMA = z.enum([
 ]);
 const VIDEO_TEMPLATE_LICENSE_SCHEMA = z.enum(['CC0', 'CC-BY', 'proprietary']);
 const VIDEO_TOOL_TIMEOUT_MS = 45_000;
+const VIDEO_AGENT_PLAN_STEP_SCHEMA = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    intent: z.string().min(1),
+    dependsOn: z.array(z.string().min(1)),
+    operation: z.string().min(1),
+    inputs: z.record(z.string(), z.unknown()),
+    verification: z.array(z.string().min(1)),
+    rollback: z.string().min(1),
+  })
+  .strict();
 
 function textResult(text: string) {
   return { content: [{ type: 'text' as const, text }] };
@@ -557,8 +598,15 @@ function jsonResult(value: unknown) {
   return textResult(JSON.stringify(value, null, 2));
 }
 
-function errorResult(message: string) {
-  return { ...textResult(message), isError: true };
+function errorResult(
+  message: string,
+  code = 'VIDEO_TOOL_ERROR',
+  committed = false,
+) {
+  return {
+    ...jsonResult({ error: message, code, committed }),
+    isError: true,
+  };
 }
 
 /**
@@ -688,6 +736,28 @@ async function loadProjectForTool(
   return readProjectSnapshot(resolveProjectId(inputProjectId, options));
 }
 
+/**
+ * Revision the project's in-flight plan expects, read from its execution log.
+ * Undefined when no plan is running or it has not landed a step yet — in both
+ * cases there is nothing for an edit to conflict with.
+ */
+async function expectedPlanProjectRevision(
+  projectId: string,
+  project: VideoProject,
+): Promise<number | undefined> {
+  const plan = project.agentPlan;
+  if (!plan || plan.status === 'superseded') return undefined;
+  try {
+    return expectedProjectRevisionForPlan(
+      plan,
+      await readVideoExecutionLog(projectId),
+    );
+  } catch {
+    // An unreadable log must not block the edit.
+    return undefined;
+  }
+}
+
 async function applyVideoToolCall(
   inputProjectId: string | undefined,
   options: VideoEditServerOptions,
@@ -699,7 +769,12 @@ async function applyVideoToolCall(
     const previouslyUsedReferencedAssets = new Set(
       usedReferencedAssetIds(previousProject),
     );
-    let execution = applyVideoAgentTool(previousProject, call);
+    let execution = applyVideoAgentTool(previousProject, call, {
+      expectedProjectRevision: await expectedPlanProjectRevision(
+        projectId,
+        previousProject,
+      ),
+    });
     // Persist the project to disk first; only record the intent log after
     // the write succeeds so we don't leave phantom accepted rows pointing at
     // a project state that was never committed.
@@ -988,6 +1063,7 @@ function narrowAttachResult(payload: {
     path?: string;
     materializationState?: MediaItem['materializationState'];
   };
+  resolvedFilePath?: string;
 }) {
   const referenced =
     payload.asset.path !== undefined
@@ -1008,14 +1084,7 @@ function narrowAttachResult(payload: {
         (referenced ? 'referenced' : 'ready'),
       renderable: !referenced,
       path: payload.asset.path,
-      filePath:
-        payload.asset.path && !referenced
-          ? validatePath(
-              payload.asset.path,
-              getVideoProjectRoot(payload.project.id),
-              'read',
-            )
-          : undefined,
+      filePath: payload.resolvedFilePath,
     },
   });
 }
@@ -1285,17 +1354,24 @@ function assetCounts(assets: MediaItem[]) {
 
 function summarizeAsset(asset: MediaItem, projectId: string) {
   const referenced = isReferencedProjectAsset(asset);
+  // A referenced asset has no bytes yet, so there is nothing to resolve. Every
+  // other asset resolves by origin, and reports rather than throws: one
+  // unmounted drive must not fail the listing of every other asset.
+  const resolved: ReturnType<typeof describeProjectAssetPath> = referenced
+    ? { unavailableReason: 'Asset is referenced and not yet hydrated' }
+    : describeProjectAssetPath(asset, getVideoProjectRoot(projectId));
   return {
     id: asset.id,
     kind: asset.kind,
     source: asset.source,
+    origin: asset.origin,
     path: asset.path,
-    filePath: referenced
-      ? undefined
-      : validatePath(asset.path, getVideoProjectRoot(projectId), 'read'),
+    ...resolved,
     materializationState:
       asset.materializationState ?? (referenced ? 'referenced' : 'ready'),
-    renderable: !referenced,
+    // Renderable means the bytes are reachable right now, not merely that the
+    // asset is materialized — an offline external master is neither.
+    renderable: !referenced && resolved.filePath !== undefined,
     durationMs: asset.metadata.durationMs,
     width: asset.metadata.width,
     height: asset.metadata.height,
@@ -2292,10 +2368,13 @@ async function attachVideoAsset(
     let project = await getProject(projectId);
     let existing = project.assets.find((asset) => asset.id === input.assetId);
     if (!existing) {
-      return attachLinkedAsset(projectId, input.assetId, {
-        sceneId: input.sceneId,
+      const linked = await attachLinkedAsset(projectId, input.assetId, {
+        // Register or hydrate the media first. Scene mutation is applied below
+        // through the same journaled path as an existing project asset.
         role: input.role === 'reference' ? 'reference' : 'asset',
       });
+      project = linked.project;
+      existing = linked.asset;
     }
     if (isReferencedProjectAsset(existing)) {
       const hydrated = await hydrateProjectAsset(projectId, existing.id, {
@@ -2304,37 +2383,24 @@ async function attachVideoAsset(
       project = hydrated.project;
       existing = hydrated.asset;
     }
-    if (!input.sceneId) return { project, asset: existing };
+    const resolvedFilePath = isReferencedProjectAsset(existing)
+      ? undefined
+      : resolveProjectAssetPath(existing, getVideoProjectRoot(projectId));
+    if (!input.sceneId) {
+      return { project, asset: existing, resolvedFilePath };
+    }
 
-    const now = new Date().toISOString();
-    const patched: VideoProject = {
-      ...project,
-      storyboard: project.storyboard
-        ? {
-            ...project.storyboard,
-            scenes: project.storyboard.scenes.map((scene) =>
-              scene.id === input.sceneId
-                ? {
-                    ...scene,
-                    assetPlan: { kind: 'existing', assetId: existing.id },
-                  }
-                : scene,
-            ),
-          }
-        : project.storyboard,
-      scenes: (project.scenes ?? []).map((scene) =>
-        scene.id === input.sceneId
-          ? {
-              ...scene,
-              clips: [{ id: randomUUID(), mediaId: existing.id }],
-            }
-          : scene,
-      ),
-      updatedAt: now,
-    };
-    const next = rebuildTimelineFromStoryboard(patched);
-    await writeProject(next);
-    return { project: next, asset: existing };
+    const sceneId = input.sceneId;
+    const assetId = existing.id;
+    const next = await updateProjectDocument(
+      projectId,
+      (current) =>
+        applyVideoAgentTool(current, {
+          name: 'attachAsset',
+          args: { assetId, sceneId, clipId: randomUUID() },
+        }).project,
+    );
+    return { project: next, asset: existing, resolvedFilePath };
   });
 }
 
@@ -2360,31 +2426,45 @@ function withVideoRefResolution<
   }>,
 >(tools: Tools, options: VideoEditServerOptions): Tools {
   return tools.map((definition) => {
-    if (SELF_RESOLVING_TOOLS.has(definition.name)) return definition;
     const inner = definition.handler;
     return {
       ...definition,
       handler: async (args: never, extra: unknown) => {
-        if (!hasVideoRefs(args)) return inner(args, extra);
-        let resolved: unknown;
-        try {
-          const input = args as unknown as { projectId?: string };
-          const project = await loadProjectForTool(input.projectId, options);
-          resolved = resolveVideoRefs({
-            value: args,
-            project,
-            refs: selectionResolverRefs(options),
-          });
-        } catch (error) {
-          return errorResult(
-            error instanceof VideoRefResolutionError
-              ? `${definition.name}: could not resolve "${error.ref}" — ${error.message}`
-              : error instanceof Error
-                ? error.message
-                : String(error),
-          );
-        }
-        return inner(resolved as never, extra);
+        const input = args as unknown as { projectId?: string };
+        const execute = async () => {
+          if (
+            SELF_RESOLVING_TOOLS.has(definition.name) ||
+            !hasVideoRefs(args)
+          ) {
+            return inner(args, extra);
+          }
+          let resolved: unknown;
+          try {
+            const project = await loadProjectForTool(input.projectId, options);
+            resolved = resolveVideoRefs({
+              value: args,
+              project,
+              refs: selectionResolverRefs(options),
+            });
+          } catch (error) {
+            return errorResult(
+              error instanceof VideoRefResolutionError
+                ? `${definition.name}: could not resolve "${error.ref}" — ${error.message}`
+                : error instanceof Error
+                  ? error.message
+                  : String(error),
+            );
+          }
+          return inner(resolved as never, extra);
+        };
+        const projectId = input.projectId ?? activeContext(options).projectId;
+        if (!projectId) return execute();
+        return runLoggedVideoOperation({
+          projectId,
+          operation: definition.name,
+          operationInput: args,
+          execute,
+        });
       },
     };
   }) as unknown as Tools;
@@ -2392,6 +2472,56 @@ function withVideoRefResolution<
 
 function buildVideoEditTools(options: VideoEditServerOptions) {
   return [
+    tool(
+      'video_get_plan',
+      'Read the canonical durable Video agent plan and report whether agent/plan.md has drifted.',
+      { projectId: PROJECT_ID_SCHEMA },
+      async ({ projectId }) => {
+        try {
+          return jsonResult(
+            await readVideoAgentPlan(resolveProjectId(projectId, options)),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_get_plan_progress',
+      'Read the durable resume cursor, revision status, completed steps, and next dependency-ready step.',
+      { projectId: PROJECT_ID_SCHEMA },
+      async ({ projectId }) => {
+        try {
+          return jsonResult(
+            await getVideoPlanResumeState(resolveProjectId(projectId, options)),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reconcile_plan',
+      'Dry-run reconciliation of the approved plan against durable scenes and attachments. Never mutates the project.',
+      { projectId: PROJECT_ID_SCHEMA },
+      async ({ projectId }) => {
+        try {
+          return jsonResult(
+            await reconcileVideoProjectPlan(
+              resolveProjectId(projectId, options),
+            ),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
     tool(
       'video_get_project_summary',
       'Read a compact summary of the active Video Mode project. This tool is read-only.',
@@ -3536,16 +3666,57 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
             project = hydrated.project;
             asset = hydrated.asset;
           }
-          const filePath = validatePath(
-            asset.path,
+          // About to read the bytes, so resolve by origin and let an
+          // untrusted or missing master fail the call.
+          const filePath = resolveProjectAssetPath(
+            asset,
             getVideoProjectRoot(projectId),
-            'read',
           );
           const analysis = await analyzeImageFocalPoint(
             filePath,
             mimeTypeForPath(asset.path),
           );
           return jsonResult({ projectId, assetId: asset.id, ...analysis });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_set_project_template',
+      'Change the project template that controls storyboard approval limits. ' +
+        'This is distinct from video_select_template, which selects an HTML/Motion gallery template. ' +
+        'Use this before storyboard approval when the approved edit is longer than the current project template allows.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        template: PROJECT_TEMPLATE_SCHEMA,
+      },
+      async ({ projectId, template }) => {
+        try {
+          const proposal = await proposalOnlyServiceMutationResult(
+            projectId,
+            options,
+            'video_set_project_template',
+          );
+          if (proposal) return proposal;
+          const resolvedProjectId = resolveProjectId(projectId, options);
+          const current = await getProject(resolvedProjectId);
+          const next =
+            current.template === template
+              ? current
+              : await updateProject(resolvedProjectId, { template });
+          const maxDuration = templateMaxDurationMs(next.template);
+          const storyboardDurationMs = next.storyboard?.totalDurationMs ?? 0;
+          return jsonResult({
+            projectId: resolvedProjectId,
+            previousTemplate: current.template,
+            template: next.template,
+            maxDurationMs: Number.isFinite(maxDuration) ? maxDuration : null,
+            storyboardDurationMs,
+            approvalWithinDurationLimit: storyboardDurationMs <= maxDuration,
+          });
         } catch (error) {
           return errorResult(
             error instanceof Error ? error.message : String(error),
@@ -3990,11 +4161,57 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
       },
     ),
     tool(
+      'video_write_plan',
+      'Persist a versioned implementation plan to project.json and atomically render agent/plan.md. Write the plan once the user has confirmed the build in chat — the plan is executable as soon as it is written, so there is no separate approval call. Writing again supersedes the previous revision.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        title: z.string().min(1),
+        request: z.string().min(1),
+        assumptions: z.array(z.string()).optional(),
+        steps: z.array(VIDEO_AGENT_PLAN_STEP_SCHEMA).min(1),
+      },
+      async ({ projectId, title, request, assumptions, steps }) => {
+        try {
+          const proposal = await proposalOnlyServiceMutationResult(
+            projectId,
+            options,
+            'video_write_plan',
+          );
+          if (proposal) return proposal;
+          return jsonResult(
+            await writeVideoAgentPlan(resolveProjectId(projectId, options), {
+              title,
+              request,
+              assumptions,
+              steps,
+            }),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
       'video_estimate_plan',
       'Build or refresh the render plan for the active project.',
       { projectId: PROJECT_ID_SCHEMA, reasoning: REASONING_SCHEMA },
       async (input) => {
         const { projectId, call } = camelToolCall('estimatePlan', input);
+        return toolCallResult(projectId, options, call);
+      },
+    ),
+    tool(
+      'video_set_storyboard',
+      'Apply a complete agent-authored storyboard as one validated, journaled operation. Requires an approved durable plan at the matching project revision.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        storyboard: videoStoryboardSchema,
+      },
+      async (input) => {
+        const { projectId, call } = camelToolCall('setStoryboard', input);
         return toolCallResult(projectId, options, call);
       },
     ),
