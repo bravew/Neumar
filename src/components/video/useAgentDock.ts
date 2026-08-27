@@ -28,6 +28,7 @@ export type AgentActionStatus =
   | 'pending'
   | 'running'
   | 'completed'
+  | 'partial'
   | 'rejected'
   | 'failed'
   | 'cancelled';
@@ -888,6 +889,7 @@ function normalizeStatus(status: string | undefined): AgentActionStatus {
     status === 'pending' ||
     status === 'running' ||
     status === 'completed' ||
+    status === 'partial' ||
     status === 'rejected' ||
     status === 'failed' ||
     status === 'cancelled'

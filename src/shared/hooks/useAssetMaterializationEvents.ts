@@ -5,7 +5,11 @@ import type {
   AssetMaterializationState,
   AssetMaterializeEvent,
 } from '@/shared/assets';
+import { ASSET_MATERIALIZATION_NOTICE_TTL_MS } from '@/shared/assets/materializationLease';
+import { useAssetMaterializationLeaseActive } from '@/shared/hooks/useAssetMaterializationLease';
 import { subscribeSharedEventSource } from '@/shared/lib/shared-event-source';
+
+export { ASSET_MATERIALIZATION_NOTICE_TTL_MS };
 
 export type MaterializationStateMap = Record<string, AssetMaterializationState>;
 type TrackedMaterializeEvent = Extract<
@@ -31,7 +35,6 @@ type TrackedDerivativeEvent = Extract<
 >;
 type TrackedAssetEvent = TrackedMaterializeEvent | TrackedDerivativeEvent;
 
-export const ASSET_MATERIALIZATION_NOTICE_TTL_MS = 90_000;
 const STATE_PRUNE_INTERVAL_MS = 10_000;
 
 const EVENT_NAMES: TrackedAssetEvent['type'][] = [
@@ -46,11 +49,24 @@ const EVENT_NAMES: TrackedAssetEvent['type'][] = [
   'artifact.error',
 ];
 
-export function useAssetMaterializationEvents(sessionId: string | undefined) {
+/**
+ * Live materialization state for `sessionId`.
+ *
+ * The underlying SSE connection is demand-driven: it exists only while the
+ * session holds a lease (see `shared/assets/materializationLease`), so an idle
+ * editor tab owns none of the browser's ~6 per-host sockets. Pass `enabled`
+ * to override the lease in either direction.
+ */
+export function useAssetMaterializationEvents(
+  sessionId: string | undefined,
+  options: { enabled?: boolean } = {},
+) {
   const [states, setStates] = useState<MaterializationStateMap>({});
+  const leaseActive = useAssetMaterializationLeaseActive(sessionId);
+  const enabled = options.enabled ?? leaseActive;
 
   useEffect(() => {
-    if (!sessionId || typeof EventSource === 'undefined') return;
+    if (!enabled || !sessionId || typeof EventSource === 'undefined') return;
     const url = new URL(`${API_BASE_URL}/assets/events`);
     url.searchParams.set('session_id', sessionId);
     // Share one connection across every consumer of this session id (the assets
@@ -71,7 +87,7 @@ export function useAssetMaterializationEvents(sessionId: string | undefined) {
         }));
       },
     );
-  }, [sessionId]);
+  }, [enabled, sessionId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

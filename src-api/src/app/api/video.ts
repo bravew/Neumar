@@ -45,6 +45,10 @@ import {
   setVideoAgentHistory,
 } from '@/shared/video/agent-history';
 import {
+  writeVideoAgentPlan,
+  readVideoAgentPlan,
+} from '@/shared/video/agent-plan';
+import {
   isVideoAgenticRuntimeEnabled,
   planVideoAgentTurn,
   runVideoAgentTurn,
@@ -89,6 +93,10 @@ import {
   selectVideoEngine,
 } from '@/shared/video/engines';
 import { runVideoEvalReport } from '@/shared/video/eval';
+import {
+  readVideoExecutionLog,
+  runLoggedVideoRollback,
+} from '@/shared/video/execution-log';
 import {
   getVideoFeatureFlag,
   snapshotVideoFeatureFlags,
@@ -177,6 +185,7 @@ import {
   regenerateStoryboardSceneAsset,
   renderProject,
 } from '@/shared/video/pipeline';
+import { getVideoPlanResumeState } from '@/shared/video/plan-runner';
 import { selectBackgroundMusic } from '@/shared/video/plugins/atoms/music-select';
 import { loadVideoPlugins } from '@/shared/video/plugins/loader';
 import { withProjectLock } from '@/shared/video/project-lock';
@@ -421,6 +430,27 @@ const agentTurnSchema = z.object({
       pluginSignatureOk: z.boolean().nullable().optional(),
     })
     .optional(),
+});
+
+const durableAgentPlanSchema = z.object({
+  title: z.string().min(1).max(200),
+  request: z.string().min(1).max(20_000),
+  assumptions: z.array(z.string().max(2_000)).max(100).optional(),
+  steps: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(120),
+        title: z.string().min(1).max(200),
+        intent: z.string().min(1).max(4_000),
+        dependsOn: z.array(z.string().min(1).max(120)).max(100),
+        operation: z.string().min(1).max(200),
+        inputs: z.record(z.string(), z.unknown()),
+        verification: z.array(z.string().min(1).max(2_000)).max(100),
+        rollback: z.string().min(1).max(4_000),
+      }),
+    )
+    .min(1)
+    .max(200),
 });
 
 const storyboardPatchSchema = z.object({
@@ -1715,6 +1745,60 @@ videoRoutes.get('/projects/:id', async (c) => {
   }
 });
 
+videoRoutes.get('/projects/:id/agent-plan', async (c) => {
+  try {
+    const projectId = c.req.param('id');
+    const { plan, markdownDigest, drifted } =
+      await readVideoAgentPlan(projectId);
+    const progress = plan
+      ? await getVideoPlanResumeState(projectId)
+      : undefined;
+    return c.json({ plan, markdownDigest, drifted, progress });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post(
+  '/projects/:id/agent-plan',
+  zValidator('json', durableAgentPlanSchema),
+  async (c) => {
+    try {
+      const projectId = c.req.param('id');
+      const { plan, markdownDigest, drifted } = await writeVideoAgentPlan(
+        projectId,
+        c.req.valid('json'),
+      );
+      return c.json(
+        {
+          plan,
+          markdownDigest,
+          drifted,
+          progress: await getVideoPlanResumeState(projectId),
+        },
+        201,
+      );
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+videoRoutes.get('/projects/:id/execution-log', async (c) => {
+  try {
+    const projectId = c.req.param('id');
+    await getProject(projectId);
+    const requestedLimit = Number.parseInt(c.req.query('limit') ?? '200', 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 2_000)
+      : 200;
+    const records = await readVideoExecutionLog(projectId);
+    return c.json({ records: records.slice(-limit) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
 videoRoutes.get('/projects/:id/storage/tree', async (c) => {
   try {
     const projectId = c.req.param('id');
@@ -2625,13 +2709,19 @@ videoRoutes.post(
 videoRoutes.post('/projects/:id/agent-journal/:entryId/undo', async (c) => {
   try {
     const projectId = c.req.param('id');
-    const execution = await withProjectLock(projectId, async () => {
-      const nextExecution = undoVideoAgentJournalEntry(
-        await getProject(projectId),
-        c.req.param('entryId'),
-      );
-      await writeProject(nextExecution.project);
-      return nextExecution;
+    const entryId = c.req.param('entryId');
+    const execution = await runLoggedVideoRollback({
+      projectId,
+      journalEntryId: entryId,
+      execute: () =>
+        withProjectLock(projectId, async () => {
+          const nextExecution = undoVideoAgentJournalEntry(
+            await getProject(projectId),
+            entryId,
+          );
+          await writeProject(nextExecution.project);
+          return nextExecution;
+        }),
     });
     return c.json(execution);
   } catch (error) {

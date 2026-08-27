@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canRenderProject,
   hasRenderableTimeline,
+  renderBlockedReason,
 } from '@/components/video/render-readiness';
 import type { VideoProject, VideoTimeline } from '@/shared/types/video';
 
@@ -11,11 +12,17 @@ describe('video render readiness', () => {
     expect(canRenderProject(project(), true)).toBe(true);
   });
 
-  it('allows rendering when a manual timeline has clips', () => {
+  it('blocks rendering on an unapproved storyboard even with a full timeline', () => {
+    // The API refuses any render whose storyboard is not approved, whatever
+    // the timeline holds. Offering the button here produced a click that
+    // flipped the status to running and back with no output and no message.
     const manualProject = project({ timeline: timelineWithClip() });
 
     expect(hasRenderableTimeline(manualProject)).toBe(true);
-    expect(canRenderProject(manualProject, false)).toBe(true);
+    expect(canRenderProject(manualProject, false)).toBe(false);
+    expect(renderBlockedReason(manualProject, false)).toBe(
+      'storyboard-not-approved',
+    );
   });
 
   it('blocks rendering when neither storyboard nor timeline is ready', () => {

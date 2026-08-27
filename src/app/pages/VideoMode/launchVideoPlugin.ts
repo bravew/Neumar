@@ -7,6 +7,7 @@
 import type { ActivePlugin } from '@/shared/hooks/useActivePlugin';
 import { launchPrompt } from '@/shared/hooks/usePluginLaunch';
 import { createVideoProject } from '@/shared/hooks/useVideoProject';
+import { DEFAULT_VIDEO_PROJECT_TEMPLATE } from '@/shared/video/projectTemplates';
 
 export interface LaunchVideoDeps {
   navigate: (to: string) => void;
@@ -21,7 +22,7 @@ export async function launchVideoPlugin(
   try {
     const { project } = await createVideoProject({
       name: deps.defaultProjectName,
-      template: 'slideshow',
+      template: DEFAULT_VIDEO_PROJECT_TEMPLATE,
       aspectRatio: '16:9',
       prompt: launchPrompt(active),
     });

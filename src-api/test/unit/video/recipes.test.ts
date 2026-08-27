@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { migration as migration027 } from '@/shared/db/migrations/027_video_mode_foundation';
 import { migration as migration032 } from '@/shared/db/migrations/032_video_conversation_mode';
 import { migration as migration039 } from '@/shared/db/migrations/039_video_intent_plugin_snapshot';
+import { migration as migration053 } from '@/shared/db/migrations/053_video_intent_plan_identity';
 import { runMigrations } from '@/shared/db/migrations/runner';
 import {
   getVideoRecipe,
@@ -17,7 +18,12 @@ describe('video conversation recipes', () => {
   it('creates conversation tables and seeds Phase 1 recipes', () => {
     const { db, cleanup } = createTestDb();
     try {
-      runMigrations(db, [migration027, migration032, migration039]);
+      runMigrations(db, [
+        migration027,
+        migration032,
+        migration039,
+        migration053,
+      ]);
 
       const recipes = listVideoRecipes(db);
 
@@ -40,7 +46,12 @@ describe('video conversation recipes', () => {
   it('records replayable intent-log turns per project', () => {
     const { db, cleanup } = createTestDb();
     try {
-      runMigrations(db, [migration027, migration032, migration039]);
+      runMigrations(db, [
+        migration027,
+        migration032,
+        migration039,
+        migration053,
+      ]);
       db.prepare(
         `
           INSERT INTO video_projects (
@@ -98,6 +109,8 @@ describe('video conversation recipes', () => {
             },
             createdAt: '2026-05-30T12:00:00.000Z',
           },
+          planId: 'plan-1',
+          planRevision: 2,
         },
         db,
       );
@@ -126,6 +139,8 @@ describe('video conversation recipes', () => {
             plugin: { id: 'social-reel' },
             payload: { inputs: { topic: 'launch' } },
           },
+          planId: 'plan-1',
+          planRevision: 2,
         },
         {
           id: 'intent-2',

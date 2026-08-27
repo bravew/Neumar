@@ -12,6 +12,7 @@ export interface CompactActionLabels {
   pending: string;
   running: string;
   completed: string;
+  partial: string;
   rejected: string;
   failed: string;
   cancelled: string;
@@ -100,6 +101,7 @@ function StatusDot({ status }: { status: AgentActionRecord['status'] }) {
       className={cn(
         'size-1.5 shrink-0 rounded-full',
         status === 'completed' && 'bg-emerald-500',
+        status === 'partial' && 'bg-amber-500',
         status === 'failed' && 'bg-destructive',
         status === 'rejected' && 'bg-muted-foreground',
         status === 'cancelled' && 'bg-muted-foreground',

@@ -10,8 +10,8 @@ import type { VideoProject } from '@/shared/types/video';
 
 import { renderWithProviders } from './helpers/render-with-providers';
 
-vi.mock('@/components/creative/CreativeWorkflowHeader', () => ({
-  CreativeWorkflowHeader: () => <div data-testid="creative-workflow-header" />,
+vi.mock('@/components/video/VideoWorkflowSummary', () => ({
+  VideoWorkflowSummary: () => <div data-testid="video-workflow-summary" />,
 }));
 
 vi.mock('@/components/video/EditorLeftColumn', () => ({
@@ -50,18 +50,18 @@ describe('ProjectEditor conversation route', () => {
     });
   });
 
-  it('hides the shared workflow header on the default conversation route', () => {
+  it('hides the workflow summary on the default conversation route', () => {
     renderEditor('/video/video_fresh');
 
-    expect(screen.queryByTestId('creative-workflow-header')).toBeNull();
+    expect(screen.queryByTestId('video-workflow-summary')).toBeNull();
     expect(screen.getByTestId('video-editor-left')).toBeVisible();
     expect(screen.getByTestId('video-editor-canvas')).toBeVisible();
   });
 
-  it('shows the shared workflow header on explicit production steps', () => {
+  it('shows the workflow summary on explicit production steps', () => {
     renderEditor('/video/video_fresh?step=brief');
 
-    expect(screen.getByTestId('creative-workflow-header')).toBeVisible();
+    expect(screen.getByTestId('video-workflow-summary')).toBeVisible();
   });
 });
 

@@ -35,6 +35,21 @@ const DEFAULT_AUDIO_TRANSITION_FADE_MS = 500;
 const CUT_BOUNDARY_TOLERANCE_MS = 34;
 const CAPTURE_CAPTION_TRACK_ID = 'track-caption-main';
 
+export function pictureTimelineDurationMs(tracks: TimelineTrack[]): number {
+  const ends = tracks
+    .filter(isPictureTimelineTrack)
+    .flatMap((track) =>
+      track.clips.map((clip) => clip.startMs + clip.durationMs),
+    );
+  return ends.length === 0 ? 0 : Math.max(0, ...ends);
+}
+
+function isPictureTimelineTrack(track: TimelineTrack): boolean {
+  return (
+    track.kind === 'video' || track.kind === 'broll' || track.kind === 'overlay'
+  );
+}
+
 interface CompileTimelineToEdlOptions {
   aspectRatio?: AspectRatio;
 }
@@ -143,14 +158,20 @@ export function compileTimelineToEdl(
     }
   }
 
+  const durationMs =
+    pictureTimelineDurationMs(orderedTracks) || timeline.durationMs;
+
   return {
     schema: 'neuma.video.edl.v1',
     projectId: project.id,
     fps: timeline.fps,
-    durationMs: timeline.durationMs,
+    durationMs,
     segments,
     overlays,
-    audioTracks: enforceSceneAudioSeamFades(audioTracks, segments),
+    audioTracks: enforceSceneAudioSeamFades(
+      clampEdlAudioTracksToPicture(audioTracks, durationMs),
+      segments,
+    ),
     captions: captions.sort(
       (a, b) => a.startMs - b.startMs || a.id.localeCompare(b.id),
     ),
@@ -190,7 +211,10 @@ export function insertCaptureCaptionClips(
   return {
     ...timeline,
     tracks,
-    durationMs: Math.max(timeline.durationMs, timelineDurationMs(tracks)),
+    durationMs: Math.max(
+      timeline.durationMs,
+      pictureTimelineDurationMs(tracks),
+    ),
   };
 }
 
@@ -274,6 +298,14 @@ function buildTimelineFromStoryboard(project: VideoProject): VideoTimeline {
   }
 
   if (storyboard?.music?.assetId) {
+    const musicAsset = project.assets.find(
+      (asset) => asset.id === storyboard.music?.assetId,
+    );
+    const sourceDurationMs = Math.max(
+      1,
+      musicAsset?.metadata.durationMs ?? storyboard.music.durationMs,
+    );
+    const clipDurationMs = Math.min(sourceDurationMs, durationMs);
     tracks.push({
       id: 'track-audio-music',
       kind: 'audio-music',
@@ -291,10 +323,10 @@ function buildTimelineFromStoryboard(project: VideoProject): VideoTimeline {
           name: storyboard.music.prompt,
           sourceRef: { kind: 'asset', assetId: storyboard.music.assetId },
           startMs: 0,
-          durationMs: Math.min(storyboard.music.durationMs, durationMs),
+          durationMs: clipDurationMs,
           trimStartMs: 0,
-          trimEndMs: Math.min(storyboard.music.durationMs, durationMs),
-          sourceDurationMs: storyboard.music.durationMs,
+          trimEndMs: clipDurationMs,
+          sourceDurationMs,
           gainDb: -10,
           fadeInMs: 30,
           fadeOutMs: 30,
@@ -638,13 +670,22 @@ function deriveTimelineFps(assets: MediaItem[]): number {
   return frameRate ? Math.round(frameRate) : DEFAULT_TIMELINE_FPS;
 }
 
-function timelineDurationMs(tracks: TimelineTrack[]): number {
-  return Math.max(
-    0,
-    ...tracks.flatMap((track) =>
-      track.clips.map((clip) => clip.startMs + clip.durationMs),
-    ),
-  );
+function clampEdlAudioTracksToPicture(
+  tracks: EdlAudioTrack[],
+  pictureDurationMs: number,
+): EdlAudioTrack[] {
+  return tracks.map((track) => ({
+    ...track,
+    clips: track.clips
+      .filter((clip) => clip.timelineStartMs < pictureDurationMs)
+      .map((clip) => ({
+        ...clip,
+        durationMs: Math.max(
+          1,
+          Math.min(clip.durationMs, pictureDurationMs - clip.timelineStartMs),
+        ),
+      })),
+  }));
 }
 
 function uniqueTimelineTrackId(

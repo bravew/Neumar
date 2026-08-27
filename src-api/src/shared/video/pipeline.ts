@@ -15,6 +15,7 @@ import {
 import { getDatabase } from '@/shared/db';
 import { safeFetch } from '@/shared/network-policy/fetch';
 import { trustedLocalPolicy } from '@/shared/network-policy/schema';
+import type { PathValidationOptions } from '@/shared/services/ffmpeg';
 import {
   probeFile,
   runFFmpeg,
@@ -44,7 +45,11 @@ import type {
 import { logUsage } from '@/shared/services/usage-logger';
 import { createLogger } from '@/shared/utils/logger';
 
-import { resolveProjectAssetPath } from './asset-files';
+import {
+  assetCanProvideAudio,
+  assetPathValidation,
+  resolveProjectAssetPath,
+} from './asset-files';
 import {
   normalizeRenderedAudio,
   type LoudnessMetadata,
@@ -104,6 +109,7 @@ import {
 } from './store';
 import {
   compileTimelineToEdl,
+  pictureTimelineDurationMs,
   rebuildTimelineFromStoryboard,
 } from './timeline';
 import {
@@ -1948,7 +1954,12 @@ async function collectRenderableScenes(
     const isVideo = asset.kind === 'video';
     const inputPath = resolveProjectAssetPath(asset, root);
     const probe = isVideo
-      ? await probeRenderableVideo(inputPath, root, probeCache)
+      ? await probeRenderableVideo(
+          inputPath,
+          root,
+          probeCache,
+          assetPathValidation(asset),
+        )
       : undefined;
     const color =
       (probe ? colorMetadataFromProbe(probe) : undefined) ??
@@ -1985,10 +1996,11 @@ async function probeRenderableVideo(
   inputPath: string,
   root: string,
   cache: Map<string, Awaited<ReturnType<typeof probeFile>>>,
+  validation: PathValidationOptions = {},
 ): Promise<Awaited<ReturnType<typeof probeFile>>> {
   const cached = cache.get(inputPath);
   if (cached) return cached;
-  const probe = await probeFile(inputPath, root);
+  const probe = await probeFile(inputPath, root, validation);
   cache.set(inputPath, probe);
   return probe;
 }
@@ -2212,7 +2224,7 @@ function collectProjectAudioTracks(
     for (const clip of track.clips) {
       if (clip.muted) continue;
       const asset = assetForSourceRef(project, clip.sourceRef);
-      if (asset?.kind !== 'audio') continue;
+      if (!assetCanProvideAudio(asset)) continue;
       tracks.push(audioTrackClipFromEdl(track, clip, asset, root));
     }
   }
@@ -2244,7 +2256,7 @@ export function collectSoundtrackAudioTracks(
   const resolveAudioPath = (assetId?: string): string | undefined => {
     if (!assetId) return undefined;
     const asset = project.assets.find((item) => item.id === assetId);
-    if (asset?.kind !== 'audio') return undefined;
+    if (!assetCanProvideAudio(asset)) return undefined;
     // Skip non-fatally when the backing file is gone (purged upload, path
     // mismatch) or fails path validation — a missing soundtrack asset must not
     // abort the whole render. validateInputFile throws in both cases.
@@ -3952,8 +3964,10 @@ async function finalizeRenderOutput(input: {
 }
 
 function expectedProjectDurationMs(project: VideoProject): number | undefined {
-  const durationMs =
-    project.timeline?.durationMs ?? project.storyboard?.totalDurationMs;
+  const durationMs = project.timeline
+    ? pictureTimelineDurationMs(project.timeline.tracks) ||
+      project.timeline.durationMs
+    : project.storyboard?.totalDurationMs;
   return typeof durationMs === 'number' && Number.isFinite(durationMs)
     ? Math.max(0, Math.round(durationMs))
     : undefined;

@@ -24,6 +24,7 @@ import { buildRenderPlan } from './render-plan';
 import {
   compileTimelineToEdl,
   insertCaptureCaptionClips,
+  pictureTimelineDurationMs,
   rebuildTimelineFromStoryboard,
 } from './timeline';
 import {
@@ -138,6 +139,129 @@ const transitionSchema = z
       });
     }
   });
+const rectSchema = z
+  .object({
+    x: z.number().min(0).max(1),
+    y: z.number().min(0).max(1),
+    width: z.number().positive().max(1),
+    height: z.number().positive().max(1),
+  })
+  .strict();
+const assetPlanSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('existing'),
+      assetId: z.string().min(1),
+      trimMs: z
+        .tuple([z.number().int().min(0), z.number().int().positive()])
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('image-pan'),
+      assetId: z.string().min(1),
+      kenBurns: z
+        .object({ from: rectSchema, to: rectSchema })
+        .strict()
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('ai-image'),
+      prompt: z.string().min(1),
+      refImageIds: z.array(z.string().min(1)).optional(),
+      provider: z.string().min(1).optional(),
+      aspectRatio: aspectRatioSchema.optional(),
+      size: z.string().min(1).optional(),
+      seed: z.number().int().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('ai-clip'),
+      prompt: z.string().min(1),
+      refImageId: z.string().min(1).optional(),
+      refImageTailId: z.string().min(1).optional(),
+      provider: z.string().min(1).optional(),
+      aspectRatio: aspectRatioSchema.optional(),
+      durationMs: z.number().int().positive().optional(),
+      seed: z.number().int().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('broll-search'),
+      query: z.string().min(1),
+      provider: z
+        .enum(['pexels', 'pixabay', 'storyblocks', 'linked'])
+        .optional(),
+      pinnedHitId: z.string().min(1).optional(),
+      sourceIds: z.array(z.string().min(1)).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('tts-narration'),
+      text: z.string().min(1),
+      voiceId: z.string().min(1).optional(),
+      provider: z.string().min(1).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('lipsync'),
+      text: z.string().min(1),
+      voiceId: z.string().min(1).optional(),
+      voiceProvider: z.string().min(1).optional(),
+      referenceImageAssetId: z.string().min(1),
+      lipsyncProvider: z.string().min(1).optional(),
+      aspectRatio: aspectRatioSchema.optional(),
+      motionScale: z.number().positive().optional(),
+      background: z.unknown().optional(),
+      egressConfirmed: z.boolean().optional(),
+    })
+    .strict(),
+]);
+export const videoStoryboardSchema = z
+  .object({
+    status: z.enum(['draft', 'approved', 'edited']),
+    intent: z.string().min(1),
+    totalDurationMs: z.number().int().min(0),
+    costEstimateUsd: z
+      .object({ low: z.number().min(0), high: z.number().min(0) })
+      .strict(),
+    scenes: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1),
+            durationMs: z.number().int().positive(),
+            intent: z.string().min(1),
+            caption: z
+              .object({
+                text: z.string(),
+                style: z.unknown().optional(),
+              })
+              .strict()
+              .optional(),
+            overlayCaptions: z.array(z.unknown()).optional(),
+            transition: transitionSchema.optional(),
+            muteAudio: z.boolean().optional(),
+            reframe: z.unknown().optional(),
+            assetPlan: assetPlanSchema,
+            htmlFrameSeed: z.unknown().optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+    approvedAt: z.string().optional(),
+    approvedBy: z.enum(['user', 'auto']).optional(),
+    music: z.unknown().optional(),
+    narration: z.unknown().optional(),
+  })
+  .strict();
 
 function supportsTransitionDirection(
   directions: readonly string[],
@@ -285,6 +409,22 @@ export const videoAgentToolCallSchema = z.discriminatedUnion('name', [
         durationMs: z.number().int().positive(),
         captionText: z.string().min(1).optional(),
         aspectRatio: aspectRatioSchema.optional(),
+      })
+      .strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
+    name: z.literal('setStoryboard'),
+    args: z.object({ storyboard: z.unknown() }).strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
+    name: z.literal('attachAsset'),
+    args: z
+      .object({
+        assetId: z.string().min(1),
+        sceneId: z.string().min(1),
+        clipId: z.string().min(1),
       })
       .strict(),
     reasoning: z.string().optional(),
@@ -968,6 +1108,13 @@ export interface VideoAgentToolOptions {
   now?: string;
   journalId?: string;
   sceneId?: string;
+  /**
+   * Project revision the in-flight plan expects, from the revisions its own
+   * steps have already committed. Callers that can read the execution log
+   * compute it with `expectedProjectRevisionForPlan`; undefined means the plan
+   * has landed nothing yet and imposes no constraint.
+   */
+  expectedProjectRevision?: number;
 }
 
 type JsonContainer = Record<string, unknown> | unknown[];
@@ -1165,6 +1312,14 @@ function buildVideoAgentToolDiff(
       return [];
     case 'addScene':
       return addSceneDiff(project, call.args, options);
+    case 'setStoryboard':
+      return setStoryboardDiff(
+        project,
+        parseVideoStoryboard(call.args.storyboard),
+        options,
+      );
+    case 'attachAsset':
+      return attachAssetDiff(project, call.args);
     case 'splitScene':
       return splitSceneDiff(project, call.args, options);
     case 'removeScene':
@@ -1300,6 +1455,119 @@ function addSceneDiff(
         },
       ];
   return storyboardEditDiff(project, ops);
+}
+
+function setStoryboardDiff(
+  project: VideoProject,
+  storyboard: Storyboard,
+  options: VideoAgentToolOptions = {},
+): ProjectDiffOperation[] {
+  const plan = project.agentPlan;
+  if (!plan || plan.status === 'superseded') {
+    throw new Error(
+      'A durable video plan is required — call video_write_plan first',
+    );
+  }
+  // Only an in-flight plan constrains the revision. `expectedProjectRevision`
+  // is undefined until the plan lands its first step, because an edit made
+  // before the plan started is not a conflict with it.
+  const expectedRevision = options.expectedProjectRevision;
+  if (expectedRevision !== undefined && project.revision !== expectedRevision) {
+    throw new Error(
+      `Project revision conflict: plan expects ${expectedRevision}, current ${project.revision}`,
+    );
+  }
+  const sceneIds = new Set<string>();
+  for (const scene of storyboard.scenes) {
+    if (sceneIds.has(scene.id))
+      throw new Error(`Duplicate scene id: ${scene.id}`);
+    sceneIds.add(scene.id);
+    for (const assetId of assetIdsForPlan(scene.assetPlan)) {
+      if (!project.assets.some((asset) => asset.id === assetId)) {
+        throw new Error(`Storyboard references unknown asset: ${assetId}`);
+      }
+    }
+  }
+  const totalDurationMs = storyboard.scenes.reduce(
+    (total, scene) => total + scene.durationMs,
+    0,
+  );
+  if (storyboard.totalDurationMs !== totalDurationMs) {
+    throw new Error(
+      `Storyboard totalDurationMs ${storyboard.totalDurationMs} does not match scene total ${totalDurationMs}`,
+    );
+  }
+  return [
+    project.storyboard
+      ? { op: 'replace', path: '/storyboard', value: storyboard }
+      : { op: 'add', path: '/storyboard', value: storyboard },
+  ];
+}
+
+export function parseVideoStoryboard(value: unknown): Storyboard {
+  // Zod has validated every nested field at this external-data boundary.
+  return videoStoryboardSchema.parse(value) as Storyboard;
+}
+
+function assetIdsForPlan(assetPlan: AssetPlan): string[] {
+  switch (assetPlan.kind) {
+    case 'existing':
+    case 'image-pan':
+      return [assetPlan.assetId];
+    case 'ai-image':
+      return assetPlan.refImageIds ?? [];
+    case 'ai-clip':
+      return [assetPlan.refImageId, assetPlan.refImageTailId].filter(
+        (id): id is string => Boolean(id),
+      );
+    case 'lipsync':
+      return [
+        assetPlan.referenceImageAssetId,
+        ...(assetPlan.background?.kind === 'image'
+          ? [assetPlan.background.assetId]
+          : []),
+      ];
+    case 'broll-search':
+    case 'tts-narration':
+      return [];
+  }
+}
+
+function attachAssetDiff(
+  project: VideoProject,
+  args: Extract<VideoAgentToolCall, { name: 'attachAsset' }>['args'],
+): ProjectDiffOperation[] {
+  const storyboard = requireStoryboard(project);
+  // The storyboard is the scene registry, and `sceneIndex` already rejects an
+  // unknown id against it.
+  const storyboardIndex = sceneIndex(storyboard, args.sceneId);
+  if (!project.assets.some((asset) => asset.id === args.assetId)) {
+    throw new Error(`Asset not found: ${args.assetId}`);
+  }
+  // `project.scenes` is the flattened projection `approveStoryboard` writes,
+  // so it is empty for every storyboard still being built — which is exactly
+  // when assets are attached. Mirror the clip into it when it exists, and
+  // otherwise let the storyboard stand alone; `normalizePatchedProject`
+  // rebuilds the timeline from the storyboard either way.
+  const projectionIndex = (project.scenes ?? []).findIndex(
+    (scene) => scene.id === args.sceneId,
+  );
+  return storyboardEditDiff(project, [
+    {
+      op: 'replace',
+      path: `/storyboard/scenes/${storyboardIndex}/assetPlan`,
+      value: { kind: 'existing', assetId: args.assetId },
+    },
+    ...(projectionIndex >= 0
+      ? [
+          {
+            op: 'replace',
+            path: `/scenes/${projectionIndex}/clips`,
+            value: [{ id: args.clipId, mediaId: args.assetId }],
+          } satisfies ProjectDiffOperation,
+        ]
+      : []),
+  ]);
 }
 
 function defaultAddSceneAssetPlan(
@@ -1630,7 +1898,7 @@ function applyCaptureToTimelineDiff(
       {
         ...timeline,
         tracks,
-        durationMs: timelineDurationMs(tracks),
+        durationMs: pictureTimelineDurationMs(tracks),
       },
       {
         captureId: source.id,
@@ -1659,7 +1927,7 @@ function applyCaptureToTimelineDiff(
     {
       ...timeline,
       tracks: nextTracks,
-      durationMs: timelineDurationMs(nextTracks),
+      durationMs: pictureTimelineDurationMs(nextTracks),
     },
     {
       captureId: source.id,
@@ -1767,15 +2035,6 @@ function findTimelineClip(
     if (clip) return { track, clip };
   }
   return null;
-}
-
-function timelineDurationMs(tracks: TimelineTrack[]): number {
-  return Math.max(
-    0,
-    ...tracks.flatMap((track) =>
-      track.clips.map((clip) => clip.startMs + clip.durationMs),
-    ),
-  );
 }
 
 function captureDurationMs(asset: MediaItem): number {
@@ -1960,7 +2219,7 @@ function trimClipDiff(
   return replaceTimelineDiff(project, {
     ...timeline,
     tracks,
-    durationMs: timelineDurationMs(tracks),
+    durationMs: pictureTimelineDurationMs(tracks),
   });
 }
 
@@ -2104,7 +2363,7 @@ function addLowerThirdDiff(
   return replaceTimelineDiff(project, {
     ...timeline,
     tracks,
-    durationMs: timelineDurationMs(tracks),
+    durationMs: pictureTimelineDurationMs(tracks),
   });
 }
 

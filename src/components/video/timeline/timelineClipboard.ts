@@ -5,6 +5,8 @@ import type {
 } from '@/shared/types/video';
 import { randomUUID } from '@/shared/utils/uuid';
 
+import { getTimelineDurationMs } from './timelineMath';
+
 export const TIMELINE_CLIPBOARD_PREFIX = 'neuma-clipboard:v1:';
 
 export interface TimelineClipboardItem {
@@ -169,17 +171,6 @@ function findPasteTargetTrack(
 
 function cloneTimelineClip(clip: VideoTimelineClip): VideoTimelineClip {
   return structuredClone(clip);
-}
-
-function getTimelineDurationMs(tracks: VideoTimelineTrack[]): number {
-  return tracks.reduce(
-    (maxEndMs, track) =>
-      Math.max(
-        maxEndMs,
-        ...track.clips.map((clip) => clip.startMs + clip.durationMs),
-      ),
-    0,
-  );
 }
 
 function timelineTrackAcceptsClip(

@@ -92,6 +92,7 @@ describe('launchVideoPlugin', () => {
     expect(createVideoProject).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Untitled video',
+        template: 'custom',
         prompt: 'Use Hallmark to redesign this page.',
       }),
     );

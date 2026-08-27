@@ -74,7 +74,7 @@ interface YtDlpInfoJson {
 }
 
 const logger = createLogger('VideoYoutubeBroll');
-const YOUTUBE_BROLL_TIMEOUT_MS = 5 * 60 * 1000;
+const YOUTUBE_BROLL_TIMEOUT_MS = 20 * 60 * 1000;
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.mkv']);
 const YOUTUBE_HOSTS = new Set([
   'youtube.com',
@@ -108,23 +108,23 @@ export async function importYoutubeBroll(
     'sources',
     sourceId,
   );
+  const format = input.format ?? 'mp4';
   const args = buildYtDlpArgs({
     projectId,
     sourceId,
     url: input.url,
-    ...(input.maxDurationSec ? { maxDurationSec: input.maxDurationSec } : {}),
-    format: input.format ?? 'mp4',
+    format,
   });
   assertYtDlpArgsAllowed(args, {
     projectId,
     sourceId,
     url: input.url,
-    ...(input.maxDurationSec ? { maxDurationSec: input.maxDurationSec } : {}),
-    format: input.format ?? 'mp4',
+    format,
   });
 
   await fs.mkdir(sourceDir, { recursive: true });
-  await (options.runner ?? new SpawnYtDlpRunner()).run(args, {
+  const runner = options.runner ?? new SpawnYtDlpRunner();
+  await runner.run(args, {
     cwd: getVideoProjectDir(projectId),
     outputDir: sourceDir,
     timeoutMs: YOUTUBE_BROLL_TIMEOUT_MS,
@@ -327,10 +327,13 @@ class SpawnYtDlpRunner implements YoutubeBrollRunner {
     return new Promise((resolve, reject) => {
       const child = spawn(binary, args, {
         cwd: options.cwd,
-        stdio: ['ignore', 'ignore', 'pipe'],
+        stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
       });
-      let stderr = '';
+      let output = '';
+      const appendOutput = (chunk: Buffer) => {
+        output = `${output}${chunk.toString()}`.slice(-4000);
+      };
       const timeout = setTimeout(() => {
         child.kill('SIGTERM');
         reject(new Error('yt-dlp timed out while importing YouTube b-roll.'));
@@ -343,9 +346,8 @@ class SpawnYtDlpRunner implements YoutubeBrollRunner {
       };
       options.signal?.addEventListener('abort', abort, { once: true });
 
-      child.stderr.on('data', (chunk: Buffer) => {
-        stderr = `${stderr}${chunk.toString()}`.slice(-4000);
-      });
+      child.stdout.on('data', appendOutput);
+      child.stderr.on('data', appendOutput);
       child.on('error', (error) => {
         clearTimeout(timeout);
         options.signal?.removeEventListener('abort', abort);
@@ -361,14 +363,22 @@ class SpawnYtDlpRunner implements YoutubeBrollRunner {
           // message and a retryable hint instead of an opaque exit code (which
           // it cannot distinguish from a transient error, leading to runaway
           // retry loops).
-          const classified = classifyYtDlpError(stderr, code);
+          const classified = classifyYtDlpError(output, code);
           logger.warn('yt-dlp exited non-zero', {
             exitCode: code,
             category: classified.category,
             retryable: classified.retryable,
-            stderr: stderr.slice(0, 500),
+            stderr: output.slice(0, 500),
           });
           reject(new Error(classified.message));
+          return;
+        }
+        if (/does not pass filter|skipping \.\./i.test(output)) {
+          reject(
+            new Error(
+              'yt-dlp skipped the video instead of downloading it. Long videos should be kept in full so later edits can use more of the source.',
+            ),
+          );
           return;
         }
         resolve();

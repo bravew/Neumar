@@ -2,6 +2,8 @@ import { type ChangeEvent, useCallback, useRef, useState } from 'react';
 
 import { toast } from 'sonner';
 
+import { acquireAssetMaterializationLease } from '@/shared/assets/materializationLease';
+
 import type { VideoProjectEditorActions } from '../editorTypes';
 import { pickLocalMediaFiles } from './pickLocalMediaFiles';
 
@@ -68,6 +70,7 @@ export function useAddLocalFiles(
   const openFilePicker = useCallback(() => {
     void (async () => {
       setAddingFiles(true);
+      let releaseLease = () => {};
       try {
         const paths = await pickLocalMediaFiles();
         if (paths === null) {
@@ -76,12 +79,17 @@ export function useAddLocalFiles(
           return;
         }
         if (paths.length === 0) return;
+        // Take the lease only once the chooser has closed: an event stream
+        // held open while the OS dialog is up competes for a socket with the
+        // very request that raised it.
+        releaseLease = acquireAssetMaterializationLease(sessionId);
         await actions.attachAssetPaths(paths, 'reference', sessionId);
         reportOutcome(paths.length, paths.length, null);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         toast.error(labels.materializeFailed.replace('{message}', message));
       } finally {
+        releaseLease();
         setAddingFiles(false);
       }
     })();

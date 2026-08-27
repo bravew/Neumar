@@ -9,6 +9,7 @@ import {
 import { toast } from 'sonner';
 
 import {
+  acquireAssetMaterializationLease,
   applyAssetMaterializationBudgetIncrease,
   isAssetMaterializationBudgetError,
   readAssetDragPayload,
@@ -79,13 +80,18 @@ export function useCatalogAssetAttach({
 
   const attachCatalogAssetIds = useCallback(
     async (assetIds: string[]) => {
+      // Hold the materialization stream open across the batch. Releasing on
+      // settle starts the lease's grace window, which spans the same notice
+      // TTL the panel uses, so trailing proxy/artifact events still land.
+      const releaseLease =
+        acquireAssetMaterializationLease(materializeSessionId);
       const results = await Promise.allSettled(
         assetIds.map((assetId) =>
           actions.attachCatalogAsset(assetId, {
             sessionId: materializeSessionId,
           }),
         ),
-      );
+      ).finally(releaseLease);
       const budgetError = results
         .map((result) =>
           result.status === 'rejected' ? result.reason : undefined,

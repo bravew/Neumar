@@ -58,4 +58,19 @@ describe('AgentDockTurnBudget', () => {
       screen.getByText('The run ended for an unknown reason.'),
     ).toBeInTheDocument();
   });
+
+  it('surfaces the failed tool detail instead of hiding it behind unknown', () => {
+    render(
+      <AgentDockTurnBudget
+        outcome={{ reason: 'unknown', exhausted: false }}
+        detail="video_approve_storyboard: Storyboard exceeds template duration limit"
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'video_approve_storyboard: Storyboard exceeds template duration limit',
+      ),
+    ).toBeInTheDocument();
+  });
 });

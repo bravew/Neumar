@@ -9,6 +9,7 @@ import {
   Play,
   RefreshCw,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { useLanguage } from '@/shared/providers/language-provider';
 import type {
@@ -19,7 +20,7 @@ import type {
   VideoRenderProviderView,
 } from '@/shared/types/video';
 
-import { canRenderProject } from '../render-readiness';
+import { renderBlockedReason } from '../render-readiness';
 import { SavePluginCandidateDialog } from '../SavePluginCandidateDialog';
 import { RenderSettingsForm } from './RenderSettingsForm';
 import { RenderStatusSummary } from './RenderStatusSummary';
@@ -43,6 +44,8 @@ interface RenderControlsProps {
   onOpenOutput?: () => void;
   onOpenOutputFolder?: () => void;
   onRender: (aspect: VideoAspectRatio, options?: RenderOptions) => unknown;
+  /** Clears the server's approval gate without leaving the preview step. */
+  onApproveStoryboard?: () => unknown;
   onQueueRender?: (
     aspectRatios: VideoAspectRatio[],
     options?: RenderOptions,
@@ -72,6 +75,7 @@ export function RenderControls({
   onOpenOutput,
   onOpenOutputFolder,
   onRender,
+  onApproveStoryboard,
   onQueueRender,
 }: RenderControlsProps) {
   const { t } = useLanguage();
@@ -138,23 +142,51 @@ export function RenderControls({
 
   const isRendering = project.render?.status === 'running';
   const renderProgress = project.render?.progress;
-  const renderReady = canRenderProject(project, storyboardApproved);
+  const blockedReason = renderBlockedReason(project, storyboardApproved);
   const renderBlocked =
     isRendering ||
-    !renderReady ||
+    blockedReason !== null ||
     (renderWhere === 'cloud' &&
       (cloudProviders.length === 0 || !cloudEgressConfirmed));
 
+  // The render POST rejects for reasons the button cannot always predict — a
+  // busy renderer, a missing master, an egress refusal. Dropping the rejection
+  // leaves the status flipping to running and back with nothing said.
+  const runRender = (start: () => unknown) => {
+    try {
+      const result = start();
+      if (result instanceof Promise) {
+        void result.catch((err: unknown) =>
+          toast.error(
+            `${t.video.editor.preview.renderFailed}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          ),
+        );
+      }
+    } catch (err) {
+      toast.error(
+        `${t.video.editor.preview.renderFailed}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+    setOpen(false);
+  };
+
   const handleRender = () => {
     const options = currentRenderOptions();
-    void onRender(aspect, options);
-    setOpen(false);
+    runRender(() => onRender(aspect, options));
   };
 
   const handleQueueRender = () => {
     if (!onQueueRender) return;
-    void onQueueRender([aspect], currentRenderOptions());
-    setOpen(false);
+    runRender(() => onQueueRender([aspect], currentRenderOptions()));
+  };
+
+  const handleApprove = () => {
+    if (!onApproveStoryboard) return;
+    runRender(() => onApproveStoryboard());
   };
 
   const currentRenderOptions = (): RenderOptions => ({
@@ -208,6 +240,25 @@ export function RenderControls({
               sideOffset={6}
               className="bg-popover text-popover-foreground z-50 max-h-[80vh] w-80 overflow-y-auto rounded-md border p-3 text-xs shadow-md"
             >
+              {blockedReason ? (
+                <div className="border-warning/30 bg-warning/10 mb-3 space-y-2 rounded-md border p-2">
+                  <p className="text-warning-foreground">
+                    {blockedReason === 'storyboard-not-approved'
+                      ? t.video.editor.preview.blockedNotApproved
+                      : t.video.editor.preview.blockedEmptyTimeline}
+                  </p>
+                  {blockedReason === 'storyboard-not-approved' &&
+                  onApproveStoryboard ? (
+                    <button
+                      type="button"
+                      onClick={handleApprove}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-2 py-1 text-xs font-medium"
+                    >
+                      {t.video.editor.actions.approve}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
               <RenderStatusSummary project={project} aspect={aspect} />
               <SavePluginCandidateDialog project={project} />
               <RenderSettingsForm

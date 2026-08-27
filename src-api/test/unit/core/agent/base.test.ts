@@ -1,6 +1,33 @@
 import { describe, expect, it } from 'vitest';
 
-import { isConversationalPrompt } from '@/core/agent/base';
+import {
+  getWorkspaceInstruction,
+  isConversationalPrompt,
+} from '@/core/agent/base';
+
+describe('getWorkspaceInstruction', () => {
+  it('describes OS isolation for the default execution policy', () => {
+    const instruction = getWorkspaceInstruction('/tmp/project');
+
+    expect(instruction).toContain('isolation enforced at the OS level');
+    expect(instruction).toContain('BLOCKED by the sandbox');
+  });
+
+  it('describes the typed Video boundary for host-native execution', () => {
+    const instruction = getWorkspaceInstruction(
+      '/tmp/project',
+      undefined,
+      '/tmp/workspace',
+      false,
+      'host-native',
+    );
+
+    expect(instruction).toContain('host-native execution');
+    expect(instruction).toContain('approved, origin-aware Video tools');
+    expect(instruction).toContain('No general shell');
+    expect(instruction).not.toContain('BLOCKED by the sandbox');
+  });
+});
 
 describe('isConversationalPrompt', () => {
   // ── English ──────────────────────────────────────────────────────────────

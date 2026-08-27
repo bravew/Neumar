@@ -2,7 +2,10 @@ import { useCallback, useMemo } from 'react';
 
 import { useShallow } from 'zustand/react/shallow';
 
-import { isAssetMaterializationBudgetError } from '@/shared/assets';
+import {
+  acquireAssetMaterializationLease,
+  isAssetMaterializationBudgetError,
+} from '@/shared/assets';
 import type { AssetMaterializationBudgetError } from '@/shared/assets';
 import type {
   VideoProject,
@@ -62,6 +65,7 @@ export function useProjectAssetTimelineActions(params: {
   const downloadAsset = useCallback(
     (asset: ProjectAsset) => {
       if (!canDownloadProjectAsset(asset)) return;
+      const releaseLease = acquireAssetMaterializationLease(sessionId);
       void actions
         .hydrateProjectAsset(asset.id, { sessionId })
         .catch((error) => {
@@ -70,7 +74,8 @@ export function useProjectAssetTimelineActions(params: {
           } else {
             onError(error);
           }
-        });
+        })
+        .finally(releaseLease);
     },
     [actions, onBudgetIssue, onError, sessionId],
   );
@@ -108,6 +113,7 @@ export function useProjectAssetTimelineActions(params: {
           : { ...clip, startMs: placementStartMs };
       insertClip(track.id, placedClip);
       if (!canDownloadProjectAsset(asset)) return;
+      const releaseLease = acquireAssetMaterializationLease(sessionId);
       void actions
         .hydrateProjectAsset(asset.id, { sessionId })
         .then((result) => {
@@ -122,7 +128,8 @@ export function useProjectAssetTimelineActions(params: {
           } else {
             onError(error);
           }
-        });
+        })
+        .finally(releaseLease);
     },
     [
       actions,

@@ -26,7 +26,9 @@ export type VideoFeatureFlag =
   /** Vivid overlay layer (HTML/GIF/Lottie/text-motion overlays). Kill-switch. */
   | 'video.vividOverlays'
   /** @remotion/media video renderer. Kill-switch preserves the legacy path. */
-  | 'video.remotionMedia';
+  | 'video.remotionMedia'
+  /** Run Video Mode's approved native tool surface without SDK OS sandboxing. */
+  | 'video.hostNative';
 
 const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.engine.html': true,
@@ -40,6 +42,7 @@ const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.webcodecsPreview': true,
   'video.vividOverlays': true,
   'video.remotionMedia': true,
+  'video.hostNative': true,
 } satisfies Record<VideoFeatureFlag, boolean>;
 
 export function getVideoFeatureFlag(flag: VideoFeatureFlag): boolean {
@@ -72,5 +75,6 @@ export function snapshotVideoFeatureFlags(): Record<VideoFeatureFlag, boolean> {
     'video.webcodecsPreview': getVideoFeatureFlag('video.webcodecsPreview'),
     'video.vividOverlays': getVideoFeatureFlag('video.vividOverlays'),
     'video.remotionMedia': getVideoFeatureFlag('video.remotionMedia'),
+    'video.hostNative': getVideoFeatureFlag('video.hostNative'),
   };
 }

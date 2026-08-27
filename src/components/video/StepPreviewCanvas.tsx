@@ -8,7 +8,6 @@ import {
 
 import { PlayCircle } from 'lucide-react';
 import { Panel, Group as PanelGroup } from 'react-resizable-panels';
-import { toast } from 'sonner';
 
 import { ResizeHandle } from '@/components/ui/resize-handle';
 import { API_BASE_URL } from '@/config';
@@ -22,10 +21,9 @@ import type {
 
 import { AssetsRail } from './assets/AssetsRail';
 import type { VideoProjectEditorActions } from './editorTypes';
-import { openVideoProjectFolder } from './openVideoProjectFolder';
 import { CaptionOverlay } from './preview/CaptionOverlay';
+import { OutputReview } from './preview/OutputReview';
 import { PreviewFullscreenButton } from './preview/PreviewFullscreenButton';
-import { openRenderedOutput } from './preview/previewOutputActions';
 import {
   DEFAULT_PREVIEW_PLAYBACK_RATE,
   type PreviewPlaybackRate,
@@ -34,6 +32,8 @@ import { PreviewRenderer } from './preview/PreviewRenderer';
 import { PreviewStepHeader } from './preview/PreviewStepHeader';
 import type { RemotionPreviewHandle } from './preview/RemotionPreview';
 import { RenderProgressBar } from './preview/RenderProgressBar';
+import { usePreviewOutputActions } from './preview/usePreviewOutputActions';
+import { usePreviewViewMode } from './preview/usePreviewViewMode';
 import { PreviewInspectorPanel } from './PreviewInspectorPanel';
 import { PreviewSceneStrip } from './PreviewSceneStrip';
 import { QaReportPanel } from './QaReportPanel';
@@ -95,6 +95,7 @@ export function StepPreviewCanvas({
   const fallbackCount = project.render?.transitions?.degraded.length ?? 0;
   const scenes = project.storyboard?.scenes ?? [];
   const hasTimelinePreview = Boolean(project.timeline || scenes.length);
+
   const previewRef = useRef<RemotionPreviewHandle | null>(null);
   const previewContainerRef = useRef<HTMLDivElement | null>(null);
   const inspectorPanelRef = useAutoExpandInspectorPanel();
@@ -137,42 +138,12 @@ export function StepPreviewCanvas({
     },
     [setPlayheadMs],
   );
-  const handleOpenOutput = useCallback(async () => {
-    try {
-      await openRenderedOutput(project, selectedOutput);
-    } catch (err) {
-      toast.error(
-        `${t.video.editor.preview.openOutput}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
-  }, [project, selectedOutput, t.video.editor.preview.openOutput]);
-  const handleOpenOutputFolder = useCallback(async () => {
-    try {
-      await openVideoProjectFolder(project.id);
-    } catch (err) {
-      toast.error(
-        `${t.video.editor.preview.openOutputFolder}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
-  }, [project.id, t.video.editor.preview.openOutputFolder]);
-  const handleCancelRender = useCallback(async () => {
-    try {
-      await actions.cancelRender();
-    } catch (err) {
-      // Surface so the user knows the render is still going. Silent void here
-      // would leave them watching the strip with no feedback that the cancel
-      // POST failed (e.g. sidecar dropped).
-      toast.error(
-        `${t.video.editor.renderProgress.cancel}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-    }
-  }, [actions, t.video.editor.renderProgress.cancel]);
+  const { handleOpenOutput, handleOpenOutputFolder, handleCancelRender } =
+    usePreviewOutputActions(project, selectedOutput, actions.cancelRender);
+  const { viewMode, onViewModeChange } = usePreviewViewMode(
+    project,
+    handleOpenOutput,
+  );
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -191,8 +162,10 @@ export function StepPreviewCanvas({
         actions={actions}
         onAspectChange={setAspect}
         onPlaybackRateChange={setPlaybackRate}
-        onOpenOutput={() => void handleOpenOutput()}
-        onOpenOutputFolder={() => void handleOpenOutputFolder()}
+        onOpenOutput={handleOpenOutput}
+        onOpenOutputFolder={handleOpenOutputFolder}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
       />
       {fallbackCount > 0 ? (
         <div className="border-warning/30 bg-warning/10 text-warning-foreground border-b px-4 py-2 text-xs">
@@ -202,143 +175,151 @@ export function StepPreviewCanvas({
           )}
         </div>
       ) : null}
-      <PanelGroup
-        orientation="vertical"
-        autoSave="video.preview.layout.v1"
-        className="min-h-0 min-w-0 flex-1"
-      >
-        <Panel id="main-row" defaultSize="68%" minSize="15%">
-          <PanelGroup
-            orientation="horizontal"
-            autoSave="video.preview.main-row.v1"
-            className="min-h-0 min-w-0"
-          >
-            <Panel
-              id="assets"
-              defaultSize="20%"
-              // A percentage floor collapses to unreadable widths on a
-              // narrow window — a tile's thumbnail, checkbox, and origin
-              // badge alone need this much room before the filename gets
-              // anything to truncate into.
-              minSize={220}
-              collapsible
-              collapsedSize="0%"
-              className="min-w-0"
+      {viewMode === 'output' ? (
+        <OutputReview
+          project={project}
+          aspect={aspect}
+          outputs={project.outputs ?? []}
+          selectedOutput={selectedOutput}
+          videoSrc={videoSrc}
+          posterSrc={posterSrc}
+          onAspectChange={setAspect}
+          onOpenOutput={handleOpenOutput}
+          onOpenOutputFolder={handleOpenOutputFolder}
+        />
+      ) : (
+        <PanelGroup
+          orientation="vertical"
+          autoSave="video.preview.layout.v1"
+          className="min-h-0 min-w-0 flex-1"
+        >
+          <Panel id="main-row" defaultSize="68%" minSize="15%">
+            <PanelGroup
+              orientation="horizontal"
+              autoSave="video.preview.main-row.v1"
+              className="min-h-0 min-w-0"
             >
-              <div className="size-full overflow-auto p-3">
-                <AssetsRail
-                  project={project}
-                  actions={actions}
-                  selectedContextAssetIds={selectedContextAssetIds}
-                  onToggleAssetContext={onToggleAssetContext}
-                />
-              </div>
-            </Panel>
-            <ResizeHandle id="assets-preview-handle" />
-            <Panel
-              id="preview"
-              defaultSize="52%"
-              minSize="30%"
-              className="min-w-0"
-            >
-              <div className="flex size-full min-h-0 min-w-0 flex-col p-3">
-                <div
-                  ref={previewContainerRef}
-                  className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-black"
-                >
-                  <PreviewFullscreenButton containerRef={previewContainerRef} />
-                  {hasTimelinePreview ? (
-                    <>
-                      <PreviewRenderer
-                        ref={previewRef}
-                        project={project}
-                        aspectRatio={aspect}
-                        playbackRate={playbackRate}
-                        playheadMs={playheadMs}
-                        playheadUpdateSource={playheadUpdateSource}
-                        onPlayheadChange={handlePreviewPlayheadChange}
-                        onPlaybackStateChange={setPlaybackState}
-                      />
-                      <CaptionOverlay
-                        project={project}
-                        scene={
-                          scenes.find((s) => s.id === selectedSceneId) ?? null
-                        }
-                        actions={actions}
-                        aspectRatio={aspect}
-                        containerRef={previewContainerRef}
-                      />
-                    </>
-                  ) : videoSrc ? (
-                    <video
-                      key={videoSrc}
-                      controls
-                      src={videoSrc}
-                      poster={posterSrc}
-                      className="max-h-full max-w-full"
-                    />
-                  ) : (
-                    <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                      <PlayCircle className="size-4" />
-                      <span>{t.video.preview.placeholder}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-3 shrink-0">
-                  <PreviewSceneStrip
-                    scenes={scenes}
-                    selectedSceneId={selectedSceneId}
-                    onSelectScene={onSelectScene}
+              <Panel
+                id="assets"
+                defaultSize="20%"
+                // A percentage floor collapses to unreadable widths on a
+                // narrow window — a tile's thumbnail, checkbox, and origin
+                // badge alone need this much room before the filename gets
+                // anything to truncate into.
+                minSize={220}
+                collapsible
+                collapsedSize="0%"
+                className="min-w-0"
+              >
+                <div className="size-full overflow-auto p-3">
+                  <AssetsRail
+                    project={project}
+                    actions={actions}
+                    selectedContextAssetIds={selectedContextAssetIds}
+                    onToggleAssetContext={onToggleAssetContext}
                   />
                 </div>
-              </div>
-            </Panel>
-            <ResizeHandle id="preview-inspector-handle" />
-            <Panel
-              id="inspector"
-              panelRef={inspectorPanelRef}
-              defaultSize={INSPECTOR_PANEL_DEFAULT_SIZE}
-              minSize="16%"
-              maxSize="42%"
-              collapsible
-              collapsedSize="0%"
-              className="min-w-0"
-            >
-              <div className="size-full p-3">
-                <PreviewInspectorPanel
-                  project={project}
-                  aspectRatio={aspect}
-                  actions={actions}
-                  selectedScene={selectedScene ?? null}
-                  onFindContext={onFindContext ?? (() => undefined)}
-                />
-              </div>
-            </Panel>
-          </PanelGroup>
-        </Panel>
-        <ResizeHandle orientation="vertical" id="main-timeline-handle" />
-        <Panel id="timeline" defaultSize="32%" minSize="10%" maxSize="85%">
-          <div className="size-full px-3 pb-3">
-            <Timeline
-              project={project}
-              aspectRatio={aspect}
-              selectedSceneId={selectedSceneId}
-              selectedSceneSource={selectedSceneSource}
-              onSelectScene={onSelectScene}
-              onTimelineChange={actions.updateTimeline}
-              onApplyAgentTool={actions.applyAgentTool}
-              onTogglePlayback={handleTogglePlayback}
-              onUndoAgentJournalEntry={actions.undoAgentJournalEntry}
-              onRedoAgentJournalEntry={actions.redoAgentJournalEntry}
-              onAttachLinkedAsset={actions.attachLinkedAsset}
-              onAttachCatalogAsset={actions.attachCatalogAsset}
-              onHydrateProjectAsset={actions.hydrateProjectAsset}
-              onUploadAssets={actions.uploadAssets}
-              className="size-full"
-            />
-          </div>
-        </Panel>
-      </PanelGroup>
+              </Panel>
+              <ResizeHandle id="assets-preview-handle" />
+              <Panel
+                id="preview"
+                defaultSize="52%"
+                minSize="30%"
+                className="min-w-0"
+              >
+                <div className="flex size-full min-h-0 min-w-0 flex-col p-3">
+                  <div
+                    ref={previewContainerRef}
+                    className="relative flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-md bg-black"
+                  >
+                    <PreviewFullscreenButton
+                      containerRef={previewContainerRef}
+                    />
+                    {hasTimelinePreview ? (
+                      <>
+                        <PreviewRenderer
+                          ref={previewRef}
+                          project={project}
+                          aspectRatio={aspect}
+                          playbackRate={playbackRate}
+                          playheadMs={playheadMs}
+                          playheadUpdateSource={playheadUpdateSource}
+                          onPlayheadChange={handlePreviewPlayheadChange}
+                          onPlaybackStateChange={setPlaybackState}
+                        />
+                        <CaptionOverlay
+                          project={project}
+                          scene={
+                            scenes.find((s) => s.id === selectedSceneId) ?? null
+                          }
+                          actions={actions}
+                          aspectRatio={aspect}
+                          containerRef={previewContainerRef}
+                        />
+                      </>
+                    ) : (
+                      <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                        <PlayCircle className="size-4" />
+                        <span>{t.video.preview.placeholder}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 shrink-0">
+                    <PreviewSceneStrip
+                      scenes={scenes}
+                      selectedSceneId={selectedSceneId}
+                      onSelectScene={onSelectScene}
+                    />
+                  </div>
+                </div>
+              </Panel>
+              <ResizeHandle id="preview-inspector-handle" />
+              <Panel
+                id="inspector"
+                panelRef={inspectorPanelRef}
+                defaultSize={INSPECTOR_PANEL_DEFAULT_SIZE}
+                minSize="16%"
+                maxSize="42%"
+                collapsible
+                collapsedSize="0%"
+                className="min-w-0"
+              >
+                <div className="size-full p-3">
+                  <PreviewInspectorPanel
+                    project={project}
+                    aspectRatio={aspect}
+                    actions={actions}
+                    selectedScene={selectedScene ?? null}
+                    onFindContext={onFindContext ?? (() => undefined)}
+                  />
+                </div>
+              </Panel>
+            </PanelGroup>
+          </Panel>
+          <ResizeHandle orientation="vertical" id="main-timeline-handle" />
+          <Panel id="timeline" defaultSize="32%" minSize="10%" maxSize="85%">
+            <div className="size-full px-3 pb-3">
+              <Timeline
+                project={project}
+                aspectRatio={aspect}
+                selectedSceneId={selectedSceneId}
+                selectedSceneSource={selectedSceneSource}
+                onSelectScene={onSelectScene}
+                onTimelineChange={actions.updateTimeline}
+                onApplyAgentTool={actions.applyAgentTool}
+                onTogglePlayback={handleTogglePlayback}
+                onUndoAgentJournalEntry={actions.undoAgentJournalEntry}
+                onRedoAgentJournalEntry={actions.redoAgentJournalEntry}
+                onAttachLinkedAsset={actions.attachLinkedAsset}
+                onAttachCatalogAsset={actions.attachCatalogAsset}
+                onHydrateProjectAsset={actions.hydrateProjectAsset}
+                onUploadAssets={actions.uploadAssets}
+                className="size-full"
+              />
+            </div>
+          </Panel>
+        </PanelGroup>
+      )}
       <QaReportPanel output={selectedOutput} projectId={project.id} />
       <RenderQueuePanel projectId={project.id} />
       <RenderProgressBar project={project} onCancel={handleCancelRender} />

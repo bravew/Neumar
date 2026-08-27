@@ -9,66 +9,13 @@ import {
   type ExecutionOutcomeSummary,
   useRunTreeStore,
 } from '@/shared/stores/run-tree-store';
-import type {
-  DiagnosticValue,
-  ExecutionDiagnosticsV1,
-} from '@/shared/types/execution-diagnostics';
+import type { ExecutionDiagnosticsV1 } from '@/shared/types/execution-diagnostics';
 
+import { DiagnosticsGrid } from './DiagnosticsGrid';
 import { useSupportBundleExport } from './use-support-bundle-export';
+import { useDiagnosticsLabels } from './useDiagnosticsLabels';
 
-function useDiagnosticsLabels() {
-  const { t } = useLanguage();
-  return {
-    title: t.task.runDiagnosticsTitle,
-    partial: t.task.runDiagnosticsPartial,
-    timing: t.task.runDiagnosticsTiming,
-    tools: t.task.runDiagnosticsTools,
-    environment: t.task.runDiagnosticsEnvironment,
-    usage: t.task.runDiagnosticsUsage,
-    delivery: t.task.runDiagnosticsDelivery,
-    unavailable: t.task.runDiagnosticsUnavailable,
-    attempts: t.task.runDiagnosticsAttempts,
-    continuations: t.task.runDiagnosticsContinuations,
-    files: t.task.runDiagnosticsFiles,
-    recovery: t.task.runDiagnosticsRecovery,
-    loading: t.task.runDiagnosticsLoading,
-    failedLoad: t.task.runDiagnosticsFailedLoad,
-    exportBundle: t.task.runDiagnosticsExportBundle,
-    exportingBundle: t.task.runDiagnosticsExportingBundle,
-    exportFailed: t.task.runDiagnosticsExportFailed,
-  };
-}
-
-function displayValue<T>(
-  value: DiagnosticValue<T>,
-  unavailable: string,
-  format: (available: T) => string = String,
-): { value: string; missingReason?: string } {
-  if (value.state === 'available') return { value: format(value.value) };
-  return { value: unavailable, missingReason: value.missingReason };
-}
-
-function Metric({
-  label,
-  value,
-}: {
-  label: string;
-  value: { value: string; missingReason?: string };
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-muted-foreground truncate text-[11px]">{label}</dt>
-      <dd className="text-foreground truncate text-xs font-medium">
-        {value.value}
-      </dd>
-      {value.missingReason ? (
-        <dd className="text-muted-foreground mt-0.5 text-[10px] leading-tight">
-          {value.missingReason}
-        </dd>
-      ) : null}
-    </div>
-  );
-}
+const DIAGNOSTICS_REQUEST_TIMEOUT_MS = 12_000;
 
 export function ExecutionDiagnosticsPanel({
   runId,
@@ -110,6 +57,14 @@ function EnabledExecutionDiagnosticsPanel({
   useEffect(() => {
     const controller = new AbortController();
     let failed = false;
+    // A local GET that outlives this has not been served slowly, it has been
+    // queued behind the browser's per-host connection cap. Time it out so the
+    // socket is freed and the panel settles instead of spinning forever.
+    let timedOut = false;
+    const timer = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, DIAGNOSTICS_REQUEST_TIMEOUT_MS);
     setLoading(true);
     setError(false);
     void fetch(
@@ -123,15 +78,21 @@ function EnabledExecutionDiagnosticsPanel({
         setDiagnostics((await response.json()) as ExecutionDiagnosticsV1);
       })
       .catch((reason: unknown) => {
-        if (reason instanceof Error && reason.name === 'AbortError') return;
+        // An abort we did not schedule is the unmount cleanup — leave state be.
+        const aborted = reason instanceof Error && reason.name === 'AbortError';
+        if (aborted && !timedOut) return;
         failed = true;
         setError(true);
       })
       .finally(() => {
+        window.clearTimeout(timer);
         if (!failed && controller.signal.aborted) return;
         setLoading(false);
       });
-    return () => controller.abort();
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [runId]);
 
   return (
@@ -194,99 +155,6 @@ function EnabledExecutionDiagnosticsPanel({
   );
 }
 
-function DiagnosticsGrid({
-  diagnostics,
-  outcome,
-}: {
-  diagnostics: ExecutionDiagnosticsV1;
-  outcome?: ExecutionOutcomeSummary;
-}) {
-  const { t } = useLanguage();
-  const labels = useDiagnosticsLabels();
-  const unavailable = labels.unavailable;
-  const milliseconds = (value: number) => `${Math.round(value)} ms`;
-  const number = (value: number) => value.toLocaleString();
-  const recoveryLabels: Record<
-    NonNullable<ExecutionOutcomeSummary['recoveryActions'][number]>,
-    string
-  > = {
-    retry: t.task.retry,
-    continue: t.task.continueRun,
-    answer_question: t.task.answeredQuestion,
-    switch_runtime: t.task.configureModel,
-    resume_after_restart: t.task.resumeSession,
-  };
-  return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-      <Metric
-        label={`${labels.timing} · model`}
-        value={displayValue(
-          diagnostics.timing.model_call,
-          unavailable,
-          milliseconds,
-        )}
-      />
-      <Metric
-        label={labels.tools}
-        value={displayValue(diagnostics.tools.total, unavailable, number)}
-      />
-      <Metric
-        label={labels.environment}
-        value={displayValue(diagnostics.environment.runtimeId, unavailable)}
-      />
-      <Metric
-        label={t.task.runSummaryModel}
-        value={displayValue(diagnostics.environment.resolvedModel, unavailable)}
-      />
-      <Metric
-        label={labels.usage}
-        value={displayValue(diagnostics.usage.inputTokens, unavailable, number)}
-      />
-      <Metric
-        label={labels.files}
-        value={displayValue(
-          diagnostics.artifactDelivery.producedFileCount,
-          unavailable,
-          number,
-        )}
-      />
-      <Metric
-        label={labels.attempts}
-        value={displayValue(
-          diagnostics.environment.attempt,
-          unavailable,
-          (value) => String(value + 1),
-        )}
-      />
-      <Metric
-        label={labels.continuations}
-        value={displayValue(
-          diagnostics.environment.continuationAttempts,
-          unavailable,
-          number,
-        )}
-      />
-      <Metric
-        label={labels.delivery}
-        value={displayValue(diagnostics.artifactDelivery.verdict, unavailable)}
-      />
-      {outcome ? (
-        <Metric
-          label={labels.recovery}
-          value={{
-            value:
-              outcome.recoveryActions.length > 0
-                ? outcome.recoveryActions
-                    .map((action) => recoveryLabels[action])
-                    .join(', ')
-                : '0',
-          }}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 export function OwnerRunDiagnostics({
   mode,
   ownerKey,
@@ -321,15 +189,23 @@ function EnabledOwnerRunDiagnostics({
   const fetchOwner = useRunTreeStore((state) => state.fetchOwner);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void fetchOwner(mode, ownerKey, controller.signal);
-    return () => controller.abort();
+    // The store owns this request's lifetime — it is shared between every
+    // consumer of the same owner key and bounded by its own timeout, so a
+    // signal from this component would cancel it for the others too.
+    void fetchOwner(mode, ownerKey);
   }, [fetchOwner, mode, ownerKey]);
 
   if (ownerTree?.loading && ownerTree.tree.length === 0) {
     return (
       <p className="text-muted-foreground text-xs">
         {t.task.runDiagnosticsLoading}
+      </p>
+    );
+  }
+  if (ownerTree?.error && ownerTree.executions.length === 0) {
+    return (
+      <p className="text-muted-foreground text-xs">
+        {t.task.runDiagnosticsFailedLoad}
       </p>
     );
   }

@@ -262,6 +262,43 @@ describe('toolCallToAgentAction', () => {
     });
   });
 
+  it('classifies a structured uncommitted tool error as failed', () => {
+    expect(
+      toolCallToAgentAction(
+        'video_attach_asset',
+        { assetId: 'asset-1' },
+        {
+          error: 'Asset is unavailable',
+          code: 'ASSET_MISSING',
+          committed: false,
+        },
+      ),
+    ).toMatchObject({
+      name: 'attachAsset',
+      status: 'failed',
+      error: 'Asset is unavailable',
+    });
+  });
+
+  it('renders a committed tool error as partial success even with an error transport status', () => {
+    expect(
+      toolCallToAgentAction(
+        'video_attach_asset',
+        { assetId: 'asset-1' },
+        {
+          error: 'Verification failed',
+          code: 'VERIFY_FAILED',
+          committed: true,
+        },
+        { status: 'failed' },
+      ),
+    ).toMatchObject({
+      name: 'attachAsset',
+      status: 'partial',
+      error: 'Verification failed',
+    });
+  });
+
   it('maps timeline transition seam tool results to timeline op cards', () => {
     const result = toolCallToAgentAction(
       'mcp__video-edit__video_set_timeline_transition',

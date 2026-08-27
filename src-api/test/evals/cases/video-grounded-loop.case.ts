@@ -11,6 +11,9 @@ const REQUIRED_PATTERNS = [
   /inspect composited frames[\s\S]*dry-run\/propose[\s\S]*apply atomically[\s\S]*inspect composited frames/i,
   /video_search_frames[\s\S]*video\.frameSearch disabled/i,
   /video_get_timeline_window[\s\S]*video_inspect_timeline_frames/i,
+  /template duration ceiling[\s\S]*video_set_project_template[\s\S]*before calling video_approve_storyboard/i,
+  /vivid[\s\S]*photo[\s\S]*video_analyze_image[\s\S]*video_list_overlay_presets[\s\S]*video_inspect_timeline_frames/i,
+  /generation fails[\s\S]*do not[\s\S]*silently substitute[\s\S]*placeholder/i,
 ] as const;
 
 const evalCase: EvalCase = {

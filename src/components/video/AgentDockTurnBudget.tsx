@@ -6,6 +6,7 @@ import type { TurnBudgetOutcome } from './useAgentDock';
 
 interface AgentDockTurnBudgetProps {
   outcome: TurnBudgetOutcome | null;
+  detail?: string;
   disabled?: boolean;
   onContinue?: () => void;
 }
@@ -17,6 +18,7 @@ interface AgentDockTurnBudgetProps {
  */
 export function AgentDockTurnBudget({
   outcome,
+  detail,
   disabled,
   onContinue,
 }: AgentDockTurnBudgetProps) {
@@ -43,7 +45,13 @@ export function AgentDockTurnBudget({
         }
       />
       <span className="text-muted-foreground min-w-0 flex-1 text-[11px]">
-        {message}
+        <span className="block">{message}</span>
+        {detail &&
+        (outcome.reason === 'error' || outcome.reason === 'unknown') ? (
+          <span className="text-foreground mt-0.5 block break-words">
+            {detail}
+          </span>
+        ) : null}
       </span>
       {outcome.exhausted && onContinue ? (
         <button

@@ -734,6 +734,7 @@ interface AgentStreamMessage {
   id?: string; // tool_use block id (from SDK)
   input?: unknown;
   output?: unknown;
+  isError?: boolean;
   toolUseId?: string; // tool_result reference id
   subtype?: string;
   message?: string;
@@ -928,6 +929,7 @@ function saveMessageToDatabase(
       tool_use_id: msg.toolUseId || msg.id,
       subtype: msg.subtype,
       error_message: msg.message,
+      is_error: msg.isError ?? false,
       message_id: messageId,
       cost: effectiveCost,
       usage_input: msg.usage?.input_tokens ?? null,

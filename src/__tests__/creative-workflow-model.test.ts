@@ -525,6 +525,29 @@ describe('creative workflow model', () => {
     });
   });
 
+  it("counts only the project's own assets in the summary", () => {
+    // A linked source is a folder the project reads from, not an asset. When
+    // it was counted the workflow header read one higher than every asset
+    // list in the editor — 49 against 48 in the ChongQing project.
+    const project = videoProject({
+      prompt: 'Make a reel',
+      assets: [videoAsset({ id: 'a-1' }), videoAsset({ id: 'a-2' })],
+      linkedSources: [
+        linkedSource({
+          id: 'folder',
+          displayName: 'Footage folder',
+          index: { state: 'fresh', fileCount: 47 },
+        }),
+      ],
+    });
+
+    const state = deriveVideoCreativeWorkflowState(project);
+
+    expect(state.assetSummary.total).toBe(2);
+    // The linked source still belongs in the asset list itself.
+    expect(state.assets.length).toBe(3);
+  });
+
   it('normalizes linked video sources as creative asset descriptors', () => {
     const project = videoProject({
       prompt: 'Make a reel',

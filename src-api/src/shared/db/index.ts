@@ -71,6 +71,8 @@ import { migration as migration049 } from './migrations/049_run_context_lineage'
 import { migration as migration050 } from './migrations/050_owner_neutral_trace_events';
 import { migration as migration051 } from './migrations/051_reconcile_run_context_schema';
 import { migration as migration052 } from './migrations/052_reconcile_legacy_runtime_schema';
+import { migration as migration053 } from './migrations/053_video_intent_plan_identity';
+import { migration as migration054 } from './migrations/054_messages_is_error';
 import { runMigrations } from './migrations/runner';
 
 const logger = createLogger('Database');
@@ -132,6 +134,8 @@ export const DATABASE_MIGRATIONS = [
   migration050,
   migration051,
   migration052,
+  migration053,
+  migration054,
 ];
 
 const REQUIRED_SCHEMA_COLUMNS = {

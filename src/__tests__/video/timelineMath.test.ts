@@ -7,6 +7,7 @@ import {
 import {
   clampTimelineZoom,
   formatTimelineTime,
+  getTimelineDurationMs,
   getVisibleTimeRange,
   getWaveformBarFraction,
   msToPixels,
@@ -110,6 +111,43 @@ describe('timeline math', () => {
     };
 
     expect(getProjectTimeline(project).durationMs).toBe(37_346);
+  });
+
+  it('ignores audio clip length when measuring the picture timeline', () => {
+    const tracks: VideoTimelineTrack[] = [
+      {
+        ...trackFixture('track-video-main', 'video', 0),
+        clips: [
+          {
+            id: 'clip-picture',
+            kind: 'video',
+            sourceRef: { kind: 'asset', assetId: 'asset-1' },
+            startMs: 0,
+            durationMs: 4000,
+            trimStartMs: 0,
+            trimEndMs: 4000,
+            sourceDurationMs: 4000,
+          },
+        ],
+      },
+      {
+        ...trackFixture('track-audio', 'audio-music', 20),
+        clips: [
+          {
+            id: 'clip-music',
+            kind: 'audio',
+            sourceRef: { kind: 'asset', assetId: 'asset-music' },
+            startMs: 0,
+            durationMs: 1_800_000,
+            trimStartMs: 0,
+            trimEndMs: 1_800_000,
+            sourceDurationMs: 1_800_000,
+          },
+        ],
+      },
+    ];
+
+    expect(getTimelineDurationMs(tracks)).toBe(4000);
   });
 
   it('orders timeline rows like a layer stack', () => {

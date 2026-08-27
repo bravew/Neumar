@@ -19,6 +19,8 @@ export type {
   SubtitleMode,
 } from './types';
 
+export type { PathValidationOptions } from './executor';
+
 export {
   clearBinaryCache,
   detectBinaries,

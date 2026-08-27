@@ -753,6 +753,7 @@ export function useAgent(): UseAgentReturn {
             type: 'tool_result' as const,
             toolUseId: msg.tool_use_id || undefined,
             output: msg.tool_output || undefined,
+            isError: Boolean(msg.is_error),
           });
         } else if (msg.type === 'result') {
           const resultMsg: AgentMessage = {

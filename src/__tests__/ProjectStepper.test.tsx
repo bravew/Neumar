@@ -14,17 +14,18 @@ describe('ProjectStepper', () => {
 
     renderWithProviders(
       <SidebarProvider>
-        <ProjectStepper value="board" derived="plan" onChange={onChange} />
+        <ProjectStepper value="board" onChange={onChange} />
       </SidebarProvider>,
     );
 
-    expect(screen.getByRole('button', { name: /storyboard/i })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: /plan/i })).toHaveAttribute(
+    // The displayed canvas is both selected and current. Previously
+    // `aria-current` came from derived progress, so assistive tech announced
+    // Plan as current while Storyboard was on screen.
+    const storyboard = screen.getByRole('button', { name: /storyboard/i });
+    expect(storyboard).toHaveAttribute('aria-pressed', 'true');
+    expect(storyboard).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByRole('button', { name: /^plan$/i })).not.toHaveAttribute(
       'aria-current',
-      'step',
     );
 
     await user.click(screen.getByRole('button', { name: /preview/i }));

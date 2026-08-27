@@ -1,8 +1,9 @@
-import { Check, Play, RefreshCw, WandSparkles, X } from 'lucide-react';
+import { Play, RefreshCw, WandSparkles, X } from 'lucide-react';
 
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoProject } from '@/shared/types/video';
 
+import { ApproveStoryboardButton } from './ApproveStoryboardButton';
 import type { VideoProjectEditorActions } from './editorTypes';
 import { canRenderProject } from './render-readiness';
 
@@ -28,11 +29,6 @@ export function RenderActionsBar({
     project,
     storyboard?.status === 'approved',
   );
-  const canApprove = Boolean(storyboard) && storyboard?.status !== 'approved';
-  const overBudget =
-    Boolean(project.budget) &&
-    Boolean(storyboard) &&
-    (storyboard?.costEstimateUsd.high ?? 0) > (project.budget?.capUsd ?? 0);
 
   return (
     <div className="border-border bg-background flex flex-wrap items-center gap-2 border-t px-4 py-3">
@@ -61,18 +57,11 @@ export function RenderActionsBar({
             <X className="mr-1 inline size-3" />
             {t.video.editor.actions.reject}
           </button>
-          <button
-            type="button"
-            disabled={!canApprove || overBudget}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-2 text-xs font-medium disabled:opacity-60"
-            onClick={async () => {
-              await actions.approveStoryboard();
-              onApproved?.();
-            }}
-          >
-            <Check className="mr-1 inline size-3" />
-            {t.video.editor.actions.approve}
-          </button>
+          <ApproveStoryboardButton
+            project={project}
+            onApprove={actions.approveStoryboard}
+            onApproved={onApproved}
+          />
         </>
       ) : null}
       <button

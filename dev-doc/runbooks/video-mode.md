@@ -68,6 +68,67 @@ as project assets, and renders selected project assets through the composer
 attachments. The dock model selector sends a per-turn model override through the
 Video agent route; keep the selector wired to models the backend honors.
 
+## Native Execution, Durable Plans, and Recovery
+
+Video Mode explicitly selects the `host-native` agent execution policy when
+the `video.hostNative` feature flag is enabled (the default). This prevents the
+Claude SDK sandbox from hiding registered media on external volumes. It does
+not bypass tool permissions, URL validation, workspace isolation, credential
+guards, or approval gates. Set `video.hostNative` to `false` to return Video
+Mode to the general `isolated` policy while investigating a rollout issue.
+Other modes remain isolated by default.
+
+Every agent implementation run is anchored to these project-local artifacts:
+
+- `project.json` contains the canonical `agentPlan` and monotonic project
+  `revision`.
+- `agent/plan.md` is an atomic, deterministic, path-redacted projection for
+  operator review. Editing it directly creates drift and pauses execution; make
+  a new plan revision instead.
+- `agent/execution-log.jsonl` records a started and terminal row for each
+  attempt. Rotated `execution-log.<n>.jsonl` files are part of the same history.
+- `agentJournal` remains the reversible mutation history. Rollback appends a
+  `rolled-back` execution record and marks the original journal entry undone;
+  it does not erase either history.
+
+The Agent Dock's Durable execution panel shows the approved plan, project and
+plan revision conflicts, the last eight log records, attempt and verification
+data, and whether an error committed state. `Partial success` means state was
+committed but later serialization or verification failed; inspect/reconcile
+before retrying. Resume runs the next dependency-ready step. Retry requires
+confirmation for a failed or partial step. Roll back requires confirmation and
+uses the linked journal entry.
+
+Recovery procedure after a crash, disconnect, or unavailable drive:
+
+1. Restore or relink the external volume first. Use the existing relink flow;
+   never replace an external master with a session copy solely to satisfy path
+   validation. Unsafe symlinks remain blocked before mutation.
+2. Inspect `GET /video/projects/<id>/agent-plan` and
+   `GET /video/projects/<id>/execution-log`. A lone `started` row is an uncertain
+   attempt, not proof that nothing happened.
+3. Run `video_reconcile_plan`. It is always a dry run: it compares planned
+   assets/scenes with durable project state, recognizes journal-less committed
+   attachments, and proposes only missing or corrective operations.
+4. Review the report. For render, publish, generation, upload, or another paid
+   uncertain attempt, obtain explicit user approval before retrying.
+5. Resume the approved plan if its revision cursor matches. If manual timeline
+   edits changed the project revision, draft and approve a new plan revision or
+   deliberately roll back the conflicting journal entry.
+6. Verify the final render and require human review before publishing.
+
+Useful first-party MCP reads are `video_get_plan`,
+`video_get_plan_progress`, and `video_reconcile_plan`. Plan mutations are
+`video_draft_plan` and `video_approve_plan`. Never auto-apply a reconciliation
+report to a live project.
+
+Structured telemetry uses `createLogger` events without prompts or paths:
+`video.agent.plan_drafted`, `video.agent.plan_approved`,
+`video.agent.plan_superseded`, `video.agent.plan_drift_detected`,
+`video.agent.execution_terminal`, and
+`video.agent.reconciliation_dry_run`. Correlate by project, plan, plan revision,
+step, attempt, and phase.
+
 ## Templates
 
 Add a template by extending `TemplateId` in backend/frontend video types, adding labels in all six `src/config/locale/messages/*/video.ts` files, and updating the storyboard agent template brief in `src-api/src/extensions/agent/video/tools.ts`.

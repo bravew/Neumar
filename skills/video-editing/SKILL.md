@@ -34,6 +34,19 @@ Use this skill whenever you are editing a Video Mode project through the
    because of cost unless the user asks for a budget limit.
 10. Verify before publish. Use render verification and mention any degraded
     transitions, missing media, loudness issues, or caption drift.
+11. Preflight storyboard duration against the project template before approval:
+    `ugc-ad` allows 15 seconds, themed templates allow 60 seconds, and `custom`
+    is unlimited. If the confirmed edit is longer, explain the mismatch and use
+    `video_set_project_template` or trim it before `video_approve_storyboard`.
+    `video_select_template` is only for HTML/Motion gallery templates and does
+    not change this ceiling.
+12. A vivid photo sequence needs a designed visual treatment, not only generic
+    zoom keyframes. Analyze each photo and adjacent footage, choose one coherent
+    vivid-overlay or gallery-template family, vary content-aware motion, and
+    inspect composited frames. Keep the supplied photos recognizable; generate
+    derived or replacement imagery only when the user asks and approves cost.
+13. If image/video generation fails, report the provider error. Do not silently
+    substitute a placeholder, unrelated asset, or unmaterialized AI scene.
 
 ## Project directory contract
 
@@ -67,6 +80,8 @@ already have it from earlier in the turn.
 ## Tool Selection
 
 - `video_get_project_summary`: first read of every turn.
+- `video_set_project_template`: change the duration-governing project template;
+  use it for an approved long-form edit that cannot pass the current ceiling.
 - `video_describe_scene`: user asks what is in a scene or wants an edit scoped
   to a scene.
 - `video_add_scene`, `video_remove_scene`, `video_reorder_scenes`: storyboard
@@ -85,6 +100,10 @@ already have it from earlier in the turn.
   that the new asset is in the project's Assets panel and offer to attach it
   to a specific scene with `video_attach_asset` (with sceneId) when the
   context implies a target scene.
+- `video_analyze_image`, `video_list_overlay_presets`,
+  `video_inspect_timeline_frames`: the minimum loop for vivid, cinematic, or
+  style-matched photo slides. Prefer a consistent overlay/frame family plus
+  subject-aware motion over three repeated scale-only moves.
 - `video_reframe`: aspect-ratio adaptation.
 - `video_render`, `video_verify_render`, `video_publish_to`: finalization path.
 

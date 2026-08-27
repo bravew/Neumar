@@ -2246,10 +2246,21 @@ function captionTextFromTokens(tokens: readonly { text: string }[]): string {
 
 function withDuration(timeline: Timeline): Timeline {
   let durationMs = 0;
+  let hasPicture = false;
   for (const track of timeline.tracks) {
+    if (!isVisualTrack(track)) continue;
+    hasPicture = true;
     for (const clip of track.clips) {
       const end = clip.startMs + clip.durationMs;
       if (end > durationMs) durationMs = end;
+    }
+  }
+  if (!hasPicture) {
+    for (const track of timeline.tracks) {
+      for (const clip of track.clips) {
+        const end = clip.startMs + clip.durationMs;
+        if (end > durationMs) durationMs = end;
+      }
     }
   }
   return { ...timeline, durationMs };

@@ -663,6 +663,7 @@ export class CodexAgent extends BaseAgent {
           sandboxOpts,
           options?.userWorkspaceDir,
           options?.allowWorkspaceWrite,
+          options?.executionPolicy ?? 'isolated',
         ) +
         ASK_USER_QUESTION_INSTRUCTION +
         '\n\n' +
@@ -922,6 +923,7 @@ export class CodexAgent extends BaseAgent {
           sandboxOpts,
           options.userWorkspaceDir,
           options.allowWorkspaceWrite,
+          options.executionPolicy ?? 'isolated',
         ) +
         ASK_USER_QUESTION_INSTRUCTION +
         '\n\n' +

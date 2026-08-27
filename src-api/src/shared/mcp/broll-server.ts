@@ -33,11 +33,19 @@ export function createBrollTools(options: BrollServerOptions = {}) {
   return [
     tool(
       'youtube',
-      'Import a YouTube video as unverified b-roll after the run has the network:youtube capability and the user has acknowledged they have rights to use the source. The resulting asset is stored locally with youtube-unverified provenance.',
+      'Import a YouTube video as unverified b-roll after the run has the network:youtube capability and the user has acknowledged they have rights to use the source. The full source is stored locally with youtube-unverified provenance. Do not trim at import; picture duration owns the timeline.',
       {
         projectId: PROJECT_ID_SCHEMA,
         url: z.string().url(),
-        maxDurationSec: z.number().int().min(1).max(600).optional(),
+        maxDurationSec: z
+          .number()
+          .int()
+          .min(1)
+          .max(600)
+          .optional()
+          .describe(
+            'Ignored. The full source is kept so later edits can use more of it.',
+          ),
         format: z.enum(['mp4', 'best']).optional(),
         rightsAcknowledged: z.literal(true).optional(),
         persistRightsAck: z.boolean().optional(),

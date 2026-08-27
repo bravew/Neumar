@@ -307,15 +307,95 @@ export default {
       title: 'Secuenciador de escenas',
       empty: 'Genera o agrega escenas para empezar el storyboard.',
     },
+    workflowSummary: {
+      progress: '{done} de {total} etapas completadas',
+      blocked: 'Bloqueado en {stage}',
+    },
+    templateField: {
+      label: 'Intención del producto',
+      locked: 'Bloqueado: el guion gráfico se creó para esto.',
+      changeAnyway: 'Cambiar de todos modos',
+      confirmChange:
+        'Cambiar la intención del producto cambia las capacidades del agente, el límite de duración que aplica la aprobación y los supuestos del guion gráfico actual. Las escenas ya creadas se conservan, pero el plan puede dejar de encajar. ¿Continuar?',
+    },
+    exportBlocked: {
+      title: 'Todavía no hay nada que exportar',
+      notApproved:
+        'El guion gráfico no está aprobado, así que no se ha renderizado nada y no hay archivo que exportar.',
+      notRendered:
+        'El guion gráfico está aprobado pero aún no se ha renderizado, así que no hay archivo que exportar.',
+      noStoryboard: 'Todavía no hay un guion gráfico que renderizar.',
+      overDuration:
+        'El guion gráfico dura {duration}, pero la plantilla «{template}» limita la aprobación a {max}. Cambia la plantilla a Personalizada o acorta el montaje: la aprobación es lo que desbloquea el render.',
+      overBudget:
+        'El guion gráfico estima ${estimate}, por encima del límite de ${cap}, así que no se puede aprobar ni renderizar.',
+      step1: '1. Aprueba el guion gráfico.',
+      step2: '2. Renderiza una relación de aspecto.',
+      step3: '3. Descarga, abre o comparte el archivo desde aquí.',
+    },
+    approval: {
+      failed: 'No se pudo aprobar el guion gráfico',
+      noStoryboard: 'Todavía no hay un guion gráfico que aprobar.',
+      overDuration:
+        'Este guion gráfico dura {duration}, pero la plantilla «{template}» limita la aprobación a {max}. Cambia la plantilla a Personalizada o acorta el montaje.',
+      overBudget:
+        'El guion gráfico estima ${estimate}, por encima del límite de ${cap}. Sube el límite o reduce la generación de pago.',
+    },
     generate: {
       title: 'Cola de generación',
       description:
-        'Las escenas aprobadas se materializan aquí antes del render con FFmpeg.',
+        'Las escenas aprobadas se materializan aquí antes de los renders de FFmpeg.',
+      summary:
+        'Por generar: {generative} ({done} listas) · Ya tienen medios: {ready}',
+      readyCollapsed: 'Ocultas: {count} escenas que ya tienen sus medios.',
+      nothingToGenerate:
+        'Nada que generar: todas las escenas ya apuntan a medios existentes. Aprueba el guion gráfico y renderiza.',
+      notQueuedPending:
+        'No hay nada en cola: los trabajos se crean al aprobar el guion gráfico. Pendientes: {count}.',
+      notQueuedApproved:
+        'Aprobado, pero estas escenas no tienen trabajo. Vuelve a aprobar el guion gráfico para encolarlas. Pendientes: {count}.',
+      generating: 'Generando {done} de {total}',
+      aggregate: {
+        'nothing-to-generate': 'Nada que generar',
+        'awaiting-approval': 'Esperando aprobación',
+        attention: 'Requiere atención',
+        running: 'Generando',
+        queued: 'En cola',
+        complete: 'Generado',
+      },
+      states: {
+        ready: 'Con medios',
+        'not-queued': 'Sin encolar',
+        queued: 'En cola',
+        running: 'Generando',
+        done: 'Generada',
+        error: 'Fallida',
+        cancelled: 'Cancelada',
+      },
     },
     preview: {
       title: 'Vista renderizada',
       openOutput: 'Abrir salida',
       openOutputFolder: 'Mostrar en carpeta',
+      modePreview: 'Vista previa',
+      modeOutput: 'Salida',
+      outputUnavailable: 'Aún sin render',
+      outputPending: 'Detalles del render pendientes',
+      factCodec: 'Códec',
+      factDuration: 'Duración',
+      factSize: 'Tamaño',
+      factLoudness: 'Sonoridad',
+      factPeak: 'Pico',
+      factColor: 'Color',
+      downloadOutput: 'Descargar',
+      qaIssues: '{count} incidencias de QA',
+      qaClean: 'QA sin incidencias',
+      renderComplete: 'Render completo',
+      renderFailed: 'Error de render',
+      blockedNotApproved:
+        'El guion gráfico aún no está aprobado, así que el servidor rechazará este render.',
+      blockedEmptyTimeline:
+        'La línea de tiempo no tiene clips para renderizar.',
       playbackSpeed: 'Velocidad de reproducción',
       fullscreen: 'Pantalla completa',
       exitFullscreen: 'Salir de pantalla completa',
@@ -1246,9 +1326,54 @@ export default {
       pending: 'Pendiente',
       running: 'En curso',
       completed: 'Listo',
+      partial: 'Éxito parcial',
       rejected: 'Rechazado',
       failed: 'Falló',
       cancelled: 'Cancelado',
+      planPanel: {
+        title: 'Ejecución duradera',
+        plan: 'Plan',
+        executionLog: 'Registro de ejecución',
+        refresh: 'Actualizar',
+        loading: 'Cargando…',
+        loadFailed: 'No se pudieron cargar el plan duradero y el registro.',
+        driftWarning:
+          'El plan legible difiere del contrato guardado. La ejecución está pausada.',
+        revisionWarning:
+          'Las ediciones manuales entran en conflicto con la revisión en curso.',
+        nextStep: 'Siguiente paso',
+        step: 'Paso',
+        attempt: 'Intento',
+        verification: 'Verificación',
+        committed: 'Confirmado',
+        yes: 'Sí',
+        no: 'No',
+        noRecords: 'Aún no hay intentos de ejecución.',
+        resume: 'Reanudar',
+        retry: 'Reintentar',
+        rollback: 'Revertir',
+        confirmRetry:
+          '¿Reintentar el último paso fallido o parcialmente confirmado?',
+        confirmRollback: '¿Revertir la última entrada confirmada del diario?',
+        resumePrompt: 'Reanuda el plan de video duradero desde el paso {step}.',
+        retryPrompt:
+          'Reintenta el paso {step} del plan después de comprobar su estado.',
+        statuses: {
+          active: 'Activo',
+          executing: 'En ejecución',
+          paused: 'Pausado',
+          completed: 'Completado',
+          superseded: 'Reemplazado',
+        },
+        phases: {
+          started: 'Iniciado',
+          succeeded: 'Correcto',
+          failed: 'Falló',
+          'partial-success': 'Éxito parcial',
+          skipped: 'Omitido',
+          'rolled-back': 'Revertido',
+        },
+      },
       why: '¿Por qué?',
       hideWhy: 'Ocultar motivo',
       considered: 'Considerado',
@@ -1462,6 +1587,7 @@ export default {
       requestFailedToast: 'Solicitud fallida ({status})',
       variantCount: '{count} variantes',
       showMore: 'Mostrar {count} más',
+      ungroupedHeading: 'Añadidos directamente ({count})',
       kindAll: 'Todo',
       kindVideo: 'Vídeos',
       kindImage: 'Imágenes',

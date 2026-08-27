@@ -14,7 +14,11 @@ import {
 
 import { validateInputFile } from '@/shared/services/ffmpeg';
 
-import { resolveProjectAssetPath } from './asset-files';
+import {
+  assetCanProvideAudio,
+  isExternalAsset,
+  resolveProjectAssetPath,
+} from './asset-files';
 import { getVideoFeatureFlag } from './flags';
 import { getImportedOverlayAsset } from './overlays/imported-items';
 import { buildVividOverlayRenderEntriesWithPlugins } from './overlays/server-resolve';
@@ -68,6 +72,13 @@ export interface RemotionRenderVisualClip {
   id: string;
   assetId: string;
   sourcePath: string;
+  /**
+   * `sourcePath` points at a master outside the workspace that the project
+   * references in place. Carried on the clip because renderers re-probe the
+   * path long after the asset record is out of scope, and the workspace check
+   * would otherwise reject a file the resolver already approved.
+   */
+  sourceIsExternal?: boolean;
   src: string;
   fromFrame: number;
   sourceStartFrame: number;
@@ -336,6 +347,7 @@ function visualClipFromEdl(
       id: segment.id,
       assetId: asset.id,
       sourcePath,
+      sourceIsExternal: isExternalAsset(asset),
       src: pathToFileURL(sourcePath).href,
       fromFrame: msToFrame(segment.timelineStartMs, fps),
       sourceStartFrame,
@@ -381,7 +393,7 @@ function audioClipFromEdl(
   fps: number,
 ): RemotionRenderAudioClip[] {
   const asset = assetForSourceRef(project, clip.sourceRef);
-  if (asset?.kind !== 'audio') return [];
+  if (!assetCanProvideAudio(asset) || !asset) return [];
 
   const sourcePath = resolveProjectAssetPath(asset, root);
   const sourceStartFrame = msToFrame(clip.sourceStartMs, fps);

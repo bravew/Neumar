@@ -1,12 +1,8 @@
-import { createReadStream, existsSync, realpathSync, statSync } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 
-import { getAppDir, getHomeDir } from '@/config/constants';
-
-import { getSetting } from '@/shared/db/operations';
 import type {
   CloudStorageAdapter,
   DownloadInit,
@@ -26,8 +22,15 @@ import type {
   SearchInput,
   UploadInput,
 } from '@/shared/integrations/cloud-storage/types';
+import {
+  isEqualOrChild,
+  isTrustedLocalRoot,
+  sensitivePathMatch,
+} from '@/shared/utils/external-media-trust';
 import { mimeFromExtension } from '@/shared/utils/mime-extension';
 import { expandPath } from '@/shared/utils/paths';
+
+export { assertSafeExternalMediaFile } from '@/shared/utils/external-media-trust';
 
 const CAPABILITIES: Capabilities = {
   fullTextSearch: false,
@@ -41,20 +44,6 @@ const CAPABILITIES: Capabilities = {
     writableFields: [],
   },
 };
-
-const SENSITIVE_LOCAL_PATHS = [
-  '~/.ssh',
-  '~/.aws',
-  '~/.azure',
-  '~/.config/gcloud',
-  '~/.docker',
-  '~/.kube',
-  '~/.gnupg',
-  '~/.npmrc',
-  '~/.pypirc',
-  '~/.netrc',
-  '~/.git-credentials',
-];
 
 export class LocalFsLinkedSourceAdapter implements CloudStorageAdapter {
   readonly provider = 'local_fs' as const;
@@ -258,34 +247,6 @@ export class LocalFsLinkedSourceAdapter implements CloudStorageAdapter {
   }
 }
 
-/**
- * Same trust rules as `assertSafeLocalSourceRoot`, for a single file rather
- * than a folder, and synchronous so it can stand in for `validateInputFile`
- * at the many places that resolve an asset's bytes.
- *
- * Used when a project references a master the user keeps outside the
- * workspace. The path is persisted in `project.json`, so it is re-checked on
- * every read rather than trusted because it passed once.
- */
-export function assertSafeExternalMediaFile(rawPath: string): string {
-  const resolved = path.resolve(expandPath(rawPath.trim()));
-  if (!existsSync(resolved)) {
-    throw new Error(`External media file not found: ${resolved}`);
-  }
-  const real = realpathSync(resolved);
-  if (!statSync(real).isFile()) {
-    throw new Error('External media must be a file');
-  }
-  if (!isTrustedLocalRoot(real)) {
-    throw new Error('External media is outside trusted local roots');
-  }
-  const sensitive = sensitivePathMatch(real);
-  if (sensitive) {
-    throw new Error(`External media cannot use sensitive path ${sensitive}`);
-  }
-  return real;
-}
-
 export async function assertSafeLocalSourceRoot(
   rawPath: string,
 ): Promise<string> {
@@ -343,55 +304,4 @@ async function realpathDirectoryOrFile(rawPath: string): Promise<string> {
       }`,
     );
   }
-}
-
-function isTrustedLocalRoot(filePath: string): boolean {
-  return trustedRoots().some((root) => isEqualOrChild(filePath, root));
-}
-
-function trustedRoots(): string[] {
-  const roots = [getHomeDir(), getAppDir()];
-  const workDir = getSetting('workDir');
-  if (workDir) roots.push(path.resolve(expandPath(workDir)));
-  roots.push(os.tmpdir());
-  if (process.platform === 'darwin') roots.push('/Volumes');
-  return roots.map((root) => normalizePath(realpathIfExists(root)));
-}
-
-function sensitivePathMatch(filePath: string): string | null {
-  const normalized = normalizePath(filePath);
-  for (const sensitive of SENSITIVE_LOCAL_PATHS) {
-    const resolved = normalizePath(
-      path.resolve(expandPath(sensitive.replace(/^~/, getHomeDir()))),
-    );
-    if (
-      normalized === resolved ||
-      normalized.startsWith(`${resolved}${path.sep}`)
-    ) {
-      return sensitive;
-    }
-  }
-  return null;
-}
-
-function isEqualOrChild(filePath: string, parentPath: string): boolean {
-  const normalizedPath = normalizePath(filePath);
-  const normalizedParent = normalizePath(parentPath);
-  const relative = path.relative(normalizedParent, normalizedPath);
-  return (
-    relative === '' ||
-    (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative))
-  );
-}
-
-function normalizePath(input: string): string {
-  const resolved = path.resolve(input);
-  return process.platform === 'win32' || process.platform === 'darwin'
-    ? resolved.toLowerCase()
-    : resolved;
-}
-
-function realpathIfExists(input: string): string {
-  const resolved = path.resolve(input);
-  return existsSync(resolved) ? realpathSync(resolved) : resolved;
 }

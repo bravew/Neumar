@@ -89,17 +89,17 @@ describe('VideoMode intent entry', () => {
 
   it('creates a video project inline from Start without a modal', async () => {
     const user = userEvent.setup();
-    const createCalls: string[] = [];
+    const createCalls: unknown[] = [];
     globalThis.fetch = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         if (url.includes('/video/projects') && init?.method === 'POST') {
-          createCalls.push(url);
+          createCalls.push(JSON.parse(String(init.body)));
           return jsonResponse({
             project: {
               id: 'vid_new',
               name: 'A launch reel',
-              template: 'slideshow',
+              template: 'custom',
               updatedAt: '2026-06-27T00:00:00.000Z',
             },
           });
@@ -126,6 +126,9 @@ describe('VideoMode intent entry', () => {
     await user.click(screen.getByRole('button', { name: /^start$/i }));
 
     await waitFor(() => expect(createCalls).toHaveLength(1));
+    expect(createCalls[0]).toEqual(
+      expect.objectContaining({ template: 'custom' }),
+    );
     await waitFor(() =>
       expect(screen.getByTestId('location-probe')).toHaveTextContent(
         '/video/vid_new',

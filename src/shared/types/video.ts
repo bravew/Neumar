@@ -30,6 +30,8 @@ export type VideoAudioTransitionSpec = AudioTransitionSpec;
 export interface VideoProject {
   /** Project document schema version; absent means v1 and is migrated on load. */
   schemaVersion?: 2;
+  /** Monotonic project-document revision used for optimistic concurrency. */
+  revision?: number;
   id: string;
   name: string;
   template: VideoTemplateId;
@@ -48,6 +50,8 @@ export interface VideoProject {
   timeline?: VideoTimeline;
   history?: VideoTimelineHistory;
   agentJournal?: VideoAgentJournalEntry[];
+  /** Canonical durable execution contract for the Video agent. */
+  agentPlan?: VideoAgentPlan;
   renderPlan?: VideoRenderPlan;
   settings?: VideoProjectSettings;
   render?: {
@@ -71,6 +75,31 @@ export interface VideoProject {
   outputs?: VideoRenderOutput[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface VideoAgentPlan {
+  schemaVersion: 1;
+  id: string;
+  revision: number;
+  status: 'active' | 'executing' | 'paused' | 'completed' | 'superseded';
+  title: string;
+  request: string;
+  assumptions: string[];
+  projectRevisionAtStart: number;
+  createdAt: string;
+  steps: VideoAgentPlanStep[];
+  markdownDigest: string;
+}
+
+export interface VideoAgentPlanStep {
+  id: string;
+  title: string;
+  intent: string;
+  dependsOn: string[];
+  operation: string;
+  inputs: Record<string, unknown>;
+  verification: string[];
+  rollback: string;
 }
 
 export interface VideoTimelineHistory {

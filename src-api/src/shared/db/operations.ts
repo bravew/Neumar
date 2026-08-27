@@ -486,8 +486,8 @@ export function createMessage(input: CreateMessageInput): Message {
       task_id, type, content, tool_name, tool_input, tool_output,
       tool_use_id, subtype, error_message, attachments, message_id,
       cost, usage_input, usage_output, usage_cache_read, usage_cache_creation, model,
-      agui_type, run_id, step_name
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agui_type, run_id, step_name, is_error
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   try {
@@ -512,6 +512,7 @@ export function createMessage(input: CreateMessageInput): Message {
       input.agui_type || null,
       input.run_id || null,
       input.step_name || null,
+      input.is_error ? 1 : 0,
     );
 
     const message = getMessage(result.lastInsertRowid as number);

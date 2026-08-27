@@ -402,6 +402,7 @@ export function mapDbMessageToAgentMessage(msg: Message): AgentMessage {
     name: msg.tool_name || undefined,
     input: parsedInput,
     output: msg.tool_output || undefined,
+    isError: Boolean(msg.is_error),
     toolUseId: msg.tool_use_id || undefined,
     subtype: msg.subtype as AgentMessage['subtype'],
     message: msg.error_message || undefined,

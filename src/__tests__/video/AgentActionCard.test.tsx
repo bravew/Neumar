@@ -176,6 +176,7 @@ const labels = {
   pending: 'Pending',
   running: 'Running',
   completed: 'Done',
+  partial: 'Partial success',
   rejected: 'Rejected',
   failed: 'Failed',
   cancelled: 'Cancelled',

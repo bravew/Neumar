@@ -24,6 +24,7 @@ import {
 } from '@/shared/hooks/useVideoProject';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoProject, VideoProjectListItem } from '@/shared/types/video';
+import { DEFAULT_VIDEO_PROJECT_TEMPLATE } from '@/shared/video/projectTemplates';
 
 import { launchVideoPlugin } from './launchVideoPlugin';
 import {
@@ -175,7 +176,10 @@ export function VideoModeRoute() {
     }
     void createAndOpen({
       name: t.video.entry.defaultProjectName,
-      template: selectedIntent === 'template' ? 'product-reel' : 'slideshow',
+      template:
+        selectedIntent === 'template'
+          ? 'product-reel'
+          : DEFAULT_VIDEO_PROJECT_TEMPLATE,
       aspectRatio: '16:9',
       ...(prompt ? { prompt } : {}),
     });

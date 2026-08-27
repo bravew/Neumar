@@ -78,6 +78,28 @@ describe('timeline ops', () => {
     expect(restored.timeline).toEqual(timeline);
   });
 
+  it('does not let audio clips extend timeline duration past the picture', () => {
+    const applied = applyTimelineOps(timelineFixture(), [
+      {
+        kind: 'clip.insert',
+        trackId: 'track-audio',
+        clip: {
+          id: 'clip-music',
+          kind: 'audio',
+          sourceRef: { kind: 'asset', assetId: 'asset-music' },
+          startMs: 0,
+          durationMs: 30_000,
+          trimStartMs: 0,
+          trimEndMs: 30_000,
+          sourceDurationMs: 30_000,
+        },
+        at: 0,
+      },
+    ]);
+
+    expect(applied.timeline.durationMs).toBe(1000);
+  });
+
   it('round-trips marker and visual-property edits through inverses', () => {
     const transition = applyTimelineOp(timelineFixture(), {
       kind: 'clip.setTransition',

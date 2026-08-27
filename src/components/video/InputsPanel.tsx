@@ -1,18 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useLanguage } from '@/shared/providers/language-provider';
-import type { VideoProject, VideoTemplateId } from '@/shared/types/video';
+import type { VideoProject } from '@/shared/types/video';
 
 import { PanelShell } from './PanelShell';
-
-const templates: VideoTemplateId[] = [
-  'product-reel',
-  'explainer',
-  'slideshow',
-  'podcast',
-  'ugc-ad',
-  'custom',
-];
+import { ProjectTemplateField } from './ProjectTemplateField';
 
 interface InputsPanelProps {
   project: VideoProject;
@@ -82,25 +74,13 @@ export function InputsPanel({ project, onPatch }: InputsPanelProps) {
           <h3 className="text-foreground text-xs font-semibold">
             {t.video.inputs.tabs.template}
           </h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {templates.map((template) => (
-              <button
-                key={template}
-                type="button"
-                className={
-                  project.template === template
-                    ? 'border-primary bg-primary/5 rounded-md border p-3 text-left text-sm'
-                    : 'border-border hover:bg-accent/40 rounded-md border p-3 text-left text-sm'
-                }
-                onClick={() => void onPatch({ template })}
-              >
-                {t.video.templates[template]}
-                <span className="text-muted-foreground mt-1 block text-xs">
-                  {t.video.inputs.templateHint}
-                </span>
-              </button>
-            ))}
-          </div>
+          {/* One implementation of the intent control, so the rail cannot
+              offer a change the Brief step refuses — or vice versa. */}
+          <ProjectTemplateField
+            project={project}
+            onPatch={onPatch}
+            variant="inline"
+          />
           <textarea
             value={project.prompt}
             onChange={(event) => void onPatch({ prompt: event.target.value })}

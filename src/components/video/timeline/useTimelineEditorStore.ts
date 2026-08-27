@@ -57,6 +57,7 @@ import {
   pasteTimelineClipboardPayload,
   type TimelineClipboardPayload,
 } from './timelineClipboard';
+import { getTimelineDurationMs } from './timelineMath';
 import {
   insertTrackRelativeTo,
   type TrackInsertSide,
@@ -2182,17 +2183,6 @@ function normalizeStillImageClipBounds(
     trimEndMs: virtualSourceEndMs,
     sourceDurationMs: virtualSourceEndMs,
   };
-}
-
-function getTimelineDurationMs(tracks: VideoTimelineTrack[]): number {
-  return tracks.reduce(
-    (maxEndMs, track) =>
-      Math.max(
-        maxEndMs,
-        ...track.clips.map((clip) => clip.startMs + clip.durationMs),
-      ),
-    0,
-  );
 }
 
 function normalizeTimelineMarker(

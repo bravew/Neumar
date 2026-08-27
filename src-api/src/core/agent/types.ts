@@ -454,6 +454,12 @@ export interface AgentOptions {
   permissionMode?: 'plan' | 'execute' | 'bypassPermissions';
   /** Sandbox configuration for isolated execution */
   sandbox?: SandboxConfig;
+  /**
+   * How this run executes on the host. Adapters that can enforce OS-level
+   * isolation consult this; `host-native` means do not enable it.
+   * Defaults to `isolated`.
+   */
+  executionPolicy?: 'isolated' | 'host-native';
   /** Image attachments for vision capabilities */
   images?: ImageAttachment[];
   /** Skills configuration */
@@ -666,8 +672,6 @@ export interface ExecuteOptions extends AgentOptions {
   planId: string;
   /** Original prompt that created the plan */
   originalPrompt: string;
-  /** Sandbox configuration */
-  sandbox?: SandboxConfig;
   /** Plan object (optional - if not provided, will look up by planId) */
   plan?: TaskPlan;
 }
