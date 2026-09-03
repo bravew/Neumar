@@ -6,7 +6,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { mcpServerRoutes } from '@/app/api/mcp-server';
 
-import { createProject, saveSetting } from '@/shared/db/operations';
+import { getDatabase } from '@/shared/db';
+import {
+  createAgentRun,
+  createProject,
+  saveSetting,
+} from '@/shared/db/operations';
 import {
   ensureBridgeSecret,
   getBridgeSecretPath,
@@ -281,5 +286,87 @@ describe('External MCP daemon facade', () => {
     expect(body.authorType).toBe('agent');
     expect(body.authorId).toBe('external-mcp');
     expect(body.content).toBe('Noted from MCP');
+  });
+
+  it('filters task search by project before applying the limit', async () => {
+    saveSetting('externalMcpEnabled', 'true');
+    saveSetting('externalMcpWritesEnabled', 'true');
+    const project = createProject({
+      id: randomUUID(),
+      name: `Search ${randomUUID()}`,
+    });
+    for (let index = 0; index < 3; index += 1) {
+      await app().request('/mcp/server/tasks', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: randomUUID(),
+          prompt: `UniqueNeedle task ${index}`,
+        }),
+      });
+    }
+    const inProject = await app().request('/mcp/server/tasks', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: randomUUID(),
+        prompt: 'UniqueNeedle in project',
+        projectId: project.id,
+      }),
+    });
+    expect(inProject.status).toBe(201);
+
+    const res = await app().request(
+      `/mcp/server/tasks/search?query=UniqueNeedle&projectId=${project.id}&limit=1`,
+      { headers: authHeaders() },
+    );
+    expect(res.status).toBe(200);
+    const page = await jsonOf(res);
+    expect(page.items).toHaveLength(1);
+    expect((page.items as Array<{ projectId: string }>)[0]?.projectId).toBe(
+      project.id,
+    );
+  });
+
+  it('nests source_run_id continuation runs under their source', async () => {
+    saveSetting('externalMcpEnabled', 'true');
+    saveSetting('externalMcpWritesEnabled', 'true');
+    const created = await app().request('/mcp/server/tasks', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: randomUUID(),
+        prompt: 'Lineage tree',
+      }),
+    });
+    const taskId = (await jsonOf(created)).taskId as string;
+    const rootId = randomUUID();
+    const childId = randomUUID();
+    createAgentRun({
+      id: rootId,
+      taskId,
+      provider: 'claude',
+    });
+    createAgentRun({
+      id: childId,
+      taskId,
+      provider: 'claude',
+    });
+    getDatabase()
+      .prepare('UPDATE agent_runs SET source_run_id = ? WHERE id = ?')
+      .run(rootId, childId);
+
+    const res = await app().request(`/mcp/server/tasks/${taskId}/run-tree`, {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
+    const tree = await jsonOf(res);
+    const roots = tree.roots as Array<{
+      id: string;
+      children: Array<{ id: string }>;
+    }>;
+    expect(roots).toHaveLength(1);
+    expect(roots[0]?.id).toBe(rootId);
+    expect(roots[0]?.children.map((child) => child.id)).toEqual([childId]);
   });
 });

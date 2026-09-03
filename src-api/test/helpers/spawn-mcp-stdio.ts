@@ -33,16 +33,24 @@ export function resolveMcpStdioLaunch(): {
   }
   if (process.env.NEUMAR_MCP_USE_BUNDLE === '1') {
     const bundle = join(API_DIR, 'dist', 'bundle.cjs');
-    if (existsSync(bundle)) {
-      return {
-        command: process.execPath,
-        args: [bundle, 'mcp', 'server'],
-        label: 'bundle',
-      };
+    if (!existsSync(bundle)) {
+      throw new Error(
+        `NEUMAR_MCP_USE_BUNDLE=1 but ${bundle} is missing; build it first`,
+      );
     }
+    return {
+      command: process.execPath,
+      args: [bundle, 'mcp', 'server'],
+      label: 'bundle',
+    };
   }
-  const dist = join(API_DIR, 'dist', 'index.js');
-  if (process.env.NEUMAR_MCP_USE_DIST === '1' && existsSync(dist)) {
+  if (process.env.NEUMAR_MCP_USE_DIST === '1') {
+    const dist = join(API_DIR, 'dist', 'index.js');
+    if (!existsSync(dist)) {
+      throw new Error(
+        `NEUMAR_MCP_USE_DIST=1 but ${dist} is missing; build it first`,
+      );
+    }
     return {
       command: process.execPath,
       args: [dist, 'mcp', 'server'],

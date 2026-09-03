@@ -11,6 +11,8 @@ import {
 import { readBridgeSecret } from '@/shared/mcp/public-server/secret';
 import { classifyIp } from '@/shared/network-policy/ip';
 
+import { recordExternalMcpAudit } from './audit';
+
 export {
   MCP_SERVER_SECRET_FILE,
   ensureBridgeSecret,
@@ -41,26 +43,27 @@ function secretsEqual(left: string, right: string): boolean {
   return timingSafeEqual(leftHash, rightHash);
 }
 
+function unauthorized(c: Context, message: string) {
+  recordExternalMcpAudit({
+    action: 'block',
+    route: c.req.path,
+    method: c.req.method,
+    code: 'UNAUTHORIZED',
+  });
+  return c.json(
+    createErrorEnvelope('UNAUTHORIZED', message),
+    httpStatusForError('UNAUTHORIZED') as ContentfulStatusCode,
+  );
+}
+
 export const mcpCommandAuth = createMiddleware(async (c, next) => {
   if (!isLoopbackRemote(getRemoteAddress(c))) {
-    return c.json(
-      createErrorEnvelope(
-        'UNAUTHORIZED',
-        'MCP command routes are loopback-only',
-      ),
-      httpStatusForError('UNAUTHORIZED') as ContentfulStatusCode,
-    );
+    return unauthorized(c, 'MCP command routes are loopback-only');
   }
   const expected = readBridgeSecret();
   const provided = extractBearer(c);
   if (!expected || !provided || !secretsEqual(provided, expected)) {
-    return c.json(
-      createErrorEnvelope(
-        'UNAUTHORIZED',
-        'Invalid or missing MCP bridge secret',
-      ),
-      httpStatusForError('UNAUTHORIZED') as ContentfulStatusCode,
-    );
+    return unauthorized(c, 'Invalid or missing MCP bridge secret');
   }
   await next();
 });

@@ -49,8 +49,9 @@ import {
   searchTasksCommand,
   updateTaskCommand,
 } from '@/shared/services/external-mcp/task-commands';
+import { getApiVersion } from '@/shared/utils/app-version';
 
-const API_VERSION = process.env.npm_package_version ?? '26.8.27';
+const API_VERSION = getApiVersion();
 
 export const mcpServerRoutes = new Hono();
 

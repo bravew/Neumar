@@ -1,6 +1,8 @@
 import { McpServer, type RegisteredTool } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 
+import { getApiVersion } from '@/shared/utils/app-version';
+
 import {
   PUBLIC_MCP_SERVER_NAME,
   PUBLIC_TOOL_CATALOG,
@@ -15,7 +17,7 @@ import { resolveDaemonUrl } from './discover';
 import { PUBLIC_MCP_INSTRUCTIONS } from './instructions';
 import { createStdioLogger, enableStdioSafeLogging } from './stdio-logger';
 
-const API_VERSION = process.env.npm_package_version ?? '26.8.27';
+const API_VERSION = getApiVersion();
 const DEFAULT_IDLE_MS = 30 * 60 * 1000;
 const MAX_IDLE_MS = 24 * 60 * 60 * 1000;
 
@@ -123,7 +125,11 @@ function wrapHandlerWithFlagSync(
     ): void;
   };
   const original = proto._getRequestHandler(method);
-  if (!original) return;
+  if (!original) {
+    throw new Error(
+      `MCP SDK did not register a ${method} handler; cannot sync live flags`,
+    );
+  }
   proto.removeRequestHandler(method);
   proto.setRequestHandler(method, async (request, extra) => {
     await syncWrites();

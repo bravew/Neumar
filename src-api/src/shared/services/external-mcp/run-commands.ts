@@ -151,6 +151,7 @@ export async function startAgentRunCommand(input: {
       if (!runId || !prepared.reservation) {
         throw new ExternalMcpError('VALIDATION_FAILED', 'Run was not reserved');
       }
+      let run = prepared.reservation.run;
       if (prepared.reservation.disposition === 'created') {
         try {
           runLauncher?.({
@@ -168,12 +169,13 @@ export async function startAgentRunCommand(input: {
             status: 'failed',
             error: 'Failed to launch agent run',
           });
+          run = getAgentRun(runId) ?? { ...run, status: 'failed' };
         }
       }
       return startAgentRunOutputSchema.parse({
         runId,
         taskId: input.taskId,
-        status: publicStatus(prepared.reservation.run, false),
+        status: publicStatus(run, false),
       });
     },
   );
@@ -191,15 +193,20 @@ export function cancelAgentRunCommand(runId: string) {
   const run = getAgentRun(runId);
   if (!run) throw new ExternalMcpError('NOT_FOUND', 'Agent run not found');
   if (run.status === 'running') {
-    const sessionId = activeQueryStore.getSessionId(run.task_id);
-    if (sessionId) {
-      try {
-        deleteSession(sessionId);
-      } catch (error) {
-        logger.warn(
-          'Failed to stop agent session for MCP cancel',
-          errorMessage(error),
-        );
+    const hasOtherRunning = getAgentRunsByTaskId(run.task_id).some(
+      (row) => row.status === 'running' && row.id !== runId,
+    );
+    if (!hasOtherRunning) {
+      const sessionId = activeQueryStore.getSessionId(run.task_id);
+      if (sessionId) {
+        try {
+          deleteSession(sessionId);
+        } catch (error) {
+          logger.warn(
+            'Failed to stop agent session for MCP cancel',
+            errorMessage(error),
+          );
+        }
       }
     }
     finishAgentRun({ id: runId, status: 'cancelled' });

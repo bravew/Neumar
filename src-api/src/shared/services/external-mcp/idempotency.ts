@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import { getDatabase } from '@/shared/db';
 import { ExternalMcpError } from '@/shared/mcp/public-server/errors';
 
+/** Sentinel stored while an async mutation is in flight. Not valid JSON. */
+const PENDING_RESULT_JSON = '__pending__';
+
 interface IdempotencyRow {
   surface: string;
   request_id: string;
@@ -52,10 +55,17 @@ function replayOrConflict<T>(
       requestId,
     );
   }
+  if (existing.result_json === PENDING_RESULT_JSON) {
+    throw new ExternalMcpError(
+      'CONFLICT',
+      'requestId is already in progress',
+      requestId,
+    );
+  }
   return JSON.parse(existing.result_json) as T;
 }
 
-function insertIdempotency(
+function insertCompleted(
   surface: string,
   requestId: string,
   digest: string,
@@ -66,6 +76,39 @@ function insertIdempotency(
       'INSERT INTO external_mcp_idempotency (surface, request_id, payload_digest, result_json) VALUES (?, ?, ?, ?)',
     )
     .run(surface, requestId, digest, JSON.stringify(result));
+}
+
+function reservePending(
+  surface: string,
+  requestId: string,
+  digest: string,
+): boolean {
+  const inserted = getDatabase()
+    .prepare(
+      'INSERT OR IGNORE INTO external_mcp_idempotency (surface, request_id, payload_digest, result_json) VALUES (?, ?, ?, ?)',
+    )
+    .run(surface, requestId, digest, PENDING_RESULT_JSON);
+  return inserted.changes === 1;
+}
+
+function completeReservation(
+  surface: string,
+  requestId: string,
+  result: unknown,
+): void {
+  getDatabase()
+    .prepare(
+      'UPDATE external_mcp_idempotency SET result_json = ? WHERE surface = ? AND request_id = ?',
+    )
+    .run(JSON.stringify(result), surface, requestId);
+}
+
+function clearReservation(surface: string, requestId: string): void {
+  getDatabase()
+    .prepare(
+      'DELETE FROM external_mcp_idempotency WHERE surface = ? AND request_id = ?',
+    )
+    .run(surface, requestId);
 }
 
 export function withIdempotency<T>(
@@ -80,7 +123,7 @@ export function withIdempotency<T>(
     const existing = readIdempotency(surface, requestId);
     if (existing) return replayOrConflict<T>(existing, digest, requestId);
     const result = run();
-    insertIdempotency(surface, requestId, digest, result);
+    insertCompleted(surface, requestId, digest, result);
     return result;
   })();
 }
@@ -92,19 +135,23 @@ export async function withIdempotencyAsync<T>(
   run: () => Promise<T>,
 ): Promise<T> {
   const digest = digestPayload(payload);
-  const existing = readIdempotency(surface, requestId);
-  if (existing) return replayOrConflict<T>(existing, digest, requestId);
-  const result = await run();
+  if (!reservePending(surface, requestId, digest)) {
+    const existing = readIdempotency(surface, requestId);
+    if (!existing) {
+      throw new ExternalMcpError(
+        'CONFLICT',
+        'requestId was already used with a different payload',
+        requestId,
+      );
+    }
+    return replayOrConflict<T>(existing, digest, requestId);
+  }
   try {
-    insertIdempotency(surface, requestId, digest, result);
+    const result = await run();
+    completeReservation(surface, requestId, result);
     return result;
-  } catch {
-    const raced = readIdempotency(surface, requestId);
-    if (raced) return replayOrConflict<T>(raced, digest, requestId);
-    throw new ExternalMcpError(
-      'CONFLICT',
-      'requestId was already used with a different payload',
-      requestId,
-    );
+  } catch (error) {
+    clearReservation(surface, requestId);
+    throw error;
   }
 }

@@ -175,10 +175,9 @@ export function searchTasksCommand(input: {
 }) {
   if (input.projectId) requireUuid(input.projectId, 'projectId');
   const limit = effectiveLimit(input.limit);
-  let tasks = searchTasks(input.query, limit + 1);
-  if (input.projectId) {
-    tasks = tasks.filter((task) => task.project_id === input.projectId);
-  }
+  const tasks = searchTasks(input.query, limit + 1, {
+    projectId: input.projectId,
+  });
   const truncated = tasks.length > limit;
   const items = tasks.slice(0, limit).map(toTaskSummary);
   const result = { items, truncated, byteLength: 0 };
@@ -253,6 +252,7 @@ interface SlimRunNode {
   id: string;
   taskId: string;
   parentRunId: string | null;
+  sourceRunId: string | null;
   status: string;
   startedAt: string;
   finishedAt: string | null;
@@ -268,6 +268,7 @@ function slimRunTree(rows: AgentRunRow[]): SlimRunNode[] {
       id: row.id,
       taskId: row.task_id,
       parentRunId: row.parent_run_id,
+      sourceRunId: row.source_run_id,
       status: row.status,
       startedAt: row.started_at,
       finishedAt: row.finished_at,
@@ -278,9 +279,10 @@ function slimRunTree(rows: AgentRunRow[]): SlimRunNode[] {
   }
   const roots: SlimRunNode[] = [];
   for (const node of byId.values()) {
+    const lineageParentId = node.parentRunId ?? node.sourceRunId;
     const parent =
-      node.parentRunId && node.parentRunId !== node.id
-        ? byId.get(node.parentRunId)
+      lineageParentId && lineageParentId !== node.id
+        ? byId.get(lineageParentId)
         : undefined;
     if (parent) parent.children.push(node);
     else roots.push(node);
@@ -288,11 +290,20 @@ function slimRunTree(rows: AgentRunRow[]): SlimRunNode[] {
   return roots;
 }
 
+function publicRunTree(
+  nodes: SlimRunNode[],
+): Array<Omit<SlimRunNode, 'sourceRunId'>> {
+  return nodes.map(({ sourceRunId: _sourceRunId, children, ...node }) => ({
+    ...node,
+    children: publicRunTree(children),
+  }));
+}
+
 export function getRunTreeCommand(taskId: string) {
   const task = getTask(taskId);
   if (!task) throw new ExternalMcpError('NOT_FOUND', 'Task not found');
   const result = {
-    roots: slimRunTree(getAgentRunsByTaskId(taskId)),
+    roots: publicRunTree(slimRunTree(getAgentRunsByTaskId(taskId))),
     truncated: false,
     byteLength: 0,
   };

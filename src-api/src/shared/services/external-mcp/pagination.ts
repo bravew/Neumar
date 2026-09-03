@@ -72,44 +72,52 @@ export function paginateItems<T>(
 
   const window = sorted.slice(start, start + options.limit);
   let page = window;
-  let truncated = start + options.limit < sorted.length;
-  let payload = {
-    items: page,
-    nextCursor: null as string | null,
-    truncated,
-    byteLength: 0,
-  };
-  payload.byteLength = byteLengthOf(payload);
-  while (page.length > 1 && payload.byteLength > MAX_PAYLOAD_BYTES) {
+  let forceTruncated = start + options.limit < sorted.length;
+  let result = buildPage(
+    page,
+    start,
+    sorted.length,
+    options.getKey,
+    forceTruncated,
+  );
+  while (page.length > 1 && result.byteLength > MAX_PAYLOAD_BYTES) {
     page = page.slice(0, -1);
-    truncated = true;
-    payload = {
-      items: page,
-      nextCursor: null,
-      truncated,
-      byteLength: 0,
-    };
-    payload.byteLength = byteLengthOf(payload);
+    forceTruncated = true;
+    result = buildPage(
+      page,
+      start,
+      sorted.length,
+      options.getKey,
+      forceTruncated,
+    );
   }
-
-  const last = page.at(-1);
-  const consumed = start + page.length;
-  const hasMore = consumed < sorted.length;
-  const nextCursor =
-    last && (hasMore || truncated) ? encodeCursor(options.getKey(last)) : null;
-  const result = {
-    items: page,
-    nextCursor,
-    truncated: truncated || hasMore,
-    byteLength: 0,
-  };
-  result.byteLength = byteLengthOf(result);
-  if (result.byteLength > MAX_PAYLOAD_BYTES && page.length === 1) {
+  if (result.byteLength > MAX_PAYLOAD_BYTES) {
     throw new ExternalMcpError(
       'PAYLOAD_TOO_LARGE',
       'A single result exceeds the payload cap',
     );
   }
+  return result;
+}
+
+function buildPage<T>(
+  page: T[],
+  start: number,
+  total: number,
+  getKey: (item: T) => CursorKey,
+  forceTruncated: boolean,
+): PageResult<T> {
+  const last = page.at(-1);
+  const hasMore = start + page.length < total;
+  const truncated = forceTruncated || hasMore;
+  const nextCursor = last && truncated ? encodeCursor(getKey(last)) : null;
+  const result = {
+    items: page,
+    nextCursor,
+    truncated,
+    byteLength: 0,
+  };
+  result.byteLength = byteLengthOf(result);
   return result;
 }
 

@@ -166,10 +166,10 @@ describe.sequential('external MCP stdio child', () => {
     });
     const code = await new Promise<number | null>((resolve) => {
       session.child.once('exit', (exitCode) => resolve(exitCode));
-      setTimeout(() => resolve(session.child.exitCode), 15_000);
+      setTimeout(() => resolve(-1), 15_000);
     });
     await stopMcpStdio(session);
-    expect(code).not.toBe(0);
+    expect(code).toBeGreaterThan(0);
     expect(session.stdout.trim()).toBe('');
     expect(session.stderr).toMatch(/loopback/i);
   });

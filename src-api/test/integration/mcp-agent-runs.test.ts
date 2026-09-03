@@ -10,6 +10,7 @@ import {
   ensureBridgeSecret,
   readBridgeSecret,
 } from '@/shared/services/external-mcp/auth';
+import { registerExternalMcpRunLauncher } from '@/shared/services/external-mcp/run-commands';
 
 function app() {
   const hono = new Hono();
@@ -162,5 +163,24 @@ describe('External MCP agent runs', () => {
     });
     const body = await jsonOf(got);
     expect(body.awaitingInput).toBe(true);
+  });
+
+  it('returns failed when the launcher throws before the run starts', async () => {
+    saveSetting('externalMcpAgentRunsEnabled', 'true');
+    registerExternalMcpRunLauncher(() => {
+      throw new Error('launch exploded');
+    });
+    const { taskId } = await createTask('Launcher should fail');
+    const started = await app().request('/mcp/server/runs', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: randomUUID(),
+        taskId,
+      }),
+    });
+    expect(started.status).toBe(202);
+    expect((await jsonOf(started)).status).toBe('failed');
+    registerExternalMcpRunLauncher(() => undefined);
   });
 });

@@ -9,7 +9,8 @@ import { getAppDataDir } from '@/shared/utils/paths';
 
 const CACHE_MS = 5_000;
 const POSIX_QUOTE = /[\s'"\\$`!#&*()[\]{}|;<>?]/;
-const WIN_QUOTE = /[\s"]/;
+/** Spaces, quotes, and cmd.exe command separators / metacharacters. */
+const WIN_QUOTE = /[\s"&|<>^()%!]/;
 
 export interface ExternalMcpInstallInfo {
   serverName: typeof PUBLIC_MCP_SERVER_NAME;

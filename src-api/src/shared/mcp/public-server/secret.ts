@@ -33,7 +33,7 @@ export function ensureBridgeSecret(): string {
   mkdirSync(path.dirname(secretPath), { recursive: true });
   const secret = randomBytes(32).toString('base64url');
   const tmp = `${secretPath}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
-  writeFileSync(tmp, secret, { encoding: 'utf8', flag: 'wx' });
+  writeFileSync(tmp, secret, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
   try {
     chmodSync(tmp, 0o600);
   } catch {

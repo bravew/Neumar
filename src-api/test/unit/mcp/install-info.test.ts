@@ -66,6 +66,29 @@ describe('MCP install info', () => {
     );
   });
 
+  it('quotes Windows cmd.exe metacharacters in command and appDataDir', () => {
+    const info = buildExternalMcpInstallInfo({
+      daemonUrl: 'http://127.0.0.1:2620',
+      appDataDir: 'C:\\Users\\A&B\\.neumar',
+      command: 'C:\\Program Files\\Neumar\\neumar&api.exe',
+      platform: 'win32',
+      development: false,
+      binaryExists: true,
+    });
+    expect(quoteCliArg('C:\\Users\\A&B\\.neumar', 'win32')).toBe(
+      '"C:\\Users\\A&B\\.neumar"',
+    );
+    expect(info.codexCommand).toContain(
+      '"C:\\Program Files\\Neumar\\neumar&api.exe"',
+    );
+    expect(info.codexCommand).toContain(
+      '"NEUMAR_APP_DATA_DIR=C:\\Users\\A&B\\.neumar"',
+    );
+    expect(info.claudeCodeCommand).toContain(
+      '"NEUMAR_APP_DATA_DIR=C:\\Users\\A&B\\.neumar"',
+    );
+  });
+
   it('quotes Windows launch paths in the copyable Codex command', () => {
     const info = buildExternalMcpInstallInfo({
       daemonUrl: 'http://127.0.0.1:2620',
