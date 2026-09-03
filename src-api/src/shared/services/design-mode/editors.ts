@@ -6,19 +6,18 @@
  * names — user input never reaches the command line — and the launched
  * directory is always the project root from `getProjectDir` (derived from the
  * validated project id, not a caller-supplied path). Spawned with
- * `shell: false`.
+ * `shell: false` (except Windows `.cmd` shims inside `openPathInEditor`).
  */
 
-import { execFile, spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { homedir, platform } from 'node:os';
-import path from 'node:path';
-import { promisify } from 'node:util';
-
 import { getProjectDir } from '@/shared/services/design-mode/fs';
+import {
+  isEditorCommandAvailable,
+  launchDetached,
+  macAppInstalled,
+  openPathInEditor,
+} from '@/shared/utils/launch-editor';
 import { createLogger } from '@/shared/utils/logger';
 
-const execFileAsync = promisify(execFile);
 const logger = createLogger('DesignEditors');
 
 /**
@@ -46,44 +45,23 @@ export interface DesignEditor {
   available: boolean;
 }
 
-async function isOnPath(bin: string): Promise<boolean> {
-  const finder = platform() === 'win32' ? 'where' : 'which';
-  try {
-    await execFileAsync(finder, [bin]);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Whether a macOS `.app` bundle exists in a standard Applications location. */
-function macAppInstalled(app: string): boolean {
-  if (platform() !== 'darwin') return false;
-  return [
-    `/Applications/${app}.app`,
-    `/System/Applications/${app}.app`,
-    `/System/Applications/Utilities/${app}.app`,
-    path.join(homedir(), 'Applications', `${app}.app`),
-  ].some((candidate) => existsSync(candidate));
-}
-
 async function editorAvailable(editor: {
   bin?: string;
   macApp?: string;
 }): Promise<boolean> {
-  if (editor.bin) return isOnPath(editor.bin);
+  if (editor.bin) return isEditorCommandAvailable(editor.bin);
   if (editor.macApp) return macAppInstalled(editor.macApp);
   return false;
 }
 
-function fileManager(): string {
-  switch (platform()) {
+function fileManager(): { command: string; args: (root: string) => string[] } {
+  switch (process.platform) {
     case 'darwin':
-      return 'open';
+      return { command: 'open', args: (root) => [root] };
     case 'win32':
-      return 'explorer';
+      return { command: 'explorer', args: (root) => [root] };
     default:
-      return 'xdg-open';
+      return { command: 'xdg-open', args: (root) => [root] };
   }
 }
 
@@ -114,7 +92,8 @@ export async function openDesignProjectInEditor(
   const root = getProjectDir(projectId);
 
   if (editorId === 'reveal') {
-    spawn(fileManager(), [root], { detached: true, stdio: 'ignore' }).unref();
+    const manager = fileManager();
+    await launchDetached(manager.command, manager.args(root));
     logger.info(`[${projectId}] revealed ${root} in file manager`);
     return;
   }
@@ -128,12 +107,14 @@ export async function openDesignProjectInEditor(
     (err as Error & { code?: string }).code = 'EDITOR_NOT_AVAILABLE';
     throw err;
   }
-  // `bin` editors take the dir as their first arg; `macApp` editors launch via
-  // `open -a <App> <dir>`. Both spawn with `shell: false` and constant argv —
-  // only the resolved project root (path-escape-checked) is dynamic.
-  const [cmd, args] = editor.bin
-    ? [editor.bin, [root]]
-    : ['open', ['-a', editor.macApp as string, root]];
-  spawn(cmd, args, { detached: true, stdio: 'ignore' }).unref();
+  // `bin` editors take the dir as their first arg (macOS uses `open -a` for
+  // Electron apps so the process is not killed with the API shell). `macApp`
+  // editors launch via `open -a <App> <dir>`. Only the resolved project root
+  // (path-escape-checked) is dynamic.
+  if (editor.bin) {
+    await openPathInEditor(editor.bin, root);
+  } else {
+    await launchDetached('open', ['-a', editor.macApp as string, root]);
+  }
   logger.info(`[${projectId}] opened ${root} in ${editor.label}`);
 }

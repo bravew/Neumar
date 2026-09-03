@@ -33,6 +33,11 @@ import { trustedLocalPolicy } from '@/shared/network-policy/schema';
 import { detectBinaries } from '@/shared/services/ffmpeg';
 import { loadSkillFromDir } from '@/shared/skills/loader';
 import { parseMarkdownFrontmatter } from '@/shared/utils/frontmatter';
+import {
+  isEditorCommandAvailable,
+  launchDetached,
+  openPathInEditor,
+} from '@/shared/utils/launch-editor';
 import { createLogger } from '@/shared/utils/logger';
 import { expandPath } from '@/shared/utils/paths';
 import {
@@ -891,51 +896,24 @@ files.post('/video-thumbnail', async (c) => {
  * GET /files/detect-editor
  */
 files.get('/detect-editor', async (c) => {
-  const platform = process.platform;
-
   // Common editors to check (in priority order)
   const editors = [
-    {
-      name: 'Cursor',
-      command: 'cursor',
-      check: platform === 'darwin' ? 'cursor' : 'cursor.cmd',
-    },
-    {
-      name: 'VS Code',
-      command: 'code',
-      check: platform === 'darwin' ? 'code' : 'code.cmd',
-    },
-    {
-      name: 'VS Code Insiders',
-      command: 'code-insiders',
-      check: 'code-insiders',
-    },
-    {
-      name: 'Sublime Text',
-      command: platform === 'darwin' ? 'subl' : 'subl',
-      check: 'subl',
-    },
-    { name: 'Atom', command: 'atom', check: 'atom' },
-    { name: 'WebStorm', command: 'webstorm', check: 'webstorm' },
-    { name: 'PyCharm', command: 'pycharm', check: 'pycharm' },
+    { name: 'Cursor', command: 'cursor' },
+    { name: 'VS Code', command: 'code' },
+    { name: 'VS Code Insiders', command: 'code-insiders' },
+    { name: 'Sublime Text', command: 'subl' },
+    { name: 'Atom', command: 'atom' },
+    { name: 'WebStorm', command: 'webstorm' },
+    { name: 'PyCharm', command: 'pycharm' },
   ];
 
   for (const editor of editors) {
-    try {
-      // Check if editor command exists
-      const checkCmd =
-        platform === 'win32'
-          ? `where ${editor.check}`
-          : `which ${editor.check}`;
-      await execAsync(checkCmd);
+    if (await isEditorCommandAvailable(editor.command)) {
       return c.json({
         success: true,
         editor: editor.name,
         command: editor.command,
       });
-    } catch {
-      // Editor not found, try next
-      continue;
     }
   }
 
@@ -988,43 +966,30 @@ files.post('/open-in-editor', async (c) => {
     let editorName = 'Default Editor';
 
     for (const editor of editors) {
-      try {
-        const checkCmd =
-          platform === 'win32'
-            ? `where ${editor.command}`
-            : `which ${editor.command}`;
-        await execAsync(checkCmd);
+      if (await isEditorCommandAvailable(editor.command)) {
         editorCommand = editor.command;
         editorName = editor.name;
         break;
-      } catch {
-        continue;
       }
     }
 
     logger.debug(`Opening in editor (${editorName}): ${filePath}`);
 
     try {
+      // Detached spawn + sanitized env. `exec()` would keep Cursor/VS Code in
+      // the API's process group (SIGHUP when the request ends) and would
+      // forward ELECTRON_RUN_AS_NODE / VSCODE_IPC_HOOK so a new window
+      // flashes and immediately quits.
       if (editorCommand) {
-        if (platform === 'win32') {
-          await execAsync(`${editorCommand} "${resolvedPath}"`, {
-            shell: 'cmd.exe',
-          });
-        } else {
-          await execAsync(`${editorCommand} "${resolvedPath}"`);
-        }
+        await openPathInEditor(editorCommand, resolvedPath);
+      } else if (platform === 'darwin') {
+        await launchDetached('open', ['-t', resolvedPath]);
+      } else if (platform === 'win32') {
+        await launchDetached('cmd.exe', ['/c', 'start', '', resolvedPath], {
+          shell: false,
+        });
       } else {
-        // Fallback to system default
-        if (platform === 'darwin') {
-          await execAsync(`open -t "${resolvedPath}"`);
-        } else if (platform === 'win32') {
-          const escapedPath = resolvedPath.replace(/"/g, '""');
-          await execAsync(`cmd /c start "" "${escapedPath}"`, {
-            shell: 'cmd.exe',
-          });
-        } else {
-          await execAsync(`xdg-open "${resolvedPath}"`);
-        }
+        await launchDetached('xdg-open', [resolvedPath]);
       }
       return c.json({ success: true, editor: editorName });
     } catch (execError) {
