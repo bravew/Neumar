@@ -9,13 +9,13 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | Plan | `dev-doc/plan/2026-09-02-external-mcp-server.md` |
 | Goal | Implement all 7 checkpoints, review+commit each, then open a PR |
 | Branch | `feat/external-mcp-server` |
-| Status | In progress — checkpoint 7 |
+| Status | In progress — opening PR |
 
 ## Current position
 
-- Next work: Checkpoint 7 (packaged smoke tests and runbook)
-- Last completed checkpoint: 6
-- Last commit: see git log (`feat(mcp): add inbound MCP install info and Settings UX`)
+- Next work: Open the pull request
+- Last completed checkpoint: 7
+- Last commit: see git log (`feat(mcp): add inbound MCP smoke tests and runbook`)
 
 ## Checkpoint status
 
@@ -26,8 +26,8 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | 3 | Stdio server, read tools | completed | `df25720` | See notes below |
 | 4 | Safe mutation tools | completed | `943849c` | See notes below |
 | 5 | Durable agent runs | completed | `009979c` | off by default |
-| 6 | Install info and Settings UX | completed | (this checkpoint) | copyable Codex/Claude commands; flags default off |
-| 7 | Packaged smoke tests and runbook | pending | | |
+| 6 | Install info and Settings UX | completed | `08823d4` | copyable Codex/Claude commands; flags default off |
+| 7 | Packaged smoke tests and runbook | completed | (this checkpoint) | thin stdio entry; runbook |
 | PR | Pull request | pending | | |
 
 ## Resume instructions
@@ -178,6 +178,28 @@ pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
 ```
 
 2 frontend + 18 API tests passed. Panel is 224 lines. MCPSettings stays under its allowlist (829/842). Review: copy timeout cleanup; Windows path quoting in the Codex command; install-info never returns the secret.
+
+## Checkpoint 7 notes
+
+Shipped:
+
+- Thin process entry: `src/index.ts` parses `mcp` argv, sets `MCP_STDIO=1`, then dynamic-imports `mcp-cli` or `http-daemon` so the stdio child never loads SQLite/sharp
+- Child-process e2e (`test/e2e/external-mcp-server.e2e.test.ts`): JSON-RPC stdout purity, feature/writes gates, daemon unreachable without rediscovery, non-loopback URL, stdin EOF, idle exit, missing secret, malformed stdin
+- Pagination `PAYLOAD_TOO_LARGE` unit tests; `--help` / non-loopback stdio-entry tests
+- Runbook `dev-doc/runbooks/external-mcp-server.md`
+- Packaged sidecar smoke is opt-in (`NEUMAR_MCP_SIDECAR_SMOKE=1`) so a stale `dist/bundle.cjs` cannot fail everyday e2e
+- Fixed missing `RunContextError` import in `prepare-task-run.ts`
+
+No esbuild external hook: `@modelcontextprotocol/server` v2 ships CJS. Full `pkg` smoke is the opt-in sidecar test after `pnpm build:api:binary`.
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/unit/mcp
+pnpm --filter neumar-api exec vitest run --config vitest.e2e.config.ts test/e2e/external-mcp-server.e2e.test.ts
+```
+
+72 MCP unit/integration tests passed. 8/9 e2e passed (sidecar skipped). HTTP lifecycle e2e still passes after the entry split.
 
 ## Session notes
 

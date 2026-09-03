@@ -2,6 +2,7 @@ import type { z } from 'zod';
 
 import {
   resolveRunContext,
+  RunContextError,
   type RunContextEnvelopeInputSchema,
 } from '@/core/agent/run-context';
 
