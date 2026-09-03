@@ -12,7 +12,9 @@ describe('public MCP write tools', () => {
     expect(toolHttpMapping('neumar_create_task')?.retryable).toBe(false);
     expect(toolHttpMapping('neumar_update_task')?.retryable).toBe(false);
     expect(toolHttpMapping('neumar_add_task_comment')?.retryable).toBe(false);
-    expect(toolHttpMapping('neumar_list_projects')?.retryable).toBe(true);
+    expect(toolHttpMapping('neumar_start_agent_run')?.retryable).toBe(false);
+    expect(toolHttpMapping('neumar_cancel_agent_run')?.retryable).toBe(false);
+    expect(toolHttpMapping('neumar_get_agent_run')?.retryable).toBe(true);
   });
 
   it('refreshes discovery but does not replay a failed write', async () => {

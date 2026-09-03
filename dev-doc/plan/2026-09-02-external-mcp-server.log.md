@@ -9,13 +9,13 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | Plan | `dev-doc/plan/2026-09-02-external-mcp-server.md` |
 | Goal | Implement all 7 checkpoints, review+commit each, then open a PR |
 | Branch | `feat/external-mcp-server` |
-| Status | In progress — checkpoint 5 |
+| Status | In progress — checkpoint 6 |
 
 ## Current position
 
-- Next work: Checkpoint 5 (durable agent runs)
-- Last completed checkpoint: 4
-- Last commit: see git log (`feat(mcp): add safe inbound MCP mutation tools`)
+- Next work: Checkpoint 6 (install info and Settings UX)
+- Last completed checkpoint: 5
+- Last commit: see git log (`feat(mcp): add durable inbound MCP agent runs`)
 
 ## Checkpoint status
 
@@ -24,8 +24,8 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | 1 | Protocol spike and contract freeze | completed | `6495c2c` | See notes below |
 | 2 | Authenticated daemon facade | completed | `e6b023e` | See notes below |
 | 3 | Stdio server, read tools | completed | `df25720` | See notes below |
-| 4 | Safe mutation tools | completed | (this checkpoint) | See notes below |
-| 5 | Durable agent runs | pending | | off by default |
+| 4 | Safe mutation tools | completed | `943849c` | See notes below |
+| 5 | Durable agent runs | completed | (this checkpoint) | off by default |
 | 6 | Install info and Settings UX | pending | | |
 | 7 | Packaged smoke tests and runbook | pending | | |
 | PR | Pull request | pending | | |
@@ -134,6 +134,28 @@ pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
 ```
 
 30/30 passed. Review: wrapping SDK `tools/list`/`tools/call` via `_getRequestHandler` so flags take effect on the next list; stdio tests attach an RPC collector before initialize to avoid losing buffered stdout.
+
+## Checkpoint 5 notes
+
+Shipped:
+
+- Extracted `prepareTaskRun` so POST /agent SSE and inbound MCP share the same durable reservation
+- `POST /mcp/server/runs` returns immediately with `{ runId, taskId, status }` (HTTP 202); no SSE hold-open
+- Get-run surfaces `awaitingInput` from pending questions / run-tree outcomes; cancel is cooperative and idempotent
+- Agent-run tools stay off until `externalMcpAgentRunsEnabled`; stdio lists them only when that flag is on
+- Background launch is registered from the agent route module so facade tests persist without calling a provider
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
+  test/integration/mcp-agent-runs.test.ts \
+  test/unit/core/agent/prepare-task-run.test.ts \
+  test/unit/mcp/public-server-writes.test.ts \
+  test/integration/mcp-public-server.test.ts
+```
+
+41 related tests passed in the broader MCP suite. Flag remains default-off.
 
 ## Session notes
 

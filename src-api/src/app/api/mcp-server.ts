@@ -14,9 +14,11 @@ import {
   getProjectInputSchema,
   getRunTreeInputSchema,
   getTaskInputSchema,
+  getAgentRunInputSchema,
   listProjectsInputSchema,
   listTasksInputSchema,
   searchTasksInputSchema,
+  startAgentRunInputSchema,
   updateTaskInputSchema,
 } from '@/shared/mcp/public-server/schemas';
 import { recordExternalMcpAudit } from '@/shared/services/external-mcp/audit';
@@ -29,6 +31,11 @@ import {
   getExternalMcpFlags,
   rejectCredentialShapedInput,
 } from '@/shared/services/external-mcp/policy';
+import {
+  cancelAgentRunCommand,
+  getAgentRunCommand,
+  startAgentRunCommand,
+} from '@/shared/services/external-mcp/run-commands';
 import {
   addTaskCommentCommand,
   createProjectCommand,
@@ -260,28 +267,42 @@ command.post('/tasks/:id/comments', async (c) => {
   return c.json(result, 201 as ContentfulStatusCode);
 });
 
-command.all('/runs', () => {
+command.post('/runs', async (c) => {
   assertAgentRunsEnabled();
-  throw new ExternalMcpError(
-    'RUN_DISABLED',
-    'Agent runs are not available yet',
-  );
+  const input = parseJsonSchema(startAgentRunInputSchema, await c.req.json());
+  const result = await startAgentRunCommand(input);
+  recordExternalMcpAudit({
+    action: 'allow',
+    route: '/runs',
+    method: 'POST',
+    taskId: input.taskId,
+  });
+  return c.json(result, 202 as ContentfulStatusCode);
 });
 
-command.all('/runs/:id', () => {
+command.get('/runs/:id', (c) => {
   assertAgentRunsEnabled();
-  throw new ExternalMcpError(
-    'RUN_DISABLED',
-    'Agent runs are not available yet',
-  );
+  const input = parseJsonSchema(getAgentRunInputSchema, {
+    runId: c.req.param('id'),
+  });
+  const result = getAgentRunCommand(input.runId);
+  recordExternalMcpAudit({
+    action: 'allow',
+    route: '/runs/:id',
+    method: 'GET',
+  });
+  return c.json(result);
 });
 
-command.all('/runs/:id/cancel', () => {
+command.post('/runs/:id/cancel', (c) => {
   assertAgentRunsEnabled();
-  throw new ExternalMcpError(
-    'RUN_DISABLED',
-    'Agent runs are not available yet',
-  );
+  const result = cancelAgentRunCommand(c.req.param('id'));
+  recordExternalMcpAudit({
+    action: 'allow',
+    route: '/runs/:id/cancel',
+    method: 'POST',
+  });
+  return c.json(result);
 });
 
 mcpServerRoutes.route('/', command);

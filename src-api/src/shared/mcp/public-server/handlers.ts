@@ -102,6 +102,34 @@ const WRITE_MAPPINGS: Record<string, ToolHttpMapping> = {
   },
 };
 
+const RUN_MAPPINGS: Record<string, ToolHttpMapping> = {
+  neumar_start_agent_run: {
+    method: 'POST',
+    auth: true,
+    retryable: false,
+    pathKeys: new Set(),
+    path: () => '/runs',
+  },
+  neumar_get_agent_run: {
+    method: 'GET',
+    auth: true,
+    retryable: true,
+    pathKeys: new Set(['runId']),
+    path: (args) => `/runs/${encodeSegment(args.runId)}`,
+  },
+  neumar_cancel_agent_run: {
+    method: 'POST',
+    auth: true,
+    retryable: false,
+    pathKeys: new Set(['runId']),
+    path: (args) => `/runs/${encodeSegment(args.runId)}/cancel`,
+  },
+};
+
 export function toolHttpMapping(toolName: string): ToolHttpMapping | undefined {
-  return READ_MAPPINGS[toolName] ?? WRITE_MAPPINGS[toolName];
+  return (
+    READ_MAPPINGS[toolName] ??
+    WRITE_MAPPINGS[toolName] ??
+    RUN_MAPPINGS[toolName]
+  );
 }

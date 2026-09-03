@@ -78,7 +78,6 @@ function toQuery(args: Record<string, unknown>, omit: Set<string>): string {
 
 export function createDaemonClient(options: DaemonClientOptions): DaemonClient {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const readSecret = options.readSecret ?? readBridgeSecret;
   let currentUrl = options.initialUrl.replace(/\/$/, '');
   let inFlight = 0;
@@ -95,6 +94,9 @@ export function createDaemonClient(options: DaemonClientOptions): DaemonClient {
         `Unknown tool: ${toolName}`,
       );
     }
+    const timeoutMs =
+      options.timeoutMs ??
+      (mapping.method === 'GET' ? DEFAULT_TIMEOUT_MS : 15_000);
 
     const path = mapping.path(args);
     const query =

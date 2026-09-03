@@ -42,19 +42,21 @@ function toolResult(data: unknown) {
   };
 }
 
-function applyWriteFlags(
+function applyCatalogFlags(
   registrations: Map<string, RegisteredTool>,
-  writesEnabled: boolean,
+  flags: { writesEnabled: boolean; agentRunsEnabled: boolean },
 ): boolean {
   let changed = false;
   for (const tool of PUBLIC_TOOL_CATALOG) {
-    if (tool.side !== 'write') continue;
+    if (tool.side === 'read') continue;
     const registered = registrations.get(tool.name);
     if (!registered) continue;
-    if (writesEnabled && !registered.enabled) {
+    const want =
+      tool.side === 'write' ? flags.writesEnabled : flags.agentRunsEnabled;
+    if (want && !registered.enabled) {
       registered.enable();
       changed = true;
-    } else if (!writesEnabled && registered.enabled) {
+    } else if (!want && registered.enabled) {
       registered.disable();
       changed = true;
     }
@@ -65,12 +67,15 @@ function applyWriteFlags(
 export function createPublicMcpServer(client: DaemonClient): McpServer {
   const registrations = new Map<string, RegisteredTool>();
 
-  const syncWrites = async () => {
+  const syncFlags = async () => {
     try {
       const health = await client.health();
-      return applyWriteFlags(registrations, health.flags.writesEnabled);
+      return applyCatalogFlags(registrations, health.flags);
     } catch {
-      return applyWriteFlags(registrations, false);
+      return applyCatalogFlags(registrations, {
+        writesEnabled: false,
+        agentRunsEnabled: false,
+      });
     }
   };
 
@@ -86,14 +91,13 @@ export function createPublicMcpServer(client: DaemonClient): McpServer {
   );
 
   for (const tool of PUBLIC_TOOL_CATALOG) {
-    if (tool.side === 'run') continue;
     const registered = registerOne(server, client, tool, registrations);
-    if (tool.side === 'write') registered.disable();
+    if (tool.side !== 'read') registered.disable();
     registrations.set(tool.name, registered);
   }
 
-  wrapHandlerWithWriteSync(server, 'tools/list', syncWrites);
-  wrapHandlerWithWriteSync(server, 'tools/call', syncWrites);
+  wrapHandlerWithFlagSync(server, 'tools/list', syncFlags);
+  wrapHandlerWithFlagSync(server, 'tools/call', syncFlags);
 
   return server;
 }
@@ -103,7 +107,7 @@ export function createPublicMcpServer(client: DaemonClient): McpServer {
  * stdio process re-fetches daemon flags on every list/call without restarting
  * the host after the user toggles writes in Settings.
  */
-function wrapHandlerWithWriteSync(
+function wrapHandlerWithFlagSync(
   server: McpServer,
   method: 'tools/list' | 'tools/call',
   syncWrites: () => Promise<boolean>,
@@ -149,8 +153,15 @@ function registerOne(
           (args ?? {}) as Record<string, unknown>,
         );
         if (tool.name === 'neumar_health') {
-          const flags = (data as { flags?: { writesEnabled?: boolean } }).flags;
-          applyWriteFlags(registrations, flags?.writesEnabled === true);
+          const flags = (
+            data as {
+              flags?: { writesEnabled?: boolean; agentRunsEnabled?: boolean };
+            }
+          ).flags;
+          applyCatalogFlags(registrations, {
+            writesEnabled: flags?.writesEnabled === true,
+            agentRunsEnabled: flags?.agentRunsEnabled === true,
+          });
         }
         return toolResult(data);
       } catch (err) {

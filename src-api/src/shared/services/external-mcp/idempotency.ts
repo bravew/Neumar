@@ -29,6 +29,45 @@ function canonicalJson(value: unknown): string {
     .join(',')}}`;
 }
 
+function readIdempotency(
+  surface: string,
+  requestId: string,
+): IdempotencyRow | undefined {
+  return getDatabase()
+    .prepare(
+      'SELECT surface, request_id, payload_digest, result_json FROM external_mcp_idempotency WHERE surface = ? AND request_id = ?',
+    )
+    .get(surface, requestId) as IdempotencyRow | undefined;
+}
+
+function replayOrConflict<T>(
+  existing: IdempotencyRow,
+  digest: string,
+  requestId: string,
+): T {
+  if (existing.payload_digest !== digest) {
+    throw new ExternalMcpError(
+      'CONFLICT',
+      'requestId was already used with a different payload',
+      requestId,
+    );
+  }
+  return JSON.parse(existing.result_json) as T;
+}
+
+function insertIdempotency(
+  surface: string,
+  requestId: string,
+  digest: string,
+  result: unknown,
+): void {
+  getDatabase()
+    .prepare(
+      'INSERT INTO external_mcp_idempotency (surface, request_id, payload_digest, result_json) VALUES (?, ?, ?, ?)',
+    )
+    .run(surface, requestId, digest, JSON.stringify(result));
+}
+
 export function withIdempotency<T>(
   surface: string,
   requestId: string,
@@ -38,27 +77,34 @@ export function withIdempotency<T>(
   const digest = digestPayload(payload);
   const db = getDatabase();
   return db.transaction(() => {
-    const existing = db
-      .prepare(
-        'SELECT surface, request_id, payload_digest, result_json FROM external_mcp_idempotency WHERE surface = ? AND request_id = ?',
-      )
-      .get(surface, requestId) as IdempotencyRow | undefined;
-
-    if (existing) {
-      if (existing.payload_digest !== digest) {
-        throw new ExternalMcpError(
-          'CONFLICT',
-          'requestId was already used with a different payload',
-          requestId,
-        );
-      }
-      return JSON.parse(existing.result_json) as T;
-    }
-
+    const existing = readIdempotency(surface, requestId);
+    if (existing) return replayOrConflict<T>(existing, digest, requestId);
     const result = run();
-    db.prepare(
-      'INSERT INTO external_mcp_idempotency (surface, request_id, payload_digest, result_json) VALUES (?, ?, ?, ?)',
-    ).run(surface, requestId, digest, JSON.stringify(result));
+    insertIdempotency(surface, requestId, digest, result);
     return result;
   })();
+}
+
+export async function withIdempotencyAsync<T>(
+  surface: string,
+  requestId: string,
+  payload: unknown,
+  run: () => Promise<T>,
+): Promise<T> {
+  const digest = digestPayload(payload);
+  const existing = readIdempotency(surface, requestId);
+  if (existing) return replayOrConflict<T>(existing, digest, requestId);
+  const result = await run();
+  try {
+    insertIdempotency(surface, requestId, digest, result);
+    return result;
+  } catch {
+    const raced = readIdempotency(surface, requestId);
+    if (raced) return replayOrConflict<T>(raced, digest, requestId);
+    throw new ExternalMcpError(
+      'CONFLICT',
+      'requestId was already used with a different payload',
+      requestId,
+    );
+  }
 }

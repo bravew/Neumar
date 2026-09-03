@@ -199,7 +199,7 @@ export function deriveExecutionOutcomes(
   });
 }
 
-function questionRunIds(rows: readonly AgentRunRow[]): Set<string> {
+export function questionRunIds(rows: readonly AgentRunRow[]): Set<string> {
   const ids = new Set<string>();
   for (const row of rows) {
     const asked = getAgentRunEventsAfter(row.id, -1).some((event) => {
