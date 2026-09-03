@@ -1,4 +1,4 @@
-import { McpServer } from '@modelcontextprotocol/server';
+import { McpServer, type RegisteredTool } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 
 import {
@@ -42,19 +42,98 @@ function toolResult(data: unknown) {
   };
 }
 
-function registerReadTools(server: McpServer, client: DaemonClient): void {
-  const reads = PUBLIC_TOOL_CATALOG.filter((tool) => tool.side === 'read');
-  for (const tool of reads) {
-    registerOne(server, client, tool);
+function applyWriteFlags(
+  registrations: Map<string, RegisteredTool>,
+  writesEnabled: boolean,
+): boolean {
+  let changed = false;
+  for (const tool of PUBLIC_TOOL_CATALOG) {
+    if (tool.side !== 'write') continue;
+    const registered = registrations.get(tool.name);
+    if (!registered) continue;
+    if (writesEnabled && !registered.enabled) {
+      registered.enable();
+      changed = true;
+    } else if (!writesEnabled && registered.enabled) {
+      registered.disable();
+      changed = true;
+    }
   }
+  return changed;
+}
+
+export function createPublicMcpServer(client: DaemonClient): McpServer {
+  const registrations = new Map<string, RegisteredTool>();
+
+  const syncWrites = async () => {
+    try {
+      const health = await client.health();
+      return applyWriteFlags(registrations, health.flags.writesEnabled);
+    } catch {
+      return applyWriteFlags(registrations, false);
+    }
+  };
+
+  const server = new McpServer(
+    {
+      name: PUBLIC_MCP_SERVER_NAME,
+      version: API_VERSION,
+    },
+    {
+      capabilities: { tools: { listChanged: true } },
+      instructions: PUBLIC_MCP_INSTRUCTIONS,
+    },
+  );
+
+  for (const tool of PUBLIC_TOOL_CATALOG) {
+    if (tool.side === 'run') continue;
+    const registered = registerOne(server, client, tool, registrations);
+    if (tool.side === 'write') registered.disable();
+    registrations.set(tool.name, registered);
+  }
+
+  wrapHandlerWithWriteSync(server, 'tools/list', syncWrites);
+  wrapHandlerWithWriteSync(server, 'tools/call', syncWrites);
+
+  return server;
+}
+
+/**
+ * SDK v2 installs a synchronous tools/list handler. Replace it so a live
+ * stdio process re-fetches daemon flags on every list/call without restarting
+ * the host after the user toggles writes in Settings.
+ */
+function wrapHandlerWithWriteSync(
+  server: McpServer,
+  method: 'tools/list' | 'tools/call',
+  syncWrites: () => Promise<boolean>,
+): void {
+  const proto = server.server as unknown as {
+    _getRequestHandler(
+      method: string,
+    ): ((request: unknown, extra: unknown) => unknown) | undefined;
+    removeRequestHandler(method: string): void;
+    setRequestHandler(
+      method: string,
+      handler: (request: unknown, extra: unknown) => unknown,
+    ): void;
+  };
+  const original = proto._getRequestHandler(method);
+  if (!original) return;
+  proto.removeRequestHandler(method);
+  proto.setRequestHandler(method, async (request, extra) => {
+    await syncWrites();
+    return original(request, extra);
+  });
 }
 
 function registerOne(
   server: McpServer,
   client: DaemonClient,
   tool: PublicToolDefinition,
-): void {
-  server.registerTool(
+  registrations: Map<string, RegisteredTool>,
+): RegisteredTool {
+  return server.registerTool(
     tool.name,
     {
       title: tool.title,
@@ -69,27 +148,16 @@ function registerOne(
           tool.name,
           (args ?? {}) as Record<string, unknown>,
         );
+        if (tool.name === 'neumar_health') {
+          const flags = (data as { flags?: { writesEnabled?: boolean } }).flags;
+          applyWriteFlags(registrations, flags?.writesEnabled === true);
+        }
         return toolResult(data);
       } catch (err) {
         return errorResult(err);
       }
     },
   );
-}
-
-export function createPublicMcpServer(client: DaemonClient): McpServer {
-  const server = new McpServer(
-    {
-      name: PUBLIC_MCP_SERVER_NAME,
-      version: API_VERSION,
-    },
-    {
-      capabilities: { tools: { listChanged: true } },
-      instructions: PUBLIC_MCP_INSTRUCTIONS,
-    },
-  );
-  registerReadTools(server, client);
-  return server;
 }
 
 function installIdleExit(
@@ -125,7 +193,8 @@ export async function startPublicMcpServer(
   enableStdioSafeLogging();
   const logger = createStdioLogger();
   const daemonUrl = resolveDaemonUrl(options.daemonUrl);
-  const client = options.client ?? createDaemonClient({ initialUrl: daemonUrl });
+  const client =
+    options.client ?? createDaemonClient({ initialUrl: daemonUrl });
   logger.info(`Starting public MCP stdio server; daemon ${client.currentUrl}`);
 
   const handle = serveStdio(() => createPublicMcpServer(client), {

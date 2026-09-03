@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { PassThrough } from 'node:stream';
 
 import {
@@ -18,38 +19,78 @@ function encodeRpc(message: unknown): Buffer {
   return Buffer.from(`${JSON.stringify(message)}\n`, 'utf8');
 }
 
-async function readNdjson(
-  stream: PassThrough,
-  count: number,
-  timeoutMs = 5_000,
-): Promise<unknown[]> {
-  const frames: unknown[] = [];
-  let buffer = '';
-  return await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(
-        new Error(
-          `Timed out waiting for ${count} JSON-RPC frames; got ${frames.length}: ${buffer}`,
-        ),
+class RpcCollector {
+  private buffer = '';
+  private readonly frames: unknown[] = [];
+
+  constructor(stream: PassThrough) {
+    stream.on('data', (chunk: Buffer) => {
+      this.buffer += chunk.toString('utf8');
+      let newline = this.buffer.indexOf('\n');
+      while (newline !== -1) {
+        const line = this.buffer.slice(0, newline).trim();
+        this.buffer = this.buffer.slice(newline + 1);
+        if (line.length > 0) this.frames.push(JSON.parse(line) as unknown);
+        newline = this.buffer.indexOf('\n');
+      }
+    });
+  }
+
+  async next(timeoutMs = 5_000): Promise<unknown> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const frame = this.frames.shift();
+      if (frame !== undefined) return frame;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error('Timed out waiting for a JSON-RPC frame');
+  }
+
+  async nextId(
+    id: number,
+    timeoutMs = 5_000,
+  ): Promise<{ result?: unknown; error?: unknown }> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const index = this.frames.findIndex(
+        (frame) => (frame as { id?: number }).id === id,
       );
-    }, timeoutMs);
-    const onData = (chunk: Buffer) => {
-      buffer += chunk.toString('utf8');
-      let newline = buffer.indexOf('\n');
-      while (newline !== -1 && frames.length < count) {
-        const line = buffer.slice(0, newline).trim();
-        buffer = buffer.slice(newline + 1);
-        if (line.length > 0) frames.push(JSON.parse(line) as unknown);
-        newline = buffer.indexOf('\n');
+      if (index !== -1) {
+        return this.frames.splice(index, 1)[0] as {
+          result?: unknown;
+          error?: unknown;
+        };
       }
-      if (frames.length >= count) {
-        clearTimeout(timer);
-        stream.off('data', onData);
-        resolve(frames);
-      }
-    };
-    stream.on('data', onData);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`Timed out waiting for JSON-RPC id ${id}`);
+  }
+}
+
+function startStdio(client: ReturnType<typeof createDaemonClient>) {
+  const stdin = new PassThrough();
+  const stdout = new PassThrough();
+  const rpc = new RpcCollector(stdout);
+  const handle = serveStdio(() => createPublicMcpServer(client), {
+    transport: new StdioServerTransport(stdin, stdout),
+    legacy: 'serve',
   });
+  return { stdin, rpc, handle };
+}
+
+function writeInitialize(stdin: PassThrough) {
+  stdin.write(
+    encodeRpc({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-03-26',
+        capabilities: {},
+        clientInfo: { name: 'stdio-test', version: '0.0.0' },
+      },
+    }),
+  );
 }
 
 describe('public MCP stdio against the daemon facade', () => {
@@ -64,6 +105,7 @@ describe('public MCP stdio against the daemon facade', () => {
 
   afterEach(() => {
     saveSetting('externalMcpEnabled', 'false');
+    saveSetting('externalMcpWritesEnabled', 'false');
   });
 
   it('lists read tools and calls health plus list_projects', async () => {
@@ -80,36 +122,21 @@ describe('public MCP stdio against the daemon facade', () => {
       },
     });
 
-    const stdin = new PassThrough();
-    const stdout = new PassThrough();
-    const handle = serveStdio(() => createPublicMcpServer(client), {
-      transport: new StdioServerTransport(stdin, stdout),
-      legacy: 'serve',
-    });
-
-    stdin.write(
-      encodeRpc({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-03-26',
-          capabilities: {},
-          clientInfo: { name: 'stdio-test', version: '0.0.0' },
-        },
-      }),
-    );
-    await readNdjson(stdout, 1);
+    const { stdin, rpc, handle } = startStdio(client);
+    writeInitialize(stdin);
+    await rpc.nextId(1);
     stdin.write(
       encodeRpc({ jsonrpc: '2.0', method: 'notifications/initialized' }),
     );
     stdin.write(
       encodeRpc({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
     );
-    const [listed] = (await readNdjson(stdout, 1)) as Array<{
-      result?: { tools?: Array<{ name: string }> };
-    }>;
-    expect(listed?.result?.tools?.map((tool) => tool.name)).toEqual([
+    const listed = await rpc.nextId(2);
+    expect(
+      (listed.result as { tools?: Array<{ name: string }> })?.tools?.map(
+        (tool) => tool.name,
+      ),
+    ).toEqual([
       'neumar_health',
       'neumar_list_projects',
       'neumar_get_project',
@@ -127,10 +154,14 @@ describe('public MCP stdio against the daemon facade', () => {
         params: { name: 'neumar_health', arguments: {} },
       }),
     );
-    const [health] = (await readNdjson(stdout, 1)) as Array<{
-      result?: { structuredContent?: { flags?: { enabled?: boolean } } };
-    }>;
-    expect(health?.result?.structuredContent?.flags?.enabled).toBe(true);
+    const health = await rpc.nextId(3);
+    expect(
+      (
+        health.result as {
+          structuredContent?: { flags?: { enabled?: boolean } };
+        }
+      )?.structuredContent?.flags?.enabled,
+    ).toBe(true);
 
     stdin.write(
       encodeRpc({
@@ -140,13 +171,67 @@ describe('public MCP stdio against the daemon facade', () => {
         params: { name: 'neumar_list_projects', arguments: { limit: 10 } },
       }),
     );
-    const [projects] = (await readNdjson(stdout, 1)) as Array<{
-      result?: { structuredContent?: { items?: unknown[] } };
-    }>;
-    expect(Array.isArray(projects?.result?.structuredContent?.items)).toBe(
-      true,
-    );
+    const projects = await rpc.nextId(4);
+    expect(
+      Array.isArray(
+        (projects.result as { structuredContent?: { items?: unknown[] } })
+          ?.structuredContent?.items,
+      ),
+    ).toBe(true);
 
+    await handle.close();
+  });
+
+  it('omits write tools until writes are enabled, then creates a project', async () => {
+    saveSetting('externalMcpWritesEnabled', 'true');
+    const client = createDaemonClient({
+      initialUrl: 'http://127.0.0.1:5126',
+      readSecret: ensureBridgeSecret,
+      fetchImpl: async (input, init) => {
+        const url = new URL(String(input));
+        return app.request(url.pathname + url.search, {
+          method: init?.method,
+          headers: init?.headers as Record<string, string> | undefined,
+          body: init?.body as string | undefined,
+        });
+      },
+    });
+    const { stdin, rpc, handle } = startStdio(client);
+    writeInitialize(stdin);
+    await rpc.nextId(1);
+    stdin.write(
+      encodeRpc({ jsonrpc: '2.0', method: 'notifications/initialized' }),
+    );
+    stdin.write(
+      encodeRpc({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
+    );
+    const listed = await rpc.nextId(2);
+    const names = (
+      listed.result as { tools?: Array<{ name: string }> }
+    )?.tools?.map((tool) => tool.name);
+    expect(names).toContain('neumar_create_project');
+    expect(names).toContain('neumar_create_task');
+    expect(names).toContain('neumar_update_task');
+    expect(names).toContain('neumar_add_task_comment');
+    expect(names).not.toContain('neumar_start_agent_run');
+
+    const requestId = randomUUID();
+    stdin.write(
+      encodeRpc({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: {
+          name: 'neumar_create_project',
+          arguments: { requestId, name: `Stdio ${requestId.slice(0, 8)}` },
+        },
+      }),
+    );
+    const created = await rpc.nextId(3);
+    expect(
+      (created.result as { structuredContent?: { name?: string } })
+        ?.structuredContent?.name,
+    ).toContain('Stdio');
     await handle.close();
   });
 
@@ -158,25 +243,9 @@ describe('public MCP stdio against the daemon facade', () => {
       },
       readSecret: () => 'secret',
     });
-    const stdin = new PassThrough();
-    const stdout = new PassThrough();
-    const handle = serveStdio(() => createPublicMcpServer(client), {
-      transport: new StdioServerTransport(stdin, stdout),
-      legacy: 'serve',
-    });
-    stdin.write(
-      encodeRpc({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-03-26',
-          capabilities: {},
-          clientInfo: { name: 'stdio-test', version: '0.0.0' },
-        },
-      }),
-    );
-    await readNdjson(stdout, 1);
+    const { stdin, rpc, handle } = startStdio(client);
+    writeInitialize(stdin);
+    await rpc.nextId(1);
     stdin.write(
       encodeRpc({ jsonrpc: '2.0', method: 'notifications/initialized' }),
     );
@@ -188,11 +257,12 @@ describe('public MCP stdio against the daemon facade', () => {
         params: { name: 'neumar_health', arguments: {} },
       }),
     );
-    const [called] = (await readNdjson(stdout, 1)) as Array<{
-      result?: { isError?: boolean; content?: Array<{ text: string }> };
-    }>;
-    expect(called?.result?.isError).toBe(true);
-    expect(called?.result?.content?.[0]?.text).toContain('DAEMON_UNREACHABLE');
+    const called = await rpc.nextId(2);
+    expect((called.result as { isError?: boolean })?.isError).toBe(true);
+    expect(
+      (called.result as { content?: Array<{ text: string }> })?.content?.[0]
+        ?.text,
+    ).toContain('DAEMON_UNREACHABLE');
     await handle.close();
   });
 });

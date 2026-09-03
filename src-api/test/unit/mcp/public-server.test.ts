@@ -6,7 +6,6 @@ import {
   isLoopbackDaemonUrl,
   resolveDaemonUrl,
 } from '@/shared/mcp/public-server/discover';
-import { ExternalMcpError } from '@/shared/mcp/public-server/errors';
 import { createPublicMcpServer } from '@/shared/mcp/public-server/server';
 
 describe('public MCP stdio adapter', () => {
@@ -27,7 +26,7 @@ describe('public MCP stdio adapter', () => {
     expect(defaultDaemonUrl()).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
   });
 
-  it('retries a failed read once and never retries a missing write mapping', async () => {
+  it('retries a failed read once', async () => {
     let reads = 0;
     const fetchImpl: typeof fetch = async (input) => {
       const url = String(input);
@@ -60,10 +59,6 @@ describe('public MCP stdio adapter', () => {
     };
     expect(reads).toBe(2);
     expect(listed.items).toEqual([]);
-
-    await expect(
-      client.call('neumar_create_project', {}),
-    ).rejects.toBeInstanceOf(ExternalMcpError);
   });
 
   it('maps fetch failures to DAEMON_UNREACHABLE', async () => {

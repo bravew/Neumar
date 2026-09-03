@@ -1,11 +1,11 @@
+import { SAFE_READ_TOOL_NAMES } from './catalog';
+import { refreshDaemonUrl } from './discover';
 import {
   ExternalMcpError,
   createErrorEnvelope,
   isRetryableReadError,
   type ExternalMcpErrorEnvelope,
 } from './errors';
-import { SAFE_READ_TOOL_NAMES } from './catalog';
-import { refreshDaemonUrl } from './discover';
 import { toolHttpMapping } from './handlers';
 import { readBridgeSecret } from './secret';
 
@@ -97,7 +97,8 @@ export function createDaemonClient(options: DaemonClientOptions): DaemonClient {
     }
 
     const path = mapping.path(args);
-    const query = mapping.method === 'GET' ? toQuery(args, mapping.pathKeys) : '';
+    const query =
+      mapping.method === 'GET' ? toQuery(args, mapping.pathKeys) : '';
     const url = `${currentUrl}${DAEMON_BASE_PATH}${path}${query}`;
     const headers: Record<string, string> = {
       Accept: 'application/json',
@@ -134,6 +135,10 @@ export function createDaemonClient(options: DaemonClientOptions): DaemonClient {
       return body;
     } catch (err) {
       if (err instanceof ExternalMcpError) {
+        if (isRetryableReadError(err.code) && !mapping.retryable) {
+          currentUrl = refreshDaemonUrl(currentUrl);
+          throw err;
+        }
         if (
           allowRetry &&
           mapping.retryable &&
@@ -154,6 +159,10 @@ export function createDaemonClient(options: DaemonClientOptions): DaemonClient {
           ? 'Timed out waiting for the Neumar app'
           : 'Neumar app is not running. Start Neumar and retry.',
       );
+      if (isRetryableReadError(wrapped.code) && !mapping.retryable) {
+        currentUrl = refreshDaemonUrl(currentUrl);
+        throw wrapped;
+      }
       if (
         allowRetry &&
         mapping.retryable &&

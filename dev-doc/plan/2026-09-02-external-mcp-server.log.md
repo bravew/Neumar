@@ -9,13 +9,13 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | Plan | `dev-doc/plan/2026-09-02-external-mcp-server.md` |
 | Goal | Implement all 7 checkpoints, review+commit each, then open a PR |
 | Branch | `feat/external-mcp-server` |
-| Status | In progress — checkpoint 4 |
+| Status | In progress — checkpoint 5 |
 
 ## Current position
 
-- Next work: Checkpoint 4 (safe mutation tools)
-- Last completed checkpoint: 3
-- Last commit: see git log (`feat(mcp): add stdio inbound MCP server and read tools`)
+- Next work: Checkpoint 5 (durable agent runs)
+- Last completed checkpoint: 4
+- Last commit: see git log (`feat(mcp): add safe inbound MCP mutation tools`)
 
 ## Checkpoint status
 
@@ -23,8 +23,8 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | --- | --- | --- | --- | --- |
 | 1 | Protocol spike and contract freeze | completed | `6495c2c` | See notes below |
 | 2 | Authenticated daemon facade | completed | `e6b023e` | See notes below |
-| 3 | Stdio server, read tools | completed | (this checkpoint) | See notes below |
-| 4 | Safe mutation tools | in_progress | | |
+| 3 | Stdio server, read tools | completed | `df25720` | See notes below |
+| 4 | Safe mutation tools | completed | (this checkpoint) | See notes below |
 | 5 | Durable agent runs | pending | | off by default |
 | 6 | Install info and Settings UX | pending | | |
 | 7 | Packaged smoke tests and runbook | pending | | |
@@ -112,6 +112,28 @@ pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/unit/mcp
 ```
 
 26/26 passed.
+
+## Checkpoint 4 notes
+
+Shipped:
+
+- Write HTTP mappings for create project/task, update task, add comment (`retryable: false`)
+- Stdio registers write tools disabled by default; `tools/list` and `tools/call` re-fetch `/status` so toggling writes in Settings does not require a host restart
+- Ambiguous write transport failures refresh discovery and return the original error without replay
+- Stdio create-project path covered once writes are enabled
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
+  test/unit/mcp/public-server-writes.test.ts \
+  test/integration/mcp-public-server.test.ts \
+  test/integration/api/mcp-server.test.ts \
+  test/unit/mcp/public-server.test.ts \
+  test/unit/mcp/public-server-contract.test.ts
+```
+
+30/30 passed. Review: wrapping SDK `tools/list`/`tools/call` via `_getRequestHandler` so flags take effect on the next list; stdio tests attach an RPC collector before initialize to avoid losing buffered stdout.
 
 ## Session notes
 
