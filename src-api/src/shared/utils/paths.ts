@@ -26,6 +26,8 @@ import {
  */
 
 export function getAppDataDir(): string {
+  const override = process.env.NEUMAR_APP_DATA_DIR?.trim();
+  if (override) return override;
   const home = os.homedir();
   return path.join(home, APP_DIR_NAME);
 }

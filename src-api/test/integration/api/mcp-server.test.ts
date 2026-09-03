@@ -60,6 +60,22 @@ describe('External MCP daemon facade', () => {
     expect(body).not.toHaveProperty('token');
   });
 
+  it('serves /install-info without a secret', async () => {
+    writeDaemonRecord('http://127.0.0.1:5126');
+    const res = await app().request('/mcp/server/install-info');
+    expect(res.status).toBe(200);
+    const body = await jsonOf(res);
+    expect(body.serverName).toBe('neumar');
+    expect(body.daemonUrl).toBe('http://127.0.0.1:5126');
+    expect(body.env).toEqual({
+      NEUMAR_APP_DATA_DIR: expect.any(String),
+    });
+    expect(typeof body.codexCommand).toBe('string');
+    expect(typeof body.claudeCodeCommand).toBe('string');
+    expect(JSON.stringify(body)).not.toContain(readBridgeSecret());
+    expect(body).not.toHaveProperty('secret');
+  });
+
   it('rejects command routes when the secret file is missing', async () => {
     unlinkSync(getBridgeSecretPath());
     const res = await app().request('/mcp/server/projects', {

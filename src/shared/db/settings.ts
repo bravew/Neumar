@@ -731,6 +731,11 @@ export interface Settings {
   mcpEnabled: boolean; // Enable MCP mounting during agent conversations
   mcpUserDirEnabled: boolean; // Enable loading MCP servers from user directory (claude config)
   mcpAppDirEnabled: boolean; // Enable loading MCP servers from app directory
+  /** Let other apps call Neumar over the inbound MCP server */
+  externalMcpEnabled: boolean;
+  externalMcpWritesEnabled: boolean;
+  externalMcpAgentRunsEnabled: boolean;
+  externalMcpResultLimit: number;
 
   // Skills settings
   skillsPath: string;
@@ -1441,6 +1446,10 @@ export const defaultSettings: Settings = {
   mcpEnabled: true, // Enable MCP by default
   mcpUserDirEnabled: true, // Enable user directory MCP by default
   mcpAppDirEnabled: true, // Enable app directory MCP by default
+  externalMcpEnabled: false,
+  externalMcpWritesEnabled: false,
+  externalMcpAgentRunsEnabled: false,
+  externalMcpResultLimit: 50,
   skillsPath: '', // Will be resolved to app data dir at init
   skillsEnabled: true, // Enable skills by default
   skillsUserDirEnabled: true, // Enable user directory skills by default
@@ -1557,6 +1566,10 @@ const BACKEND_SYNCED_KEYS: (keyof Settings)[] = [
   'mcpEnabled',
   'mcpUserDirEnabled',
   'mcpAppDirEnabled',
+  'externalMcpEnabled',
+  'externalMcpWritesEnabled',
+  'externalMcpAgentRunsEnabled',
+  'externalMcpResultLimit',
   'skillsEnabled',
   'skillsUserDirEnabled',
   'skillsAppDirEnabled',

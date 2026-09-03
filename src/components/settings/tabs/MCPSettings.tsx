@@ -18,6 +18,7 @@ import type {
 } from '../types';
 import { ConfigDialog } from './mcp/ConfigDialog';
 import { initialConfigDialog, MCP_PRESETS } from './mcp/constants';
+import { ExternalMcpServerPanel } from './mcp/ExternalMcpServerPanel';
 import { ImportDialog } from './mcp/ImportDialog';
 import { MCPCard } from './mcp/MCPCard';
 import { McpJsonHelper } from './mcp/McpJsonHelper';
@@ -745,6 +746,15 @@ export function MCPSettings({ settings, onSettingsChange }: SettingsTabProps) {
           ) : (
             /* Settings Tab Content */
             <div className="space-y-4 p-6">
+              <ExternalMcpServerPanel
+                settings={settings}
+                onSettingsChange={onSettingsChange}
+              />
+
+              <h3 className="text-foreground pt-2 text-sm font-medium">
+                {t.settings.externalMcpOutboundHeading}
+              </h3>
+
               <McpJsonHelper onApply={handleApplyHelperServer} />
 
               {/* Global Enable Switch */}

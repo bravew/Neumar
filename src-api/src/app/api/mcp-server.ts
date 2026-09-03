@@ -7,6 +7,7 @@ import {
   createErrorEnvelope,
   httpStatusForError,
 } from '@/shared/mcp/public-server/errors';
+import { getExternalMcpInstallInfo } from '@/shared/mcp/public-server/install-info';
 import {
   addTaskCommentInputSchema,
   createProjectInputSchema,
@@ -121,6 +122,10 @@ mcpServerRoutes.get('/status', (c) => {
     daemonUrl: readDaemonRecord()?.url ?? null,
     flags,
   });
+});
+
+mcpServerRoutes.get('/install-info', (c) => {
+  return c.json(getExternalMcpInstallInfo());
 });
 
 const command = new Hono();

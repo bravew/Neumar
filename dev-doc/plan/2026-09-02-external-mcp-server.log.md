@@ -9,13 +9,13 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | Plan | `dev-doc/plan/2026-09-02-external-mcp-server.md` |
 | Goal | Implement all 7 checkpoints, review+commit each, then open a PR |
 | Branch | `feat/external-mcp-server` |
-| Status | In progress — checkpoint 6 |
+| Status | In progress — checkpoint 7 |
 
 ## Current position
 
-- Next work: Checkpoint 6 (install info and Settings UX)
-- Last completed checkpoint: 5
-- Last commit: see git log (`feat(mcp): add durable inbound MCP agent runs`)
+- Next work: Checkpoint 7 (packaged smoke tests and runbook)
+- Last completed checkpoint: 6
+- Last commit: see git log (`feat(mcp): add inbound MCP install info and Settings UX`)
 
 ## Checkpoint status
 
@@ -25,8 +25,8 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | 2 | Authenticated daemon facade | completed | `e6b023e` | See notes below |
 | 3 | Stdio server, read tools | completed | `df25720` | See notes below |
 | 4 | Safe mutation tools | completed | `943849c` | See notes below |
-| 5 | Durable agent runs | completed | (this checkpoint) | off by default |
-| 6 | Install info and Settings UX | pending | | |
+| 5 | Durable agent runs | completed | `009979c` | off by default |
+| 6 | Install info and Settings UX | completed | (this checkpoint) | copyable Codex/Claude commands; flags default off |
 | 7 | Packaged smoke tests and runbook | pending | | |
 | PR | Pull request | pending | | |
 
@@ -156,6 +156,28 @@ pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
 ```
 
 41 related tests passed in the broader MCP suite. Flag remains default-off.
+
+## Checkpoint 6 notes
+
+Shipped:
+
+- `GET /mcp/server/install-info` (no secret) with 5s cache, `binaryExists`/`buildHint`, Windows quoting + `.exe`
+- `NEUMAR_APP_DATA_DIR` override in `getAppDataDir()`; copyable Codex/Claude add commands include `--env`
+- Settings inbound panel (`ExternalMcpServerPanel`) with enable/writes/runs switches, outbound heading kept distinct
+- Frontend mirrors `externalMcpEnabled`, `externalMcpWritesEnabled`, `externalMcpAgentRunsEnabled`, `externalMcpResultLimit` (default 50)
+- One-click spawn deferred; `installCliPayload` is ready if we add it later
+
+Verification:
+
+```bash
+node scripts/check-locale-parity.mjs settings.ts
+pnpm vitest run src/__tests__/ExternalMcpServerPanel.test.tsx src/__tests__/external-mcp-install.test.ts
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
+  test/unit/mcp/install-info.test.ts \
+  test/integration/api/mcp-server.test.ts
+```
+
+2 frontend + 18 API tests passed. Panel is 224 lines. MCPSettings stays under its allowlist (829/842). Review: copy timeout cleanup; Windows path quoting in the Codex command; install-info never returns the secret.
 
 ## Session notes
 

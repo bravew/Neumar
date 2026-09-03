@@ -757,6 +757,29 @@ export default {
   mcpDescription: 'Model Context Protocol सर्वर कॉन्फ़िगर करें',
   mcpEnabled: 'MCP सक्षम करें',
   mcpEnabledDescription: 'एजेंट बातचीत के दौरान MCP सर्वर कनेक्ट करें',
+  externalMcpHeading: 'इनबाउंड MCP सर्वर',
+  externalMcpIntro:
+    'इस कंप्यूटर की अन्य ऐप्स (Codex, Claude Code) को Neumar कॉल करने दें। यह Neumar द्वारा अन्य MCP सर्वर कॉल करने जैसा नहीं है।',
+  externalMcpEnable: 'अन्य ऐप्स को Neumar कॉल करने दें',
+  externalMcpEnableHelp:
+    'स्थानीय MCP होस्ट को लाइब्रेरी प्रोजेक्ट और कार्य दिखाएँ। डिफ़ॉल्ट रूप से बंद।',
+  externalMcpWrites: 'लेखन अनुमति दें',
+  externalMcpWritesHelp:
+    'होस्ट प्रोजेक्ट, कार्य और टिप्पणियाँ बना सकते हैं। होस्ट राइट अनुमोदन आवश्यक है।',
+  externalMcpRuns: 'एजेंट रन अनुमति दें',
+  externalMcpRunsHelp:
+    'होस्ट Neumar एजेंट रन शुरू, देख और रद्द कर सकते हैं। आपके कॉन्फ़िगर प्रदाता और खर्च का उपयोग होता है।',
+  externalMcpRunningHint: 'होस्ट इन टूल को कॉल करें तो Neumar चलता रहना चाहिए।',
+  externalMcpCopyCodexAdd: 'Codex जोड़ने का कमांड कॉपी करें',
+  externalMcpCopyClaudeAdd: 'Claude Code जोड़ने का कमांड कॉपी करें',
+  externalMcpCopyCodexRemove: 'Codex हटाने का कमांड कॉपी करें',
+  externalMcpCopyClaudeRemove: 'Claude Code हटाने का कमांड कॉपी करें',
+  externalMcpCopied: 'कॉपी हो गया',
+  externalMcpBinaryMissing: 'लॉन्च बाइनरी नहीं मिली',
+  externalMcpCodexApprovalHint:
+    'म्यूटेशन टूल के लिए Codex writes अनुमोदन सुझाया गया है।',
+  externalMcpClaudeScopeHint: 'Claude Code उपयोगकर्ता स्कोप पर इंस्टॉल होता है।',
+  externalMcpOutboundHeading: 'आउटबाउंड MCP सर्वर',
   mcpConfigPath: 'कॉन्फ़िग फ़ाइल पथ',
   mcpConfigPathDescription: 'mcp.json कॉन्फ़िगरेशन फ़ाइल का पथ',
   mcpServers: 'सर्वर',
