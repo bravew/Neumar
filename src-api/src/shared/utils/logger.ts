@@ -23,8 +23,10 @@ import { APP_DATA_DIR, APP_SLUG } from '@/config/branding';
 
 const LOG_DIR = join(homedir(), APP_DATA_DIR, 'logs');
 const MAX_RETENTION_DAYS = 14;
-const CONSOLE_ENABLED =
-  process.env.DEBUG === '1' || process.env.NODE_ENV !== 'production';
+function isConsoleEnabled(): boolean {
+  if (process.env.MCP_STDIO === '1') return false;
+  return process.env.DEBUG === '1' || process.env.NODE_ENV !== 'production';
+}
 
 /**
  * ISO-8601 timestamp in the local timezone with UTC offset, e.g.
@@ -380,7 +382,7 @@ export function createLogger(prefix: string) {
 
   return {
     info: (message: string, data?: unknown) => {
-      if (CONSOLE_ENABLED) {
+      if (isConsoleEnabled()) {
         const ts = localTimestamp();
         const safeData = data !== undefined ? redactValue(data) : undefined;
         console.log(`[${ts}] [${prefix}] ${message}`, safeData ?? '');
@@ -395,7 +397,7 @@ export function createLogger(prefix: string) {
       writeLog(category, 'ERROR', prefix, message, data);
     },
     warn: (message: string, data?: unknown) => {
-      if (CONSOLE_ENABLED) {
+      if (isConsoleEnabled()) {
         const ts = localTimestamp();
         const safeData = data !== undefined ? redactValue(data) : undefined;
         console.warn(`[${ts}] [${prefix}] ${message}`, safeData ?? '');

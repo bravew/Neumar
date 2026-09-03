@@ -9,22 +9,22 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | Plan | `dev-doc/plan/2026-09-02-external-mcp-server.md` |
 | Goal | Implement all 7 checkpoints, review+commit each, then open a PR |
 | Branch | `feat/external-mcp-server` |
-| Status | In progress — checkpoint 3 |
+| Status | In progress — checkpoint 4 |
 
 ## Current position
 
-- Next work: Checkpoint 3 (stdio server, read tools, and resources)
-- Last completed checkpoint: 2
-- Last commit: see git log on this branch (`feat(mcp): add authenticated inbound MCP daemon facade`)
+- Next work: Checkpoint 4 (safe mutation tools)
+- Last completed checkpoint: 3
+- Last commit: see git log (`feat(mcp): add stdio inbound MCP server and read tools`)
 
 ## Checkpoint status
 
 | CP | Name | Status | Commit | Notes |
 | --- | --- | --- | --- | --- |
 | 1 | Protocol spike and contract freeze | completed | `6495c2c` | See notes below |
-| 2 | Authenticated daemon facade | completed | (this checkpoint) | See notes below |
-| 3 | Stdio server, read tools | in_progress | | argv dispatch + read tools |
-| 4 | Safe mutation tools | pending | | |
+| 2 | Authenticated daemon facade | completed | `e6b023e` | See notes below |
+| 3 | Stdio server, read tools | completed | (this checkpoint) | See notes below |
+| 4 | Safe mutation tools | in_progress | | |
 | 5 | Durable agent runs | pending | | off by default |
 | 6 | Install info and Settings UX | pending | | |
 | 7 | Packaged smoke tests and runbook | pending | | |
@@ -94,6 +94,24 @@ pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/integrat
 52/52 passed. Review fixes: transactional idempotency, output schema parse, no auto-create secret on request, no internal error leakage, `matches[0]` undefined guard.
 
 `src-api/src/index.ts` is still owned by checkpoint 3 (argv + `app.route('/mcp/server', mcpServerRoutes)` + `ensureBridgeSecret` / `writeDaemonRecord` on listen).
+
+## Checkpoint 3 notes
+
+Shipped:
+
+- `mcp server` argv dispatch before `start()`, sibling of `mcp video-server`; `--help` on stderr via logger.error
+- `app.route('/mcp/server', mcpServerRoutes)` plus `ensureBridgeSecret` / `writeDaemonRecord` on listen
+- Stdio adapter: discover (loopback URL only), daemon client (one read retry, no write mapping retry), read catalog, idle-exit
+- `MCP_STDIO=1` live-check in `createLogger` so `info`/`warn` never write stdout
+- Resources deferred (hosts did not require them in checkpoint 1)
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/unit/mcp/public-server.test.ts test/integration/mcp-public-server.test.ts test/unit/mcp/public-server-contract.test.ts test/integration/api/mcp-server.test.ts
+```
+
+26/26 passed.
 
 ## Session notes
 

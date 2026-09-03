@@ -27,6 +27,7 @@ import {
   linkPreviewRoutes,
   mcpRoutes,
   mcpRuntimeRoutes,
+  mcpServerRoutes,
   memoryRoutes,
   observabilityRoutes,
   petsRoutes,
@@ -95,6 +96,9 @@ import {
   startPathMappingReverificationScheduler,
   stopPathMappingReverificationScheduler,
 } from '@/shared/integrations/cloud-storage/personal-media/lan-bridge';
+import { parseMcpArgv } from '@/shared/mcp/public-server/argv';
+import { ensureBridgeSecret } from '@/shared/mcp/public-server/secret';
+import { startPublicMcpServer } from '@/shared/mcp/public-server/server';
 import { startVideoMcpServer } from '@/shared/mcp/video-server/server';
 import { getMemoryMonitor } from '@/shared/monitoring/memory-monitor';
 import {
@@ -112,6 +116,7 @@ import {
   startDesignRoutineScheduler,
   stopDesignRoutineScheduler,
 } from '@/shared/services/design-mode/routines';
+import { writeDaemonRecord } from '@/shared/services/external-mcp/daemon-record';
 import { startPolling, stopPolling } from '@/shared/services/linear';
 import { loadLinearConfig } from '@/shared/services/linear-config';
 import { initializeMemory, shutdownMemory } from '@/shared/services/memory';
@@ -220,6 +225,7 @@ app.route('/files', filesRoutes);
 app.route('/mcp', mcpRoutes);
 app.route('/mcp/runtime', mcpRuntimeRoutes);
 app.route('/mcp/bridge', mcpBridgeRoutes);
+app.route('/mcp/server', mcpServerRoutes);
 app.route('/plugins', pluginsRoutes);
 app.route('/pets', petsRoutes);
 app.route('/observability', observabilityRoutes);
@@ -488,6 +494,9 @@ async function start() {
     port,
   });
 
+  ensureBridgeSecret();
+  writeDaemonRecord(`http://127.0.0.1:${port}`);
+
   // Inject WebSocket support into the HTTP server
   getInjectWebSocket()(server);
 
@@ -624,9 +633,28 @@ async function start() {
   appLogger.info(`${APP_DISPLAY_NAME} API fully initialized`);
 }
 
-if (process.argv.slice(2).join(' ') === 'mcp video-server') {
+const MCP_USAGE =
+  'Usage: neumar-api mcp server [--daemon-url http://127.0.0.1:<port>]\n       neumar-api mcp video-server';
+
+const parsedMcp = parseMcpArgv(process.argv.slice(2));
+if (parsedMcp.kind === 'error') {
+  appLogger.error(parsedMcp.message);
+  process.exit(1);
+} else if (parsedMcp.kind === 'video-server') {
   startVideoMcpServer().catch((error) => {
     appLogger.fatal('Failed to start video MCP server:', error);
+    process.exit(1);
+  });
+} else if (parsedMcp.kind === 'server') {
+  if (parsedMcp.help) {
+    appLogger.error(MCP_USAGE);
+    process.exit(0);
+  }
+  startPublicMcpServer({ daemonUrl: parsedMcp.daemonUrl }).catch((error) => {
+    appLogger.fatal(
+      error instanceof Error ? error.message : 'Failed to start MCP server',
+      error,
+    );
     process.exit(1);
   });
 } else {
