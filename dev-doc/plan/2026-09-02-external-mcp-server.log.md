@@ -9,21 +9,21 @@ Update this file at the start and end of every checkpoint so an interrupted sess
 | Plan | `dev-doc/plan/2026-09-02-external-mcp-server.md` |
 | Goal | Implement all 7 checkpoints, review+commit each, then open a PR |
 | Branch | `feat/external-mcp-server` |
-| Status | In progress — checkpoint 2 |
+| Status | In progress — checkpoint 3 |
 
 ## Current position
 
-- Next work: Checkpoint 2 (authenticated daemon facade and policy services)
-- Last completed checkpoint: 1
-- Last commit: pending at time of this update (see git log on this branch)
+- Next work: Checkpoint 3 (stdio server, read tools, and resources)
+- Last completed checkpoint: 2
+- Last commit: see git log on this branch (`feat(mcp): add authenticated inbound MCP daemon facade`)
 
 ## Checkpoint status
 
 | CP | Name | Status | Commit | Notes |
 | --- | --- | --- | --- | --- |
-| 1 | Protocol spike and contract freeze | completed | (this checkpoint) | See notes below |
-| 2 | Authenticated daemon facade | pending | | |
-| 3 | Stdio server, read tools | pending | | |
+| 1 | Protocol spike and contract freeze | completed | `6495c2c` | See notes below |
+| 2 | Authenticated daemon facade | completed | (this checkpoint) | See notes below |
+| 3 | Stdio server, read tools | in_progress | | argv dispatch + read tools |
 | 4 | Safe mutation tools | pending | | |
 | 5 | Durable agent runs | pending | | off by default |
 | 6 | Install info and Settings UX | pending | | |
@@ -70,8 +70,33 @@ Bundle: v2 pulls `@modelcontextprotocol/core`. Full `pkg` size delta is checkpoi
 
 Argv: `mcp video-server` remains an exact two-token match. Extra tokens error instead of falling through to the HTTP daemon.
 
+## Checkpoint 2 notes
+
+Shipped:
+
+- Migration `055_external_mcp.ts` version `107` — `external_mcp_idempotency` ledger
+- `{appDataDir}/mcp-server.secret` (0600) + loopback bearer middleware (fail closed if missing)
+- Feature/write/run gates default off (`externalMcp*`); command routes always require the secret
+- `GET /mcp/server/status` has no secret and never returns one
+- Bounded project/task reads wrapping existing ops; omit `workspace` / `work_dir`
+- Atomic create project, create session+task, allowlisted update, agent comment
+- Idempotency unique `(surface, request_id)` with payload digest; mismatch → `CONFLICT`
+- `writeDaemonRecord` / `readDaemonRecord` for checkpoint 3 listen hook
+- Run routes stubbed as `RUN_DISABLED` until checkpoint 5
+- Route module exported; **not** mounted in `src-api/src/index.ts` yet (checkpoint 3)
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/integration/api/mcp-server.test.ts test/unit/mcp/public-server-contract.test.ts test/integration/api/db.test.ts
+```
+
+52/52 passed. Review fixes: transactional idempotency, output schema parse, no auto-create secret on request, no internal error leakage, `matches[0]` undefined guard.
+
+`src-api/src/index.ts` is still owned by checkpoint 3 (argv + `app.route('/mcp/server', mcpServerRoutes)` + `ensureBridgeSecret` / `writeDaemonRecord` on listen).
+
 ## Session notes
 
 - Do not push unless explicitly asked except when opening the PR.
-- Next SQLite migration is filename `055_external_mcp.ts`, version `107`.
 - Vitest root is `src-api/`; pass `test/unit/...` not `src-api/test/...`.
+- Codacy MCP timed out on single-file analyze; directory analyze of `external-mcp/` returned no issues.

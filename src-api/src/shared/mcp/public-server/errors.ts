@@ -48,3 +48,44 @@ export function createErrorEnvelope(
   if (requestId) envelope.requestId = requestId;
   return envelope;
 }
+
+export function httpStatusForError(code: ExternalMcpErrorCode): number {
+  switch (code) {
+    case 'UNAUTHORIZED':
+      return 401;
+    case 'FEATURE_DISABLED':
+    case 'WRITE_DISABLED':
+    case 'RUN_DISABLED':
+      return 403;
+    case 'NOT_FOUND':
+      return 404;
+    case 'AMBIGUOUS_RESULT':
+    case 'CONFLICT':
+      return 409;
+    case 'PAYLOAD_TOO_LARGE':
+      return 413;
+    case 'TIMEOUT':
+      return 504;
+    case 'DAEMON_UNREACHABLE':
+      return 502;
+    case 'VALIDATION_FAILED':
+    default:
+      return 400;
+  }
+}
+
+export class ExternalMcpError extends Error {
+  readonly code: ExternalMcpErrorCode;
+  readonly requestId?: string;
+
+  constructor(code: ExternalMcpErrorCode, message: string, requestId?: string) {
+    super(message);
+    this.name = 'ExternalMcpError';
+    this.code = code;
+    this.requestId = requestId;
+  }
+
+  toEnvelope(): ExternalMcpErrorEnvelope {
+    return createErrorEnvelope(this.code, this.message, this.requestId);
+  }
+}
