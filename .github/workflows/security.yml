@@ -55,7 +55,8 @@ concurrency:
 
 jobs:
   # ─── npm Audit ───────────────────────────────────────────────
-  # Checks all workspace packages for known CVEs via pnpm audit.
+  # Checks production dependencies in the shared workspace lockfile. A second
+  # audit from src-api would submit the same dependency graph to the registry.
   audit:
     name: npm Audit
     runs-on: ubuntu-latest
@@ -79,11 +80,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Audit root dependencies
-        run: pnpm audit --prod --audit-level=high
-
-      - name: Audit API dependencies
-        working-directory: src-api
+      - name: Audit workspace dependencies
         run: pnpm audit --prod --audit-level=high
 
   # ─── Claude Security Review ──────────────────────────────────
