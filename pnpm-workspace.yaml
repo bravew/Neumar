@@ -89,10 +89,13 @@ overrides:
   # 2026-08-08: node-tar critical DoS (GHSA-23hp-3jrh-7fpw) + 3 more advisories
   # in @yao-pkg/pkg's bundled tar; pin to the patched line until pkg vendors it.
   '@yao-pkg/pkg>tar': '^7.5.21'
-  # 2026-08-20: GHSA-7p8r-x3mc-p8w7 + GHSA-4c8g-83qw-93j6 (fast-uri host
-  # confusion via backslash authority / failed IDN canonicalization) —
+  # 2026-09-03: GHSA-5jgf-p345-68v8 and related host-confusion / SSRF fixes.
+  # Keep the transitive v3 line used by ajv on the first patched release.
   # transitive via ajv/ajv-formats under @modelcontextprotocol/sdk.
-  fast-uri: '^3.1.5'
+  fast-uri: '^3.1.6'
+  # 2026-09-03: GHSA-c83g-rgw3-j3cx and GHSA-73wf-gq98-2v4g. Remotion's
+  # webpack chain accepts current browserslist 4.x, so force the patched line.
+  browserslist: '^4.28.7'
   # GHSA-mwp4-54f8-5fhr (ip-address leading-zero octet SSRF bypass) —
   # transitive via express-rate-limit under @modelcontextprotocol/sdk.
   ip-address: '^10.3.1'
