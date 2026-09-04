@@ -116,14 +116,17 @@ Verify the child-process smoke (uses tsx, not a stale pkg binary):
 pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
   test/unit/mcp/stdio-entry.test.ts \
   test/unit/mcp/pagination.test.ts
-pnpm test:e2e -- -t "external MCP"
+pnpm vitest run --config src-api/vitest.e2e.config.ts \
+  src-api/test/e2e/external-mcp-server.e2e.test.ts
 ```
 
 After `pnpm build:api:binary`, smoke the packaged sidecar without using the
 operator's host config:
 
 ```bash
-NEUMAR_MCP_SIDECAR_SMOKE=1 pnpm test:e2e -- -t "external MCP"
+NEUMAR_MCP_SIDECAR_SMOKE=1 pnpm vitest run \
+  --config src-api/vitest.e2e.config.ts \
+  src-api/test/e2e/external-mcp-server.e2e.test.ts
 ```
 
 Host matrix (manual after the child-process smoke is green): isolated

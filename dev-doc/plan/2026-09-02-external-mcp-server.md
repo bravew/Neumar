@@ -695,7 +695,8 @@ pnpm test:fast
 pnpm validate
 pnpm build:api
 pnpm build:api:binary
-pnpm test:e2e -- -t "external MCP"
+pnpm vitest run --config src-api/vitest.e2e.config.ts \
+  src-api/test/e2e/external-mcp-server.e2e.test.ts
 ```
 
 Reserve `pnpm test:all` for the pre-release sweep in `AGENTS.md`.
