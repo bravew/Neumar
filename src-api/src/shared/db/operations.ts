@@ -219,17 +219,28 @@ export function getAllTasks(filter?: {
   }));
 }
 
-export function searchTasks(query: string, limit = 50): Task[] {
+export function searchTasks(
+  query: string,
+  limit = 50,
+  options?: { projectId?: string },
+): Task[] {
   const db = getDatabase();
   const escaped = query
     .replace(/\\/g, '\\\\')
     .replace(/%/g, '\\%')
     .replace(/_/g, '\\_');
   const pattern = `%${escaped}%`;
+  const filters = ["(title LIKE ? ESCAPE '\\' OR prompt LIKE ? ESCAPE '\\')"];
+  const params: Array<string | number> = [pattern, pattern];
+  if (options?.projectId) {
+    filters.push('project_id = ?');
+    params.push(options.projectId);
+  }
+  params.push(limit);
   const stmt = db.prepare(
-    "SELECT * FROM tasks WHERE title LIKE ? ESCAPE '\\' OR prompt LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT ?",
+    `SELECT * FROM tasks WHERE ${filters.join(' AND ')} ORDER BY updated_at DESC LIMIT ?`,
   );
-  const tasks = stmt.all(pattern, pattern, limit) as Task[];
+  const tasks = stmt.all(...params) as Task[];
 
   return tasks.map((task) => ({
     ...task,

@@ -768,6 +768,30 @@ export default {
   mcpDescription: 'Configure Model Context Protocol servers',
   mcpEnabled: 'Enable MCP',
   mcpEnabledDescription: 'Connect MCP servers during agent conversations',
+  externalMcpHeading: 'Inbound MCP server',
+  externalMcpIntro:
+    'Let other apps on this computer (Codex, Claude Code) call Neumar. This is not the same as Neumar calling other MCP servers.',
+  externalMcpEnable: 'Allow other apps to call Neumar',
+  externalMcpEnableHelp:
+    'Expose library projects and tasks to local MCP hosts. Off by default.',
+  externalMcpWrites: 'Allow writes',
+  externalMcpWritesHelp:
+    'Hosts may create projects, tasks, and comments. Require host write approval.',
+  externalMcpRuns: 'Allow agent runs',
+  externalMcpRunsHelp:
+    'Hosts may start, inspect, and cancel Neumar agent runs. Uses your configured providers and spend.',
+  externalMcpRunningHint:
+    'Neumar must stay running while hosts call these tools.',
+  externalMcpCopyCodexAdd: 'Copy Codex add command',
+  externalMcpCopyClaudeAdd: 'Copy Claude Code add command',
+  externalMcpCopyCodexRemove: 'Copy Codex remove command',
+  externalMcpCopyClaudeRemove: 'Copy Claude Code remove command',
+  externalMcpCopied: 'Copied',
+  externalMcpBinaryMissing: 'Launch binary not found',
+  externalMcpCodexApprovalHint:
+    'Recommend Codex writes approval for mutation tools.',
+  externalMcpClaudeScopeHint: 'Claude Code is installed at user scope.',
+  externalMcpOutboundHeading: 'Outbound MCP servers',
   mcpConfigPath: 'Config File Path',
   mcpConfigPathDescription: 'Path to the mcp.json configuration file',
   mcpServers: 'Servers',

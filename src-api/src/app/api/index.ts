@@ -11,6 +11,7 @@ export { connectorsRoutes } from './connectors.js';
 export { cloudStorageRoutes } from './cloud-storage.js';
 export { filesRoutes } from './files.js';
 export { mcpRoutes } from './mcp.js';
+export { mcpServerRoutes } from './mcp-server.js';
 export { linearRoutes } from './linear.js';
 export { linkPreviewRoutes } from './link-preview.js';
 export { slackRoutes } from './slack.js';

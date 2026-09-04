@@ -1,0 +1,208 @@
+# External MCP Server Implementation Log
+
+Resume file for `dev-doc/plan/2026-09-02-external-mcp-server.md`.
+Update this file at the start and end of every checkpoint so an interrupted session can continue.
+
+| Field | Value |
+| --- | --- |
+| Started | 2026-09-03 |
+| Plan | `dev-doc/plan/2026-09-02-external-mcp-server.md` |
+| Goal | Implement all 7 checkpoints, review+commit each, then open a PR |
+| Branch | `feat/external-mcp-server` |
+| Status | In progress — opening PR |
+
+## Current position
+
+- Next work: Open the pull request
+- Last completed checkpoint: 7
+- Last commit: see git log (`feat(mcp): add inbound MCP smoke tests and runbook`)
+
+## Checkpoint status
+
+| CP | Name | Status | Commit | Notes |
+| --- | --- | --- | --- | --- |
+| 1 | Protocol spike and contract freeze | completed | `6495c2c` | See notes below |
+| 2 | Authenticated daemon facade | completed | `e6b023e` | See notes below |
+| 3 | Stdio server, read tools | completed | `df25720` | See notes below |
+| 4 | Safe mutation tools | completed | `943849c` | See notes below |
+| 5 | Durable agent runs | completed | `009979c` | off by default |
+| 6 | Install info and Settings UX | completed | `08823d4` | copyable Codex/Claude commands; flags default off |
+| 7 | Packaged smoke tests and runbook | completed | (this checkpoint) | thin stdio entry; runbook |
+| PR | Pull request | pending | | |
+
+## Resume instructions
+
+1. Read this log and the plan.
+2. Skip completed checkpoints.
+3. If a checkpoint is `in_progress`, inspect the working tree and tests before continuing.
+4. After each checkpoint: review, fix valid issues, commit, update this log, then advance.
+
+## Checkpoint 1 notes
+
+Shipped:
+
+- `@modelcontextprotocol/server@^2.0.0` beside `@modelcontextprotocol/sdk@^1.30.0`
+- Frozen catalog, Zod schemas, error codes, setting keys, argv parser, instructions
+- Health-only `createHealthMcpServer` using SDK v2 `McpServer` + `serveStdio` (`legacy: 'serve'`)
+- Contract tests including a real stdio JSON-RPC initialize / tools/list / tools/call of `neumar_health`
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/unit/mcp/public-server-contract.test.ts
+```
+
+7/7 passed. `pnpm --filter neumar-api typecheck` still reports two pre-existing errors in `src/shared/video/pipeline.ts` (not touched). Public-server files typecheck clean.
+
+Host matrix (CLI versions on this machine):
+
+- Codex CLI `0.152.1`
+- Claude Code `2.1.259`
+- Automated handshake used protocol `2025-03-26` initialize (legacy serve). Instructions, single health tool, structuredContent + JSON text all returned.
+- Isolated `codex mcp add` / `claude mcp add` against a live child is deferred to checkpoint 7 so we do not write the user's real host config.
+
+Review fixes in this checkpoint:
+
+- `neumar_get_agent_run` is gated by `agentRunsEnabled` (`side: 'run'`) rather than always listed as a read.
+- Safe-retry set is `readOnlyHint`, so get-run remains retryable once enabled.
+
+Bundle: v2 pulls `@modelcontextprotocol/core`. Full `pkg` size delta is checkpoint 7.
+
+Argv: `mcp video-server` remains an exact two-token match. Extra tokens error instead of falling through to the HTTP daemon.
+
+## Checkpoint 2 notes
+
+Shipped:
+
+- Migration `055_external_mcp.ts` version `107` — `external_mcp_idempotency` ledger
+- `{appDataDir}/mcp-server.secret` (0600) + loopback bearer middleware (fail closed if missing)
+- Feature/write/run gates default off (`externalMcp*`); command routes always require the secret
+- `GET /mcp/server/status` has no secret and never returns one
+- Bounded project/task reads wrapping existing ops; omit `workspace` / `work_dir`
+- Atomic create project, create session+task, allowlisted update, agent comment
+- Idempotency unique `(surface, request_id)` with payload digest; mismatch → `CONFLICT`
+- `writeDaemonRecord` / `readDaemonRecord` for checkpoint 3 listen hook
+- Run routes stubbed as `RUN_DISABLED` until checkpoint 5
+- Route module exported; **not** mounted in `src-api/src/index.ts` yet (checkpoint 3)
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/integration/api/mcp-server.test.ts test/unit/mcp/public-server-contract.test.ts test/integration/api/db.test.ts
+```
+
+52/52 passed. Review fixes: transactional idempotency, output schema parse, no auto-create secret on request, no internal error leakage, `matches[0]` undefined guard.
+
+`src-api/src/index.ts` is still owned by checkpoint 3 (argv + `app.route('/mcp/server', mcpServerRoutes)` + `ensureBridgeSecret` / `writeDaemonRecord` on listen).
+
+## Checkpoint 3 notes
+
+Shipped:
+
+- `mcp server` argv dispatch before `start()`, sibling of `mcp video-server`; `--help` on stderr via logger.error
+- `app.route('/mcp/server', mcpServerRoutes)` plus `ensureBridgeSecret` / `writeDaemonRecord` on listen
+- Stdio adapter: discover (loopback URL only), daemon client (one read retry, no write mapping retry), read catalog, idle-exit
+- `MCP_STDIO=1` live-check in `createLogger` so `info`/`warn` never write stdout
+- Resources deferred (hosts did not require them in checkpoint 1)
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/unit/mcp/public-server.test.ts test/integration/mcp-public-server.test.ts test/unit/mcp/public-server-contract.test.ts test/integration/api/mcp-server.test.ts
+```
+
+26/26 passed.
+
+## Checkpoint 4 notes
+
+Shipped:
+
+- Write HTTP mappings for create project/task, update task, add comment (`retryable: false`)
+- Stdio registers write tools disabled by default; `tools/list` and `tools/call` re-fetch `/status` so toggling writes in Settings does not require a host restart
+- Ambiguous write transport failures refresh discovery and return the original error without replay
+- Stdio create-project path covered once writes are enabled
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
+  test/unit/mcp/public-server-writes.test.ts \
+  test/integration/mcp-public-server.test.ts \
+  test/integration/api/mcp-server.test.ts \
+  test/unit/mcp/public-server.test.ts \
+  test/unit/mcp/public-server-contract.test.ts
+```
+
+30/30 passed. Review: wrapping SDK `tools/list`/`tools/call` via `_getRequestHandler` so flags take effect on the next list; stdio tests attach an RPC collector before initialize to avoid losing buffered stdout.
+
+## Checkpoint 5 notes
+
+Shipped:
+
+- Extracted `prepareTaskRun` so POST /agent SSE and inbound MCP share the same durable reservation
+- `POST /mcp/server/runs` returns immediately with `{ runId, taskId, status }` (HTTP 202); no SSE hold-open
+- Get-run surfaces `awaitingInput` from pending questions / run-tree outcomes; cancel is cooperative and idempotent
+- Agent-run tools stay off until `externalMcpAgentRunsEnabled`; stdio lists them only when that flag is on
+- Background launch is registered from the agent route module so facade tests persist without calling a provider
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
+  test/integration/mcp-agent-runs.test.ts \
+  test/unit/core/agent/prepare-task-run.test.ts \
+  test/unit/mcp/public-server-writes.test.ts \
+  test/integration/mcp-public-server.test.ts
+```
+
+41 related tests passed in the broader MCP suite. Flag remains default-off.
+
+## Checkpoint 6 notes
+
+Shipped:
+
+- `GET /mcp/server/install-info` (no secret) with 5s cache, `binaryExists`/`buildHint`, Windows quoting + `.exe`
+- `NEUMAR_APP_DATA_DIR` override in `getAppDataDir()`; copyable Codex/Claude add commands include `--env`
+- Settings inbound panel (`ExternalMcpServerPanel`) with enable/writes/runs switches, outbound heading kept distinct
+- Frontend mirrors `externalMcpEnabled`, `externalMcpWritesEnabled`, `externalMcpAgentRunsEnabled`, `externalMcpResultLimit` (default 50)
+- One-click spawn deferred; `installCliPayload` is ready if we add it later
+
+Verification:
+
+```bash
+node scripts/check-locale-parity.mjs settings.ts
+pnpm vitest run src/__tests__/ExternalMcpServerPanel.test.tsx src/__tests__/external-mcp-install.test.ts
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts \
+  test/unit/mcp/install-info.test.ts \
+  test/integration/api/mcp-server.test.ts
+```
+
+2 frontend + 18 API tests passed. Panel is 224 lines. MCPSettings stays under its allowlist (829/842). Review: copy timeout cleanup; Windows path quoting in the Codex command; install-info never returns the secret.
+
+## Checkpoint 7 notes
+
+Shipped:
+
+- Thin process entry: `src/index.ts` parses `mcp` argv, sets `MCP_STDIO=1`, then dynamic-imports `mcp-cli` or `http-daemon` so the stdio child never loads SQLite/sharp
+- Child-process e2e (`test/e2e/external-mcp-server.e2e.test.ts`): JSON-RPC stdout purity, feature/writes gates, daemon unreachable without rediscovery, non-loopback URL, stdin EOF, idle exit, missing secret, malformed stdin
+- Pagination `PAYLOAD_TOO_LARGE` unit tests; `--help` / non-loopback stdio-entry tests
+- Runbook `dev-doc/runbooks/external-mcp-server.md`
+- Packaged sidecar smoke is opt-in (`NEUMAR_MCP_SIDECAR_SMOKE=1`) so a stale `dist/bundle.cjs` cannot fail everyday e2e
+- Fixed missing `RunContextError` import in `prepare-task-run.ts`
+
+No esbuild external hook: `@modelcontextprotocol/server` v2 ships CJS. Full `pkg` smoke is the opt-in sidecar test after `pnpm build:api:binary`.
+
+Verification:
+
+```bash
+pnpm --filter neumar-api exec vitest run --config vitest.config.ts test/unit/mcp
+pnpm --filter neumar-api exec vitest run --config vitest.e2e.config.ts test/e2e/external-mcp-server.e2e.test.ts
+```
+
+72 MCP unit/integration tests passed. 8/9 e2e passed (sidecar skipped). HTTP lifecycle e2e still passes after the entry split.
+
+## Session notes
+
+- Do not push unless explicitly asked except when opening the PR.
+- Vitest root is `src-api/`; pass `test/unit/...` not `src-api/test/...`.
+- Codacy MCP timed out on single-file analyze; directory analyze of `external-mcp/` returned no issues.

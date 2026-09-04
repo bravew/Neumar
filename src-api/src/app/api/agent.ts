@@ -5,12 +5,12 @@ import { z } from 'zod';
 
 import { ArtifactEnvelopeTextFilter } from '@/core/agent/artifact-envelope-filter';
 import { ThinkingConfigShape } from '@/core/agent/context-resolver';
+import { prepareTaskRun } from '@/core/agent/prepare-task-run';
 import {
   agentQuestionService,
   serializeAgentQuestion,
 } from '@/core/agent/questions';
 import {
-  resolveRunContext,
   RunContextEnvelopeInputSchema,
   RunContextError,
 } from '@/core/agent/run-context';
@@ -34,15 +34,15 @@ import {
 } from '@/shared/db/agent-resume-identity';
 import {
   AgentRunConflictError,
+  createMessage,
   createSession as createDbSession,
   createTask as createDbTask,
-  createMessage,
   finishAgentRun,
   getSession as getDbSession,
+  getSetting,
   getTask as getDbTask,
   markZombieTasks,
   messageExists,
-  reserveAgentRun,
   touchTask,
   updateTask,
   updateTaskFromMessage,
@@ -59,6 +59,10 @@ import {
   runExecutionPhase,
   runPlanningPhase,
 } from '@/shared/services/agent';
+import {
+  registerExternalMcpRunLauncher,
+  registerExternalMcpRunSession,
+} from '@/shared/services/external-mcp/run-commands';
 import { taskEventBus } from '@/shared/services/task-event-bus';
 import { generateTitle } from '@/shared/services/title-generator';
 import { resolveBillingType } from '@/shared/services/usage-logger';
@@ -335,58 +339,6 @@ const RunRequestSchema = z.object({
     .optional(),
   isolation: z.enum(['shared', 'worktree']).optional(),
 });
-
-async function prepareTaskRun(input: {
-  taskId?: string;
-  prompt: string;
-  provider: string;
-  model?: string;
-  pinnedSkills?: string[];
-  supplementalSkillIds?: string[];
-  runContext?: z.infer<typeof RunContextEnvelopeInputSchema>;
-}) {
-  if (!input.taskId) {
-    if (input.supplementalSkillIds?.length || input.runContext) {
-      throw new RunContextError(
-        'taskId is required when a run context is supplied',
-        400,
-      );
-    }
-    return {
-      agentRunId: undefined,
-      pinnedSkills: input.pinnedSkills,
-      reservation: undefined,
-    };
-  }
-  const context = await resolveRunContext({
-    mode: 'task',
-    ownerKey: input.taskId,
-    envelope: input.runContext,
-    legacyPinnedSkills: [
-      ...(input.supplementalSkillIds ?? []),
-      ...(input.pinnedSkills ?? []),
-    ],
-  });
-  const agentRunId = crypto.randomUUID();
-  const reservation = reserveAgentRun({
-    runId: agentRunId,
-    mode: context.mode,
-    ownerKey: context.ownerKey,
-    projectId: context.projectId,
-    conversationId: context.conversationId,
-    clientRequestId: context.clientRequestId,
-    requestMessageId: context.messageId,
-    messageContent: input.prompt,
-    provider: input.provider,
-    model: input.model,
-    recovery: context.recovery,
-  });
-  return {
-    agentRunId,
-    pinnedSkills: context.supplementalSkillIds,
-    reservation,
-  };
-}
 
 const agentRoutes = new Hono();
 
@@ -2213,5 +2165,52 @@ taskEventBus.on(
     });
   },
 );
+
+registerExternalMcpRunLauncher((input) => {
+  const workDir = getSetting('workDir') ?? undefined;
+  const session = createSession();
+  const readable = createSSEStream(
+    runAgent(input.prompt, {
+      session,
+      taskId: input.taskId,
+      workDir,
+      modelConfig: {
+        agentType: input.provider,
+        model: input.model,
+      },
+      agentProfileId: input.profileId,
+    }),
+    {
+      taskId: input.taskId,
+      model: input.model,
+      profileId: input.profileId,
+      agentRunId: input.runId,
+      resumeIdentity: {
+        providerId: input.provider,
+        modelId: input.model,
+        workspaceRoot: workDir,
+      },
+    },
+  );
+  const unregisterRunSession = registerExternalMcpRunSession(
+    input.runId,
+    session.id,
+  );
+  void drainStream(readable)
+    .catch((err) => {
+      logger.error(
+        `External MCP agent run ${input.runId} failed:`,
+        errorMessage(err),
+      );
+      finishAgentRun({
+        id: input.runId,
+        status: 'failed',
+        error: 'Agent run failed',
+      });
+    })
+    .finally(() => {
+      unregisterRunSession();
+    });
+});
 
 export { agentRoutes };

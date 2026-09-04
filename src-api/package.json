@@ -45,6 +45,7 @@
     "@larksuiteoapi/node-sdk": "^1.73.0",
     "@linear/sdk": "^91.0.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@neumar/video-ir": "workspace:*",
     "@remotion/bundler": "4.0.515",
     "@remotion/effects": "4.0.515",

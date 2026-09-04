@@ -73,6 +73,7 @@ import { migration as migration051 } from './migrations/051_reconcile_run_contex
 import { migration as migration052 } from './migrations/052_reconcile_legacy_runtime_schema';
 import { migration as migration053 } from './migrations/053_video_intent_plan_identity';
 import { migration as migration054 } from './migrations/054_messages_is_error';
+import { migration as migration055 } from './migrations/055_external_mcp';
 import { runMigrations } from './migrations/runner';
 
 const logger = createLogger('Database');
@@ -136,6 +137,7 @@ export const DATABASE_MIGRATIONS = [
   migration052,
   migration053,
   migration054,
+  migration055,
 ];
 
 const REQUIRED_SCHEMA_COLUMNS = {

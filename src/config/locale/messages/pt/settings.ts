@@ -780,6 +780,30 @@ export default {
   mcpDescription: 'Configurar servidores Model Context Protocol',
   mcpEnabled: 'Ativar MCP',
   mcpEnabledDescription: 'Conectar servidores MCP durante conversas do agente',
+  externalMcpHeading: 'Servidor MCP de entrada',
+  externalMcpIntro:
+    'Permita que outros apps neste computador (Codex, Claude Code) chamem o Neumar. Isso não é o mesmo que o Neumar chamar outros servidores MCP.',
+  externalMcpEnable: 'Permitir que outros apps chamem o Neumar',
+  externalMcpEnableHelp:
+    'Expõe projetos e tarefas da biblioteca a hosts MCP locais. Desativado por padrão.',
+  externalMcpWrites: 'Permitir gravações',
+  externalMcpWritesHelp:
+    'Hosts podem criar projetos, tarefas e comentários. Exija aprovação de escrita do host.',
+  externalMcpRuns: 'Permitir execuções do agente',
+  externalMcpRunsHelp:
+    'Hosts podem iniciar, inspecionar e cancelar execuções do Neumar. Usa seus provedores e gastos configurados.',
+  externalMcpRunningHint:
+    'O Neumar deve permanecer em execução enquanto os hosts chamam estas ferramentas.',
+  externalMcpCopyCodexAdd: 'Copiar comando de adição do Codex',
+  externalMcpCopyClaudeAdd: 'Copiar comando de adição do Claude Code',
+  externalMcpCopyCodexRemove: 'Copiar comando de remoção do Codex',
+  externalMcpCopyClaudeRemove: 'Copiar comando de remoção do Claude Code',
+  externalMcpCopied: 'Copiado',
+  externalMcpBinaryMissing: 'Binário de inicialização não encontrado',
+  externalMcpCodexApprovalHint:
+    'Recomenda-se a aprovação writes do Codex para mutações.',
+  externalMcpClaudeScopeHint: 'O Claude Code é instalado no escopo do usuário.',
+  externalMcpOutboundHeading: 'Servidores MCP de saída',
   mcpConfigPath: 'Caminho do Arquivo de Configuração',
   mcpConfigPathDescription: 'Caminho para o arquivo de configuração mcp.json',
   mcpServers: 'Servidores',
