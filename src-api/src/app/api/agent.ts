@@ -59,7 +59,10 @@ import {
   runExecutionPhase,
   runPlanningPhase,
 } from '@/shared/services/agent';
-import { registerExternalMcpRunLauncher } from '@/shared/services/external-mcp/run-commands';
+import {
+  registerExternalMcpRunLauncher,
+  registerExternalMcpRunSession,
+} from '@/shared/services/external-mcp/run-commands';
 import { taskEventBus } from '@/shared/services/task-event-bus';
 import { generateTitle } from '@/shared/services/title-generator';
 import { resolveBillingType } from '@/shared/services/usage-logger';
@@ -2189,17 +2192,25 @@ registerExternalMcpRunLauncher((input) => {
       },
     },
   );
-  void drainStream(readable).catch((err) => {
-    logger.error(
-      `External MCP agent run ${input.runId} failed:`,
-      errorMessage(err),
-    );
-    finishAgentRun({
-      id: input.runId,
-      status: 'failed',
-      error: 'Agent run failed',
+  const unregisterRunSession = registerExternalMcpRunSession(
+    input.runId,
+    session.id,
+  );
+  void drainStream(readable)
+    .catch((err) => {
+      logger.error(
+        `External MCP agent run ${input.runId} failed:`,
+        errorMessage(err),
+      );
+      finishAgentRun({
+        id: input.runId,
+        status: 'failed',
+        error: 'Agent run failed',
+      });
+    })
+    .finally(() => {
+      unregisterRunSession();
     });
-  });
 });
 
 export { agentRoutes };

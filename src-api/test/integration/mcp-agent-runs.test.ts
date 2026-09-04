@@ -7,10 +7,18 @@ import { mcpServerRoutes } from '@/app/api/mcp-server';
 
 import { createAgentQuestion, saveSetting } from '@/shared/db/operations';
 import {
+  createSession,
+  deleteSession,
+  getSession,
+} from '@/shared/services/agent';
+import {
   ensureBridgeSecret,
   readBridgeSecret,
 } from '@/shared/services/external-mcp/auth';
-import { registerExternalMcpRunLauncher } from '@/shared/services/external-mcp/run-commands';
+import {
+  registerExternalMcpRunLauncher,
+  registerExternalMcpRunSession,
+} from '@/shared/services/external-mcp/run-commands';
 
 function app() {
   const hono = new Hono();
@@ -163,6 +171,54 @@ describe('External MCP agent runs', () => {
     });
     const body = await jsonOf(got);
     expect(body.awaitingInput).toBe(true);
+  });
+
+  it('cancels only the session owned by the requested run', async () => {
+    saveSetting('externalMcpAgentRunsEnabled', 'true');
+    const { taskId } = await createTask('Run twice on one task');
+
+    async function startRun(): Promise<string> {
+      const response = await app().request('/mcp/server/runs', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: randomUUID(), taskId }),
+      });
+      return (await jsonOf(response)).runId as string;
+    }
+
+    const firstRunId = await startRun();
+    const secondRunId = await startRun();
+    const firstSession = createSession();
+    const secondSession = createSession();
+    const unregisterFirst = registerExternalMcpRunSession(
+      firstRunId,
+      firstSession.id,
+    );
+    const unregisterSecond = registerExternalMcpRunSession(
+      secondRunId,
+      secondSession.id,
+    );
+
+    try {
+      const cancelled = await app().request(
+        `/mcp/server/runs/${firstRunId}/cancel`,
+        { method: 'POST', headers: authHeaders() },
+      );
+
+      expect(cancelled.status).toBe(200);
+      expect(getSession(firstSession.id)).toBeUndefined();
+      expect(getSession(secondSession.id)).toBeDefined();
+
+      const secondRun = await app().request(`/mcp/server/runs/${secondRunId}`, {
+        headers: authHeaders(),
+      });
+      expect((await jsonOf(secondRun)).status).toBe('active');
+    } finally {
+      unregisterFirst();
+      unregisterSecond();
+      deleteSession(firstSession.id);
+      deleteSession(secondSession.id);
+    }
   });
 
   it('returns failed when the launcher throws before the run starts', async () => {

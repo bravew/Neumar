@@ -7,6 +7,12 @@ import {
   resolveLaunchBinary,
 } from '@/shared/mcp/public-server/install-info';
 
+function decodeWindowsCommand(command: string): string {
+  const encoded = command.split(' ').at(-1);
+  if (!encoded) throw new Error('Missing encoded PowerShell command');
+  return Buffer.from(encoded, 'base64').toString('utf16le');
+}
+
 describe('MCP install info', () => {
   it('quotes Windows paths and appends .exe for the packaged sidecar', () => {
     const launch = resolveLaunchBinary({
@@ -18,7 +24,7 @@ describe('MCP install info', () => {
     expect(launch.command).toBe('C:\\Program Files\\Neumar\\neumar-api.exe');
     expect(launch.development).toBe(false);
     expect(quoteCliArg(launch.command, 'win32')).toBe(
-      '"C:\\Program Files\\Neumar\\neumar-api.exe"',
+      "'C:\\Program Files\\Neumar\\neumar-api.exe'",
     );
   });
 
@@ -76,16 +82,39 @@ describe('MCP install info', () => {
       binaryExists: true,
     });
     expect(quoteCliArg('C:\\Users\\A&B\\.neumar', 'win32')).toBe(
-      '"C:\\Users\\A&B\\.neumar"',
+      "'C:\\Users\\A&B\\.neumar'",
     );
-    expect(info.codexCommand).toContain(
-      '"C:\\Program Files\\Neumar\\neumar&api.exe"',
+    expect(decodeWindowsCommand(info.codexCommand)).toContain(
+      "'C:\\Program Files\\Neumar\\neumar&api.exe'",
     );
-    expect(info.codexCommand).toContain(
-      '"NEUMAR_APP_DATA_DIR=C:\\Users\\A&B\\.neumar"',
+    expect(decodeWindowsCommand(info.codexCommand)).toContain(
+      "'NEUMAR_APP_DATA_DIR=C:\\Users\\A&B\\.neumar'",
     );
-    expect(info.claudeCodeCommand).toContain(
-      '"NEUMAR_APP_DATA_DIR=C:\\Users\\A&B\\.neumar"',
+    expect(decodeWindowsCommand(info.claudeCodeCommand)).toContain(
+      "'NEUMAR_APP_DATA_DIR=C:\\Users\\A&B\\.neumar'",
+    );
+  });
+
+  it('preserves Windows percent and delayed-expansion markers literally', () => {
+    const info = buildExternalMcpInstallInfo({
+      daemonUrl: 'http://127.0.0.1:2620',
+      appDataDir: 'C:\\Users\\%USERNAME%\\!PROFILE!\\.neumar',
+      command: 'C:\\Apps\\%CHANNEL%\\!BUILD!\\neumar-api.exe',
+      platform: 'win32',
+      development: false,
+      binaryExists: true,
+    });
+
+    const codexScript = decodeWindowsCommand(info.codexCommand);
+    const claudeScript = decodeWindowsCommand(info.claudeCodeCommand);
+    expect(codexScript).toContain(
+      "'C:\\Apps\\%CHANNEL%\\!BUILD!\\neumar-api.exe'",
+    );
+    expect(codexScript).toContain(
+      "'NEUMAR_APP_DATA_DIR=C:\\Users\\%USERNAME%\\!PROFILE!\\.neumar'",
+    );
+    expect(claudeScript).toContain(
+      "'NEUMAR_APP_DATA_DIR=C:\\Users\\%USERNAME%\\!PROFILE!\\.neumar'",
     );
   });
 
@@ -98,11 +127,10 @@ describe('MCP install info', () => {
       development: false,
       binaryExists: true,
     });
-    expect(info.codexCommand).toContain(
-      '"C:\\Program Files\\Neumar\\neumar-api.exe"',
-    );
-    expect(info.codexCommand).toContain(
-      '"NEUMAR_APP_DATA_DIR=C:\\Users\\Ada Lovelace\\.neumar"',
+    const script = decodeWindowsCommand(info.codexCommand);
+    expect(script).toContain("'C:\\Program Files\\Neumar\\neumar-api.exe'");
+    expect(script).toContain(
+      "'NEUMAR_APP_DATA_DIR=C:\\Users\\Ada Lovelace\\.neumar'",
     );
     expect(JSON.stringify(info.env)).not.toMatch(/secret|token|password/i);
   });

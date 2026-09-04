@@ -1,7 +1,10 @@
 import { deriveExecutionOutcomes, questionRunIds } from '@/app/api/runs';
 
+import { getAvailableProviders } from '@/core/agent';
 import { prepareTaskRun } from '@/core/agent/prepare-task-run';
 import { RunContextError } from '@/core/agent/run-context';
+import { normalizeAgentType } from '@/core/agent/runtime-ids';
+import type { AgentProvider } from '@/core/agent/types';
 
 import { DEFAULT_AGENT_PROVIDER } from '@/config/constants';
 
@@ -21,7 +24,6 @@ import {
   getAgentRunOutputSchema,
   startAgentRunOutputSchema,
 } from '@/shared/mcp/public-server/schemas';
-import { activeQueryStore } from '@/shared/services/active-query-store';
 import { deleteSession } from '@/shared/services/agent';
 import { errorMessage } from '@/shared/utils/errors';
 import { createLogger } from '@/shared/utils/logger';
@@ -36,16 +38,30 @@ export interface ExternalMcpRunLaunch {
   prompt: string;
   runId: string;
   profileId?: string;
-  provider: string;
+  provider: AgentProvider;
   model?: string;
 }
 
 type RunLauncher = (input: ExternalMcpRunLaunch) => void;
 
 let runLauncher: RunLauncher | null = null;
+const activeRunSessions = new Map<string, string>();
 
 export function registerExternalMcpRunLauncher(launch: RunLauncher): void {
   runLauncher = launch;
+}
+
+/** Bind an in-process agent session to its durable external MCP run. */
+export function registerExternalMcpRunSession(
+  runId: string,
+  sessionId: string,
+): () => void {
+  activeRunSessions.set(runId, sessionId);
+  return () => {
+    if (activeRunSessions.get(runId) === sessionId) {
+      activeRunSessions.delete(runId);
+    }
+  };
 }
 
 function mapRunContextError(error: RunContextError): never {
@@ -61,12 +77,12 @@ function mapRunContextError(error: RunContextError): never {
 function resolveOwnedRuntime(
   profileId: string | undefined,
   taskAssignee?: string | null,
-) {
+): { provider: AgentProvider; model: string | undefined } {
   const id = profileId ?? taskAssignee ?? undefined;
   if (!id) {
     return {
       provider: DEFAULT_AGENT_PROVIDER,
-      model: undefined as string | undefined,
+      model: undefined,
     };
   }
   requireUuid(id, 'profileId');
@@ -74,8 +90,20 @@ function resolveOwnedRuntime(
   if (!profile) {
     throw new ExternalMcpError('NOT_FOUND', 'Agent profile not found');
   }
+  const runtimeId = normalizeAgentType(
+    profile.runtime_id || DEFAULT_AGENT_PROVIDER,
+  );
+  const provider = getAvailableProviders().find(
+    (available) => available === runtimeId,
+  );
+  if (!provider) {
+    throw new ExternalMcpError(
+      'VALIDATION_FAILED',
+      'Agent profile runtime is not supported',
+    );
+  }
   return {
-    provider: profile.runtime_id || DEFAULT_AGENT_PROVIDER,
+    provider,
     model: profile.default_model ?? undefined,
   };
 }
@@ -193,20 +221,16 @@ export function cancelAgentRunCommand(runId: string) {
   const run = getAgentRun(runId);
   if (!run) throw new ExternalMcpError('NOT_FOUND', 'Agent run not found');
   if (run.status === 'running') {
-    const hasOtherRunning = getAgentRunsByTaskId(run.task_id).some(
-      (row) => row.status === 'running' && row.id !== runId,
-    );
-    if (!hasOtherRunning) {
-      const sessionId = activeQueryStore.getSessionId(run.task_id);
-      if (sessionId) {
-        try {
-          deleteSession(sessionId);
-        } catch (error) {
-          logger.warn(
-            'Failed to stop agent session for MCP cancel',
-            errorMessage(error),
-          );
-        }
+    const sessionId = activeRunSessions.get(runId);
+    if (sessionId) {
+      activeRunSessions.delete(runId);
+      try {
+        deleteSession(sessionId);
+      } catch (error) {
+        logger.warn(
+          'Failed to stop agent session for MCP cancel',
+          errorMessage(error),
+        );
       }
     }
     finishAgentRun({ id: runId, status: 'cancelled' });

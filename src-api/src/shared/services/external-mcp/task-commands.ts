@@ -261,6 +261,13 @@ interface SlimRunNode {
   children: SlimRunNode[];
 }
 
+interface PublicSlimRunNode extends Omit<
+  SlimRunNode,
+  'sourceRunId' | 'children'
+> {
+  children: PublicSlimRunNode[];
+}
+
 function slimRunTree(rows: AgentRunRow[]): SlimRunNode[] {
   const byId = new Map<string, SlimRunNode>();
   for (const row of rows) {
@@ -290,9 +297,7 @@ function slimRunTree(rows: AgentRunRow[]): SlimRunNode[] {
   return roots;
 }
 
-function publicRunTree(
-  nodes: SlimRunNode[],
-): Array<Omit<SlimRunNode, 'sourceRunId'>> {
+function publicRunTree(nodes: SlimRunNode[]): PublicSlimRunNode[] {
   return nodes.map(({ sourceRunId: _sourceRunId, children, ...node }) => ({
     ...node,
     children: publicRunTree(children),

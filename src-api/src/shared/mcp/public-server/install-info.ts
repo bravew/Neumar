@@ -9,8 +9,9 @@ import { getAppDataDir } from '@/shared/utils/paths';
 
 const CACHE_MS = 5_000;
 const POSIX_QUOTE = /[\s'"\\$`!#&*()[\]{}|;<>?]/;
-/** Spaces, quotes, and cmd.exe command separators / metacharacters. */
-const WIN_QUOTE = /[\s"&|<>^()%!]/;
+const WINDOWS_POWERSHELL_SAFE_ARG = /^[A-Za-z0-9_./:\\=-]+$/;
+const WINDOWS_COMMAND_PREFIX =
+  'powershell.exe -NoProfile -NonInteractive -EncodedCommand';
 
 export interface ExternalMcpInstallInfo {
   serverName: typeof PUBLIC_MCP_SERVER_NAME;
@@ -56,8 +57,8 @@ let cached: {
 
 export function quoteCliArg(value: string, platform: NodeJS.Platform): string {
   if (platform === 'win32') {
-    if (!WIN_QUOTE.test(value)) return value;
-    return `"${value.replace(/"/g, '""')}"`;
+    if (WINDOWS_POWERSHELL_SAFE_ARG.test(value)) return value;
+    return `'${value.replace(/'/g, "''")}'`;
   }
   if (!POSIX_QUOTE.test(value)) return value;
   return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -67,7 +68,14 @@ export function formatCliCommand(
   parts: readonly string[],
   platform: NodeJS.Platform,
 ): string {
-  return parts.map((part) => quoteCliArg(part, platform)).join(' ');
+  const command = parts.map((part) => quoteCliArg(part, platform)).join(' ');
+  if (platform !== 'win32') return command;
+
+  // cmd.exe expands %NAME% even inside double quotes, while delayed expansion
+  // can do the same to !NAME!. Encode a literal PowerShell command so copied
+  // Windows commands survive either shell without interpreting path content.
+  const encoded = Buffer.from(`& ${command}`, 'utf16le').toString('base64');
+  return `${WINDOWS_COMMAND_PREFIX} ${encoded}`;
 }
 
 export function resolveLaunchBinary(options: ResolveLaunchBinaryInput = {}): {
