@@ -11,7 +11,7 @@ those panels distinct.
 ## Enable
 
 1. Start Neumar (desktop app or `pnpm dev:api`). The daemon must stay running.
-2. Open Settings → MCP → **Inbound MCP server**.
+2. Open Settings → Extensions → MCP → Settings → **Inbound MCP server**.
 3. Enable **Allow other apps to call Neumar**. Leave writes and agent runs off
    until you accept those risks.
 4. Copy the Codex or Claude Code add command. Paste it into a terminal.
@@ -23,6 +23,63 @@ installed at **user** scope.
 
 Ship default: all three flags off (`externalMcpEnabled`,
 `externalMcpWritesEnabled`, `externalMcpAgentRunsEnabled`).
+
+## Test with Claude Code
+
+Keep Neumar running throughout the test. Claude Code starts a local stdio child,
+but that child forwards every tool call to the Neumar daemon.
+
+Check the saved user-scope registration from a terminal:
+
+```bash
+claude mcp get neumar
+```
+
+Continue only when the command reports `Connected`. Start a fresh Claude Code
+session, run `/mcp`, select `neumar`, and confirm that the server has tools. The
+full catalog contains 14 tools when inbound access, writes, and agent runs are
+all enabled. Writes and agent runs are omitted when their switches are off.
+
+Test reads first:
+
+```text
+Call the Neumar MCP tool neumar_health directly. Do not use Bash or curl.
+Show the complete structured result.
+```
+
+```text
+Use neumar_list_projects to list up to 10 projects, then use
+neumar_list_tasks to list up to 10 tasks.
+```
+
+A non-interactive health check can pre-approve only the health tool:
+
+```bash
+claude -p \
+  "Call neumar_health through the Neumar MCP server and print the structured result. Do not use Bash or curl." \
+  --allowedTools "mcp__neumar__neumar_health"
+```
+
+After read calls pass, enable writes and test one reversible fixture:
+
+```text
+Using Neumar MCP, create a project named "Claude MCP Test". Generate a new
+UUID for requestId. Then list projects and confirm that it exists.
+```
+
+Agent runs use the configured provider and can incur cost. Enable them only for
+an intentional run:
+
+```text
+Using Neumar MCP, create a task named "Claude MCP agent test" with a new UUID
+requestId. Start an agent run for that task with a different UUID requestId.
+Poll neumar_get_agent_run until it reaches a terminal state. Report the task ID,
+run ID, status, cost, and any error.
+```
+
+Approve individual write and run calls in Claude Code. Do not permanently
+allow `mcp__neumar__*` unless every Neumar mutation and provider-backed run is
+acceptable without another prompt.
 
 ## Architecture
 
@@ -48,6 +105,7 @@ Host  --stdio JSON-RPC-->  neumar-api mcp server
 
 | Symptom | What to check |
 | --- | --- |
+| Claude reports `CONNECTION_CLOSED` or `Failed to connect` | Run `claude mcp get neumar`, then execute the configured command directly and inspect stderr. In development, plain `node src/index.ts` cannot resolve the API TypeScript path aliases; use the development command below. |
 | Host lists no Neumar tools | Inbound flag off; host not restarted; wrong `mcp add` binary |
 | `DAEMON_UNREACHABLE` | Neumar is stopped, crashed, or `--daemon-url` points at the wrong port |
 | `UNAUTHORIZED` | Secret file missing or stdio child using a different app-data dir |
@@ -105,10 +163,33 @@ those to recover this feature.
 
 - Packaged: `{sidecar} mcp server --daemon-url http://127.0.0.1:<port>`
   (`neumar-api` / `neumar-api.exe`).
-- Development: `node` plus the API entry script, same `mcp server` args.
+- Development: use the API workspace's `tsx` binary and set
+  `TSX_TSCONFIG_PATH` to the API tsconfig. Plain Node does not resolve the
+  workspace's `@/` TypeScript aliases.
 - Windows: quote paths that contain spaces; the sidecar name ends with `.exe`.
 - `mcp server` is dispatched before the HTTP daemon module loads, so the child
   does not open SQLite or native media addons.
+
+Replace a failed Claude Code development registration with the following. Set
+both paths to absolute paths before running the command:
+
+```bash
+NEUMAR_REPO_ROOT=/absolute/path/to/Neumar
+NEUMAR_DATA_DIR=/absolute/path/to/.neumar
+
+claude mcp remove --scope user neumar
+
+claude mcp add --scope user neumar \
+  --env NEUMAR_APP_DATA_DIR="$NEUMAR_DATA_DIR" \
+  --env TSX_TSCONFIG_PATH="$NEUMAR_REPO_ROOT/src-api/tsconfig.json" \
+  -- \
+  "$NEUMAR_REPO_ROOT/src-api/node_modules/.bin/tsx" \
+  "$NEUMAR_REPO_ROOT/src-api/src/index.ts" \
+  mcp server \
+  --daemon-url http://127.0.0.1:5126
+```
+
+Prefer the generated packaged command for installed builds.
 
 Verify the child-process smoke (uses tsx, not a stale pkg binary):
 
