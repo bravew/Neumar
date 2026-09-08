@@ -145,6 +145,7 @@ import {
   updateLinkedSource,
 } from '@/shared/video/linked-sources';
 import { createLocalFolderGrant } from '@/shared/video/linked-sources/local-grants';
+import { buildMediaHealthReport } from '@/shared/video/media-health';
 import { generateBackgroundMusic } from '@/shared/video/music';
 import {
   deleteImportedOverlayItem,
@@ -2259,6 +2260,15 @@ videoRoutes.patch(
     }
   },
 );
+
+videoRoutes.get('/projects/:id/media-health', async (c) => {
+  try {
+    const project = await getProject(c.req.param('id'));
+    return c.json(await buildMediaHealthReport(project));
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Project version history.
