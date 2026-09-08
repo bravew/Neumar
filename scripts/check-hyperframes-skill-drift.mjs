@@ -43,9 +43,9 @@ function assertPinsMatch(packageVersion, skillVersion) {
 
 if (process.argv.includes('--self-test')) {
   try {
-    assertPinsMatch('0.8.7', '0.8.6');
+    assertPinsMatch('0.8.31', '0.8.30');
   } catch (error) {
-    if (error instanceof Error && error.message.includes('0.8.6')) {
+    if (error instanceof Error && error.message.includes('0.8.30')) {
       console.log('HyperFrames drift guard mismatch self-test passed.');
       process.exit(0);
     }

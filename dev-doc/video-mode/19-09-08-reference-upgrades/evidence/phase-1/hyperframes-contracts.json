@@ -1,0 +1,484 @@
+{
+  "schemaVersion": 1,
+  "hyperframesVersion": "0.8.31",
+  "generatedAt": "2026-09-08T19:33:16.123Z",
+  "help": {
+    "render": "Render a composition to MP4, WebM, MOV, GIF, or a PNG sequence (hyperframes render v0.8.31)\n\nUSAGE hyperframes render [OPTIONS] [DIR]\n\nARGUMENTS\n\n  DIR    Project directory\n\nOPTIONS\n\n                    -c, --composition=<composition>    Render a specific composition file instead of index.html (e.g. compositions/intro.html). Sub-compositions using <template> wrappers must be referenced from index.html via data-composition-src. Pass `.` (or omit the flag) to render the project's index.html.                                                                                                                                                                                                                                                                                \n                              -o, --output=<output>    Output path (default: renders/<name>.mp4)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       \n                                    -f, --fps=<fps>    Frame rate. Accepts integer (24, 25, 30, 50, 60, 120, 240) or ffmpeg-style rational (30000/1001 for NTSC 29.97, 24000/1001 for 23.976, 60000/1001 for 59.94). Range 1-240. Defaults to the composition's root data-fps, else 30.                                                                                                                                                                                                                                                                                                                \n                            -q, --quality=<quality>    Quality: draft, standard, high (Default: standard)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \n                                    --skill=<skill>    Authoring workflow skill that initiated this render (e.g. product-launch-video). Recorded on anonymous render telemetry for per-skill usage breakdowns; ignored unless it is a slug.                                                                                                                                                                                                                                                                                                                                                            \n                                  --format=<format>    Output format: mp4, webm, mov, gif, png-sequence (MOV/WebM render with transparency; png-sequence writes RGBA frames to a directory for AE/Nuke/Fusion ingest; gif is best at 15fps for PRs/docs) (Default: mp4)                                                                                                                                                                                                                                                                                                                                \n                              --gif-loop=<gif_loop>    GIF loop count, 0 = infinite. Range: 0-65535. Only used with --format gif.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      \n          --video-frame-format=<video_frame_format>    Source video frame extraction format: auto, jpg, png (default: auto). Use png for UI recordings, screen captures, and color-sensitive source videos; alpha-capable sources always extract as PNG. (Default: auto)                                                                                                                                                                                                                                                                                                                               \n                            -w, --workers=<workers>    Parallel render workers (number or 'auto'). Default: auto. Each worker launches a separate Chrome process (~256 MB RAM).                                                                                                                                                                                                                                                                                                                                                                                                                        \n                                           --docker    Use Docker for deterministic render (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            \n                                              --hdr    Force HDR output even if no HDR sources are detected (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                           \n                                              --sdr    Force SDR output even if HDR sources are detected (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \n                                        --crf=<crf>    Override encoder CRF. Mutually exclusive with --video-bitrate.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  \n                    --video-bitrate=<video_bitrate>    Target video bitrate such as 10M. Mutually exclusive with --crf.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \n                      --vp9-cpu-used=<vp9_cpu_used>    libvpx-vp9 -cpu-used value for WebM encodes (-8 to 8). Higher is faster with a larger quality/size tradeoff. Env: PRODUCER_VP9_CPU_USED.                                                                                                                                                                                                                                                                                                                                                                                                        \n                                              --gpu    Use GPU encoding (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \n                                      --browser-gpu    Force host GPU acceleration for Chrome/WebGL capture. Default: auto (probe on first launch; fall back to software if no GPU). Use --no-browser-gpu to force software (SwiftShader).                                                                                                                                                                                                                                                                                                                                                             \n                                            --quiet    Suppress verbose output (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        \n                                            --debug    Write full render diagnostics and keep intermediate artifacts under the producer .debug directory. (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                             \n                                      --best-effort    Allow output with structured capture-readiness warnings (default). Use --no-best-effort to fail on missing or unready media. (Default: true)                                                                                                                                                                                                                                                                                                                                                                                                    \n                                   --no-best-effort                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    \n                                           --strict    Fail render on lint errors (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     \n                                       --strict-all    Fail render on lint errors AND warnings (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        \n  --max-concurrent-renders=<max_concurrent_renders>    Max concurrent renders when using the producer server (1-10). Default: 2.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       \n                            --variables=<variables>    JSON object of variable values, merged over the composition's data-composition-variables defaults. Example: --variables '{\"title\":\"Hello\"}'. Read inside the composition via window.__hyperframes.getVariables().                                                                                                                                                                                                                                                                                                                               \n                  --variables-file=<variables_file>    Path to a JSON file with variable values (alternative to --variables). The file must contain a single JSON object.                                                                                                                                                                                                                                                                                                                                                                                                                              \n                                 --strict-variables    Fail render if any --variables key is undeclared or has a wrong type vs the composition's data-composition-variables. Without this flag, mismatches are warnings. (Default: false)                                                                                                                                                                                                                                                                                                                                                              \n                                    --batch=<batch>    Path to a JSON array of variable rows (or {\"rows\":[...]}). Renders one output per row.                                                                                                                                                                                                                                                                                                                                                                                                                                                          \n            --batch-concurrency=<batch_concurrency>    Maximum number of batch rows to render at once. Default: 1, because each render already parallelizes across workers.                                                                                                                                                                                                                                                                                                                                                                                                                            \n                                  --batch-fail-fast    Stop launching new batch rows after the first row failure. (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                     \n                                             --json    With --batch, emit exactly one final JSON result document. (Default: false)                                                                                                                                                                                                                                                                                                                                                                                                                                                                     \n                          --resolution=<resolution>    Output resolution preset: landscape (1920x1080), portrait (1080x1920), landscape-4k (3840x2160), portrait-4k (2160x3840), square (1080x1080), square-4k (2160x2160). Aliases: 1080p, 4k, uhd, 1080p-square, square-1080p, 4k-square. The composition is unchanged — Chrome renders at higher DPR (deviceScaleFactor) so the captured screenshot lands at the requested dimensions. Aspect ratio must match the composition; the scale must be an integer multiple. Not yet supported with --hdr.                                                \n                            --page-side-compositing    Run shader transitions on a page-side WebGL canvas inside Chrome instead of the Node-side layered blend. ~6× faster for SDR shader-transition renders. HDR/alpha/video content auto-disables. Use --no-page-side-compositing to force the layered path. (Default: true)                                                                                                                                                                                                                                                                         \n                         --no-page-side-compositing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    \n                --browser-timeout=<browser_timeout>    Puppeteer page-navigation timeout in SECONDS for the entry HTML. Increase when heavy compositions (many videos / fonts / asset requests) cannot reach domcontentloaded within the 60s default (see issue #1199). Accepts 0.001-86400 (24h cap). Note: this controls page.goto only — very heavy compositions may also need PRODUCER_PUPPETEER_PROTOCOL_TIMEOUT_MS / PRODUCER_PLAYER_READY_TIMEOUT_MS bumped (the post-goto window.__hf readiness poll has its own 45s budget). Env fallback: PRODUCER_PAGE_NAVIGATION_TIMEOUT_MS (MILLISECONDS).\n              --protocol-timeout=<protocol_timeout>    CDP protocol timeout in ms. Increase on slow/low-memory machines where Chrome operations time out. Default: 300000 (5 min). Env: PRODUCER_PUPPETEER_PROTOCOL_TIMEOUT_MS.                                                                                                                                                                                                                                                                                                                                                                        \n      --player-ready-timeout=<player_ready_timeout>    Timeout in ms for the composition player to become ready. Increase for complex compositions on slow hardware. Default: 45000 (45 s). Env: PRODUCER_PLAYER_READY_TIMEOUT_MS.                                                                                                                                                                                                                                                                                                                                                                     \n                                  --low-memory-mode    Force the low-memory safe render profile on (--low-memory-mode) or off (--no-low-memory-mode). Safe mode pins to 1 worker, uses screenshot capture, and skips auto-worker calibration to avoid memory thrash on constrained machines. Default: auto-detected from total RAM (<= 8 GB). Env: PRODUCER_LOW_MEMORY_MODE.                                                                                                                                                                                                                           \n                        --experimental-fast-capture    Capture frames via Chrome's drawElementImage API instead of Page.captureScreenshot — reads DOM paint records directly, ~2x faster. Default: on where it can engage (macOS + hardware-GPU browser); incompatible compositions and self-verification failures fall back to screenshot capture automatically. Pass =false to disable. Env: PRODUCER_EXPERIMENTAL_FAST_CAPTURE.                                                                                                                                                                     \n              --frames-cache-dir=<frames_cache_dir>    Directory for the content-addressed extracted-frame cache. Use to relocate the cache off the system drive when the OS temp directory lives on a small partition (e.g. Windows C: exhaustion during long renders). Pass \"off\" / \"none\" / \"false\" / \"0\" to disable caching entirely (frames extract into the render's workDir and are cleaned up when the render ends). Default: <tmpdir>/hyperframes-extract-cache-<uid>. Env: HYPERFRAMES_EXTRACT_CACHE_DIR.                                                                                    \n\n\n",
+    "doctor": "Check system dependencies and environment (hyperframes doctor v0.8.31)\n\nUSAGE hyperframes doctor [OPTIONS] \n\nOPTIONS\n\n  --json    Output as JSON (Default: false)\n\n\n",
+    "lint": "Validate a composition for common mistakes (hyperframes lint v0.8.31)\n\nUSAGE hyperframes lint [OPTIONS] [DIR]\n\nARGUMENTS\n\n  DIR    Project directory\n\nOPTIONS\n\n     --json    Output findings as JSON (Default: false)                     \n  --verbose    Show info-level findings (hidden by default) (Default: false)\n\n\n",
+    "snapshot": "Capture key frames from a composition as PNG screenshots for visual verification (hyperframes snapshot v0.8.31)\n\nUSAGE hyperframes snapshot [OPTIONS] [DIR]\n\nARGUMENTS\n\n  DIR    Project directory\n\nOPTIONS\n\n      -o, --output=<output>    Directory to write snapshots into (default: <project>/snapshots)                                                                                                                                                                                                                           \n          --frames=<frames>    Number of evenly-spaced frames to capture (default: 5) (Default: 5)                                                                                                                                                                                                                        \n                  --at=<at>    Comma-separated timestamps in seconds (e.g., --at 3.0,10.5,18.0)                                                                                                                                                                                                                           \n        --timeout=<timeout>    Ms to wait for runtime to initialize (default: 5000) (Default: 5000)                                                                                                                                                                                                                       \n            --angle=<angle>    Orthogonal 3D camera for depth/occlusion checks: a preset (front|iso|top|side) or 'yaw,pitch' degrees. Tilts the whole stage before screenshotting (real pixels, not bbox markers).                                                                                                        \n                      --end    Always include a readable end-of-timeline frame (default: true). Pass --no-end to capture only your exact --at times. (Default: true)                                                                                                                                                      \n                   --no-end                                                                                                                                                                                                                                                                                               \n              --zoom=<zoom>    Zoom into a CSS selector or an exact pixel region 'x,y,w,h'. Crops a high-density screenshot instead of the full frame — a raised deviceScaleFactor, never CSS zoom or viewport resizing, so layout stays identical. A selector matching nothing is an error, not a silent full-frame shot.\n  --zoom-scale=<zoom_scale>    Device-scale-factor density for --zoom crops (default: 3) (Default: 3)                                                                                                                                                                                                                     \n        --against=<against>    Reference video (e.g. footage being rebuilt): also save its frame at each captured time and a render|reference pair sheet                                                                                                                                                                  \n      --describe=<describe>    Gemini vision frame analysis. Runs by default when GEMINI_API_KEY is set. Pass a custom question (e.g. --describe 'Is the logo visible in every beat?') to override the default prompt, or --describe false to opt out.                                                                    \n                    --proxy    Auto-transcode browser-hostile video codecs for snapshots (default: on; overrides hyperframes.json media.autoProxy)                                                                                                                                                                        \n              --browser-gpu    Use hardware browser GPU capture; pass --no-browser-gpu for deterministic SwiftShader (default: auto-detect, PRODUCER_BROWSER_GPU_MODE overrides)                                                                                                                                          \n\n\n",
+    "check": "Run lint, runtime, layout, motion, and WCAG contrast verification in one browser session (hyperframes check v0.8.31)\n\nUSAGE hyperframes check [OPTIONS] [DIR]\n\nARGUMENTS\n\n  DIR    Project directory\n\nOPTIONS\n\n                                             --json    Output agent-readable JSON (Default: false)                                                                                                                                   \n                                --samples=<samples>    Number of midpoint samples across the duration (default: 9) (Default: 9)                                                                                                      \n                                          --at=<at>    Comma-separated timestamps in seconds (e.g., --at 1.5,4,7.25)                                                                                                                 \n                                   --at-transitions    Also sample at every tween start/end boundary (plus segment midpoints) to catch transient overlaps at transition seams (Default: false)                                       \n  --max-transition-samples=<max_transition_samples>    Optional cap on transition-derived samples; when it truncates, the omitted count is reported (default: unlimited)                                                             \n                          --max-issues=<max_issues>    Maximum issues to print or return after static collapse (default: 80) (Default: 80)                                                                                           \n                                  --collapse-static    Collapse repeated static issues across samples (default: true) (Default: true)                                                                                                \n                               --no-collapse-static                                                                                                                                                                                  \n                            --tolerance=<tolerance>    Allowed pixel overflow before reporting an issue (default: 2) (Default: 2)                                                                                                    \n                                --timeout=<timeout>    Initial render-ready timeout in ms; also sets the navigation minimum (10s floor, default: 3000) (Default: 3000)                                                               \n                                         --contrast    Run the WCAG AA contrast pass (enabled by default) (Default: true)                                                                                                            \n                                      --no-contrast                                                                                                                                                                                  \n                                           --strict    Exit non-zero on warnings too (Default: false)                                                                                                                                \n                                            --proxy    Auto-transcode browser-hostile video codecs (default: hyperframes.json media.autoProxy, which defaults on)                                                                    \n                                      --browser-gpu    Use hardware browser GPU capture; pass --no-browser-gpu for deterministic SwiftShader (default: auto-detect, PRODUCER_BROWSER_GPU_MODE overrides)                             \n                                        --snapshots    Save the five contrast-pass PNGs under snapshots/ (Default: false)                                                                                                            \n                      --caption-zone=<caption_zone>    Caption band \"x0=0;y0=.82;x1=1;y1=1[;severity=warning|error][;seek=.5,1]\" (fractions 0-1; defaults: warning, seek=1)                                                          \n                        --frame-check=<frame_check>    Bare --frame-check uses defaults (tol=2px, severity=warning, seek=.5; breach floor=max(120px, 6% of shorter canvas edge)); or pass \"severity=error;seek=.25,.75;tol=4\" to tune\n                                  --layout=<layout>    Layout knobs: \"proseCoverageFloor=0.05\" (0–1; default 0.15).                                                                                                                  \n\n\n",
+    "compare": "Render independent composition variants into one labeled comparison sheet (hyperframes compare v0.8.31)\n\nUSAGE hyperframes compare [OPTIONS] [PATH]\n\nARGUMENTS\n\n  PATH    Composition project directory or .html file (pass 2+ paths)\n\nOPTIONS\n\n            --at=<at>    Timeline time in seconds to seek before screenshotting each variant\n    --labels=<labels>    Comma-separated labels matching the variant path count             \n          --out=<out>    Output comparison sheet path (default: ./compare.png)              \n        --cols=<cols>    Grid columns (default: sqrt heuristic, capped at 4)                \n  --timeout=<timeout>    Render-ready timeout in ms per variant (default: 5000)             \n               --json    Output result as JSON (Default: false)                             \n\n\n",
+    "grade-compare": "Render candidate color grades onto a reference frame as one comparison PNG (hyperframes grade-compare v0.8.31)\n\nUSAGE hyperframes grade-compare [OPTIONS] --for=<for>\n\nOPTIONS\n\n          --for=<for>    Reference image path, or a video path to sample at t=0 (Required)                                 \n    --grades=<grades>    JSON array of { label, grading } candidate grades                                                 \n        --luts=<luts>    Comma-separated .cube LUT paths to compare                                                        \n  --project=<project>    Base directory for relative --for, --grades, and LUT paths (default: cwd)                         \n          --out=<out>    Output PNG path (default: <project>/grade-compare.png)                                            \n               --json    Output result as JSON (Default: false)                                                            \n  --timeout=<timeout>    Render-ready timeout in ms before capture (default: 5000)                                         \n           --baseline    Prepend the ungraded frame as an 'original' reference cell (--no-baseline to omit) (Default: true)\n        --no-baseline                                                                                                      \n\n\n",
+    "preview": "Start the studio for previewing compositions (hyperframes preview v0.8.31)\n\nUSAGE hyperframes preview [OPTIONS] [DIR]\n\nARGUMENTS\n\n  DIR    Project directory\n\nOPTIONS\n\n                                    --port=<port>    Port to run the preview server on (Default: 3002)                                                                                                                                                                                          \n                                      --force-new    Start a new server even if one is already running for this project (Default: false)                                                                                                                                                        \n                                     --background    Start a preview that remains running after the command exits (Default: false)                                                                                                                                                              \n                                     --foreground    Keep preview attached even when the shell is non-interactive (Default: false)                                                                                                                                                              \n                                         --status    Show the background preview for this project and exit (Default: false)                                                                                                                                                                     \n                                           --stop    Stop the background preview for this project and exit (Default: false)                                                                                                                                                                     \n                                           --list    List all active preview servers and exit (Default: false)                                                                                                                                                                                  \n                                       --kill-all    Kill all active preview servers and exit (Default: false)                                                                                                                                                                                  \n                                           --open    Open browser automatically (Default: true)                                                                                                                                                                                                 \n                                        --no-open                                                                                                                                                                                                                                               \n                                      --selection    Print the current element selected in a running Studio preview and exit (Default: false)                                                                                                                                                   \n                                           --json    Output selection, context, or managed lifecycle state as JSON (Default: false)                                                                                                                                                             \n                                        --context    Print the current agent-readable context from a running Studio preview and exit (Default: false)                                                                                                                                           \n                --context-fields=<context_fields>    Comma-separated context fields to include: server,selection,lint,capabilities (only with --context)                                                                                                                                        \n                --context-detail=<context_detail>    Context payload detail: compact or full (only with --context) (Default: compact)                                                                                                                                                           \n                    --browser-path=<browser_path>    Path to the browser executable to open                                                                                                                                                                                                     \n                  --user-data-dir=<user_data_dir>    Chromium-compatible user data directory (requires --browser-path)                                                                                                                                                                          \n  --remote-debugging-port=<remote_debugging_port>    Chromium remote debugging port (requires --browser-path and --user-data-dir)                                                                                                                                                               \n                                 --browser-no-gpu    Launch the opened browser with --disable-gpu (requires --browser-path). For hosts where hardware acceleration crashes the graphics driver (e.g. NVIDIA Xid resets); with the system default browser use --no-open instead. (Default: false)\n                                    --browser-gpu    Use hardware GPU for Studio thumbnails and frame capture; pass --no-browser-gpu for deterministic SwiftShader (default: auto-detect)                                                                                                       \n                                          --proxy    Auto-transcode browser-hostile video codecs (HEVC, ProRes, AV1) to a cached authoring proxy for preview (default: on; overrides hyperframes.json's media.autoProxy)                                                                        \n                                       --no-proxy    Disable auto-proxying of browser-hostile video codecs                                                                                                                                                                                      \n\n\n",
+    "upgrade": "Check for updates and show upgrade instructions (hyperframes upgrade v0.8.31)\n\nUSAGE hyperframes upgrade [OPTIONS] \n\nOPTIONS\n\n            -y, --yes    Show upgrade commands without prompting                                                            \n              --check    Check for updates and exit (no prompt)                                                             \n               --json    Output as JSON (Default: false)                                                                    \n  --project=<project>    Bump this project's package.json hyperframes@<version> script pins to latest (default: current dir)\n\n\n"
+  },
+  "probes": [
+    {
+      "name": "doctor",
+      "args": [
+        "doctor",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "ok": false,
+        "platform": "darwin",
+        "arch": "arm64",
+        "checks": [
+          {
+            "name": "Version",
+            "ok": true,
+            "detail": "0.8.31 (latest)"
+          },
+          {
+            "name": "Node.js",
+            "ok": true,
+            "detail": "v26.8.1 (darwin arm64)"
+          },
+          {
+            "name": "CPU",
+            "ok": true,
+            "detail": "14 cores · Apple M4 Pro @ 2400MHz"
+          },
+          {
+            "name": "Memory",
+            "ok": true,
+            "detail": "64.0 GB total · 15.9 GB available"
+          },
+          {
+            "name": "Disk",
+            "ok": true,
+            "detail": "1262.8 GB free"
+          },
+          {
+            "name": "Frames cache",
+            "ok": true,
+            "detail": "/var/folders/kc/dkvs9jnn1h1b89gds6nghwxm0000gn/T/hyperframes-extract-cache-501 · 101.5 GB free at /var/folders/kc/dkvs9jnn1h1b89gds6nghwxm0000gn/T/hyperframes-extract-cache-501 · default"
+          },
+          {
+            "name": "Archive extractor",
+            "ok": true,
+            "detail": "unzip"
+          },
+          {
+            "name": "Environment",
+            "ok": true,
+            "detail": "non-TTY"
+          },
+          {
+            "name": "whisper-cpp",
+            "ok": false,
+            "detail": "Not found (optional — needed for transcription)",
+            "hint": "brew install whisper-cpp"
+          },
+          {
+            "name": "TTS (Kokoro)",
+            "ok": false,
+            "detail": "Not installed (optional — local voice fallback)",
+            "hint": "pip install kokoro-onnx soundfile"
+          },
+          {
+            "name": "BGM (MusicGen)",
+            "ok": false,
+            "detail": "Not installed (optional — local music fallback)",
+            "hint": "pip install transformers torch soundfile numpy"
+          },
+          {
+            "name": "FFmpeg",
+            "ok": true,
+            "detail": "ffmpeg 9.0.1 at /opt/homebrew/bin/ffmpeg"
+          },
+          {
+            "name": "FFprobe",
+            "ok": true,
+            "detail": "ffprobe 9.0.1 at /opt/homebrew/bin/ffprobe"
+          },
+          {
+            "name": "Chrome",
+            "ok": true,
+            "detail": "cache: $HOME/.cache/hyperframes/chrome/chrome-headless-shell/mac_arm-152.0.7977.30/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+          },
+          {
+            "name": "Docker",
+            "ok": true,
+            "detail": "Docker version 29.4.0, build 9d7ad9f"
+          },
+          {
+            "name": "Docker running",
+            "ok": true,
+            "detail": "Running"
+          }
+        ],
+        "_meta": {
+          "version": "0.8.31",
+          "latestVersion": "0.8.31",
+          "updateAvailable": false
+        }
+      },
+      "stderr": ""
+    },
+    {
+      "name": "upgrade-check",
+      "args": [
+        "upgrade",
+        "--project",
+        ".",
+        "--check",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "changed": false,
+        "from": [],
+        "to": "0.8.31",
+        "path": "./src-video/package.json",
+        "_meta": {
+          "version": "0.8.31",
+          "latestVersion": "0.8.31",
+          "updateAvailable": false
+        }
+      },
+      "stderr": ""
+    },
+    {
+      "name": "check",
+      "args": [
+        "check",
+        "./src-api/test/fixtures/video/performance/parity-html",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "ok": true,
+        "strict": false,
+        "lint": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": [],
+          "filesScanned": 1
+        },
+        "runtime": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": []
+        },
+        "layout": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": [],
+          "duration": 15,
+          "samples": [
+            0.833,
+            2.5,
+            4.167,
+            5.833,
+            7.5,
+            9.167,
+            10.833,
+            12.5,
+            14.167
+          ],
+          "transitionSamples": [],
+          "transitionSamplesDropped": 0,
+          "tolerance": 2,
+          "totalIssueCount": 0,
+          "truncated": false
+        },
+        "motion": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": [],
+          "enabled": false,
+          "samples": 0
+        },
+        "contrast": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": [],
+          "enabled": true,
+          "samples": [
+            0.833,
+            4.167,
+            7.5,
+            10.833,
+            14.167
+          ],
+          "checked": 8,
+          "passed": 8
+        },
+        "snapshots": {
+          "enabled": false,
+          "files": [],
+          "times": [],
+          "findingFiles": []
+        },
+        "_meta": {
+          "version": "0.8.31",
+          "latestVersion": "0.8.31",
+          "updateAvailable": false
+        }
+      },
+      "stderr": "[INFO] [Compiler] Fetched 11 font face(s) for \"Inter\" from Google Fonts (cached to $HOME/.cache/hyperframes/fonts/inter)\n[INFO] [Compiler] Injected deterministic @font-face rules for 1 requested font families\n[hyperframes] browserGpuMode probe → hardware (WebGL renderer vendor=\"Google Inc. (Apple)\" renderer=\"ANGLE (Apple, ANGLE Metal Renderer: Apple M4 Pro, Unspecified Version)\")\n"
+    },
+    {
+      "name": "check-overlap",
+      "args": [
+        "check",
+        "./src-api/test/fixtures/video/performance/overlap-track-order",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "ok": true,
+        "strict": false,
+        "lint": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": [],
+          "filesScanned": 1
+        },
+        "runtime": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": []
+        },
+        "layout": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": [],
+          "duration": 1,
+          "samples": [
+            0.056,
+            0.167,
+            0.278,
+            0.389,
+            0.5,
+            0.611,
+            0.722,
+            0.833,
+            0.944
+          ],
+          "transitionSamples": [],
+          "transitionSamplesDropped": 0,
+          "tolerance": 2,
+          "totalIssueCount": 0,
+          "truncated": false
+        },
+        "motion": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": [],
+          "enabled": false,
+          "samples": 0
+        },
+        "contrast": {
+          "ok": true,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 0,
+          "findings": [],
+          "enabled": true,
+          "samples": [
+            0.056,
+            0.278,
+            0.5,
+            0.722,
+            0.944
+          ],
+          "checked": 0,
+          "passed": 0
+        },
+        "snapshots": {
+          "enabled": false,
+          "files": [],
+          "times": [],
+          "findingFiles": []
+        },
+        "_meta": {
+          "version": "0.8.31",
+          "latestVersion": "0.8.31",
+          "updateAvailable": false
+        }
+      },
+      "stderr": "[hyperframes] browserGpuMode probe → hardware (WebGL renderer vendor=\"Google Inc. (Apple)\" renderer=\"ANGLE (Apple, ANGLE Metal Renderer: Apple M4 Pro, Unspecified Version)\")\n"
+    },
+    {
+      "name": "compare",
+      "args": [
+        "compare",
+        "./src-api/test/fixtures/video/performance/parity-html",
+        "./src-api/test/fixtures/video/performance/parity-html",
+        "--labels",
+        "baseline,candidate",
+        "--out",
+        "./.video-acceptance/hyperframes-contracts/compare.png",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "ok": true,
+        "sheet": "./.video-acceptance/hyperframes-contracts/compare.png",
+        "variants": [
+          {
+            "label": "baseline",
+            "path": "src-api/test/fixtures/video/performance/parity-html"
+          },
+          {
+            "label": "candidate",
+            "path": "src-api/test/fixtures/video/performance/parity-html"
+          }
+        ],
+        "rendered": 2,
+        "_meta": {
+          "version": "0.8.31",
+          "latestVersion": "0.8.31",
+          "updateAvailable": false
+        }
+      },
+      "stderr": "[hyperframes] browserGpuMode probe → hardware (WebGL renderer vendor=\"Google Inc. (Apple)\" renderer=\"ANGLE (Apple, ANGLE Metal Renderer: Apple M4 Pro, Unspecified Version)\")\n"
+    },
+    {
+      "name": "grade-compare",
+      "args": [
+        "grade-compare",
+        "--for",
+        "./.video-acceptance/hyperframes-contracts/reference.png",
+        "--project",
+        "./.video-acceptance/hyperframes-contracts",
+        "--out",
+        "./.video-acceptance/hyperframes-contracts/grade-compare.png",
+        "--grades",
+        "./.video-acceptance/hyperframes-contracts/grades.json",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "ok": true,
+        "sheet": "grade-compare.png",
+        "cells": 2,
+        "_meta": {
+          "version": "0.8.31",
+          "latestVersion": "0.8.31",
+          "updateAvailable": false
+        }
+      },
+      "stderr": "Warning: grading for \"neutral\" is inactive/no-op — it will render ungraded\n[hyperframes] browserGpuMode probe → hardware (WebGL renderer vendor=\"Google Inc. (Apple)\" renderer=\"ANGLE (Apple, ANGLE Metal Renderer: Apple M4 Pro, Unspecified Version)\")\n"
+    },
+    {
+      "name": "track-index-paint-order",
+      "args": [
+        "snapshot",
+        "./overlap-track-order",
+        "--at",
+        "0.5"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "centerPixel": [
+          0,
+          0,
+          255
+        ],
+        "cssPaintOrderWins": true
+      },
+      "stderr": "[hyperframes] browserGpuMode probe → hardware (WebGL renderer vendor=\"Google Inc. (Apple)\" renderer=\"ANGLE (Apple, ANGLE Metal Renderer: Apple M4 Pro, Unspecified Version)\")\n"
+    },
+    {
+      "name": "preview-start",
+      "args": [
+        "preview",
+        "./src-api/test/fixtures/video/performance/parity-html",
+        "--port",
+        "56355",
+        "--background",
+        "--no-open",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "schemaVersion": 1,
+        "operation": "start",
+        "ok": true,
+        "result": {
+          "state": "started",
+          "mode": "background",
+          "projectName": "parity-html",
+          "projectDir": "./src-api/test/fixtures/video/performance/parity-html",
+          "host": "127.0.0.1",
+          "port": 56355,
+          "pid": 46613,
+          "serverUrl": "http://127.0.0.1:56355",
+          "studioUrl": "http://127.0.0.1:56355/#project/parity-html",
+          "ready": true,
+          "logPath": "$HOME/.local/state/hyperframes/previews/e46568dbf4c31c55.log"
+        }
+      },
+      "stderr": ""
+    },
+    {
+      "name": "preview-context",
+      "args": [
+        "preview",
+        "./src-api/test/fixtures/video/performance/parity-html",
+        "--port",
+        "56355",
+        "--context",
+        "--context-fields",
+        "server",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "ok": true,
+        "server": {
+          "port": 56355,
+          "projectName": "parity-html",
+          "projectDir": "./src-api/test/fixtures/video/performance/parity-html",
+          "url": "http://127.0.0.1:56355"
+        }
+      },
+      "stderr": ""
+    },
+    {
+      "name": "preview-stop",
+      "args": [
+        "preview",
+        "./src-api/test/fixtures/video/performance/parity-html",
+        "--port",
+        "56355",
+        "--stop",
+        "--json"
+      ],
+      "exitStatus": 0,
+      "payload": {
+        "schemaVersion": 1,
+        "operation": "stop",
+        "ok": true,
+        "result": {
+          "state": "stopped",
+          "projectDir": "./src-api/test/fixtures/video/performance/parity-html"
+        }
+      },
+      "stderr": ""
+    }
+  ]
+}

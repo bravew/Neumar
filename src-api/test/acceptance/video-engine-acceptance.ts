@@ -11,11 +11,16 @@ const ArgsSchema = z.object({
   fixtureDir: z.string().min(1),
   outputDir: z.string().min(1),
   durationSec: z.number().positive().max(600),
+  selectionOnly: z.boolean(),
 });
 
 function parseArgs() {
   const values: Record<string, string> = {};
   for (const arg of process.argv.slice(2)) {
+    if (arg === '--selection-only') {
+      values['selection-only'] = 'true';
+      continue;
+    }
     const [key, value] = arg.split('=', 2);
     if (key?.startsWith('--') && value) values[key.slice(2)] = value;
   }
@@ -23,6 +28,7 @@ function parseArgs() {
     fixtureDir: values['fixture-dir'],
     outputDir: values['output-dir'],
     durationSec: Number(values['duration-sec']),
+    selectionOnly: values['selection-only'] === 'true',
   });
 }
 
@@ -35,6 +41,17 @@ async function main() {
     'src-video/node_modules/.bin/hyperframes',
   );
   await fs.mkdir(outputDir, { recursive: true });
+
+  if (args.selectionOnly) {
+    const studioSelection = await selectStudioFixtureElement({
+      fixtureDir,
+      hyperframesCommand,
+    });
+    process.stdout.write(
+      `VIDEO_ACCEPTANCE_RESULT=${JSON.stringify({ studioSelection })}\n`,
+    );
+    return;
+  }
 
   const htmlOutput = path.join(outputDir, 'html.mp4');
   const hyperframesOutput = path.join(outputDir, 'hyperframes.mp4');
@@ -122,8 +139,20 @@ async function selectStudioFixtureElement(input: {
     const page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
     });
-    await page.goto(session.studioUrl);
-    await page.getByText('Card', { exact: true }).click();
+    await page.goto(session.studioUrl, { waitUntil: 'domcontentloaded' });
+    await page
+      .frameLocator('iframe')
+      .locator('[data-hf-id="parity-card"]')
+      .waitFor({ state: 'visible', timeout: 60_000 });
+    await page.getByText('Layers', { exact: true }).click();
+    await page.getByText('2 layers', { exact: true }).waitFor({
+      state: 'visible',
+      timeout: 20_000,
+    });
+    await page
+      .getByText('Card', { exact: true })
+      .first()
+      .click({ timeout: 20_000 });
     const selection = await bridge.getSelection(input.fixtureDir);
     if (selection.stableTarget !== 'parity-card') {
       throw new Error(

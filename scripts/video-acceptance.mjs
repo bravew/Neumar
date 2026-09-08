@@ -29,6 +29,7 @@ const SYSTEM_CHROME =
 function parseArgs(argv) {
   const args = {
     fixture: undefined,
+    compare: undefined,
     json: false,
     output: undefined,
     report: undefined,
@@ -44,9 +45,10 @@ function parseArgs(argv) {
     else if (arg.startsWith('--output=')) args.output = arg.slice(9);
     else if (arg === '--report') args.report = argv[++index];
     else if (arg.startsWith('--report=')) args.report = arg.slice(9);
-    else if (arg === '--compare' || arg === '--engines') index += 1;
-    else if (arg.startsWith('--compare=') || arg.startsWith('--engines='))
-      continue;
+    else if (arg === '--compare') args.compare = argv[++index];
+    else if (arg.startsWith('--compare=')) args.compare = arg.slice(10);
+    else if (arg === '--engines') index += 1;
+    else if (arg.startsWith('--engines=')) continue;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   if (!VIDEO_REFERENCE_FIXTURES.includes(args.fixture)) {
@@ -361,6 +363,78 @@ function runLongRender(outputDir) {
   };
 }
 
+function comparisonFor(fixture, render, label) {
+  if (!label || !render) return undefined;
+  const reportName =
+    fixture === 'long-render' ? 'long-render.json' : `${fixture}.json`;
+  const baselinePath = path.join(
+    REPO_ROOT,
+    'dev-doc/video-mode/19-09-08-reference-upgrades/evidence',
+    label,
+    reportName,
+  );
+  if (!fs.existsSync(baselinePath)) {
+    throw new Error(`Comparison report does not exist: ${baselinePath}`);
+  }
+  const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+  if (baseline.fixture !== fixture || !baseline.render) {
+    throw new Error(`Comparison report is not a rendered ${fixture} result`);
+  }
+  if (fixture === 'parity') {
+    const baselineHashes = Object.fromEntries(
+      Object.entries(baseline.render.sampledFrames).map(([engine, samples]) => [
+        engine,
+        samples.map((sample) => sample.sha256),
+      ]),
+    );
+    const currentHashes = Object.fromEntries(
+      Object.entries(render.sampledFrames).map(([engine, samples]) => [
+        engine,
+        samples.map((sample) => sample.sha256),
+      ]),
+    );
+    return {
+      baseline: label,
+      baselineFixtureDigest: baseline.fixtureDigest,
+      ssimDelta: render.ssim - baseline.render.ssim,
+      sampledFrameHashesMatch: {
+        html:
+          JSON.stringify(currentHashes.html) ===
+          JSON.stringify(baselineHashes.html),
+        hyperframes:
+          JSON.stringify(currentHashes.hyperframes) ===
+          JSON.stringify(baselineHashes.hyperframes),
+      },
+      renderWallClockDeltaPct: {
+        html:
+          ((render.engines.html.renderWallClockSec -
+            baseline.render.engines.html.renderWallClockSec) /
+            baseline.render.engines.html.renderWallClockSec) *
+          100,
+        hyperframes:
+          ((render.engines.hyperframes.renderWallClockSec -
+            baseline.render.engines.hyperframes.renderWallClockSec) /
+            baseline.render.engines.hyperframes.renderWallClockSec) *
+          100,
+      },
+    };
+  }
+  const peakRssDeltaPct =
+    ((render.peakRssBytes - baseline.render.peakRssBytes) /
+      baseline.render.peakRssBytes) *
+    100;
+  return {
+    baseline: label,
+    baselineFixtureDigest: baseline.fixtureDigest,
+    peakRssDeltaPct,
+    peakRssWithinTenPercent: peakRssDeltaPct <= 10,
+    wallClockDeltaPct:
+      ((render.wallClockMs - baseline.render.wallClockMs) /
+        baseline.render.wallClockMs) *
+      100,
+  };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const fixture = buildVideoReferenceFixture(args.fixture);
@@ -417,6 +491,16 @@ function main() {
       check('peak-rss-captured', Number.isFinite(render.peakRssBytes)),
     );
   }
+  const comparison = comparisonFor(args.fixture, render, args.compare);
+  if (comparison?.peakRssWithinTenPercent !== undefined) {
+    checks.push(
+      check(
+        'peak-rss-regression-within-ten-percent',
+        comparison.peakRssWithinTenPercent,
+        `${comparison.peakRssDeltaPct.toFixed(2)}%`,
+      ),
+    );
+  }
 
   const report = {
     schemaVersion: VIDEO_REFERENCE_FIXTURE_VERSION,
@@ -431,6 +515,7 @@ function main() {
       ? 'passed'
       : 'failed',
     ...(render ? { render } : {}),
+    ...(comparison ? { comparison } : {}),
   };
   fs.writeFileSync(path.join(outputDir, 'report.json'), stableJson(report));
   if (args.report) {

@@ -1,0 +1,136 @@
+{
+  "checks": [
+    {
+      "name": "timeline-schema",
+      "status": "passed"
+    },
+    {
+      "name": "positive-duration",
+      "status": "passed"
+    },
+    {
+      "name": "duration-at-least-3m",
+      "status": "passed"
+    },
+    {
+      "name": "mixed-media",
+      "status": "passed"
+    },
+    {
+      "name": "remotion-media-enabled",
+      "status": "passed"
+    },
+    {
+      "name": "actual-mixed-media",
+      "status": "passed"
+    },
+    {
+      "name": "five-one-source",
+      "status": "passed"
+    },
+    {
+      "name": "rendered-audio-stream",
+      "status": "passed"
+    },
+    {
+      "name": "rendered-three-minutes",
+      "status": "passed"
+    },
+    {
+      "name": "peak-rss-captured",
+      "status": "passed"
+    },
+    {
+      "detail": "-1.38%",
+      "name": "peak-rss-regression-within-ten-percent",
+      "status": "passed"
+    }
+  ],
+  "command": "node scripts/video-acceptance.mjs --fixture long-render --compare phase-0 --json --report=dev-doc/video-mode/19-09-08-reference-upgrades/evidence/phase-1/long-render-repeat.json",
+  "comparison": {
+    "baseline": "phase-0",
+    "baselineFixtureDigest": "ecc780d1aa87d49cbe85f63abba04f1a723bf142a44e0e42699fa23f6bd343dd",
+    "peakRssDeltaPct": -1.3781302749323652,
+    "peakRssWithinTenPercent": true,
+    "wallClockDeltaPct": 1.087681589089831
+  },
+  "environment": {
+    "architecture": "arm64",
+    "chrome": "Google Chrome 152.0.7977.83",
+    "cpu": "Apple M4 Pro",
+    "display": "6400 x 3600",
+    "displayScale": "3200 x 1800 @ 60.00Hz",
+    "ffmpeg": "ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "hyperframes": "0.8.31",
+    "macos": "26.6.2",
+    "memoryBytes": 68719476736,
+    "node": "v26.8.1",
+    "platform": "darwin",
+    "pnpm": "11.22.0",
+    "powerMode": "standard",
+    "release": "25.6.0",
+    "remotion": "4.0.522"
+  },
+  "fixture": "long-render",
+  "fixtureDigest": "ecc780d1aa87d49cbe85f63abba04f1a723bf142a44e0e42699fa23f6bd343dd",
+  "generatedAt": "2026-09-08T21:39:27.554Z",
+  "kind": "video-acceptance",
+  "render": {
+    "audioClipCount": 1,
+    "durationInFrames": 5400,
+    "fileSizeBytes": 51918843,
+    "fps": 30,
+    "mediaKinds": [
+      "video",
+      "image"
+    ],
+    "peakRssBytes": 698793984,
+    "probe": {
+      "format": {
+        "duration": "180.053333",
+        "size": "51918843"
+      },
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "avg_frame_rate": "30/1",
+          "codec_type": "video",
+          "height": 720,
+          "nb_frames": "5400",
+          "side_data_list": [
+            {}
+          ],
+          "width": 1280
+        },
+        {
+          "avg_frame_rate": "0/0",
+          "channel_layout": "stereo",
+          "channels": 2,
+          "codec_type": "audio",
+          "nb_frames": "8440"
+        }
+      ]
+    },
+    "sampledFrames": [
+      {
+        "sha256": "15f0f1a1485079f5ff1e6a0610b68f717ca7c9052893df51959e3f8ed3147411",
+        "timestampSec": 1.5
+      },
+      {
+        "sha256": "d749646e25bcebfdea58710d81b04b3763c7b27d53d2f8e91e2115ece5431379",
+        "timestampSec": 7.5
+      },
+      {
+        "sha256": "d2d861c41bbce9118acc074d7074bdd06453ee5f63a0cfbb093818d6f74912bf",
+        "timestampSec": 13.5
+      }
+    ],
+    "sourceAudioChannels": 6,
+    "useRemotionMedia": true,
+    "visualClipCount": 12,
+    "wallClockMs": 54555
+  },
+  "schemaVersion": 1,
+  "status": "passed"
+}

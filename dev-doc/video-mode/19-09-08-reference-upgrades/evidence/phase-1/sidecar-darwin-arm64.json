@@ -1,0 +1,154 @@
+{
+  "checks": [
+    {
+      "name": "packaged-build",
+      "status": "passed"
+    },
+    {
+      "name": "bundle-written",
+      "status": "passed"
+    },
+    {
+      "name": "bundle-excludes-puppeteer-core",
+      "status": "passed"
+    },
+    {
+      "name": "bundle-excludes--puppeteer-browsers",
+      "status": "passed"
+    },
+    {
+      "name": "bundle-excludes-hyperframes-dist",
+      "status": "passed"
+    },
+    {
+      "detail": "sidecar resolves the CLI from env, workspace bin, or PATH",
+      "name": "hyperframes-resolved-at-runtime",
+      "status": "passed"
+    },
+    {
+      "name": "packaged-binary-present",
+      "status": "passed"
+    },
+    {
+      "name": "cli-missing-http-ok",
+      "status": "passed"
+    },
+    {
+      "detail": "not-found",
+      "name": "cli-missing-typed-reason",
+      "status": "passed"
+    },
+    {
+      "name": "browser-missing-http-ok",
+      "status": "passed"
+    },
+    {
+      "detail": "browser-missing",
+      "name": "browser-missing-typed-reason",
+      "status": "passed"
+    },
+    {
+      "detail": "remotion-direct/0.1.0",
+      "name": "remotion-available-without-external-cli",
+      "status": "passed"
+    }
+  ],
+  "command": "node scripts/video-sidecar-probe.mjs --target=darwin-arm64 --json",
+  "environment": {
+    "architecture": "arm64",
+    "cpu": "Apple M4 Pro",
+    "memoryBytes": 68719476736,
+    "node": "v26.8.1",
+    "platform": "darwin",
+    "pnpm": "11.22.0",
+    "release": "25.6.0"
+  },
+  "footprint": {
+    "binaryBytes": 235836320,
+    "bundleBytes": 41837004,
+    "nativeBytes": {
+      "onnxruntime": 39909488,
+      "sharp": 19254287,
+      "sherpaOnnx": 33413143
+    }
+  },
+  "generatedAt": "2026-09-08T22:33:03.220Z",
+  "hostExecuted": true,
+  "kind": "video-sidecar-probe",
+  "observations": {
+    "browserMissing": {
+      "alpha": true,
+      "bestFor": [
+        "Deterministic HTML animation",
+        "UI and screen-capture compositions",
+        "Transparent WebM output"
+      ],
+      "detail": "Not found",
+      "detectedVersion": "0.8.31",
+      "id": "hyperframes",
+      "installed": false,
+      "licensing": "Apache-2.0",
+      "name": "HyperFrames",
+      "outputFormats": [
+        "mp4",
+        "webm-alpha",
+        "png-sequence"
+      ],
+      "renderSpeedHint": "faster",
+      "unavailableReason": "browser-missing",
+      "version": "0.8.31",
+      "weaknesses": [
+        "Requires the HyperFrames CLI and a compatible browser"
+      ]
+    },
+    "cliMissing": {
+      "alpha": true,
+      "bestFor": [
+        "Deterministic HTML animation",
+        "UI and screen-capture compositions",
+        "Transparent WebM output"
+      ],
+      "detail": "/var/folders/kc/dkvs9jnn1h1b89gds6nghwxm0000gn/T/video-sidecar-probe-62kVaD/absent-cli could not start: spawn /var/folders/kc/dkvs9jnn1h1b89gds6nghwxm0000gn/T/video-sidecar-probe-62kVaD/absent-cli ENOENT",
+      "id": "hyperframes",
+      "installed": false,
+      "licensing": "Apache-2.0",
+      "name": "HyperFrames",
+      "outputFormats": [
+        "mp4",
+        "webm-alpha",
+        "png-sequence"
+      ],
+      "renderSpeedHint": "faster",
+      "unavailableReason": "not-found",
+      "version": "0.8.31",
+      "weaknesses": [
+        "Requires the HyperFrames CLI and a compatible browser"
+      ]
+    },
+    "remotion": {
+      "alpha": false,
+      "bestFor": [
+        "React-controlled animation",
+        "deterministic data frames",
+        "HTML frame bridge rendering"
+      ],
+      "detectedVersion": "remotion-direct/0.1.0",
+      "id": "remotion",
+      "installed": true,
+      "licensing": "MIT (Remotion); see Remotion company-license rules",
+      "name": "Remotion",
+      "outputFormats": [
+        "mp4",
+        "webm"
+      ],
+      "version": "remotion-direct/0.1.0",
+      "weaknesses": [
+        "Commercial license required for larger teams",
+        "HTML bridge requires animation time-driver sync"
+      ]
+    }
+  },
+  "schemaVersion": 1,
+  "status": "passed",
+  "target": "darwin-arm64"
+}

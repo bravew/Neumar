@@ -1,6 +1,6 @@
 ---
 name: hyperframes
-upstream-version: 0.8.7
+upstream-version: 0.8.31
 description: Create video compositions, animations, title cards, overlays, captions, voiceovers, audio-reactive visuals, and scene transitions in HyperFrames HTML. Use when asked to build any HTML-based video content, add captions or subtitles synced to audio, generate text-to-speech narration, create audio-reactive animation (beat sync, glow, pulse driven by music), add animated text highlighting (marker sweeps, hand-drawn circles, burst lines, scribble, sketchout), or add transitions between scenes (crossfades, wipes, reveals, shader transitions). Covers composition authoring, timing, media, and the full video production workflow. For CLI commands (init, lint, preview, render, transcribe, tts) see the hyperframes-cli skill.
 triggers:
   - "hyperframes"
@@ -28,7 +28,7 @@ od:
 
 HTML is the source of truth for video. A composition is an HTML file with `data-*` attributes for timing, a GSAP timeline for animation, and CSS for appearance. The framework handles clip visibility, media playback, and timeline sync.
 
-## Upstream 0.8.7 router (load-bearing)
+## Upstream 0.8.31 router (load-bearing)
 
 This section is the entry point and supersedes conflicting operational commands
 later in this bundled snapshot. Upstream owns composition, animation, media, and
@@ -294,7 +294,7 @@ Layered effects (glow behind text, shadow elements, background patterns) and z-s
 | `data-duration`    | Required for img/div/compositions | Seconds. Video/audio defaults to media duration.       |
 | `data-track-index` | Yes                               | Integer. Same-track clips cannot overlap.              |
 | `data-media-start` | No                                | Trim offset into source (seconds)                      |
-| `data-volume`      | No                                | 0-1 (default 1)                                        |
+| `data-volume`      | No                                | Linear gain 0-3.981071705534972 (+12 dB; default 1)    |
 
 `data-track-index` does **not** affect visual layering — use CSS `z-index`.
 
@@ -359,6 +359,22 @@ Video must be `muted playsinline`. Audio is always a separate `<audio>` element:
   data-volume="1"
 ></audio>
 ```
+
+The runtime accepts `data-volume` gain through
+`3.981071705534972` (`10^(12/20)`, or +12 dB). The
+`set-media-volume` command is intentionally narrower and clamps authored
+values to the 0-1 range.
+
+## Publish Visibility
+
+- A fresh `hyperframes publish` is private and requires authentication.
+- Public publishing is opt-in through `--public`.
+- Re-publishing an already-public project without `--public` preserves its
+  public visibility; it does not demote the project.
+- `--yes` skips the confirmation prompt only. It does not make a publish
+  public or bypass authentication.
+- When signed out, publish returns a claim URL, not a playback URL. Present it
+  as an authentication/claim step rather than as a finished video link.
 
 ## Timeline Contract
 

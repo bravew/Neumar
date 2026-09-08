@@ -123,7 +123,8 @@
     "test:e2e:browser:ui": "playwright test --ui",
     "test:e2e:browser:headed": "playwright test --headed",
     "test:e2e:browser:report": "playwright show-report",
-    "video:baseline": "node scripts/video-baseline.mjs"
+    "video:baseline": "node scripts/video-baseline.mjs",
+    "video:sidecar-probe": "node scripts/video-sidecar-probe.mjs"
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.58",
@@ -144,10 +145,10 @@
     "@radix-ui/react-slot": "^1.3.3",
     "@radix-ui/react-tabs": "^1.1.21",
     "@radix-ui/react-tooltip": "^1.2.16",
-    "@remotion/effects": "4.0.515",
-    "@remotion/media": "4.0.515",
-    "@remotion/player": "4.0.515",
-    "@remotion/transitions": "4.0.515",
+    "@remotion/effects": "4.0.522",
+    "@remotion/media": "4.0.522",
+    "@remotion/player": "4.0.522",
+    "@remotion/transitions": "4.0.522",
     "@ricky0123/vad-web": "^0.0.30",
     "@slack/bolt": "^5.0.0",
     "@slack/web-api": "^8.0.0",
@@ -184,7 +185,7 @@
     "justified-layout": "^4.1.0",
     "katex": "^0.18.4",
     "lucide-react": "^1.33.0",
-    "mediabunny": "1.55.2",
+    "mediabunny": "1.55.5",
     "mermaid": "^11.17.0",
     "motion": "^13.1.1",
     "nanoid": "^6.0.1",
@@ -202,7 +203,7 @@
     "recharts": "^3.10.1",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
-    "remotion": "4.0.515",
+    "remotion": "4.0.522",
     "sonner": "^2.0.8",
     "streamdown": "^2.5.0",
     "tailwind-merge": "^3.6.0",
@@ -210,7 +211,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tauri-plugin-macos-permissions-api": "^2.3.0",
     "yet-another-react-lightbox": "^3.32.2",
-    "zod": "^4.4.3",
+    "zod": "^4.5.4",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

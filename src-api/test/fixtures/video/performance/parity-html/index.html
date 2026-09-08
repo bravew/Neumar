@@ -70,49 +70,66 @@
       const card = document.querySelector('.card');
       const caption = document.querySelector('.caption');
       let currentTime = 0;
+      const animations = [
+        card.animate(
+          [
+            {
+              opacity: 0,
+              transform: 'translateX(-8%) scale(0.92) rotate(-2deg)',
+              filter: 'brightness(0.8)',
+              offset: 0,
+            },
+            {
+              opacity: 1,
+              transform: 'translateX(4%) scale(1.08) rotate(1deg)',
+              filter: 'brightness(1.1)',
+              offset: 0.6,
+            },
+            {
+              opacity: 0.5,
+              transform: 'translateX(0%) scale(1) rotate(0deg)',
+              filter: 'brightness(1.1)',
+              offset: 1,
+            },
+          ],
+          { duration: duration * 1000, fill: 'forwards', easing: 'linear' },
+        ),
+        caption.animate(
+          [
+            { opacity: 0, offset: 0 },
+            { opacity: 0, offset: 0.1 },
+            { opacity: 1, offset: 0.2 },
+            { opacity: 1, offset: 0.8 },
+            { opacity: 0, offset: 0.9 },
+            { opacity: 0, offset: 1 },
+          ],
+          { duration: duration * 1000, fill: 'forwards', easing: 'linear' },
+        ),
+      ];
 
-      function clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
-      }
-
-      function update(time) {
-        const progress = clamp(time / duration, 0, 1);
-        const x =
-          progress < 0.6 ? -8 + progress * 20 : 4 - (progress - 0.6) * 10;
-        const scale =
-          progress < 0.6
-            ? 0.92 + progress * 0.2667
-            : 1.08 - (progress - 0.6) * 0.2;
-        const rotation =
-          progress < 0.6 ? -2 + progress * 5 : 1 - (progress - 0.6) * 2.5;
-        const cardOpacity =
-          clamp(progress / 0.2, 0, 1) *
-          (1 - Math.max(0, progress - 0.8) * 1.25);
-        const captionOpacity =
-          clamp((progress - 0.1) / 0.1, 0, 1) *
-          (1 - clamp((progress - 0.8) / 0.1, 0, 1));
-        card.style.opacity = String(cardOpacity);
-        card.style.transform = `translateX(${x}%) scale(${scale}) rotate(${rotation}deg)`;
-        card.style.filter = `brightness(${0.8 + Math.min(progress, 0.6) * 0.5})`;
-        caption.style.opacity = String(captionOpacity);
+      function seek(time) {
+        currentTime = Math.max(0, Math.min(Number(time) || 0, duration));
+        for (const animation of animations) {
+          animation.currentTime = currentTime * 1000;
+        }
       }
 
       window.__timelines['video-parity-v1'] = {
         pause() {
+          for (const animation of animations) animation.pause();
           return this;
         },
         play() {
+          for (const animation of animations) animation.play();
           return this;
         },
         seek(time) {
-          currentTime = clamp(Number(time) || 0, 0, duration);
-          update(currentTime);
+          seek(time);
           return this;
         },
         totalTime(time) {
           if (time === undefined) return currentTime;
-          currentTime = clamp(Number(time) || 0, 0, duration);
-          update(currentTime);
+          seek(time);
           return currentTime;
         },
         time() {
@@ -125,13 +142,6 @@
           return this;
         },
       };
-
-      const startedAt = performance.now();
-      function animate(now) {
-        update(Math.min(duration, (now - startedAt) / 1000));
-        if (now - startedAt < duration * 1000) requestAnimationFrame(animate);
-      }
-      requestAnimationFrame(animate);
     </script>
   </body>
 </html>
