@@ -118,7 +118,9 @@ function environment() {
 
 function assertFixture(name, fixture) {
   const timeline =
-    name === 'stale-revision' ? fixture.project.timeline : fixture.timeline;
+    name === 'stale-revision' || name === 'timebase-range'
+      ? fixture.project.timeline
+      : fixture.timeline;
   const clips = timeline.tracks.flatMap((track) => track.clips);
   const checks = [
     check('timeline-schema', timeline.schema === 'neuma.video.timeline.v1'),
@@ -363,6 +365,31 @@ function runLongRender(outputDir) {
   };
 }
 
+// Runs the real timebase/output-range code against the fixture through
+// `compileTimelineToEdl`, the seam every engine reads.
+function runTimebaseRange(outputDir, fixture) {
+  fs.mkdirSync(outputDir, { recursive: true });
+  const fixturePath = path.join(outputDir, 'project.json');
+  fs.writeFileSync(fixturePath, stableJson(fixture));
+  const result = run('pnpm', [
+    'exec',
+    'tsx',
+    '--tsconfig',
+    'src-api/tsconfig.json',
+    'src-api/test/acceptance/video-timebase-range-acceptance.ts',
+    `--project=${fixturePath}`,
+  ]);
+  const marker = result.stdout
+    .split('\n')
+    .find((line) => line.startsWith('VIDEO_ACCEPTANCE_RESULT='));
+  if (!marker) {
+    throw new Error(
+      `Timebase-range runner returned no result marker\n${result.stderr.slice(-2000)}`,
+    );
+  }
+  return JSON.parse(marker.slice('VIDEO_ACCEPTANCE_RESULT='.length));
+}
+
 function comparisonFor(fixture, render, label) {
   if (!label || !render) return undefined;
   const reportName =
@@ -490,6 +517,94 @@ function main() {
       ),
       check('peak-rss-captured', Number.isFinite(render.peakRssBytes)),
     );
+  }
+  if (args.fixture === 'timebase-range') {
+    const observed = runTimebaseRange(
+      path.join(outputDir, 'timebase-range'),
+      fixture,
+    );
+    const expected = fixture.expected;
+    const oneFrameMs = observed.frameMs;
+    checks.push(
+      check(
+        'timebase-stays-rational',
+        observed.timebase.rate.num === expected.frameRate.num &&
+          observed.timebase.rate.den === expected.frameRate.den,
+        `${observed.timebase.rate.num}/${observed.timebase.rate.den}`,
+      ),
+      check(
+        'derived-timebase-matches-footage',
+        observed.timebase.derivedRate.num === expected.frameRate.num &&
+          observed.timebase.derivedRate.den === expected.frameRate.den,
+        observed.timebase.derivedReason,
+      ),
+      check(
+        'compatibility-fps-preserved',
+        observed.timebase.compatibilityFps === expected.compatibilityFps,
+      ),
+      check(
+        'range-resolves-to-declared-frames',
+        observed.range?.inFrame === expected.outputRange.inFrame &&
+          observed.range?.outFrameExclusive ===
+            expected.outputRange.outFrameExclusive,
+      ),
+      check(
+        'output-duration-within-one-frame',
+        Math.abs(observed.ranged.durationMs - expected.rangeDurationMs) <=
+          oneFrameMs,
+        `${observed.ranged.durationMs}ms vs ${expected.rangeDurationMs}ms`,
+      ),
+      check(
+        'render-local-time-starts-at-zero',
+        observed.ranged.segments[0]?.timelineStartMs === 0,
+      ),
+      check(
+        'project-time-provenance-recorded',
+        observed.ranged.outputRange?.projectStartMs !== undefined &&
+          observed.ranged.outputRange.projectEndMs !== undefined,
+      ),
+      check(
+        'clips-outside-range-dropped',
+        JSON.stringify(observed.ranged.segmentIds) ===
+          JSON.stringify(expected.survivingSegmentIds),
+        observed.ranged.segmentIds.join(','),
+      ),
+      check(
+        'captions-outside-range-dropped',
+        JSON.stringify(observed.ranged.captionIds) ===
+          JSON.stringify(expected.survivingCaptionIds),
+        observed.ranged.captionIds.join(','),
+      ),
+      // range-clip-a is cut at its head only, so its entrance is dropped while
+      // the transition at its tail — which sits inside the range — survives.
+      // range-clip-b is cut at the out point, so anything on its tail is gone.
+      check(
+        'head-cut-drops-entrance',
+        observed.ranged.segments[0]?.entranceMs === null,
+      ),
+      check(
+        'transition-inside-range-survives',
+        observed.ranged.segments[0]?.transitionToNext !== null,
+      ),
+      check(
+        'tail-cut-drops-transition',
+        observed.ranged.segments[1]?.transitionToNext === null,
+      ),
+      check(
+        'boundary-cut-audio-fades-dropped',
+        observed.ranged.audioClips.every(
+          (clip) => clip.fadeInMs === null && clip.fadeOutMs === null,
+        ),
+      ),
+      check(
+        'unset-range-renders-full-timeline',
+        observed.unranged.outputRange === null &&
+          observed.unranged.durationMs > observed.ranged.durationMs &&
+          observed.unranged.captionIds.length >
+            observed.ranged.captionIds.length,
+      ),
+    );
+    render = { timebaseRange: observed };
   }
   const comparison = comparisonFor(args.fixture, render, args.compare);
   if (comparison?.peakRssWithinTenPercent !== undefined) {

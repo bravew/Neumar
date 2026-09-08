@@ -19,6 +19,10 @@ describe('resolveTimelineKeyboardAction', () => {
     [{ key: 'b' }, 'razor-tool'],
     [{ key: 'c' }, 'razor-tool'],
     [{ key: 'm' }, 'add-marker'],
+    [{ key: 'i' }, 'set-output-in'],
+    [{ key: 'o' }, 'set-output-out'],
+    [{ key: 'I' }, 'set-output-in'],
+    [{ key: 'x', shiftKey: true }, 'clear-output-range'],
     [{ key: 's' }, 'toggle-snap'],
     [{ key: 'n' }, 'toggle-snap'],
     [{ key: 'ArrowLeft' }, 'step-back-frame'],
@@ -38,6 +42,12 @@ describe('resolveTimelineKeyboardAction', () => {
     ).toBeNull();
     expect(
       resolveTimelineKeyboardAction(keyboardEvent({ key: 'q', metaKey: true })),
+    ).toBeNull();
+    // Cmd+X stays cut; only the bare Shift+X clears the range.
+    expect(
+      resolveTimelineKeyboardAction(
+        keyboardEvent({ key: 'x', metaKey: true, shiftKey: true }),
+      ),
     ).toBeNull();
   });
 });

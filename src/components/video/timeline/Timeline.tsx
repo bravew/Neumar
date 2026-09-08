@@ -28,11 +28,11 @@ import { useTimelineClipSelection } from './useTimelineClipSelection';
 import { useTimelineDeleteSelection } from './useTimelineDeleteSelection';
 import { useTimelineDropHandlers } from './useTimelineDropHandlers';
 import { useTimelineEditorBindings } from './useTimelineEditorStore';
-import { useTimelineFrameStep } from './useTimelineFrameStep';
 import { useTimelineKeyboardShortcuts } from './useTimelineKeyboardShortcuts';
 import { useTimelineLabels } from './useTimelineLabels';
 import { useTimelineLassoSelection } from './useTimelineLassoSelection';
 import { useTimelinePersistence } from './useTimelinePersistence';
+import { useTimelinePlayheadActions } from './useTimelinePlayheadActions';
 import { useTimelineSceneSeek } from './useTimelineSceneSeek';
 import { useTimelineTrackActions } from './useTimelineTrackActions';
 import { useTimelineTrackHeights } from './useTimelineTrackHeights';
@@ -141,18 +141,20 @@ export function Timeline({
     editor.setProjectTimeline(project.id, timeline);
   }, [editor, project.id, timeline]);
   useTimelinePersistence({ projectId: project.id, onTimelineChange });
-  const handleSplitSelectedClip = useCallback(() => {
-    editor.splitSelectedClipAtPlayhead(playheadMs);
-  }, [editor, playheadMs]);
   const handleDeleteSelectedClip = useTimelineDeleteSelection({
     activeTimeline,
     editor,
     labels: labels.track,
     onApplyAgentTool,
   });
-  const handleAddMarker = useCallback(() => {
-    editor.addMarker(playheadMs, t.video.editor.timeline.markerDefaultLabel);
-  }, [editor, playheadMs, t.video.editor.timeline.markerDefaultLabel]);
+  const playheadActions = useTimelinePlayheadActions({
+    editor,
+    activeTimeline,
+    playheadMs,
+    timelineDurationMs,
+    markerDefaultLabel: t.video.editor.timeline.markerDefaultLabel,
+    setPlayheadMs,
+  });
   const clipboard = useTimelineClipboard({ playheadMs });
   const undoArbitration = useTimelineUndoArbitration({
     agentJournal: project.agentJournal ?? [],
@@ -191,12 +193,6 @@ export function Timeline({
     onUploadAssets,
     materializationSessionId,
   });
-  const handleStepFrames = useTimelineFrameStep({
-    fps: activeTimeline.fps,
-    playheadMs,
-    setPlayheadMs,
-    timelineDurationMs,
-  });
   useEffect(() => {
     if (timelineTransitionsEnabled || editor.selectedSeamId === null) return;
     editor.selectSeam(null);
@@ -206,7 +202,7 @@ export function Timeline({
     hasSelectedClips: editor.selectedClipIds.size > 0,
     hasSelectedTransition:
       timelineTransitionsEnabled && editor.selectedSeamId !== null,
-    onSplitSelectedClip: handleSplitSelectedClip,
+    onSplitSelectedClip: playheadActions.handleSplitSelectedClip,
     onDeleteSelectedClip: handleDeleteSelectedClip,
     onSelectAllClips: editor.selectAllClips,
     onCopySelection: () => void clipboard.copy(),
@@ -214,11 +210,14 @@ export function Timeline({
     onPasteClipboard: () => void clipboard.paste(),
     onUndo: undoArbitration.undo,
     onRedo: undoArbitration.redo,
-    onAddMarker: handleAddMarker,
+    onAddMarker: playheadActions.handleAddMarker,
+    onSetOutputIn: playheadActions.handleSetOutputIn,
+    onSetOutputOut: playheadActions.handleSetOutputOut,
+    onClearOutputRange: playheadActions.handleClearOutputRange,
     onToggleSnapping: toggleSnapping,
     onSelectTool: () => setRazorToolEnabled(false),
     onRazorTool: () => setRazorToolEnabled(true),
-    onStepFrames: handleStepFrames,
+    onStepFrames: playheadActions.handleStepFrames,
   });
   useTimelineViewportWidth({ scrollRef, setViewportWidth });
   const handleSelectClip = useTimelineClipSelection({
@@ -312,7 +311,8 @@ export function Timeline({
         onAddTrack={editor.addTrack}
         onAddCaption={() => editor.insertCaptionAtPlayhead(playheadMs)}
         onToggleSnapping={toggleSnapping}
-        onAddMarker={handleAddMarker}
+        onAddMarker={playheadActions.handleAddMarker}
+        outputRange={playheadActions.outputRangeControls}
       />
       <TimelineLinkWarnings
         blockedWarning={editor.lastEditWarning}

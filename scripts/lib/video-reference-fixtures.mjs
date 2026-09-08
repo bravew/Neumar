@@ -11,6 +11,7 @@ export const VIDEO_REFERENCE_FIXTURES = [
   'timeline-1000',
   'offline-media',
   'stale-revision',
+  'timebase-range',
 ];
 
 function baseProject(id, name, durationMs) {
@@ -400,6 +401,148 @@ function staleRevisionFixture() {
   };
 }
 
+// A 29.97 project with an output range set, plus one clip of every kind that
+// has to survive being cut at a range boundary: a transition, a caption, an
+// effect stack, audio fades, and a playback-rate clip.
+function timebaseRangeFixture() {
+  const project = baseProject(
+    'video-timebase-range-v1',
+    'Video timebase and range v1',
+    10_010,
+  );
+  // 30000/1001 exactly. The compatibility fps is the decimal older readers use.
+  project.timeline.fps = 29.97;
+  project.timeline.frameRate = { num: 30_000, den: 1001 };
+  // Frames 60 through 180 exclusive: two seconds of a ten-second timeline,
+  // starting and ending mid-clip so every boundary case is exercised.
+  project.timeline.outputRange = { inFrame: 60, outFrameExclusive: 180 };
+  project.assets = [
+    {
+      id: 'range-video-a',
+      kind: 'video',
+      source: 'user',
+      path: 'fixtures/range-a.mp4',
+      metadata: {
+        durationMs: 6000,
+        width: 1920,
+        height: 1080,
+        frameRate: 29.97,
+      },
+    },
+    {
+      id: 'range-video-b',
+      kind: 'video',
+      source: 'user',
+      path: 'fixtures/range-b.mp4',
+      metadata: {
+        durationMs: 6000,
+        width: 1920,
+        height: 1080,
+        frameRate: 29.97,
+      },
+    },
+    {
+      id: 'range-audio',
+      kind: 'audio',
+      source: 'user',
+      path: 'fixtures/range-audio.wav',
+      metadata: { durationMs: 10_010 },
+    },
+  ];
+  project.timeline.tracks = [
+    {
+      ...baseTrack('range-video-track', 'video', 0),
+      clips: [
+        {
+          ...baseClip(
+            'range-clip-a',
+            'video',
+            { kind: 'asset', assetId: 'range-video-a' },
+            0,
+            4004,
+          ),
+          // Entrance and transition both sit outside the range and must be
+          // dropped rather than replayed against a hard cut.
+          entranceMs: 250,
+          transitionToNext: { kind: 'fade', durationMs: 500 },
+          effects: {
+            schema: 'neuma.video.clip-effects.v1',
+            effects: [
+              { id: 'range-grade', kind: 'exposure', params: { ev: 0.3 } },
+            ],
+          },
+        },
+        {
+          ...baseClip(
+            'range-clip-b',
+            'video',
+            { kind: 'asset', assetId: 'range-video-b' },
+            4004,
+            6006,
+          ),
+          playback: { speed: 1.5, reverse: false, pitchCorrection: true },
+        },
+      ],
+    },
+    {
+      ...baseTrack('range-audio-track', 'audio-music', 20),
+      clips: [
+        {
+          ...baseClip(
+            'range-clip-audio',
+            'audio',
+            { kind: 'asset', assetId: 'range-audio' },
+            0,
+            10_010,
+          ),
+          fadeInMs: 500,
+          fadeOutMs: 500,
+        },
+      ],
+    },
+    {
+      ...baseTrack('range-caption-track', 'caption', 30),
+      clips: [
+        {
+          ...baseClip(
+            'range-caption-early',
+            'caption',
+            { kind: 'scene', sceneId: 'scene-1' },
+            0,
+            1000,
+          ),
+          text: 'Before the range',
+        },
+        {
+          ...baseClip(
+            'range-caption-straddle',
+            'caption',
+            { kind: 'scene', sceneId: 'scene-1' },
+            1500,
+            1500,
+          ),
+          text: 'Across the in point',
+        },
+      ],
+    },
+  ];
+  return {
+    kind: 'timebase-range',
+    project,
+    expected: {
+      frameRate: { num: 30_000, den: 1001 },
+      compatibilityFps: 29.97,
+      outputRange: { inFrame: 60, outFrameExclusive: 180 },
+      // 120 frames at 30000/1001.
+      rangeDurationMs: 4004,
+      // range-clip-a survives trimmed at both ends; range-clip-b survives its head.
+      survivingSegmentIds: ['range-clip-a', 'range-clip-b'],
+      // The early caption ends at 1000ms, before the range starts at 2002ms.
+      survivingCaptionIds: ['range-caption-straddle'],
+    },
+  };
+}
+
 export function buildVideoReferenceFixture(name, options = {}) {
   switch (name) {
     case 'parity':
@@ -415,6 +558,8 @@ export function buildVideoReferenceFixture(name, options = {}) {
       return offlineMediaFixture();
     case 'stale-revision':
       return staleRevisionFixture();
+    case 'timebase-range':
+      return timebaseRangeFixture();
     default:
       throw new Error(`Unknown video reference fixture: ${name}`);
   }

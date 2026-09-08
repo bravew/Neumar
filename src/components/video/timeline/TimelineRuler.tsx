@@ -1,13 +1,20 @@
 import { useRef } from 'react';
 
 import { cn } from '@/shared/lib/utils';
-import type { VideoTimelineMarker } from '@/shared/types/video';
+import type {
+  VideoTimelineMarker,
+  VideoTimelineOutputRange,
+} from '@/shared/types/video';
 
 import {
   TimelineMarkerInspector,
   type TimelineMarkerLabels,
 } from './TimelineMarkerInspector';
 import { formatTimelineTime, msToPixels, pixelsToMs } from './timelineMath';
+import {
+  TimelineOutputRangeOverlay,
+  type TimelineOutputRangeLabels,
+} from './TimelineOutputRangeOverlay';
 
 interface TimelineRulerProps {
   durationMs: number;
@@ -25,6 +32,12 @@ interface TimelineRulerProps {
     patch: Partial<Omit<VideoTimelineMarker, 'id'>>,
   ) => void;
   onDeleteMarker: (markerId: string) => void;
+  outputRange?: VideoTimelineOutputRange | null;
+  outputRangeInMs?: number;
+  outputRangeOutMs?: number;
+  outputRangeLabels?: TimelineOutputRangeLabels;
+  onMoveOutputRangeIn?: (ms: number) => void;
+  onMoveOutputRangeOut?: (ms: number) => void;
 }
 
 export function TimelineRuler({
@@ -40,6 +53,12 @@ export function TimelineRuler({
   onSelectMarker,
   onUpdateMarker,
   onDeleteMarker,
+  outputRange,
+  outputRangeInMs,
+  outputRangeOutMs,
+  outputRangeLabels,
+  onMoveOutputRangeIn,
+  onMoveOutputRangeOut,
 }: TimelineRulerProps) {
   const selectedMarkerButtonRef = useRef<HTMLButtonElement | null>(null);
   const intervalMs = getTickIntervalMs(pixelsPerSecond);
@@ -107,6 +126,22 @@ export function TimelineRuler({
           }}
         />
       ))}
+      {outputRange &&
+      outputRangeLabels &&
+      outputRangeInMs !== undefined &&
+      outputRangeOutMs !== undefined ? (
+        <TimelineOutputRangeOverlay
+          range={outputRange}
+          inMs={outputRangeInMs}
+          outMs={outputRangeOutMs}
+          durationMs={durationMs}
+          headerWidth={headerWidth}
+          pixelsPerSecond={pixelsPerSecond}
+          labels={outputRangeLabels}
+          onMoveIn={onMoveOutputRangeIn ?? (() => {})}
+          onMoveOut={onMoveOutputRangeOut ?? (() => {})}
+        />
+      ) : null}
       <TimelineMarkerInspector
         marker={selectedMarker}
         headerWidth={headerWidth}

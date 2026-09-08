@@ -313,6 +313,9 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_suggest_timeline_transitions',
   'video_set_timeline_bookend',
   'video_clear_timeline_bookend',
+  'video_set_timebase',
+  'video_set_output_range',
+  'video_clear_output_range',
   'video_set_clip_audio_seam',
   'video_set_keyframes',
   'video_apply_capture_to_timeline',
@@ -4410,6 +4413,46 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
           'clearTimelineBookend',
           input,
         );
+        return toolCallResult(projectId, options, call);
+      },
+    ),
+    tool(
+      'video_set_timebase',
+      "Set the project's frame rate as an exact rational and choose whether it is locked. Accepts a preset id ('23.976', '29.97', '59.94', or an integer rate), a decimal, or 'num/den'. NTSC decimals snap to their exact broadcast fractions.",
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        rate: z.string().min(1),
+        locked: z.boolean().optional(),
+      },
+      async (input) => {
+        const { projectId, call } = camelToolCall('setTimebase', input);
+        return toolCallResult(projectId, options, call);
+      },
+    ),
+    tool(
+      'video_set_output_range',
+      'Limit renders and exports to a sub-range of the timeline, in half-open project frames. The out frame is exclusive.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        inFrame: z.number().int().min(0),
+        outFrameExclusive: z.number().int().positive(),
+      },
+      async (input) => {
+        const { projectId, call } = camelToolCall('setOutputRange', input);
+        return toolCallResult(projectId, options, call);
+      },
+    ),
+    tool(
+      'video_clear_output_range',
+      'Clear the output range so renders cover the whole timeline again.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+      },
+      async (input) => {
+        const { projectId, call } = camelToolCall('clearOutputRange', input);
         return toolCallResult(projectId, options, call);
       },
     ),

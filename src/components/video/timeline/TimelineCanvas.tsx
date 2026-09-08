@@ -16,6 +16,12 @@ import type { LinkedAssetDragPayload } from '../linkedAssetDrag';
 import type { OverlayPresetDragPayload } from '../overlays/overlayDragPayload';
 import type { ProjectAssetDragPayload } from '../projectAssetDrag';
 import { BeatGridOverlay } from './BeatGridOverlay';
+import {
+  outputRangePixels,
+  setOutputIn,
+  setOutputOut,
+  timelineFrameRate,
+} from './outputRange';
 import { SnapOverlay } from './SnapOverlay';
 import type { TimelineClientPoint } from './timelineClipDrag';
 import { TimelineHoverIndicator } from './TimelineHoverIndicator';
@@ -163,6 +169,10 @@ export function TimelineCanvas({
   onToggleTrackVisibility,
   onDeleteTrack,
 }: TimelineCanvasProps) {
+  const rate = timelineFrameRate(editor.timeline ?? undefined);
+  const rangePixels = editor.timeline
+    ? outputRangePixels({ ...editor.timeline, durationMs: timelineDurationMs })
+    : null;
   const hover = useTimelineHoverPreview({
     fps,
     isBusy:
@@ -227,6 +237,30 @@ export function TimelineCanvas({
           onSelectMarker={editor.selectMarker}
           onUpdateMarker={editor.updateMarker}
           onDeleteMarker={editor.deleteMarker}
+          outputRange={editor.timeline?.outputRange ?? null}
+          outputRangeInMs={rangePixels?.inMs}
+          outputRangeOutMs={rangePixels?.outMs}
+          outputRangeLabels={labels.outputRange}
+          onMoveOutputRangeIn={(ms) =>
+            editor.setOutputRange(
+              setOutputIn(
+                editor.timeline?.outputRange,
+                ms,
+                rate,
+                timelineDurationMs,
+              ),
+            )
+          }
+          onMoveOutputRangeOut={(ms) =>
+            editor.setOutputRange(
+              setOutputOut(
+                editor.timeline?.outputRange,
+                ms,
+                rate,
+                timelineDurationMs,
+              ),
+            )
+          }
         />
         <SnapOverlay
           headerWidth={TRACK_HEADER_WIDTH}

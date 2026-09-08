@@ -114,38 +114,49 @@ describe('timeline math', () => {
   });
 
   it('ignores audio clip length when measuring the picture timeline', () => {
-    const tracks: VideoTimelineTrack[] = [
-      {
-        ...trackFixture('track-video-main', 'video', 0),
-        clips: [
-          {
-            id: 'clip-picture',
-            kind: 'video',
-            sourceRef: { kind: 'asset', assetId: 'asset-1' },
-            startMs: 0,
-            durationMs: 4000,
-            trimStartMs: 0,
-            trimEndMs: 4000,
-            sourceDurationMs: 4000,
-          },
-        ],
-      },
-      {
-        ...trackFixture('track-audio', 'audio-music', 20),
-        clips: [
-          {
-            id: 'clip-music',
-            kind: 'audio',
-            sourceRef: { kind: 'asset', assetId: 'asset-music' },
-            startMs: 0,
-            durationMs: 1_800_000,
-            trimStartMs: 0,
-            trimEndMs: 1_800_000,
-            sourceDurationMs: 1_800_000,
-          },
-        ],
-      },
-    ];
+    // Built as literals rather than spreads of trackFixture: spreading the
+    // union widens `clips` back to "must satisfy every track kind".
+    const pictureTrack: VideoTimelineTrack = {
+      id: 'track-video-main',
+      kind: 'video',
+      name: 'track-video-main',
+      muted: false,
+      locked: false,
+      order: 0,
+      clips: [
+        {
+          id: 'clip-picture',
+          kind: 'video',
+          sourceRef: { kind: 'asset', assetId: 'asset-1' },
+          startMs: 0,
+          durationMs: 4000,
+          trimStartMs: 0,
+          trimEndMs: 4000,
+          sourceDurationMs: 4000,
+        },
+      ],
+    };
+    const musicTrack: VideoTimelineTrack = {
+      id: 'track-audio',
+      kind: 'audio-music',
+      name: 'track-audio',
+      muted: false,
+      locked: false,
+      order: 20,
+      clips: [
+        {
+          id: 'clip-music',
+          kind: 'audio',
+          sourceRef: { kind: 'asset', assetId: 'asset-music' },
+          startMs: 0,
+          durationMs: 1_800_000,
+          trimStartMs: 0,
+          trimEndMs: 1_800_000,
+          sourceDurationMs: 1_800_000,
+        },
+      ],
+    };
+    const tracks: VideoTimelineTrack[] = [pictureTrack, musicTrack];
 
     expect(getTimelineDurationMs(tracks)).toBe(4000);
   });

@@ -1,6 +1,8 @@
-import { clipPlaybackFromFields } from '@neumar/video-ir';
+import { clipPlaybackFromFields, normalizeFrameRate } from '@neumar/video-ir';
 
 import { carryForwardSttCaptions } from './caption-retime';
+import { applyOutputRangeToEdl, resolveOutputRange } from './output-range';
+import { compatibilityFps, deriveProjectTimebase } from './timebase';
 import { normalizeTransition } from './types';
 import type {
   AudioTimelineClip,
@@ -28,7 +30,6 @@ import {
   targetAspectRatioForProject,
 } from './visual-asset-fit';
 
-const DEFAULT_TIMELINE_FPS = 30;
 const TIMELINE_MIGRATION_VERSION = 1;
 const AUDIO_CUT_FADE_MS = 30;
 const DEFAULT_AUDIO_TRANSITION_FADE_MS = 500;
@@ -160,11 +161,13 @@ export function compileTimelineToEdl(
 
   const durationMs =
     pictureTimelineDurationMs(orderedTracks) || timeline.durationMs;
+  const rate = timeline.frameRate ?? timeline.fps;
 
-  return {
+  const compiled: EditDecisionList = {
     schema: 'neuma.video.edl.v1',
     projectId: project.id,
     fps: timeline.fps,
+    frameRate: normalizeFrameRate(rate),
     durationMs,
     segments,
     overlays,
@@ -176,6 +179,13 @@ export function compileTimelineToEdl(
       (a, b) => a.startMs - b.startMs || a.id.localeCompare(b.id),
     ),
   };
+
+  // Every engine reads the EDL, so trimming here is what makes "no engine may
+  // ignore a set range" structural instead of three parallel implementations.
+  return applyOutputRangeToEdl(
+    compiled,
+    resolveOutputRange({ durationMs, outputRange: timeline.outputRange }, rate),
+  );
 }
 
 export function insertCaptureCaptionClips(
@@ -221,7 +231,8 @@ export function insertCaptureCaptionClips(
 function buildTimelineFromStoryboard(project: VideoProject): VideoTimeline {
   const storyboard = project.storyboard;
   const scenes = storyboard?.scenes ?? [];
-  const fps = deriveTimelineFps(project.assets);
+  const timebase = deriveProjectTimebase(project.assets);
+  const fps = compatibilityFps(timebase.rate);
   const durationMs =
     storyboard?.totalDurationMs ??
     scenes.reduce((total, scene) => total + scene.durationMs, 0);
@@ -352,6 +363,9 @@ function buildTimelineFromStoryboard(project: VideoProject): VideoTimeline {
     tracks,
     durationMs,
     fps,
+    // Rational rate alongside the numeric compatibility field: a 29.97 project
+    // now records 30000/1001 instead of silently becoming 30.
+    frameRate: timebase.rate,
     migration: {
       from: 'storyboard',
       version: TIMELINE_MIGRATION_VERSION,
@@ -658,16 +672,6 @@ function edlCaptionFromClip(clip: CaptionTimelineClip): EdlCaption {
     entranceMs: clip.entranceMs,
     exitMs: clip.exitMs,
   };
-}
-
-function deriveTimelineFps(assets: MediaItem[]): number {
-  const frameRate = assets.find(
-    (asset) =>
-      typeof asset.metadata.frameRate === 'number' &&
-      Number.isFinite(asset.metadata.frameRate) &&
-      asset.metadata.frameRate > 0,
-  )?.metadata.frameRate;
-  return frameRate ? Math.round(frameRate) : DEFAULT_TIMELINE_FPS;
 }
 
 function clampEdlAudioTracksToPicture(

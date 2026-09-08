@@ -19,6 +19,9 @@ interface TimelineKeyboardShortcutsOptions {
   onSelectTool: () => void;
   onRazorTool: () => void;
   onStepFrames: (frames: number) => void;
+  onSetOutputIn: () => void;
+  onSetOutputOut: () => void;
+  onClearOutputRange: () => void;
 }
 
 export function useTimelineKeyboardShortcuts({
@@ -38,6 +41,9 @@ export function useTimelineKeyboardShortcuts({
   onSelectTool,
   onRazorTool,
   onStepFrames,
+  onSetOutputIn,
+  onSetOutputOut,
+  onClearOutputRange,
 }: TimelineKeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -107,6 +113,18 @@ export function useTimelineKeyboardShortcuts({
         onRazorTool();
         return;
       }
+      if (action === 'set-output-in') {
+        onSetOutputIn();
+        return;
+      }
+      if (action === 'set-output-out') {
+        onSetOutputOut();
+        return;
+      }
+      if (action === 'clear-output-range') {
+        onClearOutputRange();
+        return;
+      }
       if (action === 'step-back-frame') onStepFrames(-1);
       if (action === 'step-forward-frame') onStepFrames(1);
       if (action === 'step-back-10frames') onStepFrames(-10);
@@ -118,6 +136,9 @@ export function useTimelineKeyboardShortcuts({
     hasSelectedClips,
     hasSelectedTransition,
     onAddMarker,
+    onClearOutputRange,
+    onSetOutputIn,
+    onSetOutputOut,
     onCopySelection,
     onCutSelection,
     onDeleteSelectedClip,

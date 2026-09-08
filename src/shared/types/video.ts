@@ -135,6 +135,16 @@ export interface VideoBrandKit {
 }
 
 export interface VideoProjectSettings {
+  /**
+   * The project's exact frame rate and whether the user has locked it. Absent
+   * on projects written before the timebase contract; those are read through
+   * `timeline.frameRate`, then `timeline.fps`.
+   */
+  timebase?: {
+    rate: FrameRate;
+    source: 'user' | 'derived';
+    locked: boolean;
+  };
   autoApproveStoryboard?: boolean;
   autoApproveUnderCents?: number;
   agentEdits?: 'proposal-only' | 'apply';
@@ -868,12 +878,22 @@ export type VideoTimelineSourceRef =
   | { kind: 'linked'; sourceId: string; externalId: string }
   | { kind: 'scene'; sceneId: string };
 
+export interface VideoTimelineOutputRange {
+  inFrame: number;
+  outFrameExclusive: number;
+}
+
 export interface VideoTimeline {
   schema: 'neuma.video.timeline.v1';
   tracks: VideoTimelineTrack[];
   durationMs: number;
   fps: number;
   frameRate?: FrameRate;
+  /**
+   * Half-open frame bounds for the sub-range renders emit. Absent means the
+   * whole timeline.
+   */
+  outputRange?: VideoTimelineOutputRange;
   markers?: VideoTimelineMarker[];
   intro?: VideoTimelineBookend;
   outro?: VideoTimelineBookend;

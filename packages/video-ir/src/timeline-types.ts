@@ -175,6 +175,7 @@ export interface Timeline {
   durationMs: number;
   fps: number;
   frameRate?: FrameRate;
+  outputRange?: TimelineOutputRange;
   markers?: TimelineMarker[];
   intro?: TimelineBookend;
   outro?: TimelineBookend;
@@ -187,6 +188,16 @@ export interface Timeline {
 export interface TimelineBookend {
   kind: 'fade';
   durationMs: number;
+}
+
+/**
+ * The sub-range a render emits, in half-open project frames: `inFrame` is
+ * included, `outFrameExclusive` is not. Absent means "render the whole
+ * timeline", which is how every project behaved before this field existed.
+ */
+export interface TimelineOutputRange {
+  inFrame: number;
+  outFrameExclusive: number;
 }
 
 export type TimelineTrack =
@@ -406,7 +417,8 @@ export type TimelineOp =
   | TrackRemoveOp
   | TrackUpdateOp
   | MarkerUpsertOp
-  | MarkerRemoveOp;
+  | MarkerRemoveOp
+  | TimelineSetOutputRangeOp;
 
 export interface ClipInsertOp {
   kind: 'clip.insert';
@@ -692,4 +704,17 @@ export interface MarkerRemoveOp {
   kind: 'marker.remove';
   markerId: string;
   snapshot?: TimelineMarker;
+}
+
+/**
+ * Sets or clears the output range. One op covers both directions because the
+ * inverse of a set is a set to the previous value, and `null` on either side is
+ * "no range" — a separate clear op would only duplicate the inversion logic.
+ * `before` is filled in by the apply step so history can invert without
+ * re-reading the document.
+ */
+export interface TimelineSetOutputRangeOp {
+  kind: 'timeline.setOutputRange';
+  after: TimelineOutputRange | null;
+  before?: TimelineOutputRange | null;
 }

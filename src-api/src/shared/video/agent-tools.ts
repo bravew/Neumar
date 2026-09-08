@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  frameRatesEqual,
   isVividOverlayClip,
   KeyframeSchema,
   KeyframeablePropertySchema,
   type KeyframeTrack,
+  parseFrameRate,
   parseVividOverlayParams,
   TimelineOpSchema,
   TRANSITION_EASINGS,
@@ -19,8 +21,10 @@ import { z } from 'zod';
 import { retimeTimelineCaptions } from './caption-retime';
 import { normalizeCssColor } from './css-colors';
 import { calculateWer } from './eval';
+import { outputRangeFromFrames } from './output-range';
 import { findVividOverlayPreset } from './overlays/registry';
 import { buildRenderPlan } from './render-plan';
+import { compatibilityFps, resolveTimebase } from './timebase';
 import {
   compileTimelineToEdl,
   insertCaptureCaptionClips,
@@ -487,6 +491,33 @@ export const videoAgentToolCallSchema = z.discriminatedUnion('name', [
   z.object({
     name: z.literal('clearTimelineBookend'),
     args: z.object({ position: timelineBookendPositionSchema }).strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
+    name: z.literal('setTimebase'),
+    args: z
+      .object({
+        // A preset id ('29.97'), a decimal, or an explicit 'num/den'. Decimals
+        // near an NTSC rate snap to the exact fraction.
+        rate: z.string().min(1),
+        locked: z.boolean().optional(),
+      })
+      .strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
+    name: z.literal('setOutputRange'),
+    args: z
+      .object({
+        inFrame: z.number().int().min(0),
+        outFrameExclusive: z.number().int().positive(),
+      })
+      .strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
+    name: z.literal('clearOutputRange'),
+    args: z.object({}).strict(),
     reasoning: z.string().optional(),
   }),
   z.object({
@@ -1338,6 +1369,12 @@ function buildVideoAgentToolDiff(
       return setTimelineBookendDiff(project, call.args);
     case 'clearTimelineBookend':
       return clearTimelineBookendDiff(project, call.args.position);
+    case 'setTimebase':
+      return setTimebaseDiff(project, call.args);
+    case 'setOutputRange':
+      return setOutputRangeDiff(project, call.args);
+    case 'clearOutputRange':
+      return clearOutputRangeDiff(project);
     case 'setClipAudioSeam':
       return setClipAudioSeamDiff(project, call.args.clipId, call.args.mode);
     case 'setKeyframes':
@@ -1772,6 +1809,62 @@ function clearTimelineBookendDiff(
   if (!timeline[position]) return [];
   const nextTimeline: VideoTimeline = { ...timeline };
   delete nextTimeline[position];
+  return replaceTimelineDiff(project, nextTimeline);
+}
+
+function setTimebaseDiff(
+  project: VideoProject,
+  args: Extract<VideoAgentToolCall, { name: 'setTimebase' }>['args'],
+): ProjectDiffOperation[] {
+  const rate = parseFrameRate(args.rate);
+  const timeline = editableTimeline(project);
+  const current = resolveTimebase({
+    stored: project.settings?.timebase,
+    timeline,
+    assets: project.assets,
+  });
+  const locked = args.locked ?? current.locked;
+  if (frameRatesEqual(current.rate, rate) && current.locked === locked) {
+    return [];
+  }
+  return [
+    {
+      op: 'replace',
+      path: '/settings/timebase',
+      value: { rate, source: 'user', locked },
+    },
+    ...replaceTimelineDiff(project, {
+      ...timeline,
+      fps: compatibilityFps(rate),
+      frameRate: rate,
+    }),
+  ];
+}
+
+function setOutputRangeDiff(
+  project: VideoProject,
+  args: Extract<VideoAgentToolCall, { name: 'setOutputRange' }>['args'],
+): ProjectDiffOperation[] {
+  const timeline = editableTimeline(project);
+  const outputRange = outputRangeFromFrames(
+    args.inFrame,
+    args.outFrameExclusive,
+  );
+  const current = timeline.outputRange;
+  if (
+    current?.inFrame === outputRange.inFrame &&
+    current?.outFrameExclusive === outputRange.outFrameExclusive
+  ) {
+    return [];
+  }
+  return replaceTimelineDiff(project, { ...timeline, outputRange });
+}
+
+function clearOutputRangeDiff(project: VideoProject): ProjectDiffOperation[] {
+  const timeline = editableTimeline(project);
+  if (!timeline.outputRange) return [];
+  const nextTimeline: VideoTimeline = { ...timeline };
+  delete nextTimeline.outputRange;
   return replaceTimelineDiff(project, nextTimeline);
 }
 

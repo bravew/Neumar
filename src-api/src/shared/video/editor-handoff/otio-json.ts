@@ -1,6 +1,13 @@
+import { frameRateToNumber } from '@neumar/video-ir';
+
+import { handoffRate } from './handoff-rate';
 import type { EditorHandoffModel } from './types';
 
 export function writeOtioJson(model: EditorHandoffModel): string {
+  const rate = handoffRate(model);
+  // OTIO's `rate` is a real number of frames per second, so 30000/1001 is
+  // emitted as 29.97002997..., not as a rounded 30.
+  const rateValue = frameRateToNumber(rate);
   return JSON.stringify(
     {
       OTIO_SCHEMA: 'Timeline.1',
@@ -8,6 +15,8 @@ export function writeOtioJson(model: EditorHandoffModel): string {
         schema: 'neuma.video.editor-handoff.otio-json.v1',
         projectId: model.projectId,
         packageVersion: model.packageVersion,
+        frameRate: { num: rate.num, den: rate.den },
+        ...(model.outputRange ? { outputRange: model.outputRange } : {}),
       },
       name: model.projectName,
       tracks: {
@@ -31,13 +40,17 @@ export function writeOtioJson(model: EditorHandoffModel): string {
               OTIO_SCHEMA: 'TimeRange.1',
               start_time: {
                 OTIO_SCHEMA: 'RationalTime.1',
-                value: Math.round((clip.sourceStartMs * model.fps) / 1000),
-                rate: model.fps,
+                value: Math.round(
+                  (clip.sourceStartMs * rate.num) / (1000 * rate.den),
+                ),
+                rate: rateValue,
               },
               duration: {
                 OTIO_SCHEMA: 'RationalTime.1',
-                value: Math.round((clip.durationMs * model.fps) / 1000),
-                rate: model.fps,
+                value: Math.round(
+                  (clip.durationMs * rate.num) / (1000 * rate.den),
+                ),
+                rate: rateValue,
               },
             },
           })),

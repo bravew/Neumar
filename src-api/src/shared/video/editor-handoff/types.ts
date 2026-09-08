@@ -1,5 +1,6 @@
 import type {
   ClipPlayback,
+  FrameRate,
   KeyframeTrack,
   TimelineHistoryOperation,
 } from '@neumar/video-ir';
@@ -65,6 +66,19 @@ export interface EditorHandoffModel {
   generatedAt: string;
   timelineSchema: 'neuma.video.timeline.v1';
   fps: number;
+  /**
+   * The exact project rate. `fps` stays for readers that only understand a
+   * number; a 29.97 project carries 30000/1001 here so a professional editor
+   * conforms to the real broadcast rate rather than to a rounded 30.
+   */
+  frameRate?: FrameRate;
+  /** Present when the project renders only a sub-range. */
+  outputRange?: {
+    inFrame: number;
+    outFrameExclusive: number;
+    projectStartMs: number;
+    projectEndMs: number;
+  };
   durationMs: number;
   tracks: EditorHandoffTrack[];
   markers: TimelineMarker[];
@@ -271,6 +285,13 @@ export interface EditorHandoffManifest {
   timeline: {
     schema: 'neuma.video.timeline.v1';
     fps: number;
+    frameRate?: FrameRate;
+    outputRange?: {
+      inFrame: number;
+      outFrameExclusive: number;
+      projectStartMs: number;
+      projectEndMs: number;
+    };
     durationMs: number;
   };
   targets: EditorHandoffTarget[];

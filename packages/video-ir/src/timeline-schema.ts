@@ -544,6 +544,19 @@ export const TimelineBookendSchema = z
   })
   .strict();
 
+// Half-open frame bounds: `inFrame` renders, `outFrameExclusive` does not.
+// Keeping it exclusive means an empty range is representable as a validation
+// error rather than as an ambiguous single frame.
+export const TimelineOutputRangeSchema = z
+  .object({
+    inFrame: z.number().int().min(0),
+    outFrameExclusive: z.number().int().positive(),
+  })
+  .strict()
+  .refine((range) => range.outFrameExclusive > range.inFrame, {
+    message: 'Output range must end after it starts',
+  });
+
 export const TimelineSchema = z
   .object({
     schema: z.literal('neuma.video.timeline.v1'),
@@ -551,6 +564,7 @@ export const TimelineSchema = z
     durationMs: z.number().int().min(0),
     fps: z.number().positive(),
     frameRate: FrameRateSchema.optional(),
+    outputRange: TimelineOutputRangeSchema.optional(),
     markers: z.array(TimelineMarkerSchema).optional(),
     intro: TimelineBookendSchema.optional(),
     outro: TimelineBookendSchema.optional(),
@@ -955,6 +969,13 @@ export const TimelineOpSchema = z.discriminatedUnion('kind', [
       kind: z.literal('marker.remove'),
       markerId: z.string().min(1),
       snapshot: TimelineMarkerSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('timeline.setOutputRange'),
+      after: TimelineOutputRangeSchema.nullable(),
+      before: TimelineOutputRangeSchema.nullable().optional(),
     })
     .strict(),
 ]);

@@ -23,6 +23,8 @@ export function buildCutList(model: EditorHandoffModel): EditorHandoffCutList {
     schema: 'neuma.video.editor-handoff.cut-list.v1',
     projectId: model.projectId,
     fps: model.fps,
+    ...(model.frameRate ? { frameRate: model.frameRate } : {}),
+    ...(model.outputRange ? { outputRange: model.outputRange } : {}),
     durationMs: model.durationMs,
     cuts: model.tracks
       .flatMap((track) =>

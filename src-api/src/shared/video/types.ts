@@ -284,6 +284,17 @@ export interface VideoProjectTemplateSnapshot {
 }
 
 export interface VideoProjectSettings {
+  /**
+   * The project's frame rate as an exact rational, plus where it came from.
+   * Optional: projects written before this field keep their numeric
+   * `timeline.fps` and are read through `resolveTimebase()` without being
+   * rewritten. It is persisted only once a user picks a rate.
+   */
+  timebase?: {
+    rate: FrameRate;
+    source: 'user' | 'derived';
+    locked: boolean;
+  };
   autoApproveStoryboard?: boolean;
   autoApproveUnderCents?: number;
   agentEdits?: 'proposal-only' | 'apply';
@@ -971,6 +982,11 @@ export interface VideoTimeline {
   durationMs: number;
   fps: number;
   frameRate?: FrameRate;
+  /**
+   * Half-open frame bounds for the sub-range a render emits. Absent means the
+   * whole timeline, which is how every project behaved before this field.
+   */
+  outputRange?: VideoTimelineOutputRange;
   markers?: TimelineMarker[];
   intro?: VideoTimelineBookend;
   outro?: VideoTimelineBookend;
@@ -978,6 +994,11 @@ export interface VideoTimeline {
     from: 'storyboard';
     version: number;
   };
+}
+
+export interface VideoTimelineOutputRange {
+  inFrame: number;
+  outFrameExclusive: number;
 }
 
 export interface VideoTimelineBookend {
@@ -1126,11 +1147,25 @@ export interface EditDecisionList {
   schema: 'neuma.video.edl.v1';
   projectId: string;
   fps: number;
+  /** Exact project rate. Absent on EDLs compiled before the timebase contract. */
+  frameRate?: FrameRate;
   durationMs: number;
   segments: EdlSegment[];
   overlays: EdlOverlay[];
   audioTracks: EdlAudioTrack[];
   captions: EdlCaption[];
+  /**
+   * Present only when an output range was applied. Times in the EDL are
+   * render-local (the range starts at 0); this records where that range sits in
+   * project time so QA, export metadata, and handoff manifests stay honest
+   * about what was rendered.
+   */
+  outputRange?: {
+    inFrame: number;
+    outFrameExclusive: number;
+    projectStartMs: number;
+    projectEndMs: number;
+  };
 }
 
 export interface EdlSegment {

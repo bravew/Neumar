@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildEditorHandoffModel } from '@/shared/video/editor-handoff/build-model';
 import { evaluateHandoffConformance } from '@/shared/video/editor-handoff/conformance';
+import { writeFcpxml } from '@/shared/video/editor-handoff/fcpxml';
+import { writeOtioJson } from '@/shared/video/editor-handoff/otio-json';
+import { writePremiereXml } from '@/shared/video/editor-handoff/premiere-xml';
 
 import { createEditorHandoffFixtureProject } from './fixture-project';
 
@@ -141,5 +144,70 @@ describe('editor handoff model and conformance', () => {
         'audio_edit_metadata_degraded',
       ]),
     );
+  });
+});
+
+describe('fractional timebase and output range survive interchange', () => {
+  beforeEach(async () => {
+    workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'editor-handoff-ntsc-'));
+    vi.stubEnv('NEUMA_VIDEO_WORKDIR', workDir);
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await fs.rm(workDir, { recursive: true, force: true });
+  });
+
+  async function ntscProject() {
+    const project = await createEditorHandoffFixtureProject(workDir);
+    project.timeline = {
+      ...project.timeline!,
+      fps: 29.97,
+      frameRate: { num: 30_000, den: 1001 },
+      outputRange: { inFrame: 30, outFrameExclusive: 90 },
+    };
+    return project;
+  }
+
+  it('carries the exact rate and the range onto the model', async () => {
+    const model = buildEditorHandoffModel(await ntscProject());
+
+    expect(model.frameRate).toEqual({ num: 30_000, den: 1001 });
+    expect(model.outputRange).toMatchObject({
+      inFrame: 30,
+      outFrameExclusive: 90,
+    });
+    // The numeric compatibility field is still there for older readers.
+    expect(model.fps).toBe(29.97);
+  });
+
+  it('writes OTIO with the real rate, not a rounded 30', async () => {
+    const otio = JSON.parse(
+      writeOtioJson(buildEditorHandoffModel(await ntscProject())),
+    );
+
+    expect(otio.metadata.frameRate).toEqual({ num: 30_000, den: 1001 });
+    const firstClip = otio.tracks.children[0].children[0];
+    expect(firstClip.source_range.duration.rate).toBeCloseTo(29.97003, 5);
+    expect(firstClip.source_range.duration.rate).not.toBe(30);
+  });
+
+  it('flags NTSC in Premiere XML instead of conforming as a true 30', async () => {
+    const xml = writePremiereXml(buildEditorHandoffModel(await ntscProject()));
+
+    expect(xml).toContain('<timebase>30</timebase><ntsc>TRUE</ntsc>');
+  });
+
+  it('emits an exact FCPXML frame duration', async () => {
+    const xml = writeFcpxml(buildEditorHandoffModel(await ntscProject()));
+
+    expect(xml).toContain('frameDuration="1001/30000s"');
+  });
+
+  it('keeps an integer project marked non-NTSC', async () => {
+    const project = await createEditorHandoffFixtureProject(workDir);
+    const xml = writePremiereXml(buildEditorHandoffModel(project));
+
+    expect(xml).toContain('<timebase>30</timebase><ntsc>FALSE</ntsc>');
   });
 });

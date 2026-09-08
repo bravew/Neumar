@@ -50,6 +50,11 @@ const WRITE_TOOLS = [
   'video_remove_timeline_transition',
   'video_set_timeline_bookend',
   'video_clear_timeline_bookend',
+  // Timebase and output range: project-scoped, journaled, and undoable. Locking
+  // a timebase re-snaps clip boundaries, so it is a write, not a setting read.
+  'video_set_timebase',
+  'video_set_output_range',
+  'video_clear_output_range',
   'video_set_clip_audio_seam',
   'video_set_keyframes',
   // In-place overlay/effect param edits — journaled and undoable, never structural.

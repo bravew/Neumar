@@ -135,6 +135,8 @@ export function applyTimelineOp(
       return applyMarkerUpsert(timeline, op);
     case 'marker.remove':
       return applyMarkerRemove(timeline, op);
+    case 'timeline.setOutputRange':
+      return applyTimelineSetOutputRange(timeline, op);
     default: {
       const exhaustive: never = op;
       return exhaustive;
@@ -1601,6 +1603,37 @@ function applyMarkerRemove(
   };
 }
 
+function applyTimelineSetOutputRange(
+  timeline: Timeline,
+  op: Extract<TimelineOp, { kind: 'timeline.setOutputRange' }>,
+): TimelineOpResult {
+  const before = timeline.outputRange ?? null;
+  if (op.after) {
+    if (
+      !Number.isInteger(op.after.inFrame) ||
+      !Number.isInteger(op.after.outFrameExclusive)
+    ) {
+      throw new Error('Output range bounds must be whole frames');
+    }
+    if (op.after.inFrame < 0) {
+      throw new Error('Output range must start at or after frame 0');
+    }
+    if (op.after.outFrameExclusive <= op.after.inFrame) {
+      throw new Error('Output range must end after it starts');
+    }
+  }
+  return {
+    timeline: op.after
+      ? { ...timeline, outputRange: { ...op.after } }
+      : omitKey(timeline, 'outputRange'),
+    inverse: {
+      kind: 'timeline.setOutputRange',
+      after: before ? { ...before } : null,
+      before: op.after ? { ...op.after } : null,
+    },
+  };
+}
+
 function applyClipPatch(
   timeline: Timeline,
   clipId: string,
@@ -2615,6 +2648,7 @@ function detectDirectSyncLockConflicts(
     case 'track.update':
     case 'marker.upsert':
     case 'marker.remove':
+    case 'timeline.setOutputRange':
       return [];
     default: {
       const exhaustive: never = op;
@@ -2696,6 +2730,7 @@ function isMagneticOp(op: TimelineOp): boolean {
     case 'track.update':
     case 'marker.upsert':
     case 'marker.remove':
+    case 'timeline.setOutputRange':
       return false;
     default: {
       const exhaustive: never = op;

@@ -1,3 +1,6 @@
+import { normalizeFrameRate } from '@neumar/video-ir';
+
+import { resolveOutputRange } from '@/shared/video/output-range';
 import { rebuildTimelineFromStoryboard } from '@/shared/video/timeline';
 import type {
   AudioTimelineClip,
@@ -40,6 +43,20 @@ export function buildEditorHandoffModel(
   generatedAt = new Date().toISOString(),
 ): EditorHandoffModel {
   const timeline = readTimeline(project);
+  // Handoff describes the whole project timeline, but records the render
+  // sub-range so an editor knows which part the delivered file covers.
+  const resolvedRange = resolveOutputRange(
+    timeline,
+    timeline.frameRate ?? timeline.fps,
+  );
+  const outputRange = resolvedRange
+    ? {
+        inFrame: resolvedRange.inFrame,
+        outFrameExclusive: resolvedRange.outFrameExclusive,
+        projectStartMs: resolvedRange.inMs,
+        projectEndMs: resolvedRange.outMs,
+      }
+    : undefined;
   const mediaRefs = buildMediaRefs(project);
   const tracks = timeline.tracks
     .slice()
@@ -64,6 +81,8 @@ export function buildEditorHandoffModel(
     generatedAt,
     timelineSchema: timeline.schema,
     fps: timeline.fps,
+    frameRate: normalizeFrameRate(timeline.frameRate ?? timeline.fps),
+    ...(outputRange ? { outputRange } : {}),
     durationMs: timeline.durationMs,
     tracks,
     markers: timeline.markers ?? [],
