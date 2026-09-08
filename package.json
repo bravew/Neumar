@@ -122,7 +122,8 @@
     "test:e2e:browser": "playwright test",
     "test:e2e:browser:ui": "playwright test --ui",
     "test:e2e:browser:headed": "playwright test --headed",
-    "test:e2e:browser:report": "playwright show-report"
+    "test:e2e:browser:report": "playwright show-report",
+    "video:baseline": "node scripts/video-baseline.mjs"
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.58",

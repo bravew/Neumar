@@ -68,4 +68,67 @@ test.describe('Video Mode happy path', () => {
     });
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
   });
+
+  test('idle video tabs leave picker requests unblocked', async ({
+    context,
+    page,
+  }) => {
+    const assetEventRequests: string[] = [];
+    let fileDialogRequests = 0;
+    let folderDialogRequests = 0;
+    context.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/assets/events') {
+        assetEventRequests.push(request.url());
+      }
+    });
+    await context.route('**/assets/native-file-dialog', async (route) => {
+      fileDialogRequests += 1;
+      await route.fulfill({ status: 200, json: { paths: [] } });
+    });
+    await context.route('**/assets/native-folder-dialog', async (route) => {
+      folderDialogRequests += 1;
+      await route.fulfill({ status: 200, json: { path: null } });
+    });
+
+    await page.goto('/video');
+    await page.getByRole('button', { name: 'Configure' }).click();
+    const name = `E2E picker ${crypto.randomUUID()}`;
+    await page.getByTestId('video-project-name-input').fill(name);
+    await page.getByRole('button', { name: 'Create project' }).click();
+    await page.waitForURL(/\/video\/[^/?#]+$/, { timeout: 30_000 });
+    const id = page.url().match(/\/video\/([^/?#]+)$/)?.[1];
+    expect(id, 'editor URL should carry a project id').toBeTruthy();
+    if (id) createdProjectIds.push(id);
+
+    const second = await context.newPage();
+    const third = await context.newPage();
+    await Promise.all([second.goto(page.url()), third.goto(page.url())]);
+    await Promise.all(
+      [page, second, third].map((tab) =>
+        expect(tab.getByRole('button', { name: 'Add assets' })).toBeVisible({
+          timeout: 30_000,
+        }),
+      ),
+    );
+    await page.waitForTimeout(500);
+    expect(assetEventRequests).toEqual([]);
+
+    const addAssets = page.getByRole('button', { name: 'Add assets' });
+    await addAssets.click();
+    await page.getByRole('menuitem', { name: 'Add file(s)' }).click();
+    await expect.poll(() => fileDialogRequests).toBe(1);
+    await addAssets.click();
+    await expect(
+      page.getByRole('menuitem', { name: 'Add file(s)' }),
+    ).toBeEnabled();
+    await page.keyboard.press('Escape');
+
+    await addAssets.click();
+    await page.getByRole('menuitem', { name: 'Add folder' }).click();
+    await expect.poll(() => folderDialogRequests).toBe(1);
+    await addAssets.click();
+    await expect(
+      page.getByRole('menuitem', { name: 'Add folder' }),
+    ).toBeEnabled();
+  });
 });

@@ -91,3 +91,4 @@ release-files/
 
 # Local dev lifecycle runtime (scripts/dev.mjs)
 .dev/
+.video-acceptance/

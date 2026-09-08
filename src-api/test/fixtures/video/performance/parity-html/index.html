@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Video parity acceptance fixture</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #07111f;
+        color: white;
+        font-family: Arial, sans-serif;
+      }
+      main {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background:
+          radial-gradient(circle at 70% 20%, #0ea5e955, transparent 35%),
+          linear-gradient(135deg, #07111f, #14213d);
+      }
+      .card {
+        position: absolute;
+        inset: 18%;
+        display: grid;
+        place-items: center;
+        border: 2px solid #38bdf8;
+        border-radius: 36px;
+        background: #0f172acc;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(48px, 6vw, 120px);
+        letter-spacing: -0.04em;
+      }
+      .caption {
+        position: absolute;
+        bottom: 8%;
+        left: 50%;
+        padding: 16px 24px;
+        border-radius: 14px;
+        background: #020617dd;
+        font-size: 32px;
+        transform: translateX(-50%);
+      }
+    </style>
+  </head>
+  <body>
+    <main
+      data-hf-id="parity-root"
+      data-composition-id="video-parity-v1"
+      data-width="1920"
+      data-height="1080"
+      data-duration="15"
+    >
+      <section class="card" data-hf-id="parity-card">
+        <h1 data-hf-id="parity-title">Video parity v1</h1>
+      </section>
+      <div class="caption" data-hf-id="parity-caption">
+        Deterministic caption fixture
+      </div>
+    </main>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const duration = 15;
+      const card = document.querySelector('.card');
+      const caption = document.querySelector('.caption');
+      let currentTime = 0;
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function update(time) {
+        const progress = clamp(time / duration, 0, 1);
+        const x =
+          progress < 0.6 ? -8 + progress * 20 : 4 - (progress - 0.6) * 10;
+        const scale =
+          progress < 0.6
+            ? 0.92 + progress * 0.2667
+            : 1.08 - (progress - 0.6) * 0.2;
+        const rotation =
+          progress < 0.6 ? -2 + progress * 5 : 1 - (progress - 0.6) * 2.5;
+        const cardOpacity =
+          clamp(progress / 0.2, 0, 1) *
+          (1 - Math.max(0, progress - 0.8) * 1.25);
+        const captionOpacity =
+          clamp((progress - 0.1) / 0.1, 0, 1) *
+          (1 - clamp((progress - 0.8) / 0.1, 0, 1));
+        card.style.opacity = String(cardOpacity);
+        card.style.transform = `translateX(${x}%) scale(${scale}) rotate(${rotation}deg)`;
+        card.style.filter = `brightness(${0.8 + Math.min(progress, 0.6) * 0.5})`;
+        caption.style.opacity = String(captionOpacity);
+      }
+
+      window.__timelines['video-parity-v1'] = {
+        pause() {
+          return this;
+        },
+        play() {
+          return this;
+        },
+        seek(time) {
+          currentTime = clamp(Number(time) || 0, 0, duration);
+          update(currentTime);
+          return this;
+        },
+        totalTime(time) {
+          if (time === undefined) return currentTime;
+          currentTime = clamp(Number(time) || 0, 0, duration);
+          update(currentTime);
+          return currentTime;
+        },
+        time() {
+          return currentTime;
+        },
+        duration() {
+          return duration;
+        },
+        timeScale() {
+          return this;
+        },
+      };
+
+      const startedAt = performance.now();
+      function animate(now) {
+        update(Math.min(duration, (now - startedAt) / 1000));
+        if (now - startedAt < duration * 1000) requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+    </script>
+  </body>
+</html>

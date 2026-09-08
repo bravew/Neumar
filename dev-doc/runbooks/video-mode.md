@@ -402,6 +402,25 @@ reason into one copyable install command plus a re-check, so the user meets it
 as setup guidance rather than a render failure. Install commands are
 data-driven in `src/components/video/engineSetupGuidance.ts`.
 
+### Reference-upgrade baseline
+
+Run `pnpm video:baseline` before changing the Remotion or HyperFrames pins, the
+timeline rendering strategy, or the asset-picker stream lifecycle. It records:
+
+- a 15-second HTML/HyperFrames render comparison with FFprobe metadata, sampled
+  frame hashes, SSIM, and a live Studio selection through `data-hf-id`;
+- a three-minute Remotion render through `@remotion/media`, including a 5.1
+  source, wall-clock time, peak RSS, and sampled frame hashes;
+- the deterministic 12-track, 1,000-clip model-query baseline;
+- a three-tab browser check proving idle editors own no asset SSE request and
+  cancelled file/folder picker calls become available for another attempt.
+
+Generated media stays under `.video-acceptance/` and is ignored. Pass
+`--report=<path>` to either acceptance script when a compact JSON result needs
+to be attached to a release ledger. The timeline report labels its Phase 0
+measurement as model-only; Phase 3 owns production browser interaction and DOM
+mount counts.
+
 ## HTML Composition Diagnostics
 
 Three HyperFrames-backed diagnostics are available once the CLI is present:
