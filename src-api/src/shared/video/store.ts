@@ -42,6 +42,7 @@ import {
   imageExtensionFromName,
 } from './image-validation';
 import { assertSafeExternalMediaFile } from './linked-sources/local-fs';
+import { withProjectLock } from './project-lock';
 import {
   VIDEO_PROVIDER_CAPABILITIES,
   type ProviderCapability,
@@ -77,7 +78,6 @@ import type {
 } from './types';
 
 const logger = createLogger('VideoStore');
-const projectDocumentUpdateLocks = new Map<string, Promise<unknown>>();
 /**
  * Per-process cache of each project's resolved on-disk root. Resolving a root
  * scans `/Volumes` (`readdirSync`) and probes candidate paths (`existsSync`) —
@@ -631,10 +631,16 @@ export async function getProject(projectId: string): Promise<VideoProject> {
   const migrated = withProjectSchemaVersion(
     migrateAgentPlan(migrateStoryboardToTimeline(project)),
   );
-  if (migrated !== project) {
-    await writeProject(migrated);
-  }
-  return migrated;
+  if (migrated === project) return migrated;
+
+  // A migration owns the document, so it renumbers rather than conflicting.
+  // The bumped revision has to come back with the object: returning the
+  // pre-write revision hands the caller a document that is already behind disk,
+  // and its next write looks like a stale edit.
+  const revision = migrated.revision + 1;
+  const written = { ...migrated, revision };
+  await writeProject(written, { allowRenumber: true });
+  return written;
 }
 
 /**
@@ -2001,13 +2007,57 @@ export async function generateStoryboardDraft(
   return { project: next, storyboard };
 }
 
-export async function writeProject(project: VideoProject): Promise<void> {
+/**
+ * Raised when a write carries a revision that is behind what is on disk, or
+ * that does not match the `expectedRevision` the caller declared. Routes turn
+ * it into a 409 with the current revision so the client can reload or save a
+ * copy rather than losing an edit.
+ */
+export class ProjectRevisionConflictError extends Error {
+  readonly currentRevision: number;
+  readonly attemptedRevision: number;
+  readonly expectedRevision?: number;
+
+  constructor(input: {
+    projectId: string;
+    currentRevision: number;
+    attemptedRevision: number;
+    expectedRevision?: number;
+  }) {
+    super(
+      `Project ${input.projectId} changed since this edit was loaded (on disk: revision ${input.currentRevision}, write carried ${input.attemptedRevision}).`,
+    );
+    this.name = 'ProjectRevisionConflictError';
+    this.currentRevision = input.currentRevision;
+    this.attemptedRevision = input.attemptedRevision;
+    this.expectedRevision = input.expectedRevision;
+  }
+}
+
+export interface WriteProjectOptions {
+  /**
+   * The revision the caller believes is on disk. When given, a mismatch is a
+   * conflict rather than something to renumber past.
+   */
+  expectedRevision?: number;
+  /**
+   * Renumber above whatever is on disk instead of treating a behind revision as
+   * a conflict. Only for callers that own the document outright — project
+   * creation and migrations — never for an edit that came from a client.
+   */
+  allowRenumber?: boolean;
+}
+
+export async function writeProject(
+  project: VideoProject,
+  options: WriteProjectOptions = {},
+): Promise<void> {
   const root = getVideoProjectRoot(project.id);
   const dir = getVideoProjectDirForRoot(root, project.id);
   await fs.mkdir(dir, { recursive: true });
   const filePath = getVideoProjectJsonPathForRoot(root, project.id);
   const tmpPath = `${filePath}.${randomUUID()}.tmp`;
-  const document = await projectDocumentForWrite(filePath, project);
+  const document = await projectDocumentForWrite(filePath, project, options);
   await fs.writeFile(tmpPath, `${JSON.stringify(document, null, 2)}\n`);
   await fs.rename(tmpPath, filePath);
 }
@@ -2015,19 +2065,53 @@ export async function writeProject(project: VideoProject): Promise<void> {
 async function projectDocumentForWrite(
   filePath: string,
   project: VideoProject,
+  options: WriteProjectOptions,
 ): Promise<VideoProject> {
   const normalized = withProjectSchemaVersion(project);
+  let persisted: VideoProject;
   try {
-    const persisted = withProjectSchemaVersion(
+    persisted = withProjectSchemaVersion(
       JSON.parse(await fs.readFile(filePath, 'utf8')) as VideoProject,
     );
-    return normalized.revision > persisted.revision
-      ? normalized
-      : { ...normalized, revision: persisted.revision + 1 };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return normalized;
     throw error;
   }
+
+  if (
+    options.expectedRevision !== undefined &&
+    options.expectedRevision !== persisted.revision
+  ) {
+    throw new ProjectRevisionConflictError({
+      projectId: normalized.id,
+      currentRevision: persisted.revision,
+      attemptedRevision: normalized.revision,
+      expectedRevision: options.expectedRevision,
+    });
+  }
+
+  if (normalized.revision > persisted.revision) return normalized;
+
+  // Equal revisions mean the caller read this exact document and is writing it
+  // back; taking the next number is correct and is how most routes work.
+  if (normalized.revision === persisted.revision || options.allowRenumber) {
+    return { ...normalized, revision: persisted.revision + 1 };
+  }
+
+  // A behind revision means the document moved on after this edit was loaded.
+  // Renumbering here is what silently clobbered the newer state: the write
+  // landed *above* the revision it overwrote, so nothing downstream could tell
+  // an edit had been lost.
+  //
+  // Client-facing routes pass `expectedRevision` and get a 409 instead. Internal
+  // flows that read, do async work, and write back have not all been audited
+  // yet, and they are serialized by the project lock, so they still renumber —
+  // but loudly, so the remaining stale-read paths are visible in logs rather
+  // than silent.
+  logger.warn(
+    `Renumbering a behind write for project ${normalized.id} (on disk: revision ${persisted.revision}, write carried ${normalized.revision}). This caller read the project, did async work, and wrote back without re-reading; it should pass expectedRevision or go through updateProjectDocument.`,
+  );
+  return { ...normalized, revision: persisted.revision + 1 };
 }
 
 function withProjectSchemaVersion(project: VideoProject): VideoProject {
@@ -2038,15 +2122,23 @@ function withProjectSchemaVersion(project: VideoProject): VideoProject {
     : { ...project, schemaVersion: VIDEO_PROJECT_SCHEMA_VERSION, revision };
 }
 
+/**
+ * Read-modify-write a project document under the single project lock.
+ *
+ * This used to keep its own `projectDocumentUpdateLocks` map while route
+ * handlers took `withProjectLock()`, so neither saw the other and a route
+ * holding one could interleave with a caller holding the other. There is now
+ * one lock. Note that it serializes per API process — true for the Tauri
+ * sidecar and `pnpm dev:api`, but it is not a file lock, so a second process
+ * pointed at the same workspace is still ordered only by the revision check in
+ * `projectDocumentForWrite()`.
+ */
 export async function updateProjectDocument(
   projectId: string,
   update: (project: VideoProject) => VideoProject | Promise<VideoProject>,
 ): Promise<VideoProject> {
-  const previous =
-    projectDocumentUpdateLocks.get(projectId) ?? Promise.resolve();
-  const run = previous
-    .catch(() => undefined)
-    .then(async () => {
+  return withProjectLock(projectId, async () => {
+    {
       const current = await getProject(projectId);
       const updated = await update(current);
       const next = { ...updated, revision: current.revision + 1 };
@@ -2068,16 +2160,8 @@ export async function updateProjectDocument(
           next.id,
         );
       return next;
-    });
-  const tail = run.catch(() => undefined);
-  projectDocumentUpdateLocks.set(projectId, tail);
-  try {
-    return await run;
-  } finally {
-    if (projectDocumentUpdateLocks.get(projectId) === tail) {
-      projectDocumentUpdateLocks.delete(projectId);
     }
-  }
+  });
 }
 
 function assertSafeId(id: string): void {

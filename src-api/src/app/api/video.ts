@@ -244,6 +244,7 @@ import {
   replanStoryboardScene,
   updateProject,
   upsertProviderConfig,
+  ProjectRevisionConflictError,
   writeProject,
   relinkExternalProjectAssets,
 } from '@/shared/video/store';
@@ -508,6 +509,18 @@ const timelineUpdateSchema = z.object({
     markers: z.array(timelineMarkerSchema).max(1000).optional(),
     intro: timelineBookendSchema.optional(),
     outro: timelineBookendSchema.optional(),
+    frameRate: z
+      .object({
+        num: z.number().int().positive(),
+        den: z.number().int().positive(),
+      })
+      .optional(),
+    outputRange: z
+      .object({
+        inFrame: z.number().int().min(0),
+        outFrameExclusive: z.number().int().positive(),
+      })
+      .optional(),
     migration: z
       .object({
         from: z.literal('storyboard'),
@@ -515,6 +528,10 @@ const timelineUpdateSchema = z.object({
       })
       .optional(),
   }),
+  // The revision the client loaded. Optional so callers that have not adopted
+  // it keep working; when present, a mismatch is a 409 rather than a silent
+  // overwrite of whatever landed in between.
+  expectedRevision: z.number().int().min(0).optional(),
 });
 
 const timelineOpApplySchema = z.object({
@@ -2191,28 +2208,46 @@ videoRoutes.patch(
   '/projects/:id/timeline',
   zValidator('json', timelineUpdateSchema),
   async (c) => {
+    const projectId = c.req.param('id');
     try {
-      const project = await getProject(c.req.param('id'));
-      const input = c.req.valid('json').timeline;
-      // Zod validates the outer timeline shape strictly (no .passthrough()).
-      // Per-track structure stays loose at the schema layer; cast only the
-      // tracks field to the discriminated-union type rather than the whole
-      // timeline object so any future field divergence is caught by tsc.
-      const timeline: VideoTimeline = {
-        ...input,
-        tracks: input.tracks as unknown as VideoTimeline['tracks'],
-      };
-      const next = {
-        ...project,
-        timeline,
-        updatedAt: new Date().toISOString(),
-      };
-      await writeProject(next);
+      // The only timeline mutation route that used to run unlocked, while
+      // timeline/op, timeline/undo, and timeline/redo all took the lock.
+      const result = await withProjectLock(projectId, async () => {
+        const project = await getProject(projectId);
+        const { timeline: input, expectedRevision } = c.req.valid('json');
+        // Zod validates the outer timeline shape strictly (no .passthrough()).
+        // Per-track structure stays loose at the schema layer; cast only the
+        // tracks field to the discriminated-union type rather than the whole
+        // timeline object so any future field divergence is caught by tsc.
+        const timeline: VideoTimeline = {
+          ...input,
+          tracks: input.tracks as unknown as VideoTimeline['tracks'],
+        };
+        const next = {
+          ...project,
+          timeline,
+          updatedAt: new Date().toISOString(),
+        };
+        await writeProject(next, { expectedRevision });
+        return { project: next, timeline };
+      });
       // Kick off downloads for any reference-only assets now on the
       // timeline so their bytes are local before render/scrub.
-      ensureTimelineAssetsHydrated(next);
-      return c.json({ project: next, timeline });
+      ensureTimelineAssetsHydrated(result.project);
+      return c.json(result);
     } catch (error) {
+      if (error instanceof ProjectRevisionConflictError) {
+        return c.json(
+          {
+            error: error.message,
+            currentRevision: error.currentRevision,
+            ...(error.expectedRevision === undefined
+              ? {}
+              : { expectedRevision: error.expectedRevision }),
+          },
+          409,
+        );
+      }
       return jsonError(c, error);
     }
   },
