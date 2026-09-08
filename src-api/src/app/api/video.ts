@@ -188,6 +188,13 @@ import {
 import { getVideoPlanResumeState } from '@/shared/video/plan-runner';
 import { selectBackgroundMusic } from '@/shared/video/plugins/atoms/music-select';
 import { loadVideoPlugins } from '@/shared/video/plugins/loader';
+import {
+  compareRevisions,
+  nameRevision,
+  readRevisionIndex,
+  readSnapshot,
+  restoreRevision,
+} from '@/shared/video/project-history';
 import { withProjectLock } from '@/shared/video/project-lock';
 import {
   clearVideoProxyForAsset,
@@ -2252,6 +2259,94 @@ videoRoutes.patch(
     }
   },
 );
+
+// ---------------------------------------------------------------------------
+// Project version history.
+//
+// Snapshots are content-addressed and written before `project.json` is
+// replaced, so every saved revision is recoverable. Restore is append-only:
+// the head is captured first, then the selected snapshot is written forward as
+// a new revision. Nothing here moves the head pointer backward.
+// ---------------------------------------------------------------------------
+
+videoRoutes.get('/projects/:id/history', async (c) => {
+  try {
+    const projectId = c.req.param('id');
+    const project = await getProject(projectId);
+    const index = await readRevisionIndex(projectId);
+    return c.json({
+      schema: 'neuma.video.project-history.v1',
+      projectId,
+      currentRevision: project.revision,
+      entries: index.entries,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/history/:digest', async (c) => {
+  try {
+    const projectId = c.req.param('id');
+    const snapshot = await readSnapshot(projectId, c.req.param('digest'));
+    return c.json({ project: snapshot });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/history/:digest/compare', async (c) => {
+  try {
+    const projectId = c.req.param('id');
+    const against = c.req.query('against');
+    if (!against) {
+      return c.json({ error: 'against query parameter is required' }, 400);
+    }
+    return c.json(
+      await compareRevisions(projectId, c.req.param('digest'), against),
+    );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.patch(
+  '/projects/:id/history/:digest',
+  zValidator('json', z.object({ name: z.string().min(1).max(120) })),
+  async (c) => {
+    try {
+      const entry = await nameRevision(
+        c.req.param('id'),
+        c.req.param('digest'),
+        c.req.valid('json').name,
+      );
+      if (!entry) return c.json({ error: 'Revision not found' }, 404);
+      return c.json({ entry });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+videoRoutes.post('/projects/:id/history/:digest/restore', async (c) => {
+  const projectId = c.req.param('id');
+  try {
+    const result = await withProjectLock(projectId, async () => {
+      const currentHead = await getProject(projectId);
+      return restoreRevision({
+        projectId,
+        digest: c.req.param('digest'),
+        currentHead,
+        // The restore itself is already snapshotted by restoreRevision, so the
+        // write does not add a third entry for the same document.
+        write: (project) => writeProject(project, { snapshot: false }),
+      });
+    });
+    return c.json(result);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 videoRoutes.get('/projects/:id/timeline', async (c) => {
   try {

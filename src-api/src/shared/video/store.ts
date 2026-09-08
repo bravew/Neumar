@@ -42,6 +42,10 @@ import {
   imageExtensionFromName,
 } from './image-validation';
 import { assertSafeExternalMediaFile } from './linked-sources/local-fs';
+import {
+  recordProjectRevision,
+  type ProjectRevisionAuthorKind,
+} from './project-history';
 import { withProjectLock } from './project-lock';
 import {
   VIDEO_PROVIDER_CAPABILITIES,
@@ -2035,6 +2039,14 @@ export class ProjectRevisionConflictError extends Error {
 }
 
 export interface WriteProjectOptions {
+  /** Set false to skip the history snapshot (bulk migrations, test setup). */
+  snapshot?: boolean;
+  /** Who produced this revision. Shown in the version-history sheet. */
+  authorKind?: ProjectRevisionAuthorKind;
+  /** Agent run that produced it, when there is one. */
+  runId?: string;
+  /** Short human reason, e.g. "Applied timeline batch". */
+  reason?: string;
   /**
    * The revision the caller believes is on disk. When given, a mismatch is a
    * conflict rather than something to renumber past.
@@ -2058,6 +2070,28 @@ export async function writeProject(
   const filePath = getVideoProjectJsonPathForRoot(root, project.id);
   const tmpPath = `${filePath}.${randomUUID()}.tmp`;
   const document = await projectDocumentForWrite(filePath, project, options);
+
+  // Snapshot the document *before* the rename that makes it canonical. The
+  // torn-write protection (write to a temp file, rename over project.json)
+  // already existed; what did not is a durable copy of the state being
+  // replaced. A crash between snapshot and rename leaves an extra snapshot,
+  // which costs disk; the reverse order loses the version.
+  if (options.snapshot !== false) {
+    try {
+      await recordProjectRevision(document, {
+        authorKind: options.authorKind ?? 'system',
+        ...(options.runId ? { runId: options.runId } : {}),
+        ...(options.reason ? { reason: options.reason } : {}),
+      });
+    } catch (error) {
+      // History is additive. A project must still save when its history
+      // directory is unwritable.
+      logger.warn(
+        `Could not record a revision snapshot for ${project.id}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   await fs.writeFile(tmpPath, `${JSON.stringify(document, null, 2)}\n`);
   await fs.rename(tmpPath, filePath);
 }
