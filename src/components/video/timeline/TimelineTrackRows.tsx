@@ -12,6 +12,7 @@ import type {
 import type { LinkedAssetDragPayload } from '../linkedAssetDrag';
 import type { OverlayPresetDragPayload } from '../overlays/overlayDragPayload';
 import type { ProjectAssetDragPayload } from '../projectAssetDrag';
+import type { ClipTimeWindow } from './clipWindow';
 import type {
   TimelineClientPoint,
   TimelineClipDropTarget,
@@ -40,6 +41,8 @@ interface TimelineTrackRowsProps {
   selectedTrackId: string | null;
   selectedSceneId?: string | null;
   selectedClipIds: Set<string>;
+  clipWindow?: ClipTimeWindow;
+  pinnedClipIds?: ReadonlySet<string>;
   selectedLinkGroupIds: Set<string>;
   labels: TimelineTrackLabels;
   playheadMs: number;
@@ -122,6 +125,8 @@ export function TimelineTrackRows({
   selectedTrackId,
   selectedSceneId,
   selectedClipIds,
+  clipWindow,
+  pinnedClipIds,
   selectedLinkGroupIds,
   labels,
   playheadMs,
@@ -183,6 +188,8 @@ export function TimelineTrackRows({
                   track.clips.some((c) => c.sceneId === selectedSceneId))
               }
               selectedClipIds={selectedClipIds}
+              clipWindow={clipWindow}
+              pinnedClipIds={pinnedClipIds}
               selectedLinkGroupIds={selectedLinkGroupIds}
               labels={labels}
               onSelectTrack={onSelectTrack}

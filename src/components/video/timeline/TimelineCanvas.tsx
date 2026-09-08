@@ -36,6 +36,7 @@ import { TimelineRuler } from './TimelineRuler';
 import type { TrackInsertSide } from './timelineTrackInsertion';
 import { TimelineTrackRows } from './TimelineTrackRows';
 import type { useTimelineClipMove } from './useTimelineClipMove';
+import { useTimelineClipWindow } from './useTimelineClipWindow';
 import type { useTimelineEditorBindings } from './useTimelineEditorStore';
 import { useTimelineHoverPreview } from './useTimelineHoverPreview';
 import type { useTimelineLabels } from './useTimelineLabels';
@@ -173,6 +174,13 @@ export function TimelineCanvas({
   const rangePixels = editor.timeline
     ? outputRangePixels({ ...editor.timeline, durationMs: timelineDurationMs })
     : null;
+  const { window: clipWindow, pinnedClipIds } = useTimelineClipWindow({
+    pixelsPerSecond,
+    timelineDurationMs,
+    selectedClipIds: editor.selectedClipIds,
+    lastSelectedClipId: editor.lastSelectedClipId,
+    moveOverlay: clipMove.overlay,
+  });
   const hover = useTimelineHoverPreview({
     fps,
     isBusy:
@@ -288,6 +296,8 @@ export function TimelineCanvas({
         <TimelineTrackRows
           rows={virtualRows}
           tracks={tracks}
+          clipWindow={clipWindow}
+          pinnedClipIds={pinnedClipIds}
           project={project}
           materializationStates={materializationStates}
           timelineWidth={timelineWidth}

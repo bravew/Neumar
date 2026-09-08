@@ -7,7 +7,7 @@ import {
   VIDEO_REFERENCE_FIXTURE_VERSION,
 } from './lib/video-reference-fixtures.mjs';
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -55,9 +55,10 @@ function parseArgs(argv) {
       args.iterations = parsePositiveInteger(arg.slice(13), '--iterations');
     else if (arg === '--report') args.report = argv[++index];
     else if (arg.startsWith('--report=')) args.report = arg.slice(9);
-    else if (arg === '--compare' || arg === '--fixture') index += 1;
-    else if (arg.startsWith('--compare=') || arg.startsWith('--fixture='))
-      continue;
+    else if (arg === '--compare') args.compare = argv[++index];
+    else if (arg.startsWith('--compare=')) args.compare = arg.slice(10);
+    else if (arg === '--fixture') index += 1;
+    else if (arg.startsWith('--fixture=')) continue;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   return args;
@@ -81,6 +82,62 @@ function macHostDetails() {
     displayScale:
       displays.match(/^\s*UI Looks like:\s*(.+)$/m)?.[1] ?? 'not detected',
     powerMode: lowPowerMode === '1' ? 'low power' : 'standard',
+  };
+}
+
+// Runs the shipped clip-window query through tsx, so the benchmark measures
+// `queryClipWindow` itself rather than a copy of it that could drift.
+function runWindowBench(fixture, iterations) {
+  const dir = path.resolve('.video-acceptance/timeline-1000');
+  fs.mkdirSync(dir, { recursive: true });
+  const fixturePath = path.join(dir, 'bench-fixture.json');
+  fs.writeFileSync(fixturePath, stableJson(fixture));
+  const result = spawnSync(
+    'pnpm',
+    [
+      'exec',
+      'tsx',
+      '--tsconfig',
+      'tsconfig.json',
+      'scripts/lib/timeline-window-bench.ts',
+      `--fixture=${fixturePath}`,
+      `--iterations=${Math.min(iterations, 2000)}`,
+    ],
+    { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
+  );
+  const marker = (result.stdout ?? '')
+    .split('\n')
+    .find((line) => line.startsWith('TIMELINE_WINDOW_BENCH_RESULT='));
+  if (!marker) {
+    throw new Error(
+      `Timeline window bench returned no result\n${(result.stderr ?? '').slice(-2000)}`,
+    );
+  }
+  return JSON.parse(marker.slice('TIMELINE_WINDOW_BENCH_RESULT='.length));
+}
+
+function comparisonFor(result, label) {
+  if (!label) return undefined;
+  const baselinePath = path.resolve(
+    'dev-doc/video-mode/19-09-08-reference-upgrades/evidence',
+    label,
+    'timeline-1000.json',
+  );
+  if (!fs.existsSync(baselinePath)) {
+    throw new Error(`Comparison report does not exist: ${baselinePath}`);
+  }
+  const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+  return {
+    baseline: label,
+    baselineMeasurementKind: baseline.measurementKind,
+    baselineP95Ms: baseline.result.p95Ms,
+    p95Ms: result.p95Ms,
+    p95DeltaPct:
+      baseline.result.p95Ms > 0
+        ? ((result.p95Ms - baseline.result.p95Ms) / baseline.result.p95Ms) * 100
+        : null,
+    baselineMountedDomClips: baseline.result.mountedDomClips,
+    mountedDomClips: result.mountedDomClips,
   };
 }
 
@@ -109,10 +166,11 @@ function main() {
     samples.push(performance.now() - startedAt);
   }
   samples.sort((left, right) => left - right);
+  const bench = runWindowBench(fixture, args.iterations);
   const report = {
     schemaVersion: VIDEO_REFERENCE_FIXTURE_VERSION,
     kind: 'video-timeline-benchmark',
-    measurementKind: 'model-linear-window-query',
+    measurementKind: 'shipped-indexed-window-query',
     fixture: 'video-timeline-1000-v1',
     fixtureDigest: fixtureDigest(fixture),
     generatedAt: new Date().toISOString(),
@@ -132,18 +190,35 @@ function main() {
       iterations: args.iterations,
     },
     result: {
-      p50Ms: percentile(samples, 0.5),
-      p95Ms: percentile(samples, 0.95),
-      maxMs: samples.at(-1) ?? 0,
-      meanVisibleClips: visibleClipTotal / args.iterations,
-      mountedDomClips: null,
+      // The shipped query, through the real module.
+      p50Ms: bench.indexed.p50Ms,
+      p95Ms: bench.indexed.p95Ms,
+      maxMs: bench.indexed.maxMs,
+      indexBuildMs: bench.indexBuildMs,
+      meanVisibleClips: bench.meanLinearVisibleClips,
+      // The DOM the window bounds: the clip elements a track mounts, which is
+      // the number Phase 3 exists to keep off the total clip count.
+      mountedDomClips: bench.meanMountedClips,
+      totalClips: bench.totalClips,
+      indexedMatchesLinear: bench.queriesAgree,
+      // The Phase 0 measurement, kept in place so the delta is visible.
+      linearBaseline: {
+        p50Ms: percentile(samples, 0.5),
+        p95Ms: percentile(samples, 0.95),
+        maxMs: samples.at(-1) ?? 0,
+        meanVisibleClips: visibleClipTotal / args.iterations,
+        inProcessP50Ms: bench.linear.p50Ms,
+        inProcessP95Ms: bench.linear.p95Ms,
+      },
     },
     limitations: [
-      'This Phase 0 baseline measures the current linear clip-window query only.',
-      'Phase 3 must add the production browser interaction and mounted-DOM measurements.',
+      'Measures the clip-window query and the mounted-DOM bound, not browser paint.',
+      'Pointer latency and dropped frames still need a production browser harness.',
     ],
-    status: 'passed',
+    status: bench.queriesAgree ? 'passed' : 'failed',
   };
+  report.comparison = comparisonFor(report.result, args.compare);
+  if (report.comparison === undefined) delete report.comparison;
   const outputDir = path.resolve('.video-acceptance/timeline-1000');
   fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(path.join(outputDir, 'report.json'), stableJson(report));

@@ -1234,6 +1234,9 @@ export function useTimelineEditorBindings() {
       projectId: state.projectId,
       timeline: state.timeline,
       selectedClipIds: state.selectedClipIds,
+      // The keyboard-focused clip. Windowed rendering pins it so arrowing to a
+      // clip outside the viewport does not unmount the element that has focus.
+      lastSelectedClipId: state.lastSelectedClipId,
       selectedMarkerId: state.selectedMarkerId,
       selectedSeamId: state.selectedSeamId,
       lastEditWarning: state.lastEditWarning,
