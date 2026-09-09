@@ -62,6 +62,17 @@ name: Claude - Diff-Aware PR Reviewer
 #   half-finished review can never masquerade as a green check.
 # - Guard notices carry <!-- claude-review-guard --> so the next run collapses them.
 #
+# EXPECTED LOG NOISE
+# - The run log carries a burst of "fatal: could not open <path> ... No such file or directory",
+#   often hundreds of lines. They are not from this workflow and not a failure. The action's own
+#   fetchGitHubData (src/github/data/fetcher.ts, during prepareTagMode, before Claude starts) runs
+#   `git hash-object` over every changed file. On an issue_comment event actions/checkout gives
+#   main's tree, so files the PR *adds* are not on disk and cannot be hashed. The action catches
+#   each one, logs "warn: Failed to compute SHA", and continues. "fatal:" is git's prefix for every
+#   error, not a job status.
+# - Those SHAs only feed inline-comment anchoring. Silencing them would mean checking out the PR
+#   head, which this workflow deliberately does not do — see SECURITY below.
+#
 # SECURITY
 # - This workflow does not modify source code. It only posts comments and writes reports.
 
