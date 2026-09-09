@@ -5,6 +5,7 @@ import { alreadyApplied, buildApplyBatch } from '@/shared/video/multicam/apply';
 import { manifestReadiness } from '@/shared/video/multicam/manifest';
 import {
   applyReviewAction,
+  ReviewActionError,
   startReview,
   summarizeReview,
   type ReviewAction,
@@ -47,7 +48,11 @@ export type MulticamToolName = (typeof MULTICAM_TOOL_NAMES)[number];
 
 export interface MulticamUnavailable {
   available: false;
-  reason: 'feature-disabled' | 'no-camera-group' | 'no-analysis';
+  reason:
+    | 'feature-disabled'
+    | 'no-camera-group'
+    | 'no-analysis'
+    | 'invalid-action';
   detail: string;
 }
 
@@ -214,7 +219,20 @@ async function mutateReview(
   }
   const existing = await loadReview(projectId, groupId);
   const review = existing?.data ?? startReview(plan.data);
-  const next = applyReviewAction(review, action);
+  // `applyReviewAction` rejects an unknown shot, a nudge that would collapse a
+  // shot, and any action on an already-applied review. The HTTP route turns that
+  // into a 409; here it would escape as an unhandled exception, which the agent
+  // sees as a tool crash rather than a result it can act on. Every other failure
+  // in this file answers with the same structured shape, so this one does too.
+  let next;
+  try {
+    next = applyReviewAction(review, action);
+  } catch (error) {
+    if (error instanceof ReviewActionError) {
+      return unavailable('invalid-action', error.message);
+    }
+    throw error;
+  }
   await saveReview(projectId, next);
   return { available: true as const, review: summarizeReview(next) };
 }
