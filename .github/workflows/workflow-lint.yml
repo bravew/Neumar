@@ -1,0 +1,77 @@
+name: Workflow Lint
+
+# ABOUT THIS WORKFLOW
+# - Purpose: Validate the workflow files themselves — expressions, schema, contexts, action refs.
+# - Trigger: Any PR or push to main that touches .github/workflows/**, plus workflow_dispatch.
+#
+# WHY THIS EXISTS
+# - GitHub validates workflow expressions only when it dispatches a run, and an invalid file
+#   fails silently: the workflow simply stops firing. No queued job, no failing check, no
+#   annotation on the PR that introduced it — the only trace is a jobless failed run against
+#   the merge commit saying "This run likely failed because of a workflow file issue".
+# - That took the PR reviewer offline in 93555dd: a literal `$`+`{{ }}` token written inside a
+#   prompt string parsed as an empty expression and invalidated the whole file. YAML linting
+#   does not catch this, because the file is valid YAML — the problem is the expression grammar.
+# - actionlint parses expressions the way GitHub does, so it catches that class before merge.
+#
+# SHELLCHECK
+# - actionlint can also run shellcheck over every `run:` block. It is disabled here because the
+#   existing workflows carry 38 findings (all SC2086 info-level, mostly in build.yml and
+#   update-cask.yml), and a gate that is red on arrival gets ignored rather than fixed.
+# - To enable once those are cleaned: drop `-shellcheck=` below and install shellcheck on the
+#   runner (ubuntu-latest ships with it).
+#
+# UPGRADING ACTIONLINT
+# - Bump ACTIONLINT_VERSION and replace ACTIONLINT_SHA256 with the matching linux_amd64 entry
+#   from actionlint_<version>_checksums.txt on the release page. The checksum is verified before
+#   the binary runs, so a bumped version with a stale hash fails loudly rather than silently
+#   running unverified code.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: Run actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+
+          TARBALL="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 --retry-delay 2 -o "$TARBALL" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${TARBALL}"
+
+          # Verify before executing — the binary is fetched at runtime, so the checksum is
+          # what pins it, the way a SHA pins a third-party action.
+          echo "${ACTIONLINT_SHA256}  ${TARBALL}" | sha256sum -c -
+
+          tar -xzf "$TARBALL" actionlint
+          chmod +x actionlint
+
+          ./actionlint -version
+          # -shellcheck= / -pyflakes= disable the embedded linters; see SHELLCHECK above.
+          ./actionlint -shellcheck= -pyflakes= -color
