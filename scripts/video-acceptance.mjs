@@ -120,7 +120,8 @@ function assertFixture(name, fixture) {
   const timeline =
     name === 'stale-revision' ||
     name === 'timebase-range' ||
-    name === 'multicam-analysis'
+    name === 'multicam-analysis' ||
+    name === 'multicam-edit'
       ? fixture.project.timeline
       : fixture.timeline;
   const clips = timeline.tracks.flatMap((track) => track.clips);
@@ -632,7 +633,10 @@ function main() {
     );
     render = { timebaseRange: observed };
   }
-  if (args.fixture === 'multicam-analysis') {
+  if (
+    args.fixture === 'multicam-analysis' ||
+    args.fixture === 'multicam-edit'
+  ) {
     const observed = runMulticamAnalysis(
       path.join(outputDir, 'multicam'),
       fixture,
@@ -702,6 +706,30 @@ function main() {
       check('fingerprint-stable', observed.fingerprintStable),
       check('timeline-not-mutated', observed.timelineTouched === false),
     );
+    if (args.fixture === 'multicam-edit') {
+      const edit = observed.edit;
+      checks.push(
+        check('review-accepts-every-shot', edit.summary.pending === 0),
+        check(
+          'override-recorded',
+          edit.summary.overridden === expected.overriddenCount,
+          String(edit.summary.overridden),
+        ),
+        check('applies-as-one-batch', edit.singleBatch),
+        check(
+          'clip-count-matches-accepted-shots',
+          edit.opCount === edit.summary.accepted,
+          `${edit.opCount} ops for ${edit.summary.accepted} accepted`,
+        ),
+        check('provenance-on-every-clip', edit.provenanceOnEveryClip),
+        check('source-times-offset-by-sync', edit.sourceTimesOffsetBySync),
+        check('batch-id-derived-not-random', edit.batchIdStable),
+        check(
+          'repeat-apply-returns-prior-result',
+          edit.repeatReturnsPriorResult,
+        ),
+      );
+    }
     render = { multicam: observed };
   }
   const comparison = comparisonFor(args.fixture, render, args.compare);

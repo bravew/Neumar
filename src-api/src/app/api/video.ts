@@ -148,12 +148,20 @@ import { createLocalFolderGrant } from '@/shared/video/linked-sources/local-gran
 import { buildMediaHealthReport } from '@/shared/video/media-health';
 import { manifestReadiness } from '@/shared/video/multicam/manifest';
 import {
+  applyReviewAction,
+  ReviewActionError,
+  startReview,
+  summarizeReview,
+} from '@/shared/video/multicam/review';
+import {
   artifactIsCurrent,
   listMulticamGroups,
   loadActivityMap,
   loadManifest,
+  loadReview,
   loadShotPlan,
   loadSyncMap,
+  saveReview,
 } from '@/shared/video/multicam/store';
 import { generateBackgroundMusic } from '@/shared/video/music';
 import {
@@ -2396,6 +2404,79 @@ videoRoutes.get('/projects/:id/media-health', async (c) => {
     return jsonError(c, error);
   }
 });
+
+videoRoutes.get('/projects/:id/multicam/:groupId/review', async (c) => {
+  if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+  try {
+    const projectId = c.req.param('id');
+    const groupId = c.req.param('groupId');
+    const existing = await loadReview(projectId, groupId);
+    if (existing) {
+      return c.json({
+        review: existing.data,
+        summary: summarizeReview(existing.data),
+      });
+    }
+    // No decisions recorded yet: derive a fresh review from the plan so a
+    // client always has something to render, without writing it.
+    const plan = await loadShotPlan(projectId, groupId);
+    if (!plan) return c.json({ error: 'No shot plan for this group' }, 404);
+    const review = startReview(plan.data);
+    return c.json({ review, summary: summarizeReview(review) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post(
+  '/projects/:id/multicam/:groupId/review',
+  zValidator(
+    'json',
+    z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('accept'), shotId: z.string().min(1) }),
+      z.object({ kind: z.literal('reject'), shotId: z.string().min(1) }),
+      z.object({ kind: z.literal('accept-all') }),
+      z.object({
+        kind: z.literal('nudge'),
+        shotId: z.string().min(1),
+        deltaMs: z.number().int().min(-60_000).max(60_000),
+      }),
+      z.object({
+        kind: z.literal('set-camera'),
+        shotId: z.string().min(1),
+        cameraId: z.string().min(1),
+      }),
+      z.object({
+        kind: z.literal('annotate'),
+        shotId: z.string().min(1),
+        note: z.string().min(1).max(500),
+      }),
+    ]),
+  ),
+  async (c) => {
+    if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+    const projectId = c.req.param('id');
+    const groupId = c.req.param('groupId');
+    try {
+      const result = await withProjectLock(projectId, async () => {
+        const plan = await loadShotPlan(projectId, groupId);
+        if (!plan) return null;
+        const existing = await loadReview(projectId, groupId);
+        const review = existing?.data ?? startReview(plan.data);
+        const next = applyReviewAction(review, c.req.valid('json'));
+        await saveReview(projectId, next);
+        return next;
+      });
+      if (!result) return c.json({ error: 'No shot plan for this group' }, 404);
+      return c.json({ review: result, summary: summarizeReview(result) });
+    } catch (error) {
+      if (error instanceof ReviewActionError) {
+        return c.json({ error: error.message }, 409);
+      }
+      return jsonError(c, error);
+    }
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Project version history.

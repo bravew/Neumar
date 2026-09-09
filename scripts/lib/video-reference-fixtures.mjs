@@ -13,6 +13,7 @@ export const VIDEO_REFERENCE_FIXTURES = [
   'stale-revision',
   'timebase-range',
   'multicam-analysis',
+  'multicam-edit',
 ];
 
 function baseProject(id, name, durationMs) {
@@ -649,6 +650,29 @@ function cameraAsset(id, durationMs) {
   };
 }
 
+// The analysis fixture plus the review decisions a human would make: accept the
+// speaker shots, re-angle one, and reject nothing. Exercises the apply path end
+// to end without touching media.
+function multicamEditFixture() {
+  const base = multicamAnalysisFixture();
+  return {
+    ...base,
+    kind: 'multicam-edit',
+    review: {
+      // Applied to the shots the planner produces, by index.
+      accept: 'all',
+      overrides: [{ shotIndex: 1, cameraId: 'cam-wide' }],
+    },
+    trackId: 'track-multicam',
+    expected: {
+      ...base.expected,
+      // Every shot accepted, one re-angled to the wide.
+      overriddenCount: 1,
+      repeatApplyIsIdempotent: true,
+    },
+  };
+}
+
 export function buildVideoReferenceFixture(name, options = {}) {
   switch (name) {
     case 'parity':
@@ -668,6 +692,8 @@ export function buildVideoReferenceFixture(name, options = {}) {
       return timebaseRangeFixture();
     case 'multicam-analysis':
       return multicamAnalysisFixture();
+    case 'multicam-edit':
+      return multicamEditFixture();
     default:
       throw new Error(`Unknown video reference fixture: ${name}`);
   }

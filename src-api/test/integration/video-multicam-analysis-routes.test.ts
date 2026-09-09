@@ -288,6 +288,82 @@ describe('multicam analysis routes', () => {
     });
   });
 
+  it('derives a review from the plan without writing one', async () => {
+    await seedGroup();
+
+    const response = await videoRoutes.request(
+      '/projects/project-1/multicam/group-1/review',
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      review: { revision: number; shots: Array<{ decision: string }> };
+      summary: { pending: number };
+    };
+    expect(body.review.revision).toBe(0);
+    expect(body.review.shots.every((shot) => shot.decision === 'pending')).toBe(
+      true,
+    );
+  });
+
+  it('records a decision and bumps the review revision', async () => {
+    await seedGroup();
+    const initial = (await (
+      await videoRoutes.request('/projects/project-1/multicam/group-1/review')
+    ).json()) as { review: { shots: Array<{ id: string }> } };
+
+    const response = await videoRoutes.request(
+      '/projects/project-1/multicam/group-1/review',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'accept',
+          shotId: initial.review.shots[1]!.id,
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      summary: { revision: number; accepted: number };
+    };
+    expect(body.summary).toMatchObject({ revision: 1, accepted: 1 });
+  });
+
+  it('reports an impossible review edit as a conflict, not a crash', async () => {
+    await seedGroup();
+
+    const response = await videoRoutes.request(
+      '/projects/project-1/multicam/group-1/review',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'accept', shotId: 'cam-nope@0' }),
+      },
+    );
+
+    expect(response.status).toBe(409);
+  });
+
+  it('a review decision still does not touch the timeline', async () => {
+    await seedGroup();
+    const before = await (
+      await videoRoutes.request('/projects/project-1/timeline')
+    ).json();
+
+    await videoRoutes.request('/projects/project-1/multicam/group-1/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'accept-all' }),
+    });
+
+    // Reviewing is deciding, not applying. Only the apply tool writes clips.
+    expect(
+      await (await videoRoutes.request('/projects/project-1/timeline')).json(),
+    ).toEqual(before);
+  });
+
   it('rejects a group id that would escape the project directory', async () => {
     await writeProject(projectFixture());
 

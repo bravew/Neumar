@@ -7,6 +7,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { getVideoProjectDir } from '../store';
 import type { ActivityMap } from './activity';
 import { parseMulticamManifest, type MulticamManifest } from './manifest';
+import type { ReviewArtifact } from './review';
 import type { ShotPlan } from './shot-plan';
 import type { SyncMap } from './sync';
 
@@ -25,7 +26,8 @@ export type MulticamArtifactKind =
   | 'manifest'
   | 'sync'
   | 'activity'
-  | 'shot-plan';
+  | 'shot-plan'
+  | 'review';
 
 export interface MulticamArtifactEnvelope<T> {
   kind: MulticamArtifactKind;
@@ -162,6 +164,23 @@ export async function saveShotPlan(
 
 export function loadShotPlan(projectId: string, groupId: string) {
   return readArtifact<ShotPlan>(projectId, groupId, 'shot-plan');
+}
+
+export async function saveReview(
+  projectId: string,
+  review: ReviewArtifact,
+): Promise<void> {
+  await writeArtifact(projectId, {
+    kind: 'review',
+    groupId: review.manifestId,
+    sourceFingerprint: review.planFingerprint,
+    generatedAt: new Date().toISOString(),
+    data: review,
+  });
+}
+
+export function loadReview(projectId: string, groupId: string) {
+  return readArtifact<ReviewArtifact>(projectId, groupId, 'review');
 }
 
 export async function listMulticamGroups(projectId: string): Promise<string[]> {

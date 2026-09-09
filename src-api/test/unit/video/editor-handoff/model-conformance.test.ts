@@ -211,3 +211,76 @@ describe('fractional timebase and output range survive interchange', () => {
     expect(xml).toContain('<timebase>30</timebase><ntsc>FALSE</ntsc>');
   });
 });
+
+describe('multicamera provenance survives handoff', () => {
+  beforeEach(async () => {
+    workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'editor-handoff-mc-'));
+    vi.stubEnv('NEUMA_VIDEO_WORKDIR', workDir);
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await fs.rm(workDir, { recursive: true, force: true });
+  });
+
+  async function multicamProject() {
+    const project = await createEditorHandoffFixtureProject(workDir);
+    const track = project.timeline!.tracks[0]!;
+    project.timeline = {
+      ...project.timeline!,
+      tracks: [
+        {
+          ...track,
+          clips: track.clips.map((clip, index) =>
+            index === 0
+              ? {
+                  ...clip,
+                  params: {
+                    ...(clip.params ?? {}),
+                    multicamGroupId: 'group-1',
+                    multicamCameraId: 'cam-ana',
+                    multicamParticipantId: 'p-ana',
+                    multicamPlanBatchId: 'multicam-abc123',
+                    multicamReviewRevision: 3,
+                    multicamReason: 'speaker',
+                    multicamSourceStartMs: 2500,
+                    multicamSyncOffsetMs: 500,
+                    multicamSyncDriftPpm: 12,
+                  },
+                }
+              : clip,
+          ),
+        } as (typeof project.timeline)['tracks'][number],
+      ],
+    };
+    return project;
+  }
+
+  it('carries camera group, angle, source time, sync, and plan id onto the model', async () => {
+    const model = buildEditorHandoffModel(await multicamProject());
+
+    const clip = model.tracks[0]?.clips[0];
+    expect(clip?.params).toMatchObject({
+      multicamGroupId: 'group-1',
+      multicamCameraId: 'cam-ana',
+      multicamSourceStartMs: 2500,
+      multicamSyncOffsetMs: 500,
+      multicamPlanBatchId: 'multicam-abc123',
+    });
+  });
+
+  it('writes the provenance into OTIO clip metadata', async () => {
+    const otio = JSON.parse(
+      writeOtioJson(buildEditorHandoffModel(await multicamProject())),
+    );
+
+    // An editor opening this file cold can still say which angle a clip is and
+    // which reviewed plan produced it.
+    const first = otio.tracks.children[0].children[0];
+    expect(first.metadata.conformance).toMatchObject({
+      multicamCameraId: 'cam-ana',
+      multicamReason: 'speaker',
+      multicamReviewRevision: 3,
+    });
+  });
+});

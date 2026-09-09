@@ -15,6 +15,7 @@ import {
   createVideoEditTools,
   VIDEO_EDIT_TOOL_NAMES,
 } from '@/shared/mcp/video-edit-server';
+import { MULTICAM_TOOL_NAMES } from '@/shared/mcp/video-multicam-tools';
 import { writeProject } from '@/shared/video/store';
 import type { TimelineTransition, VideoProject } from '@/shared/video/types';
 
@@ -117,13 +118,17 @@ describe('video-edit MCP server', () => {
     expect(classifications['mcp__video-edit__video_snap_cuts_to_beats']).toBe(
       'destructive',
     );
+    // The multicamera domain is registered only for projects that have a
+    // camera group, so it is classified without appearing in the always-on
+    // list. The invariant this guards is unchanged in both directions: nothing
+    // classified that is not a real tool, nothing registered unclassified.
     expect(
       Object.keys(classifications)
         .filter((name) => name.startsWith('mcp__video-edit__'))
         .map((name) => name.slice('mcp__video-edit__'.length))
         .sort(),
-    ).toEqual([...VIDEO_EDIT_TOOL_NAMES].sort());
-    for (const name of VIDEO_EDIT_TOOL_NAMES) {
+    ).toEqual([...VIDEO_EDIT_TOOL_NAMES, ...MULTICAM_TOOL_NAMES].sort());
+    for (const name of [...VIDEO_EDIT_TOOL_NAMES, ...MULTICAM_TOOL_NAMES]) {
       expect(getVideoToolCapabilityMetadata(name)).toEqual({
         classification: expect.stringMatching(
           /^(read|write|execute|destructive|network)$/,

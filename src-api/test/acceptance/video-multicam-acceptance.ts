@@ -14,11 +14,21 @@ import {
   toSpeechRanges,
   type ActivityFrame,
 } from '@/shared/video/multicam/activity';
+import {
+  alreadyApplied,
+  applyBatchId,
+  buildApplyBatch,
+} from '@/shared/video/multicam/apply';
 import { multicamFingerprint } from '@/shared/video/multicam/fingerprint';
 import {
   manifestReadiness,
   parseMulticamManifest,
 } from '@/shared/video/multicam/manifest';
+import {
+  applyReviewAction,
+  startReview,
+  summarizeReview,
+} from '@/shared/video/multicam/review';
 import { buildShotPlan } from '@/shared/video/multicam/shot-plan';
 import { buildSyncMap } from '@/shared/video/multicam/sync';
 
@@ -29,6 +39,12 @@ interface Fixture {
     windowMs: number;
     frames: Array<{ atReferenceMs: number; ana: number; ben: number }>;
   };
+  /** Present only for the multicam-edit fixture. */
+  review?: {
+    accept: 'all';
+    overrides: Array<{ shotIndex: number; cameraId: string }>;
+  };
+  trackId?: string;
 }
 
 function parseArgs() {
@@ -164,8 +180,79 @@ async function main() {
         JSON.stringify(first.syncMap) === JSON.stringify(second.syncMap),
       // Phase 5 is read-only with respect to the timeline.
       timelineTouched: false,
+      ...(fixture.review ? { edit: runEdit(fixture, first) } : {}),
     })}\n`,
   );
+}
+
+/**
+ * The Phase 6 half: turn the plan into review decisions and one apply batch,
+ * then repeat the apply to prove it does not duplicate clips.
+ */
+function runEdit(fixture: Fixture, chain: ReturnType<typeof runChain>) {
+  let review = startReview(chain.plan);
+  if (fixture.review?.accept === 'all') {
+    review = applyReviewAction(review, { kind: 'accept-all' });
+  }
+  for (const override of fixture.review?.overrides ?? []) {
+    const shot = review.shots[override.shotIndex];
+    if (!shot) continue;
+    review = applyReviewAction(review, {
+      kind: 'set-camera',
+      shotId: shot.id,
+      cameraId: override.cameraId,
+    });
+  }
+
+  const trackId = fixture.trackId ?? 'track-multicam';
+  const applied = buildApplyBatch({
+    manifest: chain.manifest,
+    review,
+    syncMap: chain.syncMap,
+    trackId,
+  });
+
+  // A repeat request against the same review revision must return the prior
+  // result rather than a second set of clips.
+  const recorded = {
+    ...review,
+    applied: {
+      batchId: applied.batchId,
+      reviewRevision: review.revision,
+      appliedAt: '2026-09-08T00:00:00.000Z',
+      clipIds: applied.clipIds,
+    },
+  };
+  const repeat = alreadyApplied(recorded);
+
+  const inserts = applied.batch.ops.filter((op) => op.kind === 'clip.insert');
+  return {
+    summary: summarizeReview(review),
+    batchId: applied.batchId,
+    batchKind: applied.batch.kind,
+    opCount: applied.batch.ops.length,
+    clipIds: applied.clipIds,
+    // A single batch, so undo takes the whole cut back in one step.
+    singleBatch: applied.batch.kind === 'timeline.batch',
+    provenanceOnEveryClip: inserts.every(
+      (op) =>
+        op.kind === 'clip.insert' &&
+        Boolean(op.clip.params?.multicamGroupId) &&
+        Boolean(op.clip.params?.multicamCameraId) &&
+        op.clip.params?.multicamPlanBatchId === applied.batchId,
+    ),
+    sourceTimesOffsetBySync: inserts.every(
+      (op) =>
+        op.kind === 'clip.insert' &&
+        typeof op.clip.params?.multicamSourceStartMs === 'number',
+    ),
+    repeatReturnsPriorResult:
+      repeat?.batchId === applied.batchId &&
+      JSON.stringify(repeat?.clipIds) === JSON.stringify(applied.clipIds),
+    // Applying the same review twice must not create new clip ids.
+    repeatBatchId: applyBatchId(review),
+    batchIdStable: applyBatchId(review) === applied.batchId,
+  };
 }
 
 await main();
