@@ -1,6 +1,8 @@
 name: Render Demo Videos
 
 on:
+  # Rendering currently depends on local demo assets that are not available in
+  # CI. Keep this manual until the render bundle is self-contained.
   workflow_dispatch:
     inputs:
       composition:
@@ -15,12 +17,6 @@ on:
           - preview
           - draft
           - final
-  push:
-    paths:
-      - 'src-video/**'
-    branches:
-      - main
-
 permissions:
   contents: read
 
