@@ -79,11 +79,9 @@ overrides:
   # GHSA-xcpc-8h2w-3j85 — adm-zip 4GB zip-bomb memory allocation, bundled by
   # onnxruntime-node (unpacks native binaries at install time).
   adm-zip: '^0.6.0'
-  # GHSA-f88m-g3jw-g9cj — sharp <0.35.0 inherits libvips CVE-2026-33327/28/
-  # 35590/35591. @huggingface/transformers and hyperframes both pin
-  # ^0.34.5; neumar-api already runs 0.35.3 directly, so this just collapses
-  # the duplicate resolution onto the version already exercised here.
-  sharp: '^0.35.3'
+  # GHSA-rgj7-g3m4-5g8c — sharp <0.35.4 includes vulnerable libheif builds.
+  # Keep direct and transitive copies on the patched release.
+  sharp: '^0.35.4'
   # GHSA-w5hq-g745-h8pq — CopilotKit runtime still allows vulnerable uuid 10.
   'uuid@10.0.0': '11.1.1'
   # 2026-08-08: node-tar critical DoS (GHSA-23hp-3jrh-7fpw) + 3 more advisories
@@ -99,9 +97,9 @@ overrides:
   # GHSA-mwp4-54f8-5fhr (ip-address leading-zero octet SSRF bypass) —
   # transitive via express-rate-limit under @modelcontextprotocol/sdk.
   ip-address: '^10.3.1'
-  # GHSA-5p4m-2wfm-xmqj (js-yaml quadratic CPU on !!omap) — transitive via
-  # cosmiconfig under @remotion/cli's @svgr/core and @remotion/tailwind.
-  js-yaml: '^4.3.1'
+  # GHSA-2883-xcg3-v3hh — transitive via cosmiconfig under @remotion/cli's
+  # @svgr/core and @remotion/tailwind.
+  js-yaml: '^4.3.2'
 
 peerDependencyRules:
   allowedVersions:
