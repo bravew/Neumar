@@ -109,6 +109,10 @@ env:
   REVIEW_EXCLUDE_PATHS: ${{ vars.REVIEW_EXCLUDE_PATHS || ':(exclude)dev-doc/** :(exclude)**/*.md :(exclude)pnpm-lock.yaml :(exclude)package-lock.json :(exclude)yarn.lock :(exclude)**/*.snap' }}
   # Turn budget for the review session. Without an explicit cap a large PR can exhaust the
   # default budget mid-analysis and end "successfully" without ever posting a summary.
+  # This is a runtime backstop only — it is deliberately NOT told to the model. Run 34356058557
+  # was asked to track its own budget and stopped at 39 of 80 turns, self-reporting "(budget)"
+  # as the reason it skipped files, because a model cannot observe its own turn count and so
+  # guesses conservatively. The prompt now tells it not to ration.
   REVIEW_MAX_TURNS: ${{ vars.REVIEW_MAX_TURNS || '80' }}
 
 permissions:
@@ -329,9 +333,11 @@ jobs:
 
             - **You are a single agent.** Subagents and the Task tool are NOT available. Do not
               plan "parallel passes" or announce a fan-out — every such attempt is denied and
-              burns your turn budget. Work sequentially through the prioritized file list.
-            - **Your turn budget is finite** (${{ env.REVIEW_MAX_TURNS }} turns). Track it. Reaching the end
-              of the diff is less important than posting a summary.
+              wastes a turn. Work sequentially through the prioritized file list.
+            - **Do not ration your own effort.** You cannot see how many turns you have used, so
+              any guess is wrong, and guessing low means stopping with the review half done. A
+              hard cap is enforced for you by the runtime — you do not need to manage it. Keep
+              reviewing until the prioritized list is genuinely covered.
             - **Only these commands are available**: `gh pr view`, `gh pr checks`, `cat CLAUDE.md`,
               `mkdir -p reports`. Anything else is denied — don't retry a denied command.
             - **Triage before reading.** If the diff is larger than you can fully cover, prioritize:
@@ -477,12 +483,17 @@ jobs:
             5. If GENERATE REPORT is "true", also create `reports/pr-${{ steps.pr.outputs.number }}-review.md`
                with code snippets showing violations and corrected examples as unified diffs.
 
-            ## Completion protocol (MANDATORY — do this even if you run out of budget)
+            ## Completion protocol (MANDATORY)
 
-            This is not optional and it is not the last thing you do "if there's time". The moment
-            you are more than three quarters through your turn budget, stop analyzing and do this:
+            Write `review.md` **early and keep it current** — draft it as soon as you have triaged
+            the file list, then append findings as you go. That way an unexpected stop still leaves
+            a usable review on disk, which is what makes it safe to keep reviewing rather than
+            stopping early to leave room. Do not save the writing for the end, and do not stop
+            analyzing in order to "reserve" turns.
 
-            1. Write the full summary to `review.md`, containing:
+            When the prioritized list is covered:
+
+            1. Finalize `review.md` so it contains:
                - Assessment: ✅ Approve / ⚠️ Request Changes / 💬 Comment
                - Issues: bulleted list grouped by severity (Critical → Warning → Info) with file:line references
                - **Layer Summary** (always include, even if every line says "No issues"):
@@ -564,7 +575,7 @@ jobs:
             --max-turns ${{ env.REVIEW_MAX_TURNS }}
             ${{ env.ENABLE_EXTENDED_THINKING == 'true' && '--thinking=enabled' || '' }}
             --allowedTools Read,Glob,Grep,mcp__github_comment__update_claude_comment,Bash(gh pr view:*),Bash(gh pr checks:*),Bash(cat CLAUDE.md),Write(review.md),Edit(review.md),Write(reports/*),Bash(mkdir -p reports)${{ env.ENABLE_INLINE_COMMENTS == 'true' && ',mcp__github_inline_comment__create_inline_comment' || '' }}
-            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. SINGLE AGENT: subagents and the Task tool are unavailable — never plan parallel passes, work sequentially. DIFF: read pr-files.txt then pr-diff.patch from disk; never run 'gh pr diff' (HTTP 406 on large PRs). COMPLETION: you MUST write review.md and post it via mcp__github_comment__update_claude_comment before your turn budget runs out, ending review.md (not the comment) with '<!-- claude-review-complete -->'; a partial review beats no review. DUPLICATES: check existing comments with 'gh pr view' before posting. LOGGING: in src-api/ code, console.* is forbidden — must use createLogger(). WORKSPACE: src-api/ must not use process.cwd() — use getSetting('workDir'). TYPES: import type must be used for type-only imports. I18N: new strings must exist in all 6 locale files (en, zh, es, fr, hi, pt). TAURI: flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references."
+            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. SINGLE AGENT: subagents and the Task tool are unavailable — never plan parallel passes, work sequentially. DIFF: read pr-files.txt then pr-diff.patch from disk; never run 'gh pr diff' (HTTP 406 on large PRs). COMPLETION: draft review.md early and keep it current as you go, then post it via mcp__github_comment__update_claude_comment, ending review.md (not the comment) with '<!-- claude-review-complete -->'. Do not ration turns or stop early to reserve room — you cannot observe your turn count and the runtime enforces the cap for you; review the prioritized list fully. A partial review beats no review. DUPLICATES: check existing comments with 'gh pr view' before posting. LOGGING: in src-api/ code, console.* is forbidden — must use createLogger(). WORKSPACE: src-api/ must not use process.cwd() — use getSetting('workDir'). TYPES: import type must be used for type-only imports. I18N: new strings must exist in all 6 locale files (en, zh, es, fr, hi, pt). TAURI: flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references."
 
       - name: Verify the review was posted
         if: ${{ !cancelled() && steps.diff.outcome == 'success' }}
