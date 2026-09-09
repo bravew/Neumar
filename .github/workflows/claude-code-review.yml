@@ -4,7 +4,7 @@ name: Claude - Diff-Aware PR Reviewer
 # - Purpose: Generate a thorough, diff-aware code review for PRs with inline comments and summary.
 # - Trigger: Manual — workflow_dispatch, commenting "@review" on a PR, or adding the "review" label.
 #   (Automatic pull_request trigger on every open/sync is disabled by default — see the `on:` block.)
-# - Outputs: A single sticky summary comment (updated in-place) + optional inline comments + optional report artifact.
+# - Outputs: A single summary comment (updated in-place) + optional inline comments + optional report artifact.
 # - Docs: https://github.com/anthropics/claude-code-action
 #
 # REQUIRED SECRETS
@@ -25,12 +25,30 @@ name: Claude - Diff-Aware PR Reviewer
 #   (defaults to claude-sonnet-5) https://platform.claude.com/docs/en/about-claude/models/overview
 # - Enable extended thinking via workflow_dispatch input for deeper analysis (use_extended_thinking=true)
 # - Enable inline comments via workflow_dispatch input or repository variable (enable_inline_comments=true)
+# - Tune which paths are excluded from the reviewed diff via the REVIEW_EXCLUDE_PATHS repository variable.
 #
-# STICKY COMMENT BEHAVIOR
-# - The summary is posted via a wrapper script using `gh pr comment --edit-last --create-if-none`.
-# - On subsequent pushes, the existing comment is updated in-place automatically.
-# - Old inline review comments are minimized (collapsed) as OUTDATED before each run.
-# - This prevents review comment spam and keeps the PR conversation clean.
+# LARGE-PR DIFF HANDLING
+# - `gh pr diff` goes through the GitHub API, which returns HTTP 406 ("diff exceeded the maximum
+#   number of lines (20000)") on big PRs — and `gh pr diff --name-only` swallows that error and
+#   exits 0 with empty output. A review that depends on it silently gets nothing to review.
+# - So the diff is computed locally instead: fetch the base branch and refs/pull/<N>/head, then
+#   `git diff --merge-base`, with noise paths (docs, lockfiles) excluded via pathspecs. No API
+#   line cap applies. Results are written to pr-diff.patch / pr-files.txt for Claude to read.
+# - Only `git fetch` and `git diff` touch the PR head. No PR code is ever executed by this workflow.
+#
+# SUMMARY COMMENT BEHAVIOR
+# - track_progress: true makes the action create one tracking comment per run, authored by
+#   claude[bot], and Claude edits it in place via mcp__github_comment__update_claude_comment.
+# - Do NOT reintroduce a `gh pr comment --edit-last` wrapper here: that runs as github-actions[bot],
+#   so --edit-last cannot see the claude[bot] tracking comment and posts a duplicate instead.
+# - Previous claude[bot] summary and inline comments are minimized (collapsed) as OUTDATED before
+#   each run, so the PR conversation keeps only the current review expanded.
+#
+# COMPLETION GUARD
+# - Claude must write the summary to review.md AND end the posted body with the
+#   <!-- claude-review-complete --> marker. A final step verifies review.md exists; if the run ended
+#   without producing one, it posts an explicit failure notice and fails the job, so a half-finished
+#   review can never masquerade as a green check.
 #
 # SECURITY
 # - This workflow does not modify source code. It only posts comments and writes reports.
@@ -74,6 +92,12 @@ env:
   CLAUDE_MODEL: ${{ github.event.inputs.claude_model || vars.CLAUDE_MODEL || 'claude-sonnet-5' }}
   ENABLE_EXTENDED_THINKING: ${{ github.event.inputs.use_extended_thinking || vars.ENABLE_EXTENDED_THINKING || 'false' }}
   ENABLE_INLINE_COMMENTS: ${{ github.event.inputs.enable_inline_comments || vars.ENABLE_INLINE_COMMENTS || 'false' }}
+  # Space-separated git pathspecs excluded from the reviewed diff. Prose and generated
+  # lockfiles crowd out code without carrying review-worthy findings.
+  REVIEW_EXCLUDE_PATHS: ${{ vars.REVIEW_EXCLUDE_PATHS || ':(exclude)dev-doc/** :(exclude)**/*.md :(exclude)pnpm-lock.yaml :(exclude)package-lock.json :(exclude)yarn.lock :(exclude)**/*.snap' }}
+  # Turn budget for the review session. Without an explicit cap a large PR can exhaust the
+  # default budget mid-analysis and end "successfully" without ever posting a summary.
+  REVIEW_MAX_TURNS: ${{ vars.REVIEW_MAX_TURNS || '80' }}
 
 permissions:
   contents: read
@@ -116,8 +140,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          # Shallow clone is sufficient - gh pr diff fetches diff from GitHub API
-          fetch-depth: 1
+          # Depth 100 gives `git merge-base` enough history to resolve the fork point
+          # against the PR head fetched below. The "Prepare scoped PR diff" step deepens
+          # further if that isn't enough for a long-lived branch.
+          fetch-depth: 100
 
       - name: Set PR number
         id: pr
@@ -139,53 +165,99 @@ jobs:
             echo "generate_report=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Minimize old review comments
+      - name: Minimize previous Claude review comments
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           REPO: ${{ github.repository }}
         run: |
-          # Collapse previous inline review comments from claude[bot] as OUTDATED
-          # This keeps the PR conversation clean on subsequent pushes
-          gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+          set -euo pipefail
+
+          minimize() {
+            gh api graphql -f query='
+              mutation($id: ID!) {
+                minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) {
+                  minimizedComment { isMinimized }
+                }
+              }' -f id="$1" >/dev/null 2>&1 || true
+          }
+
+          # `if` rather than `[ -n ... ] && ...` on purpose: a false `&&` chain would be the
+          # loop's exit status, and under `pipefail` that aborts the whole step.
+          # Collapse previous inline review comments from earlier runs.
+          gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" \
             --jq '.[] | select(.user.login == "claude[bot]" or .user.login == "claude" or .user.login == "github-actions[bot]") | .node_id' \
             | while read -r node_id; do
-                if [ -n "$node_id" ]; then
-                  gh api graphql -f query='
-                    mutation($id: ID!) {
-                      minimizeComment(input: {subjectId: $id, classifier: OUTDATED}) {
-                        minimizedComment { isMinimized }
-                      }
-                    }' -f id="$node_id" 2>/dev/null || true
-                fi
+                if [ -n "$node_id" ]; then minimize "$node_id"; fi
               done
 
-      - name: Create review posting script
+          # Collapse previous summary/tracking comments too. Without this, a run that dies
+          # mid-review leaves an unchecked "in progress" checklist sitting on the PR forever,
+          # indistinguishable from a review that is still running.
+          gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.user.login == "claude[bot]") | .node_id' \
+            | while read -r node_id; do
+                if [ -n "$node_id" ]; then minimize "$node_id"; fi
+              done
+
+      - name: Prepare scoped PR diff
+        id: diff
         env:
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+          EXCLUDES: ${{ env.REVIEW_EXCLUDE_PATHS }}
         run: |
-          # Wrapper script that ensures --edit-last --create-if-none flags are always used.
-          # This makes the summary comment sticky: first run creates it, subsequent runs update in-place.
-          # Claude calls this script instead of `gh pr comment` directly so it can't forget the flags.
-          cat > post-review.sh << 'SCRIPT_EOF'
-          #!/bin/bash
-          set -e
-          REVIEW_FILE="$1"
-          if [ -z "$REVIEW_FILE" ]; then
-            echo "Error: Usage: post-review.sh <REVIEW_FILE>" >&2
+          set -euo pipefail
+
+          BASE_REF=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json baseRefName --jq '.baseRefName')
+          echo "Base branch: $BASE_REF"
+
+          # Fetch the base branch and the PR head as read-only refs. Nothing from the PR head
+          # is ever executed — only `git diff` reads these trees.
+          git fetch --no-tags --depth=100 origin \
+            "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" \
+            "+refs/pull/${PR_NUMBER}/head:refs/remotes/pr/head"
+
+          # Deepen until the fork point is reachable; shallow clones can miss it on
+          # long-lived branches.
+          for depth in 250 1000; do
+            if git merge-base "refs/remotes/origin/${BASE_REF}" refs/remotes/pr/head >/dev/null 2>&1; then
+              break
+            fi
+            echo "Merge base not reachable, deepening to $depth..."
+            git fetch --no-tags --deepen="$depth" origin \
+              "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" \
+              "+refs/pull/${PR_NUMBER}/head:refs/remotes/pr/head" || true
+          done
+
+          if ! git merge-base "refs/remotes/origin/${BASE_REF}" refs/remotes/pr/head >/dev/null 2>&1; then
+            echo "::error::Could not resolve a merge base between $BASE_REF and PR #$PR_NUMBER."
             exit 1
           fi
-          if [ ! -f "$REVIEW_FILE" ]; then
-            echo "Error: Review file not found: $REVIEW_FILE" >&2
-            exit 1
+
+          # shellcheck disable=SC2086 # EXCLUDES is a deliberate list of pathspecs
+          git diff --merge-base "refs/remotes/origin/${BASE_REF}" refs/remotes/pr/head \
+            --stat=200 -- . $EXCLUDES > pr-files.txt
+          # shellcheck disable=SC2086
+          git diff --merge-base "refs/remotes/origin/${BASE_REF}" refs/remotes/pr/head \
+            -- . $EXCLUDES > pr-diff.patch
+
+          PATCH_LINES=$(wc -l < pr-diff.patch | tr -d ' ')
+          FILE_COUNT=$(grep -c '^diff --git ' pr-diff.patch || true)
+          echo "patch_lines=$PATCH_LINES" >> "$GITHUB_OUTPUT"
+          echo "file_count=$FILE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "Scoped diff: $FILE_COUNT files, $PATCH_LINES patch lines"
+
+          if [ "$PATCH_LINES" -eq 0 ]; then
+            echo "::warning::Scoped diff is empty — every changed path matched REVIEW_EXCLUDE_PATHS."
+          elif [ "$PATCH_LINES" -gt 12000 ]; then
+            echo "::warning::Scoped diff is $PATCH_LINES lines across $FILE_COUNT files. Expect a partial review — split the PR, widen REVIEW_EXCLUDE_PATHS, or rerun with claude_model=claude-opus-5."
           fi
-          SCRIPT_EOF
-          # Append the gh command with the PR number baked in (avoids interpolation issues)
-          echo "gh pr comment ${PR_NUMBER} --repo \"\${GITHUB_REPOSITORY}\" --body-file \"\$REVIEW_FILE\" --edit-last --create-if-none" >> post-review.sh
-          chmod +x post-review.sh
 
       - name: Claude Code Review
-        uses: anthropics/claude-code-action@3f854a8fb5146b39d5cbf8b57f70d80810e1366f # v1 (v1.0.198)
+        id: claude
+        uses: anthropics/claude-code-action@5ccc3a35a6367cdb8e6fbd0728287467540ecfe2 # v1 (v1.0.219)
         env:
           GH_TOKEN: ${{ github.token }}
         with:
@@ -198,6 +270,8 @@ jobs:
             CLAUDE_MODEL: ${{ env.CLAUDE_MODEL }}
             ENABLE_EXTENDED_THINKING: ${{ env.ENABLE_EXTENDED_THINKING }}
             ENABLE_INLINE_COMMENTS: ${{ env.ENABLE_INLINE_COMMENTS }}
+            DIFF FILE COUNT: ${{ steps.diff.outputs.file_count }}
+            DIFF PATCH LINES: ${{ steps.diff.outputs.patch_lines }}
 
             You are a senior engineer reviewing application — a desktop AI agent app built with three layers:
             - **Frontend** (`src/`): React 19 + TypeScript 5.8 + Vite 7 + Tailwind CSS 4 + Radix UI
@@ -205,6 +279,33 @@ jobs:
             - **Desktop Shell** (`src-tauri/`): Tauri 2 + Rust + SQLite
 
             The app executes natural language tasks via AI agents with a two-phase flow (planning → execution).
+
+            ## How to read the diff (READ THIS FIRST)
+
+            The diff is already prepared for you on disk. Do NOT run `gh pr diff` — it returns
+            HTTP 406 on PRs over 20,000 diff lines, and `--name-only` hides that failure behind
+            exit code 0, leaving you with nothing.
+
+            - `pr-files.txt` — per-file change summary (name + churn). Start here, always.
+            - `pr-diff.patch` — the full scoped patch. Docs, markdown, and lockfiles are already
+              excluded, so everything in it is code worth reading.
+
+            If `pr-diff.patch` is too large to read in one call, read it in chunks with the Read
+            tool's offset/limit parameters, working through the files you prioritized from
+            `pr-files.txt`. Use Read/Glob/Grep on the checked-out tree for surrounding context.
+
+            ## Working constraints (violating these is how reviews end up empty)
+
+            - **You are a single agent.** Subagents and the Task tool are NOT available. Do not
+              plan "parallel passes" or announce a fan-out — every such attempt is denied and
+              burns your turn budget. Work sequentially through the prioritized file list.
+            - **Your turn budget is finite** (${{ env.REVIEW_MAX_TURNS }} turns). Track it. Reaching the end
+              of the diff is less important than posting a summary.
+            - **Only these commands are available**: `gh pr view`, `gh pr checks`, `cat CLAUDE.md`,
+              `mkdir -p reports`. Anything else is denied — don't retry a denied command.
+            - **Triage before reading.** If the diff is larger than you can fully cover, prioritize:
+              security-sensitive code → backend/agent logic → React state and effects → i18n parity
+              → everything else. Say what you did not cover in the summary.
 
             ## Review Focus Areas
 
@@ -224,28 +325,31 @@ jobs:
             - `useActionState` dispatch called outside a Transition or `<form action={...}>` — async actions must run inside a Transition or React throws
 
             **Component Patterns**
-            - Components over 250 lines should be split into sub-components
+            - Components over 350 lines violate the project's hard limit (enforced by `scripts/check-component-size.mjs`) — flag them and name the sub-components to extract
             - Missing `aria-label` on interactive elements (buttons, inputs, links) — required by project convention
-            - Conditional class merging must use `cn()` from `@/shared/lib/utils`, not string concatenation
+            - Conditional class merging must use `cn()`, not string concatenation
             - List rendering without stable, unique `key` props
-            - Event handlers that should use `useCallback` when passed as props to child components
+            - IDs generated with `Date.now()` instead of `crypto.randomUUID()` — collides on rapid calls
+            - Module-level constants (regex, config objects, stable props) declared inline in render — breaks memoization
 
             **State Management**
             - This project uses SQLite (Tauri) + IndexedDB (browser fallback) — NOT Redux/Zustand
             - All data flows through `src/shared/db/` → backend API → database
             - Frontend state lives in React hooks (`useState`, `useRef`, `useMemo`)
             - Flag accidental state mutations in updater functions — React StrictMode double-invokes updaters, mutations cause duplicate effects
+            - Reading state captured at creation time inside async/streaming callbacks instead of the `setState(prev => ...)` updater form
+            - `finally` blocks that unconditionally overwrite error status set by `catch`
 
             **i18n**
             - User-facing strings must use the i18n system via `useLanguage()` hook → `t.section.key`
-            - Locale files in `src/config/locale/messages/{en,zh,es,fr}/`
-            - New strings added to English MUST also be added to zh, es, and fr locale files
+            - Locale files live in `src/config/locale/messages/{en,zh,es,fr,hi,pt}/`
+            - A new string added to English MUST also be added to **all five** other locales (zh, es, fr, hi, pt). Report any key present in one locale but missing from another.
             - Flag hardcoded user-facing strings in JSX
 
             ### TypeScript
 
             - `import type` syntax MUST be used for type-only imports — project enforces this
-            - Path alias `@/*` maps to `src/` (frontend) or `src-api/src/` (backend) — flag relative imports that should use `@/`
+            - Path alias `@/*` is scoped per workspace: `src/*` from the frontend tsconfig, `src-api/src/*` from `src-api/tsconfig.json`. Flag any import that crosses that boundary, and relative imports that should use `@/`
             - No `any` — use `unknown` with proper type narrowing or explicit interfaces. Also flag `as any` casts
             - Non-null assertion `!` (e.g., `array.find(...)!`) instead of proper null checks — leads to runtime TypeError
             - Discriminated unions preferred for variant types (e.g., `AgentMessage.type` field) — flag `switch` on union type without exhaustive `default: never` check
@@ -258,12 +362,18 @@ jobs:
             - Frontend `src/` code MAY use `console.warn` for dev diagnostics
             - Flag any `console.*` call in `src-api/` files
 
+            **Workspace root (CRITICAL)**
+            - `src-api/` must never use `process.cwd()` — it resolves wrong inside the Tauri sidecar. Use `getSetting('workDir') ?? process.cwd()`
+
             **API Security**
             - Hono route handlers must validate input with Zod via `zValidator()` inline in the handler chain — NOT via `app.use()` (loses TypeScript type inference on `c.req.valid()`)
             - Flag routes accepting user input without validation
             - Zod schemas must NOT use `.passthrough()` (allows unknown fields → mass assignment risk) — use `.strict()` or default stripping
             - SSE streams (`text/event-stream`) must include proper headers: `Cache-Control: no-cache`, `Connection: keep-alive`, `X-Accel-Buffering: no`
             - Workspace file operations must be confined to the user-configured workspace directory — flag path traversal risks
+            - Dynamic HTTP status codes passed to `c.json()` must be typed `ContentfulStatusCode` from `hono/utils/http-status`
+            - Upstream errors must forward meaningful status codes (401, 403, 502) — flag handlers that swallow them into 200
+            - SSRF: user-supplied URLs passed to server-side `fetch()` must be validated — block private ranges (`10.*`, `172.16-31.*`, `192.168.*`, `169.254.*`), cloud metadata hostnames, and non-HTTPS (except localhost)
             - Sensitive data (API keys, tokens) must not be logged or returned in API responses
 
             **Streaming & Async Generators**
@@ -292,7 +402,7 @@ jobs:
             - Shell execute must only allow known sidecar binaries — flag `shell:allow-execute` without restricted `allow` list
             - Shell argument validators must use tight regex — flag `"validator": ".*"` which allows arbitrary command injection
             - IPC commands must validate all inputs from the WebView — treat frontend as untrusted
-            - Sidecar processes (`neuma-api`, `claude-code`) must be the ONLY allowed shell executions
+            - Sidecar processes must be the ONLY allowed shell executions
             - Flag permissions granted but never invoked in frontend code — unused permissions expand attack surface
 
             **Rust Code**
@@ -307,11 +417,11 @@ jobs:
             - Path traversal: file operations that don't validate against workspace boundaries
             - Command injection: shell commands constructed from user input without sanitization
             - SQL injection: raw SQL queries with string interpolation instead of parameterized queries
+            - GitHub Actions: `${{ }}` interpolated directly into a `run:` block — must go through an `env:` block
             - Sensitive data in URLs or query parameters
 
             ### Performance
 
-            - Large components (>250 lines) that should be split for maintainability
             - Missing `React.lazy()` for route-level code splitting
             - Expensive computations in render path without `useMemo`
             - Event handlers recreated on every render when passed to memoized children
@@ -321,36 +431,40 @@ jobs:
 
             ## Instructions
 
-            1. Fetch PR diff: `gh pr diff ${{ steps.pr.outputs.number }}`
+            1. Read `pr-files.txt` and build a prioritized list of files to review.
             2. Read `CLAUDE.md` for project conventions: `cat CLAUDE.md`
-            3. Analyze changed files for issues in focus areas above
+            3. Work through `pr-diff.patch` (in chunks if needed), analyzing for the focus areas above.
             4. **Inline Comments (conditional on ENABLE_INLINE_COMMENTS):**
                - If ENABLE_INLINE_COMMENTS is "true":
-                 - Before posting ANY inline comment, check if a similar comment already exists
-                 - Use: `gh pr view ${{ steps.pr.outputs.number }} --json reviews -q '.reviews[].comments[] | select(.path == "<file>") | {line: .line, body: .body}'`
-                 - If a comment already exists on the same line with similar content, SKIP it
-                 - Only post NEW findings to avoid duplicate comments
-                 - Post inline comments via `mcp__github_inline_comment__create_inline_comment` for:
-                   - Bugs (state mutations, memory leaks, stale closures, logic errors)
-                   - Security issues (XSS, path traversal, credential exposure, command injection)
-                   - Performance problems (unnecessary re-renders, missing memoization, large bundles)
-                   - Convention violations (logging, import type, named constants, i18n, aria-labels)
-                   - Tauri capability issues (overly broad permissions, unvalidated IPC inputs)
+                 - Before posting ANY inline comment, check whether a similar one already exists via
+                   `gh pr view ${{ steps.pr.outputs.number }} --json reviews -q '.reviews[].comments[] | select(.path == "<file>") | {line: .line, body: .body}'`
+                 - Skip anything already flagged on the same line — only post NEW findings
+                 - Post via `mcp__github_inline_comment__create_inline_comment` for bugs, security
+                   issues, performance problems, convention violations, and Tauri capability issues
                - If ENABLE_INLINE_COMMENTS is "false":
-                 - Do NOT post any inline comments on specific lines
-                 - Include all findings in the summary comment instead, with file:line references
-            5. Write the review summary to `review.md`, then post it using `./post-review.sh review.md` (this updates the existing comment in-place or creates one if none exists):
+                 - Do NOT post inline comments. Put every finding in the summary with file:line references.
+            5. If GENERATE REPORT is "true", also create `reports/pr-${{ steps.pr.outputs.number }}-review.md`
+               with code snippets showing violations and corrected examples as unified diffs.
+
+            ## Completion protocol (MANDATORY — do this even if you run out of budget)
+
+            This is not optional and it is not the last thing you do "if there's time". The moment
+            you are more than three quarters through your turn budget, stop analyzing and do this:
+
+            1. Write the full summary to `review.md`, containing:
                - Assessment: ✅ Approve / ⚠️ Request Changes / 💬 Comment
                - Issues: bulleted list grouped by severity (Critical → Warning → Info) with file:line references
-               - **Layer Summary** (always include):
+               - **Layer Summary** (always include, even if every line says "No issues"):
                  - 🖥️ Frontend: React/TypeScript issues found (or "No issues")
                  - ⚙️ Backend: Hono/Agent/Streaming issues found (or "No issues")
                  - 🔒 Security: Tauri capabilities, credential exposure, injection risks (or "No issues")
                  - 🌐 i18n: Missing translations in any locale (or "All locales updated")
-            6. If GENERATE REPORT is "true":
-               - Create `reports/pr-${{ steps.pr.outputs.number }}-review.md`
-               - Include code snippets showing violations
-               - Provide corrected examples as unified diffs
+               - **Coverage**: which files you reviewed and which you did not get to
+               - The literal marker `<!-- claude-review-complete -->` as the final line
+            2. Post that exact content with `mcp__github_comment__update_claude_comment`.
+
+            If you only managed a partial review, post it anyway with a `⚠️ Partial review` heading
+            and say what is missing. A partial review is useful; an unchecked progress checklist is not.
 
             ## Comment Formatting
 
@@ -403,24 +517,78 @@ jobs:
             - **NEVER post compliments or praise** - No positive feedback in inline comments OR summary. Skip all "good job", "nice work", "well done" type comments entirely.
             - **Inline comments are ONLY for issues** - Do not comment on good code. Only flag problems that need fixing.
             - Be direct and concise - state issue, location, fix. No filler text.
-            - Skip formatting nitpicks (Prettier and ESLint handle formatting)
+            - Skip formatting nitpicks (oxlint and oxfmt handle formatting)
             - Flag real issues only: bugs, security risks, performance problems, convention violations
             - Cite file paths and line numbers when referencing code
             - Do NOT modify source code files
             - Use collapsible sections for technical depth
-            - **NEVER use `gh pr comment` directly** — always write the review to `review.md` and post via `./post-review.sh review.md` to ensure in-place updates
+            - **NEVER use `gh pr comment` or `gh pr diff`** — the summary goes through
+              `mcp__github_comment__update_claude_comment`, and the diff is already on disk
             - **ALWAYS include a Layer Summary section** in the PR summary comment — even if only to say "No issues"
 
           claude_args: |
             --model ${{ env.CLAUDE_MODEL }}
+            --max-turns ${{ env.REVIEW_MAX_TURNS }}
             ${{ env.ENABLE_EXTENDED_THINKING == 'true' && '--thinking=enabled' || '' }}
-            --allowedTools Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(cat CLAUDE.md),Bash(./post-review.sh:*),Write(review.md),Read(review.md),Edit(review.md),Write(reports/*),Bash(mkdir -p reports)${{ env.ENABLE_INLINE_COMMENTS == 'true' && ',mcp__github_inline_comment__create_inline_comment' || '' }}
-            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. CRITICAL: Always check for existing comments before posting to prevent duplicates - use 'gh pr view' to query existing review comments. LOGGING: In src-api/ code, console.* is forbidden — must use createLogger(). TYPES: import type must be used for type-only imports. I18N: New strings must exist in all 4 locale files (en, zh, es, fr). TAURI: Flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: Only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references. POSTING: Always write the review summary to review.md and post via ./post-review.sh review.md — never use gh pr comment directly."
+            --allowedTools Read,Glob,Grep,mcp__github_comment__update_claude_comment,Bash(gh pr view:*),Bash(gh pr checks:*),Bash(cat CLAUDE.md),Write(review.md),Edit(review.md),Write(reports/*),Bash(mkdir -p reports)${{ env.ENABLE_INLINE_COMMENTS == 'true' && ',mcp__github_inline_comment__create_inline_comment' || '' }}
+            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. SINGLE AGENT: subagents and the Task tool are unavailable — never plan parallel passes, work sequentially. DIFF: read pr-files.txt then pr-diff.patch from disk; never run 'gh pr diff' (HTTP 406 on large PRs). COMPLETION: you MUST write review.md and post it via mcp__github_comment__update_claude_comment before your turn budget runs out, ending the body with '<!-- claude-review-complete -->'; a partial review beats no review. DUPLICATES: check existing comments with 'gh pr view' before posting. LOGGING: in src-api/ code, console.* is forbidden — must use createLogger(). WORKSPACE: src-api/ must not use process.cwd() — use getSetting('workDir'). TYPES: import type must be used for type-only imports. I18N: new strings must exist in all 6 locale files (en, zh, es, fr, hi, pt). TAURI: flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references."
+
+      - name: Verify the review was posted
+        if: ${{ !cancelled() && steps.diff.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CLAUDE_CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+        run: |
+          set -euo pipefail
+
+          if [ -s review.md ]; then
+            if [ "$CLAUDE_CONCLUSION" = "success" ]; then
+              echo "Review summary produced and posted by Claude."
+              exit 0
+            fi
+            # Claude wrote a summary but the session ended badly — salvage it rather than
+            # leaving the PR with nothing.
+            echo "::warning::Claude session did not conclude cleanly; posting the summary it produced."
+            {
+              echo "> ⚠️ The review session ended early ([job log]($RUN_URL)). Posting the partial summary below."
+              echo
+              cat review.md
+            } > salvaged-review.md
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file salvaged-review.md
+            exit 1
+          fi
+
+          echo "::error::Claude finished without producing review.md — no review was posted."
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$(printf '%s\n' \
+            "### ❌ Claude review did not complete" \
+            "" \
+            "The review session ended without producing a summary, so there is nothing to report yet." \
+            "" \
+            "- Job log: $RUN_URL" \
+            "- Claude session conclusion: \`${CLAUDE_CONCLUSION:-unknown}\`" \
+            "" \
+            "Comment \`@review\` to retry. If it keeps failing, the diff is likely too large for one pass — narrow it with the \`REVIEW_EXCLUDE_PATHS\` repository variable or raise \`REVIEW_MAX_TURNS\`.")"
+          exit 1
 
       - name: Upload reports artifact
-        if: ${{ steps.pr.outputs.generate_report == 'true' && hashFiles('reports/**') != '' }}
+        if: ${{ !cancelled() && steps.pr.outputs.generate_report == 'true' && hashFiles('reports/**') != '' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: claude-reports-pr-${{ steps.pr.outputs.number }}
           path: reports/**
           retention-days: 30
+
+      - name: Upload review diagnostics
+        if: ${{ !cancelled() && steps.diff.outcome == 'success' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: claude-review-diagnostics-pr-${{ steps.pr.outputs.number }}
+          path: |
+            pr-files.txt
+            pr-diff.patch
+            review.md
+          if-no-files-found: ignore
+          retention-days: 7
