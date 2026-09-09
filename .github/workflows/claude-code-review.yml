@@ -45,10 +45,15 @@ name: Claude - Diff-Aware PR Reviewer
 #   each run, so the PR conversation keeps only the current review expanded.
 #
 # COMPLETION GUARD
-# - Claude must write the summary to review.md AND end the posted body with the
-#   <!-- claude-review-complete --> marker. A final step verifies review.md exists; if the run ended
-#   without producing one, it posts an explicit failure notice and fails the job, so a half-finished
-#   review can never masquerade as a green check.
+# - Claude must write the summary to review.md AND end the posted comment with the
+#   <!-- claude-review-complete --> marker.
+# - The guard checks the PR itself, not the runner's disk: it looks for this run's claude[bot]
+#   comment (stamped with the run id) carrying that marker. A local review.md proves only that
+#   Claude started writing — run 34312666877 ended with a summary it never posted.
+# - No marker means the job fails. If review.md exists it is salvaged into a comment so a partial
+#   review still reaches the PR; otherwise an explicit failure notice is posted. Either way a
+#   half-finished review can never masquerade as a green check.
+# - Guard notices carry <!-- claude-review-guard --> so the next run collapses them.
 #
 # SECURITY
 # - This workflow does not modify source code. It only posts comments and writes reports.
@@ -194,8 +199,16 @@ jobs:
           # Collapse previous summary/tracking comments too. Without this, a run that dies
           # mid-review leaves an unchecked "in progress" checklist sitting on the PR forever,
           # indistinguishable from a review that is still running.
+          #
+          # Also collapse this workflow's own guard notices from earlier runs — they are
+          # posted by github-actions[bot], so filtering on claude[bot] alone would leave a
+          # stale "review did not complete" notice on the PR after a later run succeeds.
+          # Matched by marker, not by author, so other workflows' comments stay expanded.
           gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.user.login == "claude[bot]") | .node_id' \
+            --jq '.[]
+                  | select(.user.login == "claude[bot]"
+                           or (.body | contains("<!-- claude-review-guard -->")))
+                  | .node_id' \
             | while read -r node_id; do
                 if [ -n "$node_id" ]; then minimize "$node_id"; fi
               done
@@ -544,16 +557,29 @@ jobs:
         run: |
           set -euo pipefail
 
+          # The source of truth is what is actually on the PR, not what is on disk. A local
+          # review.md proves only that Claude started writing — the run that prompted this
+          # workflow ended with a summary it never posted. So look for this run's tracking
+          # comment (the action stamps it with the run id) carrying the completion marker.
+          POSTED=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[]
+                  | select(.user.login == "claude[bot]")
+                  | select(.body | contains($ENV.GITHUB_RUN_ID))
+                  | .body' || true)
+
+          if printf '%s' "$POSTED" | grep -q '<!-- claude-review-complete -->'; then
+            echo "Review posted and marked complete."
+            exit 0
+          fi
+
           if [ -s review.md ]; then
-            if [ "$CLAUDE_CONCLUSION" = "success" ]; then
-              echo "Review summary produced and posted by Claude."
-              exit 0
-            fi
-            # Claude wrote a summary but the session ended badly — salvage it rather than
-            # leaving the PR with nothing.
-            echo "::warning::Claude session did not conclude cleanly; posting the summary it produced."
+            # Claude produced a summary but never posted a complete one. Salvage it rather
+            # than leaving the PR with an unfinished checklist.
+            echo "::warning::Claude wrote a summary but did not post a completed review; salvaging it."
             {
-              echo "> ⚠️ The review session ended early ([job log]($RUN_URL)). Posting the partial summary below."
+              echo "<!-- claude-review-guard -->"
+              echo "> ⚠️ The review session ended before posting a completed review ([job log]($RUN_URL))."
+              echo "> The summary it had produced is below, and may be partial."
               echo
               cat review.md
             } > salvaged-review.md
@@ -561,8 +587,9 @@ jobs:
             exit 1
           fi
 
-          echo "::error::Claude finished without producing review.md — no review was posted."
+          echo "::error::Claude finished without producing a review — nothing was posted."
           gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$(printf '%s\n' \
+            "<!-- claude-review-guard -->" \
             "### ❌ Claude review did not complete" \
             "" \
             "The review session ended without producing a summary, so there is nothing to report yet." \
