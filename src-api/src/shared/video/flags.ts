@@ -28,7 +28,14 @@ export type VideoFeatureFlag =
   /** @remotion/media video renderer. Kill-switch preserves the legacy path. */
   | 'video.remotionMedia'
   /** Run Video Mode's approved native tool surface without SDK OS sandboxing. */
-  | 'video.hostNative';
+  | 'video.hostNative'
+  /** Multicamera manifests, analysis artifacts, and the read-only routes. */
+  | 'video.multicam'
+  /**
+   * Audio cross-correlation sync. Stays off until its accuracy is measured
+   * against real fixtures; manual and timecode sync do not need it.
+   */
+  | 'video.multicamAudioSync';
 
 const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.engine.html': true,
@@ -43,6 +50,8 @@ const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.vividOverlays': true,
   'video.remotionMedia': true,
   'video.hostNative': true,
+  'video.multicam': false,
+  'video.multicamAudioSync': false,
 } satisfies Record<VideoFeatureFlag, boolean>;
 
 export function getVideoFeatureFlag(flag: VideoFeatureFlag): boolean {
@@ -76,5 +85,7 @@ export function snapshotVideoFeatureFlags(): Record<VideoFeatureFlag, boolean> {
     'video.vividOverlays': getVideoFeatureFlag('video.vividOverlays'),
     'video.remotionMedia': getVideoFeatureFlag('video.remotionMedia'),
     'video.hostNative': getVideoFeatureFlag('video.hostNative'),
+    'video.multicam': getVideoFeatureFlag('video.multicam'),
+    'video.multicamAudioSync': getVideoFeatureFlag('video.multicamAudioSync'),
   };
 }

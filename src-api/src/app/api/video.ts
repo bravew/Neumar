@@ -145,6 +145,24 @@ import {
   updateLinkedSource,
 } from '@/shared/video/linked-sources';
 import { createLocalFolderGrant } from '@/shared/video/linked-sources/local-grants';
+import { buildMediaHealthReport } from '@/shared/video/media-health';
+import { manifestReadiness } from '@/shared/video/multicam/manifest';
+import {
+  applyReviewAction,
+  ReviewActionError,
+  startReview,
+  summarizeReview,
+} from '@/shared/video/multicam/review';
+import {
+  artifactIsCurrent,
+  listMulticamGroups,
+  loadActivityMap,
+  loadManifest,
+  loadReview,
+  loadShotPlan,
+  loadSyncMap,
+  saveReview,
+} from '@/shared/video/multicam/store';
 import { generateBackgroundMusic } from '@/shared/video/music';
 import {
   deleteImportedOverlayItem,
@@ -188,6 +206,13 @@ import {
 import { getVideoPlanResumeState } from '@/shared/video/plan-runner';
 import { selectBackgroundMusic } from '@/shared/video/plugins/atoms/music-select';
 import { loadVideoPlugins } from '@/shared/video/plugins/loader';
+import {
+  compareRevisions,
+  nameRevision,
+  readRevisionIndex,
+  readSnapshot,
+  restoreRevision,
+} from '@/shared/video/project-history';
 import { withProjectLock } from '@/shared/video/project-lock';
 import {
   clearVideoProxyForAsset,
@@ -244,6 +269,7 @@ import {
   replanStoryboardScene,
   updateProject,
   upsertProviderConfig,
+  ProjectRevisionConflictError,
   writeProject,
   relinkExternalProjectAssets,
 } from '@/shared/video/store';
@@ -508,6 +534,18 @@ const timelineUpdateSchema = z.object({
     markers: z.array(timelineMarkerSchema).max(1000).optional(),
     intro: timelineBookendSchema.optional(),
     outro: timelineBookendSchema.optional(),
+    frameRate: z
+      .object({
+        num: z.number().int().positive(),
+        den: z.number().int().positive(),
+      })
+      .optional(),
+    outputRange: z
+      .object({
+        inFrame: z.number().int().min(0),
+        outFrameExclusive: z.number().int().positive(),
+      })
+      .optional(),
     migration: z
       .object({
         from: z.literal('storyboard'),
@@ -515,6 +553,10 @@ const timelineUpdateSchema = z.object({
       })
       .optional(),
   }),
+  // The revision the client loaded. Optional so callers that have not adopted
+  // it keep working; when present, a mismatch is a 409 rather than a silent
+  // overwrite of whatever landed in between.
+  expectedRevision: z.number().int().min(0).optional(),
 });
 
 const timelineOpApplySchema = z.object({
@@ -2191,32 +2233,338 @@ videoRoutes.patch(
   '/projects/:id/timeline',
   zValidator('json', timelineUpdateSchema),
   async (c) => {
+    const projectId = c.req.param('id');
     try {
-      const project = await getProject(c.req.param('id'));
-      const input = c.req.valid('json').timeline;
-      // Zod validates the outer timeline shape strictly (no .passthrough()).
-      // Per-track structure stays loose at the schema layer; cast only the
-      // tracks field to the discriminated-union type rather than the whole
-      // timeline object so any future field divergence is caught by tsc.
-      const timeline: VideoTimeline = {
-        ...input,
-        tracks: input.tracks as unknown as VideoTimeline['tracks'],
-      };
-      const next = {
-        ...project,
-        timeline,
-        updatedAt: new Date().toISOString(),
-      };
-      await writeProject(next);
+      // The only timeline mutation route that used to run unlocked, while
+      // timeline/op, timeline/undo, and timeline/redo all took the lock.
+      const result = await withProjectLock(projectId, async () => {
+        const project = await getProject(projectId);
+        const { timeline: input, expectedRevision } = c.req.valid('json');
+        // Zod validates the outer timeline shape strictly (no .passthrough()).
+        // Per-track structure stays loose at the schema layer; cast only the
+        // tracks field to the discriminated-union type rather than the whole
+        // timeline object so any future field divergence is caught by tsc.
+        const timeline: VideoTimeline = {
+          ...input,
+          tracks: input.tracks as unknown as VideoTimeline['tracks'],
+        };
+        const next = {
+          ...project,
+          timeline,
+          updatedAt: new Date().toISOString(),
+        };
+        await writeProject(next, { expectedRevision });
+        return { project: next, timeline };
+      });
       // Kick off downloads for any reference-only assets now on the
       // timeline so their bytes are local before render/scrub.
-      ensureTimelineAssetsHydrated(next);
-      return c.json({ project: next, timeline });
+      ensureTimelineAssetsHydrated(result.project);
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof ProjectRevisionConflictError) {
+        return c.json(
+          {
+            error: error.message,
+            currentRevision: error.currentRevision,
+            ...(error.expectedRevision === undefined
+              ? {}
+              : { expectedRevision: error.expectedRevision }),
+          },
+          409,
+        );
+      }
+      return jsonError(c, error);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Multicamera analysis (read-only).
+//
+// Everything here reads stored artifacts. Nothing in Phase 5 mutates the
+// timeline — applying a reviewed plan is Phase 6 and goes through the ordinary
+// timeline op path with its own permission gate.
+//
+// Gated on `video.multicam`: with the flag off every route reports a typed
+// unavailable reason rather than 404, so a client can tell "not enabled" from
+// "not found".
+// ---------------------------------------------------------------------------
+
+function multicamUnavailable(c: Context) {
+  return c.json(
+    {
+      error: 'Multicamera is not enabled for this workspace',
+      reason: 'feature-disabled' as const,
+      flag: 'video.multicam' as const,
+    },
+    404,
+  );
+}
+
+videoRoutes.get('/projects/:id/multicam', async (c) => {
+  if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+  try {
+    const projectId = c.req.param('id');
+    const groupIds = await listMulticamGroups(projectId);
+    const groups = await Promise.all(
+      groupIds.map(async (groupId) => {
+        const manifest = await loadManifest(projectId, groupId);
+        return manifest
+          ? {
+              id: manifest.id,
+              label: manifest.label,
+              cameras: manifest.cameras.length,
+              participants: manifest.participants.length,
+              syncMode: manifest.syncMode,
+              readiness: manifestReadiness(manifest),
+            }
+          : { id: groupId, unreadable: true };
+      }),
+    );
+    return c.json({ schema: 'neuma.video.multicam-groups.v1', groups });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/multicam/:groupId/manifest', async (c) => {
+  if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+  try {
+    const manifest = await loadManifest(
+      c.req.param('id'),
+      c.req.param('groupId'),
+    );
+    if (!manifest) return c.json({ error: 'Camera group not found' }, 404);
+    return c.json({ manifest, readiness: manifestReadiness(manifest) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/multicam/:groupId/sync', async (c) => {
+  if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+  try {
+    const envelope = await loadSyncMap(
+      c.req.param('id'),
+      c.req.param('groupId'),
+    );
+    if (!envelope) return c.json({ error: 'No sync map for this group' }, 404);
+    return c.json(envelope);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/multicam/:groupId/activity', async (c) => {
+  if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+  try {
+    const envelope = await loadActivityMap(
+      c.req.param('id'),
+      c.req.param('groupId'),
+    );
+    if (!envelope) {
+      return c.json({ error: 'No activity map for this group' }, 404);
+    }
+    return c.json(envelope);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/multicam/:groupId/plan', async (c) => {
+  if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+  try {
+    const projectId = c.req.param('id');
+    const groupId = c.req.param('groupId');
+    const envelope = await loadShotPlan(projectId, groupId);
+    if (!envelope) return c.json({ error: 'No shot plan for this group' }, 404);
+
+    // A plan whose inputs have moved on is still returned — a reviewer should
+    // see what the last run concluded — but it is labelled so the UI can say
+    // the analysis needs re-running rather than presenting it as current.
+    const manifest = await loadManifest(projectId, groupId);
+    const sync = await loadSyncMap(projectId, groupId);
+    return c.json({
+      ...envelope,
+      stale: Boolean(
+        sync && !artifactIsCurrent(sync, envelope.sourceFingerprint),
+      ),
+      ...(manifest ? { policy: manifest.policy } : {}),
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/media-health', async (c) => {
+  try {
+    const project = await getProject(c.req.param('id'));
+    return c.json(await buildMediaHealthReport(project));
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/multicam/:groupId/review', async (c) => {
+  if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+  try {
+    const projectId = c.req.param('id');
+    const groupId = c.req.param('groupId');
+    const existing = await loadReview(projectId, groupId);
+    if (existing) {
+      return c.json({
+        review: existing.data,
+        summary: summarizeReview(existing.data),
+      });
+    }
+    // No decisions recorded yet: derive a fresh review from the plan so a
+    // client always has something to render, without writing it.
+    const plan = await loadShotPlan(projectId, groupId);
+    if (!plan) return c.json({ error: 'No shot plan for this group' }, 404);
+    const review = startReview(plan.data);
+    return c.json({ review, summary: summarizeReview(review) });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post(
+  '/projects/:id/multicam/:groupId/review',
+  zValidator(
+    'json',
+    z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('accept'), shotId: z.string().min(1) }),
+      z.object({ kind: z.literal('reject'), shotId: z.string().min(1) }),
+      z.object({ kind: z.literal('accept-all') }),
+      z.object({
+        kind: z.literal('nudge'),
+        shotId: z.string().min(1),
+        deltaMs: z.number().int().min(-60_000).max(60_000),
+      }),
+      z.object({
+        kind: z.literal('set-camera'),
+        shotId: z.string().min(1),
+        cameraId: z.string().min(1),
+      }),
+      z.object({
+        kind: z.literal('annotate'),
+        shotId: z.string().min(1),
+        note: z.string().min(1).max(500),
+      }),
+    ]),
+  ),
+  async (c) => {
+    if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);
+    const projectId = c.req.param('id');
+    const groupId = c.req.param('groupId');
+    try {
+      const result = await withProjectLock(projectId, async () => {
+        const plan = await loadShotPlan(projectId, groupId);
+        if (!plan) return null;
+        const existing = await loadReview(projectId, groupId);
+        const review = existing?.data ?? startReview(plan.data);
+        const next = applyReviewAction(review, c.req.valid('json'));
+        await saveReview(projectId, next);
+        return next;
+      });
+      if (!result) return c.json({ error: 'No shot plan for this group' }, 404);
+      return c.json({ review: result, summary: summarizeReview(result) });
+    } catch (error) {
+      if (error instanceof ReviewActionError) {
+        return c.json({ error: error.message }, 409);
+      }
+      return jsonError(c, error);
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Project version history.
+//
+// Snapshots are content-addressed and written before `project.json` is
+// replaced, so every saved revision is recoverable. Restore is append-only:
+// the head is captured first, then the selected snapshot is written forward as
+// a new revision. Nothing here moves the head pointer backward.
+// ---------------------------------------------------------------------------
+
+videoRoutes.get('/projects/:id/history', async (c) => {
+  try {
+    const projectId = c.req.param('id');
+    const project = await getProject(projectId);
+    const index = await readRevisionIndex(projectId);
+    return c.json({
+      schema: 'neuma.video.project-history.v1',
+      projectId,
+      currentRevision: project.revision,
+      entries: index.entries,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/history/:digest', async (c) => {
+  try {
+    const projectId = c.req.param('id');
+    const snapshot = await readSnapshot(projectId, c.req.param('digest'));
+    return c.json({ project: snapshot });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/history/:digest/compare', async (c) => {
+  try {
+    const projectId = c.req.param('id');
+    const against = c.req.query('against');
+    if (!against) {
+      return c.json({ error: 'against query parameter is required' }, 400);
+    }
+    return c.json(
+      await compareRevisions(projectId, c.req.param('digest'), against),
+    );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.patch(
+  '/projects/:id/history/:digest',
+  zValidator('json', z.object({ name: z.string().min(1).max(120) })),
+  async (c) => {
+    try {
+      const entry = await nameRevision(
+        c.req.param('id'),
+        c.req.param('digest'),
+        c.req.valid('json').name,
+      );
+      if (!entry) return c.json({ error: 'Revision not found' }, 404);
+      return c.json({ entry });
     } catch (error) {
       return jsonError(c, error);
     }
   },
 );
+
+videoRoutes.post('/projects/:id/history/:digest/restore', async (c) => {
+  const projectId = c.req.param('id');
+  try {
+    const result = await withProjectLock(projectId, async () => {
+      const currentHead = await getProject(projectId);
+      return restoreRevision({
+        projectId,
+        digest: c.req.param('digest'),
+        currentHead,
+        // The restore itself is already snapshotted by restoreRevision, so the
+        // write does not add a third entry for the same document.
+        write: (project) => writeProject(project, { snapshot: false }),
+      });
+    });
+    return c.json(result);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 videoRoutes.get('/projects/:id/timeline', async (c) => {
   try {

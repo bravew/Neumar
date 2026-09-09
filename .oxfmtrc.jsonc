@@ -40,6 +40,9 @@
     ".pnpm-store",
     "dist",
     "dev-doc/**/spikes/**",
+    // Machine-generated acceptance reports. The harness that writes them owns
+    // their shape; reformatting only makes the next run dirty the tree again.
+    "dev-doc/**/evidence/**",
     "src-api",
     "src-tauri",
     "src-site",

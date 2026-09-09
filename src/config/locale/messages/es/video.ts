@@ -968,6 +968,33 @@ export default {
         otherGroup: 'Otro',
       },
       toggleSnapping: 'Alternar ajuste',
+      outputRange: {
+        setIn: 'Marcar entrada (I)',
+        setOut: 'Marcar salida (O)',
+        clear: 'Borrar entrada y salida (Mayús+X)',
+        inHandle: 'Punto de entrada del rango de salida',
+        outHandle: 'Punto de salida del rango de salida',
+        excludedHead: 'Excluido antes del punto de entrada',
+        excludedTail: 'Excluido después del punto de salida',
+        summary:
+          'Renderizando los fotogramas {inFrame}-{outFrame} de {totalFrames}',
+        full: 'Renderizando toda la línea de tiempo',
+      },
+      timebase: {
+        label: 'Velocidad de fotogramas',
+        description:
+          'La velocidad exacta con la que este proyecto corta y renderiza.',
+        derived: 'Derivada de tu material',
+        chosen: 'Elegida',
+        locked: 'Bloqueada',
+        lock: 'Bloquear velocidad de fotogramas',
+        unlock: 'Desbloquear velocidad de fotogramas',
+        conflict: 'Tu material mezcla {count} velocidades de fotogramas.',
+        resnapWarning:
+          'Cambiar la velocidad reajusta {count} límites de clips.',
+        confirmChange: 'Cambiar la velocidad',
+        cancelChange: 'Mantener {rate}',
+      },
       addMarker: 'Añadir marcador',
       selectTool: 'Herramienta de selección',
       razorTool: 'Herramienta cuchilla',

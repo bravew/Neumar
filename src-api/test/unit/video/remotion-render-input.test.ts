@@ -54,7 +54,10 @@ describe('remotion render input', () => {
       aspectRatio: '9:16',
       compositionWidth: 720,
       compositionHeight: 1280,
-      durationInFrames: 144,
+      // Picture owns the render duration (034a0be). The fixture's picture runs
+      // 0-3500ms across the video and b-roll tracks, so the render is 84 frames
+      // at 24 fps even though the timeline declares 6000ms.
+      durationInFrames: 84,
       fps: 24,
       useRemotionMedia: true,
     });
@@ -109,8 +112,10 @@ describe('remotion render input', () => {
         assetId: 'asset-music',
         fromFrame: 0,
         sourceStartFrame: 6,
-        sourceEndFrame: 150,
-        durationInFrames: 144,
+        // The music clip is clamped to the picture duration along with the
+        // render itself: 250ms in, ending at 3500ms.
+        sourceEndFrame: 90,
+        durationInFrames: 84,
         role: 'music',
         volume: expect.closeTo(0.501, 3),
         trackVolumeDb: -6,
@@ -161,7 +166,7 @@ describe('remotion render input', () => {
 
     const input = await buildRemotionRenderInput(project, { root: workDir });
 
-    expect(input.durationInFrames).toBe(144);
+    expect(input.durationInFrames).toBe(84);
     expect(input.introFrames).toBe(12);
     expect(input.outroFrames).toBe(24);
   });

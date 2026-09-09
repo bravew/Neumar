@@ -1,3 +1,4 @@
+import { formatFrameRate } from '@neumar/video-ir';
 import { Cloud, HardDrive, Plus } from 'lucide-react';
 
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -7,6 +8,9 @@ import type {
   VideoProject,
   VideoRenderProviderView,
 } from '@/shared/types/video';
+
+import { timelineFrameRate } from '../timeline/outputRange';
+import { TimebaseSetting } from './TimebaseSetting';
 
 export interface RenderSettingsState {
   renderWhere: 'local' | 'cloud';
@@ -41,6 +45,7 @@ export function RenderSettingsForm({
   setters,
   renderBlocked,
   onQueueRender,
+  onSetTimebase,
 }: {
   project: VideoProject;
   cloudProviders: VideoRenderProviderView[];
@@ -48,6 +53,7 @@ export function RenderSettingsForm({
   setters: RenderSettingsSetters;
   renderBlocked: boolean;
   onQueueRender?: () => void;
+  onSetTimebase?: (presetId: string, locked: boolean) => void;
 }) {
   const { t } = useLanguage();
   const {
@@ -59,8 +65,27 @@ export function RenderSettingsForm({
     autoReframe,
     captionMode,
   } = state;
+  const timebase = project.settings?.timebase;
   return (
     <>
+      {onSetTimebase ? (
+        <TimebaseSetting
+          timeline={project.timeline ?? null}
+          locked={timebase?.locked ?? false}
+          source={timebase?.source ?? 'derived'}
+          onChangeRate={(presetId) =>
+            onSetTimebase(presetId, timebase?.locked ?? false)
+          }
+          onToggleLocked={(locked) =>
+            onSetTimebase(
+              timebase
+                ? formatPresetId(timebase.rate)
+                : formatFrameRate(timelineFrameRate(project.timeline)),
+              locked,
+            )
+          }
+        />
+      ) : null}
       <fieldset className="space-y-2">
         <legend className="text-foreground mb-1 font-medium">
           {t.video.editor.preview.title}
@@ -227,4 +252,8 @@ export function RenderSettingsForm({
       </div>
     </>
   );
+}
+
+function formatPresetId(rate: { num: number; den: number }): string {
+  return formatFrameRate(rate);
 }

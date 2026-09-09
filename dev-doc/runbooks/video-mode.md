@@ -402,6 +402,25 @@ reason into one copyable install command plus a re-check, so the user meets it
 as setup guidance rather than a render failure. Install commands are
 data-driven in `src/components/video/engineSetupGuidance.ts`.
 
+### Reference-upgrade baseline
+
+Run `pnpm video:baseline` before changing the Remotion or HyperFrames pins, the
+timeline rendering strategy, or the asset-picker stream lifecycle. It records:
+
+- a 15-second HTML/HyperFrames render comparison with FFprobe metadata, sampled
+  frame hashes, SSIM, and a live Studio selection through `data-hf-id`;
+- a three-minute Remotion render through `@remotion/media`, including a 5.1
+  source, wall-clock time, peak RSS, and sampled frame hashes;
+- the deterministic 12-track, 1,000-clip model-query baseline;
+- a three-tab browser check proving idle editors own no asset SSE request and
+  cancelled file/folder picker calls become available for another attempt.
+
+Generated media stays under `.video-acceptance/` and is ignored. Pass
+`--report=<path>` to either acceptance script when a compact JSON result needs
+to be attached to a release ledger. The timeline report labels its Phase 0
+measurement as model-only; Phase 3 owns production browser interaction and DOM
+mount counts.
+
 ## HTML Composition Diagnostics
 
 Three HyperFrames-backed diagnostics are available once the CLI is present:
@@ -490,6 +509,54 @@ Smoke checks:
 - Generate a short SFX, place it on `audio-sfx`, transform/replace a voiceover
   clip, and confirm both media refs and clip metadata carry generated provenance.
 - Register the MCP server and run `plan_storyboard`, `approve_storyboard`, and `compose`.
+
+## Multicamera (behind `video.multicam`)
+
+Off by default. With the flag off, every multicamera route and agent tool
+returns a typed `feature-disabled` reason rather than a bare 404, so a client
+can tell "not enabled" from "not found".
+
+A camera group is a manifest plus three derived artifacts, each fingerprinted
+against what it was built from:
+
+```
+manifest → sync map → activity map → shot plan → review → timeline batch
+```
+
+Read them at `/projects/:id/multicam`, `/multicam/:groupId/{manifest,sync,activity,plan,review}`.
+Everything up to and including review is read-only with respect to the timeline;
+only `video_multicam_apply_reviewed_plan` writes clips, and it does so as one
+named batch so undo takes the whole cut back in a single step.
+
+Operational notes:
+
+- The manifest carries no frame rate. A camera group inherits the project
+  timebase, so sync artifacts and the timeline cannot disagree about a frame.
+- A manual-only group (no isolated microphones) is valid. It is not
+  automatic-ready, and `readiness.blockers` names what is missing.
+- Applying is idempotent per review revision: the batch id is derived from the
+  plan fingerprint and the review revision, so a repeat request returns the
+  prior result instead of a second set of clips. Making a further decision is a
+  new revision and a new batch.
+- A plan whose inputs moved on is served with `stale: true` rather than hidden,
+  so a reviewer can still see what the last run concluded.
+- The nine agent tools are withheld from projects with no camera group.
+  `video_multicam_preview_frame` is read-only but metered.
+
+Smoke checks:
+
+- Import a manifest, confirm readiness, and read the sync map: the reference
+  camera must be offset 0, and other offsets must round on the project timebase.
+- Accept the plan, re-angle one shot, apply, and confirm the timeline gained one
+  batch. Undo once and confirm the whole cut is gone.
+- Apply the same review again and confirm no new clips appear.
+- Export an editor handoff and confirm each multicamera clip carries its group,
+  angle, source time, sync, and plan batch id.
+
+Not wired to media yet: VAD extraction, timecode reading, and audio correlation
+produce the observations these contracts consume, and none of those producers
+exist. Manual offsets work end to end. `video.multicamAudioSync` stays off until
+correlation accuracy is measured against real fixtures.
 
 ## Known Limits
 

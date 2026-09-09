@@ -4,10 +4,16 @@ import {
   deriveTimelineClipFrameFields,
   durationFramesToMs,
   durationMsToFrames,
+  formatFrameRate,
+  frameRatePresetById,
+  frameRatePresetFor,
+  frameRatePresets,
+  frameRatesEqual,
   frameRateToNumber,
   frameToMs,
   msToFrame,
   normalizeFrameRate,
+  parseFrameRate,
 } from '../src/timebase.js';
 
 describe('timebase helpers', () => {
@@ -60,5 +66,64 @@ describe('timebase helpers', () => {
       'Frame rate numerator',
     );
     expect(() => msToFrame(-1, 24)).toThrow('Timeline milliseconds');
+  });
+});
+
+describe('frame rate presets', () => {
+  it('stores NTSC presets as exact broadcast fractions', () => {
+    expect(frameRatePresetById('23.976')?.rate).toEqual({
+      num: 24_000,
+      den: 1001,
+    });
+    expect(frameRatePresetById('29.97')?.rate).toEqual({
+      num: 30_000,
+      den: 1001,
+    });
+    expect(frameRatePresetById('59.94')?.rate).toEqual({
+      num: 60_000,
+      den: 1001,
+    });
+  });
+
+  it('offers exactly the eight supported rates', () => {
+    expect(frameRatePresets().map((preset) => preset.id)).toEqual([
+      '23.976',
+      '24',
+      '25',
+      '29.97',
+      '30',
+      '50',
+      '59.94',
+      '60',
+    ]);
+  });
+
+  it('matches a preset through an unreduced fraction', () => {
+    expect(frameRatePresetFor({ num: 60_000, den: 2002 })?.id).toBe('29.97');
+  });
+
+  it('snaps a typed NTSC decimal to the exact fraction', () => {
+    expect(parseFrameRate('29.97')).toEqual({ num: 30_000, den: 1001 });
+    expect(parseFrameRate('23.976')).toEqual({ num: 24_000, den: 1001 });
+    // A plain integer is not an NTSC rate and must stay exact.
+    expect(parseFrameRate('30')).toEqual({ num: 30, den: 1 });
+  });
+
+  it('parses explicit fractions and rejects nonsense', () => {
+    expect(parseFrameRate('30000/1001')).toEqual({ num: 30_000, den: 1001 });
+    expect(() => parseFrameRate('')).toThrow('must not be empty');
+    expect(() => parseFrameRate('soon')).toThrow('Unrecognized frame rate');
+  });
+
+  it('formats rates the way editors label them', () => {
+    expect(formatFrameRate({ num: 30_000, den: 1001 })).toBe('29.97');
+    expect(formatFrameRate({ num: 24, den: 1 })).toBe('24');
+  });
+
+  it('compares rates by reduced value', () => {
+    expect(
+      frameRatesEqual({ num: 48_000, den: 2002 }, { num: 24_000, den: 1001 }),
+    ).toBe(true);
+    expect(frameRatesEqual({ num: 24_000, den: 1001 }, 24)).toBe(false);
   });
 });

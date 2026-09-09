@@ -16,6 +16,13 @@ import type { LinkedAssetDragPayload } from '../linkedAssetDrag';
 import type { OverlayPresetDragPayload } from '../overlays/overlayDragPayload';
 import type { ProjectAssetDragPayload } from '../projectAssetDrag';
 import { BeatGridOverlay } from './BeatGridOverlay';
+import {
+  msToTimelineFrame,
+  outputRangePixels,
+  setOutputIn,
+  setOutputOut,
+  timelineFrameRate,
+} from './outputRange';
 import { SnapOverlay } from './SnapOverlay';
 import type { TimelineClientPoint } from './timelineClipDrag';
 import { TimelineHoverIndicator } from './TimelineHoverIndicator';
@@ -30,6 +37,7 @@ import { TimelineRuler } from './TimelineRuler';
 import type { TrackInsertSide } from './timelineTrackInsertion';
 import { TimelineTrackRows } from './TimelineTrackRows';
 import type { useTimelineClipMove } from './useTimelineClipMove';
+import { useTimelineClipWindow } from './useTimelineClipWindow';
 import type { useTimelineEditorBindings } from './useTimelineEditorStore';
 import { useTimelineHoverPreview } from './useTimelineHoverPreview';
 import type { useTimelineLabels } from './useTimelineLabels';
@@ -163,6 +171,17 @@ export function TimelineCanvas({
   onToggleTrackVisibility,
   onDeleteTrack,
 }: TimelineCanvasProps) {
+  const rate = timelineFrameRate(editor.timeline ?? undefined);
+  const rangePixels = editor.timeline
+    ? outputRangePixels({ ...editor.timeline, durationMs: timelineDurationMs })
+    : null;
+  const { window: clipWindow, pinnedClipIds } = useTimelineClipWindow({
+    pixelsPerSecond,
+    timelineDurationMs,
+    selectedClipIds: editor.selectedClipIds,
+    lastSelectedClipId: editor.lastSelectedClipId,
+    moveOverlay: clipMove.overlay,
+  });
   const hover = useTimelineHoverPreview({
     fps,
     isBusy:
@@ -227,6 +246,34 @@ export function TimelineCanvas({
           onSelectMarker={editor.selectMarker}
           onUpdateMarker={editor.updateMarker}
           onDeleteMarker={editor.deleteMarker}
+          outputRange={editor.timeline?.outputRange ?? null}
+          outputRangeMaxFrame={Math.max(
+            1,
+            msToTimelineFrame(timelineDurationMs, rate),
+          )}
+          outputRangeInMs={rangePixels?.inMs}
+          outputRangeOutMs={rangePixels?.outMs}
+          outputRangeLabels={labels.outputRange}
+          onMoveOutputRangeIn={(ms) =>
+            editor.setOutputRange(
+              setOutputIn(
+                editor.timeline?.outputRange,
+                ms,
+                rate,
+                timelineDurationMs,
+              ),
+            )
+          }
+          onMoveOutputRangeOut={(ms) =>
+            editor.setOutputRange(
+              setOutputOut(
+                editor.timeline?.outputRange,
+                ms,
+                rate,
+                timelineDurationMs,
+              ),
+            )
+          }
         />
         <SnapOverlay
           headerWidth={TRACK_HEADER_WIDTH}
@@ -254,6 +301,8 @@ export function TimelineCanvas({
         <TimelineTrackRows
           rows={virtualRows}
           tracks={tracks}
+          clipWindow={clipWindow}
+          pinnedClipIds={pinnedClipIds}
           project={project}
           materializationStates={materializationStates}
           timelineWidth={timelineWidth}

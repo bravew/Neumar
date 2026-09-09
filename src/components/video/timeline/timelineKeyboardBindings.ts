@@ -1,5 +1,8 @@
 export type TimelineKeyboardAction =
   | 'add-marker'
+  | 'clear-output-range'
+  | 'set-output-in'
+  | 'set-output-out'
   | 'copy'
   | 'cut'
   | 'delete-selection'
@@ -48,6 +51,11 @@ export function resolveTimelineKeyboardAction(
   if (!event.shiftKey && key === 'v') return 'select-tool';
   if (!event.shiftKey && (key === 'b' || key === 'c')) return 'razor-tool';
   if (!event.shiftKey && key === 'm') return 'add-marker';
+  // I/O follow the convention every NLE uses for in and out points; Shift+X
+  // clears the range, matching Premiere's "clear in and out".
+  if (!event.shiftKey && key === 'i') return 'set-output-in';
+  if (!event.shiftKey && key === 'o') return 'set-output-out';
+  if (event.shiftKey && key === 'x') return 'clear-output-range';
   if (!event.shiftKey && (key === 's' || key === 'n')) return 'toggle-snap';
   if (key === 'arrowleft' || key === ',') {
     return event.shiftKey ? 'step-back-10frames' : 'step-back-frame';

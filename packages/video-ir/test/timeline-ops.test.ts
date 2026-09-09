@@ -1467,3 +1467,103 @@ function applyHistoryOperation(
   }
   return applyTimelineOp(timeline, operation);
 }
+
+describe('output range op', () => {
+  it('sets a range and inverts back to no range', () => {
+    const timeline = timelineFixture();
+    expect(timeline.outputRange).toBeUndefined();
+
+    const applied = applyTimelineOp(timeline, {
+      kind: 'timeline.setOutputRange',
+      after: { inFrame: 24, outFrameExclusive: 120 },
+    });
+
+    expect(applied.timeline.outputRange).toEqual({
+      inFrame: 24,
+      outFrameExclusive: 120,
+    });
+    const restored = applyTimelineOp(applied.timeline, applied.inverse);
+    expect(restored.timeline.outputRange).toBeUndefined();
+    expect(restored.timeline).toEqual(timeline);
+  });
+
+  it('inverts a replacement back to the previous range', () => {
+    const first = applyTimelineOp(timelineFixture(), {
+      kind: 'timeline.setOutputRange',
+      after: { inFrame: 0, outFrameExclusive: 60 },
+    });
+    const second = applyTimelineOp(first.timeline, {
+      kind: 'timeline.setOutputRange',
+      after: { inFrame: 30, outFrameExclusive: 90 },
+    });
+
+    expect(
+      applyTimelineOp(second.timeline, second.inverse).timeline.outputRange,
+    ).toEqual({ inFrame: 0, outFrameExclusive: 60 });
+  });
+
+  it('clearing an absent range is a no-op that still round-trips', () => {
+    const timeline = timelineFixture();
+    const cleared = applyTimelineOp(timeline, {
+      kind: 'timeline.setOutputRange',
+      after: null,
+    });
+    expect(cleared.timeline).toEqual(timeline);
+    expect(applyTimelineOp(cleared.timeline, cleared.inverse).timeline).toEqual(
+      timeline,
+    );
+  });
+
+  it('rejects an empty, inverted, or fractional range', () => {
+    const timeline = timelineFixture();
+    expect(() =>
+      applyTimelineOp(timeline, {
+        kind: 'timeline.setOutputRange',
+        after: { inFrame: 48, outFrameExclusive: 48 },
+      }),
+    ).toThrow('must end after it starts');
+    expect(() =>
+      applyTimelineOp(timeline, {
+        kind: 'timeline.setOutputRange',
+        after: { inFrame: 90, outFrameExclusive: 30 },
+      }),
+    ).toThrow('must end after it starts');
+    expect(() =>
+      applyTimelineOp(timeline, {
+        kind: 'timeline.setOutputRange',
+        after: { inFrame: 1.5, outFrameExclusive: 30 },
+      }),
+    ).toThrow('whole frames');
+  });
+
+  it('round-trips through the op schema', () => {
+    expect(
+      TimelineOpSchema.parse({
+        kind: 'timeline.setOutputRange',
+        after: { inFrame: 10, outFrameExclusive: 20 },
+        before: null,
+      }),
+    ).toEqual({
+      kind: 'timeline.setOutputRange',
+      after: { inFrame: 10, outFrameExclusive: 20 },
+      before: null,
+    });
+    expect(() =>
+      TimelineOpSchema.parse({
+        kind: 'timeline.setOutputRange',
+        after: { inFrame: 20, outFrameExclusive: 20 },
+      }),
+    ).toThrow();
+  });
+
+  it('keeps a range through timeline schema validation', () => {
+    const timeline = {
+      ...timelineFixture(),
+      outputRange: { inFrame: 5, outFrameExclusive: 25 },
+    };
+    expect(TimelineSchema.parse(timeline).outputRange).toEqual({
+      inFrame: 5,
+      outFrameExclusive: 25,
+    });
+  });
+});

@@ -1,0 +1,201 @@
+{
+  "checks": [
+    {
+      "name": "timeline-schema",
+      "status": "passed"
+    },
+    {
+      "name": "positive-duration",
+      "status": "passed"
+    },
+    {
+      "name": "parity-duration-15s",
+      "status": "passed"
+    },
+    {
+      "name": "transform-and-crop",
+      "status": "passed"
+    },
+    {
+      "name": "effect-keyframes",
+      "status": "passed"
+    },
+    {
+      "name": "caption",
+      "status": "passed"
+    },
+    {
+      "name": "audio-fades",
+      "status": "passed"
+    },
+    {
+      "name": "playback-rate",
+      "status": "passed"
+    },
+    {
+      "name": "transition",
+      "status": "passed"
+    },
+    {
+      "name": "html-overlay",
+      "status": "passed"
+    },
+    {
+      "name": "html-duration",
+      "status": "passed"
+    },
+    {
+      "name": "hyperframes-duration",
+      "status": "passed"
+    },
+    {
+      "detail": "SSIM 0.978548",
+      "name": "sampled-frame-comparison",
+      "status": "passed"
+    },
+    {
+      "name": "studio-selection-data-hf-id",
+      "status": "passed"
+    }
+  ],
+  "command": "node scripts/video-acceptance.mjs --fixture parity --compare phase-0 --json --report=dev-doc/video-mode/19-09-08-reference-upgrades/evidence/phase-1/parity.json",
+  "comparison": {
+    "baseline": "phase-0",
+    "baselineFixtureDigest": "f31f7f4e4a3625fdc28c10262a0cd48cd76ae9e6607a6d36dbb9e39c0323eadd",
+    "renderWallClockDeltaPct": {
+      "html": 27.069297401347452,
+      "hyperframes": -14.718614718614715
+    },
+    "sampledFrameHashesMatch": {
+      "html": false,
+      "hyperframes": false
+    },
+    "ssimDelta": 0.0018599999999999728
+  },
+  "environment": {
+    "architecture": "arm64",
+    "chrome": "Google Chrome 152.0.7977.83",
+    "cpu": "Apple M4 Pro",
+    "display": "6400 x 3600",
+    "displayScale": "3200 x 1800 @ 60.00Hz",
+    "ffmpeg": "ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "hyperframes": "0.8.31",
+    "macos": "26.6.2",
+    "memoryBytes": 68719476736,
+    "node": "v26.8.1",
+    "platform": "darwin",
+    "pnpm": "11.22.0",
+    "powerMode": "standard",
+    "release": "25.6.0",
+    "remotion": "4.0.522"
+  },
+  "fixture": "parity",
+  "fixtureDigest": "f31f7f4e4a3625fdc28c10262a0cd48cd76ae9e6607a6d36dbb9e39c0323eadd",
+  "generatedAt": "2026-09-08T21:37:01.614Z",
+  "kind": "video-acceptance",
+  "render": {
+    "engines": {
+      "html": {
+        "actualResolution": {
+          "height": 1080,
+          "width": 1920
+        },
+        "durationSec": 15,
+        "engineVersion": "html-playwright/0.1.0",
+        "fileSizeBytes": 1419374,
+        "fps": 30,
+        "inputHash": "128854216861deb3",
+        "renderedFrames": 450,
+        "renderWallClockSec": 21.124
+      },
+      "hyperframes": {
+        "actualResolution": {
+          "height": 1080,
+          "width": 1920
+        },
+        "durationSec": 15,
+        "engineVersion": "0.8.31",
+        "fileSizeBytes": 3084567,
+        "fps": 30,
+        "renderedFrames": 450,
+        "renderWallClockSec": 10.441
+      }
+    },
+    "probes": {
+      "html": {
+        "format": {
+          "duration": "16.000000",
+          "size": "1419374"
+        },
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "avg_frame_rate": "30/1",
+            "codec_type": "video",
+            "height": 1080,
+            "nb_frames": "480",
+            "width": 1920
+          }
+        ]
+      },
+      "hyperframes": {
+        "format": {
+          "duration": "15.000000",
+          "size": "3084567"
+        },
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "avg_frame_rate": "30/1",
+            "codec_type": "video",
+            "height": 1080,
+            "nb_frames": "450",
+            "width": 1920
+          }
+        ]
+      }
+    },
+    "sampledFrames": {
+      "html": [
+        {
+          "sha256": "54110d395271abd20dce8ebf3a6a317de18c138057a12e987c2a81db4208d533",
+          "timestampSec": 1.5
+        },
+        {
+          "sha256": "6a05c3b44d4147e8e70d3282065eca21b3efe5387223e6bea28017c2baa246fc",
+          "timestampSec": 7.5
+        },
+        {
+          "sha256": "ce55de722ce2b2e32d952380820f8a85680b6010cdabb71abd07765406ff3ef8",
+          "timestampSec": 13.5
+        }
+      ],
+      "hyperframes": [
+        {
+          "sha256": "d7a9972cf016f16023c9f89226cee5b89ce9e3e27180d259e2f8d5e3e2a3b96c",
+          "timestampSec": 1.5
+        },
+        {
+          "sha256": "3050c440ab04b45d0ea8e5705d24baae35a7bfb5417b228bb57c16ff759e8304",
+          "timestampSec": 7.5
+        },
+        {
+          "sha256": "c351b33cb30bc240cecdf8625b94e9affd471c4e10d177b203a2e0ed7c6148dc",
+          "timestampSec": 13.5
+        }
+      ]
+    },
+    "ssim": 0.978548,
+    "studioSelection": {
+      "label": "Card",
+      "sourceFile": "index.html",
+      "stableTarget": "parity-card",
+      "tagName": "section"
+    },
+    "wallClockMs": 44039
+  },
+  "schemaVersion": 1,
+  "status": "passed"
+}

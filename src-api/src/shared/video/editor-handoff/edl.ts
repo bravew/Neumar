@@ -1,3 +1,6 @@
+import type { FrameRate } from '@neumar/video-ir';
+
+import { handoffRate } from './handoff-rate';
 import { formatEdlTimecode } from './rational-time';
 import type { EditorHandoffClip, EditorHandoffModel } from './types';
 
@@ -10,7 +13,7 @@ export function writeEdl(model: EditorHandoffModel): string {
 
   const lines = [`TITLE: ${model.projectName}`, 'FCM: NON-DROP FRAME', ''];
   primary.forEach((clip, index) => {
-    lines.push(formatEdlEvent(index + 1, clip, model.fps));
+    lines.push(formatEdlEvent(index + 1, clip, handoffRate(model)));
     lines.push(`* FROM CLIP NAME: ${clip.name}`);
   });
   return `${lines.join('\n')}\n`;
@@ -19,7 +22,7 @@ export function writeEdl(model: EditorHandoffModel): string {
 function formatEdlEvent(
   index: number,
   clip: EditorHandoffClip,
-  fps: number,
+  fps: FrameRate,
 ): string {
   const event = String(index).padStart(3, '0');
   const reel = safeReelName(clip.mediaId ?? clip.id);

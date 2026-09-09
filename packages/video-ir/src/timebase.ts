@@ -88,6 +88,133 @@ export function durationFramesToMs(
   );
 }
 
+// The eight rates the project settings offer. NTSC entries are stored as the
+// exact broadcast fractions, never as 23.976 / 29.97 / 59.94 decimals: rounding
+// those to 24 / 30 / 60 is precisely the drift this contract exists to stop.
+export const FRAME_RATE_PRESETS = [
+  {
+    id: '23.976',
+    label: '23.976 (NTSC film)',
+    rate: { num: 24_000, den: 1001 },
+  },
+  { id: '24', label: '24', rate: { num: 24, den: 1 } },
+  { id: '25', label: '25 (PAL)', rate: { num: 25, den: 1 } },
+  { id: '29.97', label: '29.97 (NTSC)', rate: { num: 30_000, den: 1001 } },
+  { id: '30', label: '30', rate: { num: 30, den: 1 } },
+  { id: '50', label: '50 (PAL)', rate: { num: 50, den: 1 } },
+  { id: '59.94', label: '59.94 (NTSC)', rate: { num: 60_000, den: 1001 } },
+  { id: '60', label: '60', rate: { num: 60, den: 1 } },
+] as const satisfies ReadonlyArray<{
+  id: string;
+  label: string;
+  rate: FrameRate;
+}>;
+
+export type FrameRatePresetId = (typeof FRAME_RATE_PRESETS)[number]['id'];
+
+export interface FrameRatePreset {
+  id: FrameRatePresetId;
+  label: string;
+  rate: FrameRate;
+}
+
+export function frameRatePresets(): FrameRatePreset[] {
+  return FRAME_RATE_PRESETS.map((preset) => ({
+    id: preset.id,
+    label: preset.label,
+    rate: { ...preset.rate },
+  }));
+}
+
+export function frameRatePresetById(id: string): FrameRatePreset | undefined {
+  const preset = FRAME_RATE_PRESETS.find((entry) => entry.id === id);
+  return preset
+    ? { id: preset.id, label: preset.label, rate: { ...preset.rate } }
+    : undefined;
+}
+
+// A rate matches a preset when the reduced fractions are equal, so a caller
+// that hands us `{num: 48000, den: 2002}` still lands on 23.976.
+export function frameRatePresetFor(
+  rate: FrameRateLike,
+): FrameRatePreset | undefined {
+  const normalized = normalizeFrameRate(rate);
+  const preset = FRAME_RATE_PRESETS.find((entry) => {
+    const candidate = normalizeFrameRate(entry.rate);
+    return candidate.num === normalized.num && candidate.den === normalized.den;
+  });
+  return preset
+    ? { id: preset.id, label: preset.label, rate: { ...preset.rate } }
+    : undefined;
+}
+
+// Accepts a preset id, a decimal string, or a `num/den` pair as text. Decimals
+// that are within half a frame of an NTSC preset snap to the exact fraction —
+// `29.97` typed by a user means 30000/1001, not 2997/100.
+export function parseFrameRate(input: string | FrameRateLike): FrameRate {
+  if (typeof input !== 'string') return normalizeFrameRate(input);
+  const text = input.trim();
+  if (!text) throw new Error('Frame rate must not be empty');
+
+  const preset = frameRatePresetById(text);
+  if (preset) return { ...preset.rate };
+
+  const fraction = /^(\d+)\s*\/\s*(\d+)$/.exec(text);
+  if (fraction) {
+    return normalizeFrameRate({
+      num: Number(fraction[1]),
+      den: Number(fraction[2]),
+    });
+  }
+
+  const decimal = Number(text);
+  if (!Number.isFinite(decimal) || decimal <= 0) {
+    throw new Error(`Unrecognized frame rate: ${input}`);
+  }
+  const near = FRAME_RATE_PRESETS.find(
+    (entry) =>
+      Math.abs(entry.rate.num / entry.rate.den - decimal) < 0.005 &&
+      entry.rate.den !== 1,
+  );
+  if (near) return { ...near.rate };
+  return normalizeFrameRate(decimal);
+}
+
+// A rate read off a container. Probes report NTSC rates as 23.976 / 29.97 /
+// 59.94 decimals, so snap those to the exact fraction; anything else is taken
+// literally. Without this, a 29.97 source normalizes to 2997/100 and every
+// frame boundary derived from it drifts against the real broadcast rate.
+export function snapObservedFrameRate(rate: number): FrameRate {
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error('Observed frame rate must be a positive finite number');
+  }
+  const near = FRAME_RATE_PRESETS.find(
+    (entry) =>
+      entry.rate.den !== 1 &&
+      Math.abs(entry.rate.num / entry.rate.den - rate) < 0.005,
+  );
+  return near ? { ...near.rate } : normalizeFrameRate(rate);
+}
+
+// Display form. NTSC rates print as their familiar decimals rather than as the
+// fraction, because that is what editors label them.
+export function formatFrameRate(rate: FrameRateLike): string {
+  const preset = frameRatePresetFor(rate);
+  if (preset) return preset.id;
+  const normalized = normalizeFrameRate(rate);
+  if (normalized.den === 1) return String(normalized.num);
+  return (normalized.num / normalized.den).toFixed(3).replace(/\.?0+$/, '');
+}
+
+export function frameRatesEqual(
+  left: FrameRateLike,
+  right: FrameRateLike,
+): boolean {
+  const a = normalizeFrameRate(left);
+  const b = normalizeFrameRate(right);
+  return a.num === b.num && a.den === b.den;
+}
+
 export function deriveTimelineClipFrameFields(
   clip: TimelineClipTimingInput,
   rate: FrameRateLike,

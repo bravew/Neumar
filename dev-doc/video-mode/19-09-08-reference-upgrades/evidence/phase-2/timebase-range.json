@@ -1,0 +1,184 @@
+{
+  "checks": [
+    {
+      "name": "timeline-schema",
+      "status": "passed"
+    },
+    {
+      "name": "positive-duration",
+      "status": "passed"
+    },
+    {
+      "detail": "30000/1001",
+      "name": "timebase-stays-rational",
+      "status": "passed"
+    },
+    {
+      "detail": "single-rate",
+      "name": "derived-timebase-matches-footage",
+      "status": "passed"
+    },
+    {
+      "name": "compatibility-fps-preserved",
+      "status": "passed"
+    },
+    {
+      "name": "range-resolves-to-declared-frames",
+      "status": "passed"
+    },
+    {
+      "detail": "4004ms vs 4004ms",
+      "name": "output-duration-within-one-frame",
+      "status": "passed"
+    },
+    {
+      "name": "render-local-time-starts-at-zero",
+      "status": "passed"
+    },
+    {
+      "name": "project-time-provenance-recorded",
+      "status": "passed"
+    },
+    {
+      "detail": "range-clip-a,range-clip-b",
+      "name": "clips-outside-range-dropped",
+      "status": "passed"
+    },
+    {
+      "detail": "range-caption-straddle",
+      "name": "captions-outside-range-dropped",
+      "status": "passed"
+    },
+    {
+      "name": "head-cut-drops-entrance",
+      "status": "passed"
+    },
+    {
+      "name": "transition-inside-range-survives",
+      "status": "passed"
+    },
+    {
+      "name": "tail-cut-drops-transition",
+      "status": "passed"
+    },
+    {
+      "name": "boundary-cut-audio-fades-dropped",
+      "status": "passed"
+    },
+    {
+      "name": "unset-range-renders-full-timeline",
+      "status": "passed"
+    }
+  ],
+  "command": "node scripts/video-acceptance.mjs --fixture timebase-range --json --report=dev-doc/video-mode/19-09-08-reference-upgrades/evidence/phase-2/timebase-range.json",
+  "environment": {
+    "architecture": "arm64",
+    "chrome": "Google Chrome 152.0.7977.83",
+    "cpu": "Apple M4 Pro",
+    "display": "3360 x 1890",
+    "displayScale": "1680 x 945 @ 60.00Hz",
+    "ffmpeg": "ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "hyperframes": "0.8.31",
+    "macos": "26.6.2",
+    "memoryBytes": 68719476736,
+    "node": "v26.8.1",
+    "platform": "darwin",
+    "pnpm": "11.22.0",
+    "powerMode": "standard",
+    "release": "25.6.0",
+    "remotion": "4.0.522"
+  },
+  "fixture": "timebase-range",
+  "fixtureDigest": "c5aa595b9869872653d91d645d96f6f0fcb2c50c61ea31d7b46aabeef2141817",
+  "generatedAt": "2026-09-08T23:13:53.845Z",
+  "kind": "video-acceptance",
+  "render": {
+    "timebaseRange": {
+      "frameMs": 33.36666666666667,
+      "range": {
+        "durationFrames": 120,
+        "durationMs": 4004,
+        "inFrame": 60,
+        "outFrameExclusive": 180
+      },
+      "ranged": {
+        "audioClips": [
+          {
+            "clipId": "range-clip-audio",
+            "durationMs": 4004,
+            "fadeInMs": null,
+            "fadeOutMs": null,
+            "timelineStartMs": 0
+          }
+        ],
+        "captionIds": [
+          "range-caption-straddle"
+        ],
+        "durationMs": 4004,
+        "frameRate": {
+          "den": 1001,
+          "num": 30000
+        },
+        "outputRange": {
+          "inFrame": 60,
+          "outFrameExclusive": 180,
+          "projectEndMs": 6006,
+          "projectStartMs": 2002
+        },
+        "segmentIds": [
+          "range-clip-a",
+          "range-clip-b"
+        ],
+        "segments": [
+          {
+            "clipId": "range-clip-a",
+            "durationMs": 2002,
+            "entranceMs": null,
+            "sourceStartMs": 2002,
+            "timelineStartMs": 0,
+            "transitionToNext": {
+              "durationMs": 500,
+              "kind": "fade"
+            }
+          },
+          {
+            "clipId": "range-clip-b",
+            "durationMs": 2002,
+            "entranceMs": null,
+            "sourceStartMs": 0,
+            "timelineStartMs": 2002,
+            "transitionToNext": null
+          }
+        ]
+      },
+      "timebase": {
+        "compatibilityFps": 29.97,
+        "derivedRate": {
+          "den": 1001,
+          "num": 30000
+        },
+        "derivedReason": "single-rate",
+        "locked": false,
+        "rate": {
+          "den": 1001,
+          "num": 30000
+        },
+        "source": "derived"
+      },
+      "unranged": {
+        "captionIds": [
+          "range-caption-early",
+          "range-caption-straddle"
+        ],
+        "durationMs": 10010,
+        "outputRange": null,
+        "segmentIds": [
+          "range-clip-a",
+          "range-clip-b"
+        ]
+      }
+    }
+  },
+  "schemaVersion": 1,
+  "status": "passed"
+}

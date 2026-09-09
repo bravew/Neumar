@@ -37,6 +37,19 @@ import type {
 } from '@neumar/video-ir';
 import { z } from 'zod';
 
+import {
+  multicamAnnotateRange,
+  multicamApplyReviewedPlan,
+  multicamGetActivity,
+  multicamGetEditSummary,
+  multicamGetManifest,
+  multicamGetTranscript,
+  multicamOverrideCut,
+  multicamPreviewFrame,
+  multicamSetPolicy,
+  multicamToolSchemas,
+  shouldRegisterMulticamTools,
+} from '@/shared/mcp/video-multicam-tools';
 import { validatePath } from '@/shared/services/ffmpeg';
 import { getSessionContext } from '@/shared/services/session-context';
 import { createLogger } from '@/shared/utils/logger';
@@ -313,6 +326,9 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_suggest_timeline_transitions',
   'video_set_timeline_bookend',
   'video_clear_timeline_bookend',
+  'video_set_timebase',
+  'video_set_output_range',
+  'video_clear_output_range',
   'video_set_clip_audio_seam',
   'video_set_keyframes',
   'video_apply_capture_to_timeline',
@@ -2471,7 +2487,7 @@ function withVideoRefResolution<
 }
 
 function buildVideoEditTools(options: VideoEditServerOptions) {
-  return [
+  const tools = [
     tool(
       'video_get_plan',
       'Read the canonical durable Video agent plan and report whether agent/plan.md has drifted.',
@@ -3856,6 +3872,167 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
     ),
     ...createVideoEditMutationTools(options),
   ];
+  return shouldRegisterMulticamTools(activeContext(options).projectId)
+    ? [...tools, ...buildMulticamTools(options)]
+    : tools;
+}
+
+function buildMulticamTools(options: VideoEditServerOptions) {
+  const projectAndGroup = {
+    projectId: PROJECT_ID_SCHEMA,
+    groupId: multicamToolSchemas.groupId,
+  };
+  return [
+    tool(
+      'video_multicam_get_manifest',
+      'Read a multicamera group manifest, readiness, and camera sync offsets.',
+      projectAndGroup,
+      ({ projectId, groupId }) =>
+        serviceResult(
+          multicamGetManifest(resolveProjectId(projectId, options), groupId),
+        ),
+    ),
+    tool(
+      'video_multicam_get_activity',
+      'Read participant activity for a multicamera group, optionally limited to a time range.',
+      { ...projectAndGroup, range: multicamToolSchemas.range },
+      ({ projectId, groupId, range }) =>
+        serviceResult(
+          multicamGetActivity(
+            resolveProjectId(projectId, options),
+            groupId,
+            range,
+          ),
+        ),
+    ),
+    tool(
+      'video_multicam_get_transcript',
+      'Read participant-scoped transcript data for a multicamera group when available.',
+      projectAndGroup,
+      ({ projectId, groupId }) =>
+        serviceResult(
+          multicamGetTranscript(resolveProjectId(projectId, options), groupId),
+        ),
+    ),
+    tool(
+      'video_multicam_set_policy',
+      'Request a new multicamera editing policy before re-running shot planning.',
+      {
+        ...projectAndGroup,
+        policy: z.record(z.string(), z.unknown()),
+      },
+      async ({ projectId, groupId, policy }) => {
+        const proposal = await proposalOnlyServiceMutationResult(
+          projectId,
+          options,
+          'video_multicam_set_policy',
+        );
+        if (proposal) return proposal;
+        return serviceResult(
+          multicamSetPolicy(
+            resolveProjectId(projectId, options),
+            groupId,
+            policy,
+          ),
+        );
+      },
+    ),
+    tool(
+      'video_multicam_annotate_range',
+      'Attach a reviewer note to a planned multicamera shot.',
+      {
+        ...projectAndGroup,
+        shotId: multicamToolSchemas.shotId,
+        note: multicamToolSchemas.note,
+      },
+      async ({ projectId, groupId, shotId, note }) => {
+        const proposal = await proposalOnlyServiceMutationResult(
+          projectId,
+          options,
+          'video_multicam_annotate_range',
+        );
+        if (proposal) return proposal;
+        return serviceResult(
+          multicamAnnotateRange(
+            resolveProjectId(projectId, options),
+            groupId,
+            shotId,
+            note,
+          ),
+        );
+      },
+    ),
+    tool(
+      'video_multicam_get_edit_summary',
+      'Read the multicamera shot plan and its current review status.',
+      projectAndGroup,
+      ({ projectId, groupId }) =>
+        serviceResult(
+          multicamGetEditSummary(resolveProjectId(projectId, options), groupId),
+        ),
+    ),
+    tool(
+      'video_multicam_override_cut',
+      'Choose a different camera for a planned shot and accept that shot.',
+      {
+        ...projectAndGroup,
+        shotId: multicamToolSchemas.shotId,
+        cameraId: z.string().min(1).max(64),
+      },
+      async ({ projectId, groupId, shotId, cameraId }) => {
+        const proposal = await proposalOnlyServiceMutationResult(
+          projectId,
+          options,
+          'video_multicam_override_cut',
+        );
+        if (proposal) return proposal;
+        return serviceResult(
+          multicamOverrideCut(
+            resolveProjectId(projectId, options),
+            groupId,
+            shotId,
+            cameraId,
+          ),
+        );
+      },
+    ),
+    tool(
+      'video_multicam_preview_frame',
+      'Resolve one reference-timeline instant onto every synchronized camera angle.',
+      {
+        ...projectAndGroup,
+        atReferenceMs: multicamToolSchemas.atReferenceMs,
+      },
+      ({ projectId, groupId, atReferenceMs }) =>
+        serviceResult(
+          multicamPreviewFrame(
+            resolveProjectId(projectId, options),
+            groupId,
+            atReferenceMs,
+          ),
+        ),
+    ),
+    tool(
+      'video_multicam_apply_reviewed_plan',
+      'Apply all accepted multicamera shots to one timeline track as a single undoable batch.',
+      { ...projectAndGroup, trackId: multicamToolSchemas.trackId },
+      async ({ projectId, groupId, trackId }) => {
+        const proposal = await proposalOnlyServiceMutationResult(
+          projectId,
+          options,
+          'video_multicam_apply_reviewed_plan',
+        );
+        if (proposal) return proposal;
+        return serviceResult(
+          multicamApplyReviewedPlan(
+            resolveProjectId(projectId, options),
+            groupId,
+            trackId,
+          ),
+        );
+      },
+    ),
+  ];
 }
 
 function frameRateForTimeline(
@@ -4410,6 +4587,46 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
           'clearTimelineBookend',
           input,
         );
+        return toolCallResult(projectId, options, call);
+      },
+    ),
+    tool(
+      'video_set_timebase',
+      "Set the project's frame rate as an exact rational and choose whether it is locked. Accepts a preset id ('23.976', '29.97', '59.94', or an integer rate), a decimal, or 'num/den'. NTSC decimals snap to their exact broadcast fractions.",
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        rate: z.string().min(1),
+        locked: z.boolean().optional(),
+      },
+      async (input) => {
+        const { projectId, call } = camelToolCall('setTimebase', input);
+        return toolCallResult(projectId, options, call);
+      },
+    ),
+    tool(
+      'video_set_output_range',
+      'Limit renders and exports to a sub-range of the timeline, in half-open project frames. The out frame is exclusive.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        inFrame: z.number().int().min(0),
+        outFrameExclusive: z.number().int().positive(),
+      },
+      async (input) => {
+        const { projectId, call } = camelToolCall('setOutputRange', input);
+        return toolCallResult(projectId, options, call);
+      },
+    ),
+    tool(
+      'video_clear_output_range',
+      'Clear the output range so renders cover the whole timeline again.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+      },
+      async (input) => {
+        const { projectId, call } = camelToolCall('clearOutputRange', input);
         return toolCallResult(projectId, options, call);
       },
     ),

@@ -49,7 +49,7 @@ describe('runtime-selection contract', () => {
     registerVideoEngine(
       stubAdapter(
         'remotion',
-        { installed: true, version: '4.0.515' },
+        { installed: true, version: '4.0.522' },
         { bestFor: ['React compositions'], weaknesses: ['Slower renders'] },
       ),
     );
@@ -57,7 +57,7 @@ describe('runtime-selection contract', () => {
       stubAdapter('hyperframes', {
         installed: false,
         reason: 'browser-missing',
-        version: '0.8.7',
+        version: '0.8.31',
         detail: 'Chrome not found',
       }),
     );
@@ -75,7 +75,7 @@ describe('runtime-selection contract', () => {
     expect(options[1]).toMatchObject({
       installed: false,
       unavailableReason: 'browser-missing',
-      detectedVersion: '0.8.7',
+      detectedVersion: '0.8.31',
       detail: 'Chrome not found',
     });
   });
@@ -163,7 +163,7 @@ describe('runtime-selection contract', () => {
       installed: false,
       reason: 'version-too-old',
       version: '0.1.0',
-      requiredVersion: '0.8.7',
+      requiredVersion: '0.8.31',
     });
     await expect(assertEngineAdapterAvailable(missing)).rejects.toMatchObject({
       code: 'engine-unavailable',

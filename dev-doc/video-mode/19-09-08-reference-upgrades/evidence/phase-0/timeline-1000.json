@@ -1,0 +1,38 @@
+{
+  "command": "node scripts/video-timeline-benchmark.mjs --clips 1000 --tracks 12 --json --report=dev-doc/video-mode/19-09-08-reference-upgrades/evidence/phase-0/timeline-1000.json",
+  "environment": {
+    "architecture": "arm64",
+    "cpu": "Apple M4 Pro",
+    "display": "6400 x 3600",
+    "displayScale": "3200 x 1800 @ 60.00Hz",
+    "macos": "26.6.2",
+    "memoryBytes": 68719476736,
+    "node": "v26.8.1",
+    "platform": "darwin",
+    "powerMode": "standard",
+    "release": "25.6.0"
+  },
+  "fixture": "video-timeline-1000-v1",
+  "fixtureDigest": "1bad7aeed931592777cbbfdbc3a580f3f3f567d4123087cef1bc9f3d65cb568b",
+  "generatedAt": "2026-09-08T19:10:51.840Z",
+  "input": {
+    "clips": 1000,
+    "iterations": 4000,
+    "tracks": 12
+  },
+  "kind": "video-timeline-benchmark",
+  "limitations": [
+    "This Phase 0 baseline measures the current linear clip-window query only.",
+    "Phase 3 must add the production browser interaction and mounted-DOM measurements."
+  ],
+  "measurementKind": "model-linear-window-query",
+  "result": {
+    "maxMs": 0.17920799999999915,
+    "meanVisibleClips": 26.92925,
+    "mountedDomClips": null,
+    "p50Ms": 0.0013339999999999463,
+    "p95Ms": 0.0061249999999972715
+  },
+  "schemaVersion": 1,
+  "status": "passed"
+}

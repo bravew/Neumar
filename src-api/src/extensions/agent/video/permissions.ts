@@ -35,6 +35,13 @@ const READ_TOOLS = [
   'video_get_plan_progress',
   'video_reconcile_plan',
   'video_search_frames',
+  // Multicamera reads. Preview is read-only but compute-expensive, so it is
+  // metered below rather than treated as a free read.
+  'video_multicam_get_manifest',
+  'video_multicam_get_activity',
+  'video_multicam_get_transcript',
+  'video_multicam_get_edit_summary',
+  'video_multicam_preview_frame',
 ] as const;
 
 const WRITE_TOOLS = [
@@ -50,6 +57,18 @@ const WRITE_TOOLS = [
   'video_remove_timeline_transition',
   'video_set_timeline_bookend',
   'video_clear_timeline_bookend',
+  // Timebase and output range: project-scoped, journaled, and undoable. Locking
+  // a timebase re-snaps clip boundaries, so it is a write, not a setting read.
+  'video_set_timebase',
+  'video_set_output_range',
+  'video_clear_output_range',
+  // Multicamera review edits. They change the review artifact, never the
+  // timeline; applying is separate and goes through the plan gate.
+  'video_multicam_set_policy',
+  'video_multicam_annotate_range',
+  'video_multicam_override_cut',
+  // Writes timeline clips. Classified with the other timeline batch applies.
+  'video_multicam_apply_reviewed_plan',
   'video_set_clip_audio_seam',
   'video_set_keyframes',
   // In-place overlay/effect param edits — journaled and undoable, never structural.
@@ -143,6 +162,9 @@ const METERED_TOOLS = new Set([
   'mcp__video-edit__video_transform_audio',
   'mcp__video-edit__video_generate_voiceover',
   'mcp__video-edit__video_generate_music',
+  // Rendering a frame from a source angle costs real decode work; the agent
+  // should not loop on it for free.
+  'mcp__video-edit__video_multicam_preview_frame',
 ]);
 
 export type VideoToolCostClass = 'free' | 'metered';

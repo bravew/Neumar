@@ -1,0 +1,6 @@
+{
+  "$schema": "https://hyperframes.heygen.com/schema/hyperframes.json",
+  "fps": 30,
+  "durationMs": 15000,
+  "snapshotAtMs": [1500, 7500, 13500]
+}

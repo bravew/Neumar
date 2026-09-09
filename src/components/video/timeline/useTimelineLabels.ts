@@ -38,6 +38,9 @@ export function useTimelineLabels() {
       addCaption: t.video.editor.timeline.addCaption,
       toggleSnapping: t.video.editor.timeline.toggleSnapping,
       addMarker: t.video.editor.timeline.addMarker,
+      setOutputIn: t.video.editor.timeline.outputRange.setIn,
+      setOutputOut: t.video.editor.timeline.outputRange.setOut,
+      clearOutputRange: t.video.editor.timeline.outputRange.clear,
       selectTool: t.video.editor.timeline.selectTool,
       razorTool: t.video.editor.timeline.razorTool,
       splitClip: t.video.editor.timeline.splitClip,
@@ -122,7 +125,16 @@ export function useTimelineLabels() {
     }),
     [t],
   );
-  return { toolbar, track, marker };
+  const outputRange = useMemo(
+    () => ({
+      inHandle: t.video.editor.timeline.outputRange.inHandle,
+      outHandle: t.video.editor.timeline.outputRange.outHandle,
+      excludedHead: t.video.editor.timeline.outputRange.excludedHead,
+      excludedTail: t.video.editor.timeline.outputRange.excludedTail,
+    }),
+    [t],
+  );
+  return { toolbar, track, marker, outputRange };
 }
 
 function transitionNames(

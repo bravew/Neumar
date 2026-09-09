@@ -2,6 +2,8 @@ import type { MouseEvent, ReactNode, SVGProps } from 'react';
 
 import {
   Captions,
+  ChevronLeft,
+  ChevronRight,
   Film,
   Flag,
   Layers,
@@ -17,6 +19,7 @@ import {
   RotateCcw,
   Type,
   Volume2,
+  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
@@ -61,6 +64,9 @@ interface TimelineToolbarLabels {
   addCaption: string;
   toggleSnapping: string;
   addMarker: string;
+  setOutputIn: string;
+  setOutputOut: string;
+  clearOutputRange: string;
   selectTool: string;
   razorTool: string;
 }
@@ -80,6 +86,12 @@ interface TimelineToolbarProps {
   onAddCaption?: () => void;
   onToggleSnapping: () => void;
   onAddMarker: () => void;
+  outputRange?: {
+    onSetIn: () => void;
+    onSetOut: () => void;
+    onClear: () => void;
+    hasRange: boolean;
+  };
 }
 
 export function TimelineToolbar({
@@ -97,6 +109,7 @@ export function TimelineToolbar({
   onAddCaption,
   onToggleSnapping,
   onAddMarker,
+  outputRange,
 }: TimelineToolbarProps) {
   const razorToolEnabled = useTimelineUiStore(
     (state) => state.razorToolEnabled,
@@ -151,6 +164,33 @@ export function TimelineToolbar({
         >
           <Flag className="size-3.5" />
         </TimelineIconButton>
+        {outputRange ? (
+          <>
+            <TimelineIconButton
+              label={labels.setOutputIn}
+              shortcut="I"
+              onClick={outputRange.onSetIn}
+            >
+              <ChevronRight className="size-3.5" />
+            </TimelineIconButton>
+            <TimelineIconButton
+              label={labels.setOutputOut}
+              shortcut="O"
+              onClick={outputRange.onSetOut}
+            >
+              <ChevronLeft className="size-3.5" />
+            </TimelineIconButton>
+            {outputRange.hasRange ? (
+              <TimelineIconButton
+                label={labels.clearOutputRange}
+                shortcut="⇧X"
+                onClick={outputRange.onClear}
+              >
+                <X className="size-3.5" />
+              </TimelineIconButton>
+            ) : null}
+          </>
+        ) : null}
         <AddTrackMenu
           labels={labels}
           onAddTrack={(kind) => {

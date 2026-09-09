@@ -13,6 +13,7 @@ import {
 import type { LinkedAssetDragPayload } from '../linkedAssetDrag';
 import type { OverlayPresetDragPayload } from '../overlays/overlayDragPayload';
 import type { ProjectAssetDragPayload } from '../projectAssetDrag';
+import type { ClipTimeWindow } from './clipWindow';
 import { compareTimelineClips } from './projectTimeline';
 import { TimelineClip } from './TimelineClip';
 import type {
@@ -33,6 +34,7 @@ import type {
   TimelineClipSelectionMode,
   TimelineTrimEdge,
 } from './useTimelineEditorStore';
+import { useTimelineTrackClipWindow } from './useTimelineTrackClipWindow';
 import { useTimelineTrackContextMenu } from './useTimelineTrackContextMenu';
 import { useTimelineTrackDropZone } from './useTimelineTrackDropZone';
 
@@ -50,6 +52,14 @@ interface TimelineTrackProps {
   selectedLinkGroupIds: Set<string>;
   labels: TimelineTrackLabels;
   timelineTransitionsEnabled?: boolean;
+  /**
+   * Visible time window plus overscan. Only clips intersecting it are mounted;
+   * omit it to render every clip, which is what tests and non-scrolling
+   * surfaces want.
+   */
+  clipWindow?: ClipTimeWindow;
+  /** Clips kept mounted outside the window while an interaction owns them. */
+  pinnedClipIds?: ReadonlySet<string>;
   onSelectTrack: (trackId: string) => void;
   onSelectClip: (
     clip: VideoTimelineClip,
@@ -130,6 +140,8 @@ export function TimelineTrack({
   selectedLinkGroupIds,
   labels,
   timelineTransitionsEnabled = true,
+  clipWindow,
+  pinnedClipIds,
   onSelectTrack,
   onSelectClip,
   onTrimClip,
@@ -158,6 +170,15 @@ export function TimelineTrack({
     () => [...track.clips].sort(compareTimelineClips),
     [track.clips],
   );
+  const renderedClips = useTimelineTrackClipWindow({
+    trackId: track.id,
+    clips: track.clips,
+    sortedClips: clips,
+    clipWindow,
+    pinnedClipIds,
+    selectedLinkGroupIds,
+    clipMoveDropTarget,
+  });
   const transitions = useTimelineTrackTransitions({
     enabled: timelineTransitionsEnabled,
     track,
@@ -263,7 +284,7 @@ export function TimelineTrack({
             </div>
           </div>
         ) : null}
-        {clips.map((clip) => (
+        {renderedClips.map((clip) => (
           <TimelineClip
             key={clip.id}
             clip={clip}

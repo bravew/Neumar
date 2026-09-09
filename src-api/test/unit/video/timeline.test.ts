@@ -101,6 +101,7 @@ describe('video timeline migration and EDL compilation', () => {
       schema: 'neuma.video.edl.v1',
       projectId: 'project-1',
       fps: 24,
+      frameRate: { num: 24, den: 1 },
       durationMs: 6000,
       segments: [
         {

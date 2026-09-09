@@ -1,0 +1,185 @@
+{
+  "checks": [
+    {
+      "name": "timeline-schema",
+      "status": "passed"
+    },
+    {
+      "name": "positive-duration",
+      "status": "passed"
+    },
+    {
+      "name": "automatic-mode-ready",
+      "status": "passed"
+    },
+    {
+      "detail": "{\"cam-wide\":0,\"cam-ana\":6,\"cam-ben\":-4}",
+      "name": "offset-error-within-one-frame",
+      "status": "passed"
+    },
+    {
+      "name": "reference-camera-is-zero",
+      "status": "passed"
+    },
+    {
+      "detail": "0.3",
+      "name": "bleed-measured",
+      "status": "passed"
+    },
+    {
+      "detail": "confidence 1",
+      "name": "bleed-correction-applied-above-threshold",
+      "status": "passed"
+    },
+    {
+      "name": "raw-probabilities-preserved",
+      "status": "passed"
+    },
+    {
+      "name": "silence-falls-back-to-wide",
+      "status": "passed"
+    },
+    {
+      "name": "overlap-follows-policy",
+      "status": "passed"
+    },
+    {
+      "detail": "cam-wide,cam-ana,cam-wide,cam-ben,cam-wide,cam-wide",
+      "name": "shot-sequence-matches-expected",
+      "status": "passed"
+    },
+    {
+      "name": "no-shot-shorter-than-policy",
+      "status": "passed"
+    },
+    {
+      "name": "artifacts-deterministic",
+      "status": "passed"
+    },
+    {
+      "name": "fingerprint-stable",
+      "status": "passed"
+    },
+    {
+      "name": "timeline-not-mutated",
+      "status": "passed"
+    }
+  ],
+  "command": "node scripts/video-acceptance.mjs --fixture multicam-analysis --json --report=dev-doc/video-mode/19-09-08-reference-upgrades/evidence/phase-5/multicam-analysis.json",
+  "environment": {
+    "architecture": "arm64",
+    "chrome": "Google Chrome 152.0.7977.83",
+    "cpu": "Apple M4 Pro",
+    "display": "3360 x 1890",
+    "displayScale": "1680 x 945 @ 60.00Hz",
+    "ffmpeg": "ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "hyperframes": "0.8.31",
+    "macos": "26.6.2",
+    "memoryBytes": 68719476736,
+    "node": "v26.8.1",
+    "platform": "darwin",
+    "pnpm": "11.22.0",
+    "powerMode": "standard",
+    "release": "25.6.0",
+    "remotion": "4.0.522"
+  },
+  "fixture": "multicam-analysis",
+  "fixtureDigest": "19993fd51742a5962f0d0e4e3f3897929ea66818f203e955ef65ca9d437d5e1e",
+  "generatedAt": "2026-09-09T00:02:17.296Z",
+  "kind": "video-acceptance",
+  "render": {
+    "multicam": {
+      "bleed": {
+        "p-ana": {
+          "p-ben": 0.05555555555555557
+        },
+        "p-ben": {
+          "p-ana": 0.3
+        }
+      },
+      "bleedConfidence": 1,
+      "bleedCorrectionApplied": true,
+      "deterministic": true,
+      "fingerprint": "ddde3c2334b3a4b51c7a0df401f38eb700c9577a4eee3b8ead9b2a5be248dab7",
+      "fingerprintStable": true,
+      "rawPreserved": true,
+      "readiness": {
+        "automaticReady": true,
+        "blockers": []
+      },
+      "shots": [
+        {
+          "cameraId": "cam-wide",
+          "endMs": 2000,
+          "reason": "silence",
+          "startMs": 0
+        },
+        {
+          "cameraId": "cam-ana",
+          "endMs": 8000,
+          "reason": "speaker",
+          "startMs": 2000
+        },
+        {
+          "cameraId": "cam-wide",
+          "endMs": 10000,
+          "reason": "silence",
+          "startMs": 8000
+        },
+        {
+          "cameraId": "cam-ben",
+          "endMs": 16000,
+          "reason": "speaker",
+          "startMs": 10000
+        },
+        {
+          "cameraId": "cam-wide",
+          "endMs": 28000,
+          "reason": "max-shot",
+          "startMs": 16000
+        },
+        {
+          "cameraId": "cam-wide",
+          "endMs": 30000,
+          "reason": "overlap-wide",
+          "startMs": 28000
+        }
+      ],
+      "speechRanges": [
+        {
+          "endMs": 8000,
+          "participantId": "p-ana",
+          "startMs": 2000
+        },
+        {
+          "endMs": 16000,
+          "participantId": "p-ben",
+          "startMs": 10000
+        },
+        {
+          "endMs": 20000,
+          "participantId": "p-ana",
+          "startMs": 18000
+        },
+        {
+          "endMs": 20000,
+          "participantId": "p-ben",
+          "startMs": 18000
+        }
+      ],
+      "syncOffsetFrames": {
+        "cam-ana": 6,
+        "cam-ben": -4,
+        "cam-wide": 0
+      },
+      "syncOffsetMs": {
+        "cam-ana": 200,
+        "cam-ben": -120,
+        "cam-wide": 0
+      },
+      "timelineTouched": false
+    }
+  },
+  "schemaVersion": 1,
+  "status": "passed"
+}

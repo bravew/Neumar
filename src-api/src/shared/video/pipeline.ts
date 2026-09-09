@@ -79,6 +79,7 @@ import {
   imageExtensionFromName,
 } from './image-validation';
 import { publishRenderStatus } from './job-events';
+import { outputRangeFileSuffix, resolveOutputRange } from './output-range';
 import { applyVividOverlayPass, vividOverlayEntryCount } from './overlay-pass';
 import { detectVideoPluginCandidateAfterRender } from './plugins/candidate-video';
 import { generatePosterFrame } from './poster';
@@ -272,7 +273,18 @@ export async function renderProject(
     await fs.mkdir(renderOutputDir, { recursive: true });
     const mode = opts.mode ?? 'speed';
     const outputPath = validatePath(
-      path.join(renderOutputDir, outputName(aspectRatio)),
+      path.join(
+        renderOutputDir,
+        outputName(
+          aspectRatio,
+          outputRangeFileSuffix(
+            resolveOutputRange(
+              project.timeline,
+              project.timeline?.frameRate ?? project.timeline?.fps ?? 30,
+            ),
+          ),
+        ),
+      ),
       root,
       'write',
     );
@@ -4030,10 +4042,12 @@ async function updateRenderStatus(
     .run(render.status, new Date().toISOString(), project.id);
 }
 
-function outputName(aspectRatio: AspectRatio): string {
-  return aspectRatio === '16:9'
-    ? 'out.mp4'
-    : `out-${aspectRatio.replace(':', 'x')}.mp4`;
+function outputName(aspectRatio: AspectRatio, rangeSuffix = ''): string {
+  const base =
+    aspectRatio === '16:9' ? 'out' : `out-${aspectRatio.replace(':', 'x')}`;
+  // A ranged export must not silently overwrite the full-timeline file that
+  // shares its aspect ratio.
+  return `${base}${rangeSuffix}.mp4`;
 }
 
 export function kenBurnsFilter(

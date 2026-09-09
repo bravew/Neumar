@@ -1,0 +1,60 @@
+{
+  "checks": [
+    {
+      "name": "packaged-build",
+      "status": "passed"
+    },
+    {
+      "name": "bundle-written",
+      "status": "passed"
+    },
+    {
+      "name": "bundle-excludes-puppeteer-core",
+      "status": "passed"
+    },
+    {
+      "name": "bundle-excludes--puppeteer-browsers",
+      "status": "passed"
+    },
+    {
+      "name": "bundle-excludes-hyperframes-dist",
+      "status": "passed"
+    },
+    {
+      "detail": "sidecar resolves the CLI from env, workspace bin, or PATH",
+      "name": "hyperframes-resolved-at-runtime",
+      "status": "passed"
+    },
+    {
+      "detail": "Cross-target build: run `node scripts/video-sidecar-probe.mjs --target=linux-x64 --json` on a linux/x64 runner to execute the runtime probes.",
+      "name": "runtime-engine-probe",
+      "status": "skipped"
+    }
+  ],
+  "command": "node scripts/video-sidecar-probe.mjs --target=linux-x64 --json",
+  "environment": {
+    "architecture": "arm64",
+    "cpu": "Apple M4 Pro",
+    "memoryBytes": 68719476736,
+    "node": "v26.8.1",
+    "platform": "darwin",
+    "pnpm": "11.22.0",
+    "release": "25.6.0"
+  },
+  "footprint": {
+    "binaryBytes": 249583248,
+    "bundleBytes": 41837004,
+    "nativeBytes": {
+      "onnxruntime": 39909488,
+      "sharp": 19818841,
+      "sherpaOnnx": 32803616
+    }
+  },
+  "generatedAt": "2026-09-08T22:16:39.809Z",
+  "hostExecuted": false,
+  "kind": "video-sidecar-probe",
+  "observations": {},
+  "schemaVersion": 1,
+  "status": "passed",
+  "target": "linux-x64"
+}

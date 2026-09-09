@@ -70,6 +70,10 @@ describe('video feature flags (on by default)', () => {
       'video.vividOverlays': true,
       'video.remotionMedia': true,
       'video.hostNative': true,
+      // Off by default: multicamera is opt-in until the review surface lands,
+      // and audio-correlation sync until its accuracy is measured.
+      'video.multicam': false,
+      'video.multicamAudioSync': false,
     });
   });
 });

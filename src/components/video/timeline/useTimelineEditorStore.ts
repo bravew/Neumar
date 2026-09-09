@@ -38,6 +38,7 @@ import {
   type VideoTimeline,
   type VideoTimelineClip,
   type VideoTimelineMarker,
+  type VideoTimelineOutputRange,
   type VideoTimelineTrack,
   type VideoTimelineTransition,
   type VideoTransitionKind,
@@ -221,6 +222,7 @@ interface TimelineEditorState {
     patch: Partial<Omit<VideoTimelineMarker, 'id'>>,
   ) => void;
   deleteMarker: (markerId: string) => void;
+  setOutputRange: (range: VideoTimelineOutputRange | null) => void;
   markPersisted: (projectId: string, revision: number) => void;
   selectClip: (
     clipId: string | null,
@@ -1079,6 +1081,26 @@ export const useTimelineEditorStore = create<TimelineEditorState>(
       });
       return markerId;
     },
+    // Undoable like any other timeline edit: the range lives on the document,
+    // so it rides the same user-history stack rather than a separate one.
+    setOutputRange: (range) =>
+      set((state) => {
+        if (!state.timeline) return state;
+        const current = state.timeline.outputRange;
+        if (
+          (!range && !current) ||
+          (range &&
+            current &&
+            current.inFrame === range.inFrame &&
+            current.outFrameExclusive === range.outFrameExclusive)
+        ) {
+          return state;
+        }
+        const timeline = { ...state.timeline };
+        if (range) timeline.outputRange = range;
+        else delete timeline.outputRange;
+        return withUserHistory(state, { timeline });
+      }),
     updateMarker: (markerId, patch) =>
       set((state) => {
         if (!state.timeline?.markers?.length) return state;
@@ -1212,6 +1234,9 @@ export function useTimelineEditorBindings() {
       projectId: state.projectId,
       timeline: state.timeline,
       selectedClipIds: state.selectedClipIds,
+      // The keyboard-focused clip. Windowed rendering pins it so arrowing to a
+      // clip outside the viewport does not unmount the element that has focus.
+      lastSelectedClipId: state.lastSelectedClipId,
       selectedMarkerId: state.selectedMarkerId,
       selectedSeamId: state.selectedSeamId,
       lastEditWarning: state.lastEditWarning,
@@ -1242,6 +1267,7 @@ export function useTimelineEditorBindings() {
       insertClip: state.insertClip,
       updateClip: state.updateClip,
       addMarker: state.addMarker,
+      setOutputRange: state.setOutputRange,
       updateMarker: state.updateMarker,
       deleteMarker: state.deleteMarker,
       setSelectedClipSpeed: state.setSelectedClipSpeed,

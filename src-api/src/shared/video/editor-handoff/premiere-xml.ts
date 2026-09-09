@@ -1,3 +1,4 @@
+import { handoffRate, handoffTimebase, isNtscRate } from './handoff-rate';
 import { msToFrames } from './rational-time';
 import type {
   EditorHandoffClip,
@@ -7,6 +8,7 @@ import type {
 import { escapeXmlText, xmlElement } from './xml';
 
 export function writePremiereXml(model: EditorHandoffModel): string {
+  const rate = handoffRate(model);
   const clips = primaryVisualClips(model)
     .map((clip, index) => clipItemXml(model, clip, index + 1))
     .join('\n          ');
@@ -15,8 +17,10 @@ export function writePremiereXml(model: EditorHandoffModel): string {
     '<xmeml version="5">',
     '  <sequence>',
     `    <name>${escapeXmlText(model.projectName)}</name>`,
-    `    <duration>${msToFrames(model.durationMs, model.fps)}</duration>`,
-    `    <rate><timebase>${Math.round(model.fps)}</timebase><ntsc>FALSE</ntsc></rate>`,
+    `    <duration>${msToFrames(model.durationMs, rate)}</duration>`,
+    // Premiere expresses NTSC as an integer timebase plus an ntsc flag; without
+    // the flag a 30000/1001 project conforms as a true 30 and drifts.
+    `    <rate><timebase>${handoffTimebase(rate)}</timebase><ntsc>${isNtscRate(rate) ? 'TRUE' : 'FALSE'}</ntsc></rate>`,
     '    <media><video><track>',
     `          ${clips}`,
     '    </track></video></media>',
@@ -30,13 +34,14 @@ function clipItemXml(
   clip: EditorHandoffClip,
   index: number,
 ): string {
+  const rate = handoffRate(model);
   const media = model.mediaRefs.find((ref) => ref.id === clip.mediaId);
   return xmlElement('clipitem', { id: `clipitem-${index}` }, [
     xmlElement('name', {}, escapeXmlText(clip.name)),
-    xmlElement('start', {}, String(msToFrames(clip.startMs, model.fps))),
-    xmlElement('end', {}, String(msToFrames(clip.endMs, model.fps))),
-    xmlElement('in', {}, String(msToFrames(clip.sourceStartMs, model.fps))),
-    xmlElement('out', {}, String(msToFrames(clip.sourceEndMs, model.fps))),
+    xmlElement('start', {}, String(msToFrames(clip.startMs, rate))),
+    xmlElement('end', {}, String(msToFrames(clip.endMs, rate))),
+    xmlElement('in', {}, String(msToFrames(clip.sourceStartMs, rate))),
+    xmlElement('out', {}, String(msToFrames(clip.sourceEndMs, rate))),
     fileXml(media, index),
   ]);
 }

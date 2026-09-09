@@ -75,4 +75,59 @@ describe('withProjectLock', () => {
     await Promise.all([first, second]);
     expect(events).toEqual(['first', 'second']);
   });
+
+  it('runs a nested acquisition inline instead of deadlocking', async () => {
+    // updateProjectDocument() takes this lock, and route handlers take it too.
+    // A plain queue would wait here on a promise that cannot settle until the
+    // outer holder returns.
+    const events: string[] = [];
+
+    await withProjectLock('p1', async () => {
+      events.push('outer:start');
+      await withProjectLock('p1', async () => {
+        events.push('inner');
+      });
+      events.push('outer:end');
+    });
+
+    expect(events).toEqual(['outer:start', 'inner', 'outer:end']);
+  });
+
+  it('still excludes a separate caller while a nested section runs', async () => {
+    const events: string[] = [];
+
+    const held = withProjectLock('p1', async () => {
+      events.push('outer:start');
+      await withProjectLock('p1', async () => {
+        await tick(20);
+        events.push('inner');
+      });
+      events.push('outer:end');
+    });
+    const other = withProjectLock('p1', async () => {
+      events.push('other');
+    });
+
+    await Promise.all([held, other]);
+    expect(events).toEqual(['outer:start', 'inner', 'outer:end', 'other']);
+  });
+
+  it('does not treat a different project as held by an outer section', async () => {
+    const events: string[] = [];
+
+    await withProjectLock('p1', async () => {
+      const blocker = withProjectLock('p2', async () => {
+        await tick(20);
+        events.push('p2:first');
+      });
+      const follower = withProjectLock('p2', async () => {
+        events.push('p2:second');
+      });
+      await Promise.all([blocker, follower]);
+    });
+
+    // p2 is a different document, so it queues normally rather than inheriting
+    // the p1 holder's re-entrancy.
+    expect(events).toEqual(['p2:first', 'p2:second']);
+  });
 });

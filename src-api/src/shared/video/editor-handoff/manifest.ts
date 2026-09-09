@@ -25,6 +25,10 @@ export function buildEditorHandoffManifest(input: {
     timeline: {
       schema: input.model.timelineSchema,
       fps: input.model.fps,
+      ...(input.model.frameRate ? { frameRate: input.model.frameRate } : {}),
+      ...(input.model.outputRange
+        ? { outputRange: input.model.outputRange }
+        : {}),
       durationMs: input.model.durationMs,
     },
     targets: input.targets,
