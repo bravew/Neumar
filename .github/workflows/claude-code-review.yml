@@ -45,11 +45,15 @@ name: Claude - Diff-Aware PR Reviewer
 #   each run, so the PR conversation keeps only the current review expanded.
 #
 # COMPLETION GUARD
-# - Claude must write the summary to review.md AND end the posted comment with the
-#   <!-- claude-review-complete --> marker.
-# - The guard checks the PR itself, not the runner's disk: it looks for this run's claude[bot]
-#   comment carrying that marker. A local review.md proves only that Claude started writing —
-#   run 34312666877 ended with a summary it never posted.
+# - A run counts as complete only when both are true: review.md ends with the
+#   <!-- claude-review-complete --> marker (Claude finished writing), and this run's claude[bot]
+#   comment contains review.md's longest line (what it wrote reached the PR). Neither alone is
+#   enough — run 34312666877 ended with a summary it never posted.
+# - The marker is checked on the FILE, never on the comment: update_claude_comment strips HTML
+#   comments from the body it posts. Run 34356058557 posted a complete review, byte-identical to
+#   review.md except the stripped marker, and an earlier version of this guard rejected it.
+#   GitHub preserves HTML comments (CodeRabbit's comments keep five) — the sanitizing is the
+#   action's, so the marker lives where it survives and the comment is matched on visible text.
 # - "This run's comment" is identified two independent ways — absent from the pre-run comment
 #   snapshot, or stamped with the run id — so neither an action version that reformats tracking
 #   comments nor a missing snapshot can make the guard fail closed on every run.
@@ -487,7 +491,9 @@ jobs:
                  - 🔒 Security: Tauri capabilities, credential exposure, injection risks (or "No issues")
                  - 🌐 i18n: Missing translations in any locale (or "All locales updated")
                - **Coverage**: which files you reviewed and which you did not get to
-               - The literal marker `<!-- claude-review-complete -->` as the final line
+               - The literal marker `<!-- claude-review-complete -->` as review.md's final line.
+                 It marks the file as finished. The comment tool strips HTML comments, so it
+                 will not appear in the posted comment — that is expected, do not work around it.
             2. Post that exact content with `mcp__github_comment__update_claude_comment`.
 
             If you only managed a partial review, post it anyway with a `⚠️ Partial review` heading
@@ -558,7 +564,7 @@ jobs:
             --max-turns ${{ env.REVIEW_MAX_TURNS }}
             ${{ env.ENABLE_EXTENDED_THINKING == 'true' && '--thinking=enabled' || '' }}
             --allowedTools Read,Glob,Grep,mcp__github_comment__update_claude_comment,Bash(gh pr view:*),Bash(gh pr checks:*),Bash(cat CLAUDE.md),Write(review.md),Edit(review.md),Write(reports/*),Bash(mkdir -p reports)${{ env.ENABLE_INLINE_COMMENTS == 'true' && ',mcp__github_inline_comment__create_inline_comment' || '' }}
-            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. SINGLE AGENT: subagents and the Task tool are unavailable — never plan parallel passes, work sequentially. DIFF: read pr-files.txt then pr-diff.patch from disk; never run 'gh pr diff' (HTTP 406 on large PRs). COMPLETION: you MUST write review.md and post it via mcp__github_comment__update_claude_comment before your turn budget runs out, ending the body with '<!-- claude-review-complete -->'; a partial review beats no review. DUPLICATES: check existing comments with 'gh pr view' before posting. LOGGING: in src-api/ code, console.* is forbidden — must use createLogger(). WORKSPACE: src-api/ must not use process.cwd() — use getSetting('workDir'). TYPES: import type must be used for type-only imports. I18N: new strings must exist in all 6 locale files (en, zh, es, fr, hi, pt). TAURI: flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references."
+            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. SINGLE AGENT: subagents and the Task tool are unavailable — never plan parallel passes, work sequentially. DIFF: read pr-files.txt then pr-diff.patch from disk; never run 'gh pr diff' (HTTP 406 on large PRs). COMPLETION: you MUST write review.md and post it via mcp__github_comment__update_claude_comment before your turn budget runs out, ending review.md (not the comment) with '<!-- claude-review-complete -->'; a partial review beats no review. DUPLICATES: check existing comments with 'gh pr view' before posting. LOGGING: in src-api/ code, console.* is forbidden — must use createLogger(). WORKSPACE: src-api/ must not use process.cwd() — use getSetting('workDir'). TYPES: import type must be used for type-only imports. I18N: new strings must exist in all 6 locale files (en, zh, es, fr, hi, pt). TAURI: flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references."
 
       - name: Verify the review was posted
         if: ${{ !cancelled() && steps.diff.outcome == 'success' }}
@@ -571,36 +577,55 @@ jobs:
         run: |
           set -euo pipefail
 
-          # The source of truth is what is actually on the PR, not what is on disk. A local
-          # review.md proves only that Claude started writing — the run that prompted this
-          # workflow ended with a summary it never posted.
+          # Completion needs two independent facts, because neither alone is sufficient:
           #
-          # A comment counts as this run's if it did not exist before the run started, or if
-          # it carries the run id. Either signal alone is enough: the snapshot survives a
-          # change to how the action formats tracking comments, and the run id survives a
-          # missing snapshot. Requiring both would make the guard fail closed on every run
-          # if either mechanism drifted.
-          PRE_RUN_IDS=pre-run-claude-comments.txt
-          [ -f "$PRE_RUN_IDS" ] || : > "$PRE_RUN_IDS"
+          #   1. Claude finished writing  — review.md ends with the completion marker.
+          #   2. What it wrote reached the PR — this run's claude[bot] comment carries a
+          #      distinctive line from review.md.
+          #
+          # The marker cannot be checked on the comment: mcp__github_comment__update_claude_comment
+          # strips HTML comments from the body it posts. Run 34356058557 posted a complete review
+          # whose body was byte-identical to review.md except the marker was gone, and the guard
+          # failed a good review. (GitHub itself preserves HTML comments — CodeRabbit's comments
+          # on the same PR keep five. The sanitizing is the action's.) So the marker stays in the
+          # file, where it survives, and the comment is matched on visible content instead.
+          if ! [ -s review.md ] || ! grep -qF '<!-- claude-review-complete -->' review.md; then
+            REVIEW_POSTED=no
+          else
+            # Longest line of review.md, marker excluded: a content fingerprint that does not
+            # depend on any particular heading the prompt happens to ask for today.
+            # Every grep against it needs `--`: the longest line of a review is usually a
+            # markdown bullet, and a pattern starting with "-" is otherwise read as options.
+            FINGERPRINT=$(grep -vF '<!-- claude-review-complete -->' review.md \
+              | awk '{ print length, $0 }' | sort -rn | head -1 | cut -d' ' -f2-)
 
-          gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[] | select(.user.login == "claude[bot]") | "\(.id) \(.body | @base64)"' \
-            > claude-comments.txt || : > claude-comments.txt
+            PRE_RUN_IDS=pre-run-claude-comments.txt
+            [ -f "$PRE_RUN_IDS" ] || : > "$PRE_RUN_IDS"
 
-          REVIEW_POSTED=no
-          while read -r comment_id body_b64; do
-            [ -n "${body_b64:-}" ] || continue
-            body=$(printf '%s' "$body_b64" | base64 -d)
-            # Pre-existing and not stamped with this run id — belongs to an earlier review.
-            if grep -qx "$comment_id" "$PRE_RUN_IDS" \
-               && ! printf '%s' "$body" | grep -qF "$GITHUB_RUN_ID"; then
-              continue
-            fi
-            if printf '%s' "$body" | grep -qF '<!-- claude-review-complete -->'; then
-              REVIEW_POSTED=yes
-              break
-            fi
-          done < claude-comments.txt
+            gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+              --jq '.[] | select(.user.login == "claude[bot]") | "\(.id) \(.body | @base64)"' \
+              > claude-comments.txt || : > claude-comments.txt
+
+            # A comment counts as this run's if it did not exist before the run started, or if
+            # it carries the run id. Either signal alone is enough: the snapshot survives a
+            # change to how the action formats tracking comments, and the run id survives a
+            # missing snapshot. Requiring both would make the guard fail closed on every run
+            # if either mechanism drifted.
+            REVIEW_POSTED=no
+            while read -r comment_id body_b64; do
+              [ -n "${body_b64:-}" ] || continue
+              body=$(printf '%s' "$body_b64" | base64 -d)
+              # Pre-existing and not stamped with this run id — belongs to an earlier review.
+              if grep -qx -- "$comment_id" "$PRE_RUN_IDS" \
+                 && ! printf '%s' "$body" | grep -qF -- "$GITHUB_RUN_ID"; then
+                continue
+              fi
+              if [ -n "$FINGERPRINT" ] && printf '%s' "$body" | grep -qF -- "$FINGERPRINT"; then
+                REVIEW_POSTED=yes
+                break
+              fi
+            done < claude-comments.txt
+          fi
 
           if [ "$REVIEW_POSTED" = yes ]; then
             echo "Review posted and marked complete."
