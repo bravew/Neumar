@@ -393,7 +393,7 @@ function audioClipFromEdl(
   fps: number,
 ): RemotionRenderAudioClip[] {
   const asset = assetForSourceRef(project, clip.sourceRef);
-  if (!assetCanProvideAudio(asset) || !asset) return [];
+  if (!asset || !assetCanProvideAudio(asset)) return [];
 
   const sourcePath = resolveProjectAssetPath(asset, root);
   const sourceStartFrame = msToFrame(clip.sourceStartMs, fps);
