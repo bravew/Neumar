@@ -47,8 +47,11 @@ name: Claude - Diff-Aware PR Reviewer
 # COMPLETION GUARD
 # - A run counts as complete only when both are true: review.md ends with the
 #   <!-- claude-review-complete --> marker (Claude finished writing), and this run's claude[bot]
-#   comment contains review.md's longest line (what it wrote reached the PR). Neither alone is
-#   enough — run 34312666877 ended with a summary it never posted.
+#   comment carries the mandatory "Layer Summary" heading (a review, not a progress checklist,
+#   reached the PR). Neither alone is enough — run 34312666877 ended with a summary it never posted.
+# - Match the heading, not the text: the comment is Claude retyping review.md, not copying it.
+#   Run 34360047300 reworded the title on the way out and an exact content match failed a good
+#   review — the second false failure in three runs, which is how a guard stops being believed.
 # - The marker is checked on the FILE, never on the comment: update_claude_comment strips HTML
 #   comments from the body it posts. Run 34356058557 posted a complete review, byte-identical to
 #   review.md except the stripped marker, and an earlier version of this guard rejected it.
@@ -620,16 +623,21 @@ jobs:
           # failed a good review. (GitHub itself preserves HTML comments — CodeRabbit's comments
           # on the same PR keep five. The sanitizing is the action's.) So the marker stays in the
           # file, where it survives, and the comment is matched on visible content instead.
+          #
+          # That content match must not assume the comment is a copy of review.md. Run 34360047300
+          # posted a complete review that had been lightly reworded on the way out — the title
+          # demoted from "# " to "### ", the Assessment heading folded in — and an exact match on
+          # review.md's longest line failed a second good review. Two false failures and no true
+          # catch is worse than no guard, because red stops being read.
+          #
+          # So match the one thing the prompt makes mandatory and the model has never dropped: the
+          # Layer Summary heading. A progress checklist never has one, which is the case this guard
+          # exists to catch. If that section is ever renamed in the prompt, rename it here too.
           if ! [ -s review.md ] || ! grep -qF '<!-- claude-review-complete -->' review.md; then
             REVIEW_POSTED=no
           else
             # Longest line of review.md, marker excluded: a content fingerprint that does not
             # depend on any particular heading the prompt happens to ask for today.
-            # Every grep against it needs `--`: the longest line of a review is usually a
-            # markdown bullet, and a pattern starting with "-" is otherwise read as options.
-            FINGERPRINT=$(grep -vF '<!-- claude-review-complete -->' review.md \
-              | awk '{ print length, $0 }' | sort -rn | head -1 | cut -d' ' -f2-)
-
             PRE_RUN_IDS=pre-run-claude-comments.txt
             [ -f "$PRE_RUN_IDS" ] || : > "$PRE_RUN_IDS"
 
@@ -651,7 +659,7 @@ jobs:
                  && ! printf '%s' "$body" | grep -qF -- "$GITHUB_RUN_ID"; then
                 continue
               fi
-              if [ -n "$FINGERPRINT" ] && printf '%s' "$body" | grep -qF -- "$FINGERPRINT"; then
+              if printf '%s' "$body" | grep -qiF -- 'Layer Summary'; then
                 REVIEW_POSTED=yes
                 break
               fi
