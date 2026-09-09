@@ -2224,7 +2224,7 @@ function collectProjectAudioTracks(
     for (const clip of track.clips) {
       if (clip.muted) continue;
       const asset = assetForSourceRef(project, clip.sourceRef);
-      if (!assetCanProvideAudio(asset)) continue;
+      if (!asset || !assetCanProvideAudio(asset)) continue;
       tracks.push(audioTrackClipFromEdl(track, clip, asset, root));
     }
   }
@@ -2256,7 +2256,7 @@ export function collectSoundtrackAudioTracks(
   const resolveAudioPath = (assetId?: string): string | undefined => {
     if (!assetId) return undefined;
     const asset = project.assets.find((item) => item.id === assetId);
-    if (!assetCanProvideAudio(asset)) return undefined;
+    if (!asset || !assetCanProvideAudio(asset)) return undefined;
     // Skip non-fatally when the backing file is gone (purged upload, path
     // mismatch) or fails path validation — a missing soundtrack asset must not
     // abort the whole render. validateInputFile throws in both cases.
