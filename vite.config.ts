@@ -87,7 +87,9 @@ export default defineConfig(async () => ({
         ],
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // The React/Radix vendor chunk is currently about 4.42 MiB. Keep it
+        // precached while retaining a finite guard against accidental large assets.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
