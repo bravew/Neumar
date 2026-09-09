@@ -107,6 +107,10 @@ env:
   # Space-separated git pathspecs excluded from the reviewed diff. Prose and generated
   # lockfiles crowd out code without carrying review-worthy findings.
   REVIEW_EXCLUDE_PATHS: ${{ vars.REVIEW_EXCLUDE_PATHS || ':(exclude)dev-doc/** :(exclude)**/*.md :(exclude)pnpm-lock.yaml :(exclude)package-lock.json :(exclude)yarn.lock :(exclude)**/*.snap' }}
+  # The heading that marks a posted comment as a finished review rather than a progress
+  # checklist. The prompt mandates it and the completion guard looks for it, so it is defined
+  # once here — if it drifts in one place the review silently stops being verifiable.
+  REVIEW_REQUIRED_SECTION: ${{ vars.REVIEW_REQUIRED_SECTION || 'Layer Summary' }}
   # Turn budget for the review session. Without an explicit cap a large PR can exhaust the
   # default budget mid-analysis and end "successfully" without ever posting a summary.
   # This is a runtime backstop only — it is deliberately NOT told to the model. Run 34356058557
@@ -515,7 +519,7 @@ jobs:
             1. Finalize `review.md` so it contains:
                - Assessment: ✅ Approve / ⚠️ Request Changes / 💬 Comment
                - Issues: bulleted list grouped by severity (Critical → Warning → Info) with file:line references
-               - **Layer Summary** (always include, even if every line says "No issues"):
+               - **${{ env.REVIEW_REQUIRED_SECTION }}** (always include verbatim, even if every line says "No issues"):
                  - 🖥️ Frontend: React/TypeScript issues found (or "No issues")
                  - ⚙️ Backend: Hono/Agent/Streaming issues found (or "No issues")
                  - 🔒 Security: Tauri capabilities, credential exposure, injection risks (or "No issues")
@@ -588,7 +592,9 @@ jobs:
             - Use collapsible sections for technical depth
             - **NEVER use `gh pr comment` or `gh pr diff`** — the summary goes through
               `mcp__github_comment__update_claude_comment`, and the diff is already on disk
-            - **ALWAYS include a Layer Summary section** in the PR summary comment — even if only to say "No issues"
+            - **ALWAYS include a `${{ env.REVIEW_REQUIRED_SECTION }}` section, spelled exactly that way**, in the
+              posted comment — even if only to say "No issues". It is how the workflow tells a
+              finished review from an abandoned progress checklist.
 
           claude_args: |
             --model ${{ env.CLAUDE_MODEL }}
@@ -605,31 +611,34 @@ jobs:
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           CLAUDE_CONCLUSION: ${{ steps.claude.outputs.conclusion }}
+          REQUIRED_SECTION: ${{ env.REVIEW_REQUIRED_SECTION }}
         run: |
           set -euo pipefail
 
           # Completion needs two independent facts, because neither alone is sufficient:
           #
           #   1. Claude finished writing  — review.md ends with the completion marker.
-          #   2. What it wrote reached the PR — this run's claude[bot] comment carries a
-          #      distinctive line from review.md.
+          #   2. A finished review reached the PR — this run's claude[bot] comment carries the
+          #      required section heading.
           #
-          # The marker cannot be checked on the comment: mcp__github_comment__update_claude_comment
-          # strips HTML comments from the body it posts. Run 34356058557 posted a complete review
-          # whose body was byte-identical to review.md except the marker was gone, and the guard
-          # failed a good review. (GitHub itself preserves HTML comments — CodeRabbit's comments
-          # on the same PR keep five. The sanitizing is the action's.) So the marker stays in the
-          # file, where it survives, and the comment is matched on visible content instead.
+          # Neither fact is checked on the other's artifact, because each is only observable
+          # where it survives:
+          #
+          # The marker is checked on the FILE, never the comment.
+          # mcp__github_comment__update_claude_comment strips HTML comments from the body it
+          # posts. Run 34356058557 posted a complete review, byte-identical to review.md except
+          # the stripped marker, and the guard failed it. (GitHub preserves HTML comments —
+          # CodeRabbit's on the same PR keep five. The sanitizing is the action's.)
+          #
+          # The comment is checked STRUCTURALLY, never by matching review.md's text. Claude
+          # legitimately polishes while posting — run 34360047300 reworded as it went and added
+          # a verification block, leaving only 5 of 18 substantive lines byte-identical, and a
+          # fingerprint-matching guard failed that good review too. The posted comment was the
+          # better of the two. What reliably separates a finished review from an abandoned
+          # progress checklist is the mandated section heading, so that is what is checked.
           if ! [ -s review.md ] || ! grep -qF '<!-- claude-review-complete -->' review.md; then
             REVIEW_POSTED=no
           else
-            # Longest line of review.md, marker excluded: a content fingerprint that does not
-            # depend on any particular heading the prompt happens to ask for today.
-            # Every grep against it needs `--`: the longest line of a review is usually a
-            # markdown bullet, and a pattern starting with "-" is otherwise read as options.
-            FINGERPRINT=$(grep -vF '<!-- claude-review-complete -->' review.md \
-              | awk '{ print length, $0 }' | sort -rn | head -1 | cut -d' ' -f2-)
-
             PRE_RUN_IDS=pre-run-claude-comments.txt
             [ -f "$PRE_RUN_IDS" ] || : > "$PRE_RUN_IDS"
 
@@ -651,7 +660,16 @@ jobs:
                  && ! printf '%s' "$body" | grep -qF -- "$GITHUB_RUN_ID"; then
                 continue
               fi
-              if [ -n "$FINGERPRINT" ] && printf '%s' "$body" | grep -qF -- "$FINGERPRINT"; then
+              # An abandoned run leaves the tracking comment as a progress checklist, which
+              # could still name the required section in a "- [ ] Write Layer Summary" item.
+              # An unchecked box is the thing that actually distinguishes it: run 34312666877's
+              # stalled comment has seven, and every real review posted so far has none.
+              if printf '%s' "$body" | grep -qF -- '- [ ]'; then
+                continue
+              fi
+              # `--` because a heading could begin with a dash; `-i` because markdown
+              # heading case is not worth failing a good review over.
+              if printf '%s' "$body" | grep -qiF -- "$REQUIRED_SECTION"; then
                 REVIEW_POSTED=yes
                 break
               fi
