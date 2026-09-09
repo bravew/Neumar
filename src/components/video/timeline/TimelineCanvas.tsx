@@ -17,6 +17,7 @@ import type { OverlayPresetDragPayload } from '../overlays/overlayDragPayload';
 import type { ProjectAssetDragPayload } from '../projectAssetDrag';
 import { BeatGridOverlay } from './BeatGridOverlay';
 import {
+  msToTimelineFrame,
   outputRangePixels,
   setOutputIn,
   setOutputOut,
@@ -246,6 +247,10 @@ export function TimelineCanvas({
           onUpdateMarker={editor.updateMarker}
           onDeleteMarker={editor.deleteMarker}
           outputRange={editor.timeline?.outputRange ?? null}
+          outputRangeMaxFrame={Math.max(
+            1,
+            msToTimelineFrame(timelineDurationMs, rate),
+          )}
           outputRangeInMs={rangePixels?.inMs}
           outputRangeOutMs={rangePixels?.outMs}
           outputRangeLabels={labels.outputRange}

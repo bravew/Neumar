@@ -14,6 +14,7 @@ export interface TimelineOutputRangeLabels {
 
 interface TimelineOutputRangeOverlayProps {
   range: VideoTimelineOutputRange;
+  maxFrame: number;
   inMs: number;
   outMs: number;
   durationMs: number;
@@ -32,6 +33,7 @@ interface TimelineOutputRangeOverlayProps {
  */
 export function TimelineOutputRangeOverlay({
   range,
+  maxFrame,
   inMs,
   outMs,
   durationMs,
@@ -69,6 +71,7 @@ export function TimelineOutputRangeOverlay({
         left={headerWidth + inX}
         headerWidth={headerWidth}
         frame={range.inFrame}
+        maxFrame={maxFrame}
         edge="in"
         pixelsPerSecond={pixelsPerSecond}
         onMove={onMoveIn}
@@ -79,6 +82,7 @@ export function TimelineOutputRangeOverlay({
         left={headerWidth + outX}
         headerWidth={headerWidth}
         frame={range.outFrameExclusive}
+        maxFrame={maxFrame}
         edge="out"
         pixelsPerSecond={pixelsPerSecond}
         onMove={onMoveOut}
@@ -93,6 +97,7 @@ function RangeHandle({
   left,
   headerWidth,
   frame,
+  maxFrame,
   edge,
   pixelsPerSecond,
   onMove,
@@ -102,6 +107,7 @@ function RangeHandle({
   left: number;
   headerWidth: number;
   frame: number;
+  maxFrame: number;
   edge: 'in' | 'out';
   pixelsPerSecond: number;
   onMove: (ms: number) => void;
@@ -124,6 +130,7 @@ function RangeHandle({
       aria-valuenow={frame}
       role="slider"
       aria-valuemin={0}
+      aria-valuemax={maxFrame}
       className={cn(
         'border-primary bg-primary absolute top-0 z-[80] h-4 w-2 border',
         edge === 'in' ? 'rounded-r-sm' : '-translate-x-full rounded-l-sm',

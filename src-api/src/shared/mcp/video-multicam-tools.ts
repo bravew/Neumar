@@ -11,7 +11,7 @@ import {
   type ReviewAction,
 } from '@/shared/video/multicam/review';
 import {
-  listMulticamGroups,
+  hasMulticamGroups,
   loadActivityMap,
   loadManifest,
   loadReview,
@@ -19,6 +19,9 @@ import {
   loadSyncMap,
   saveReview,
 } from '@/shared/video/multicam/store';
+import { withProjectLock } from '@/shared/video/project-lock';
+import { getProject, updateProjectDocument } from '@/shared/video/store';
+import { applyProjectTimelineOps } from '@/shared/video/timeline-ops';
 
 /**
  * The nine multicamera agent tools.
@@ -69,13 +72,12 @@ function unavailable(
  * Mirrors how the host gates its own multicamera surface: the tools appear once
  * a camera group exists, and not before.
  */
-export async function shouldRegisterMulticamTools(
+export function shouldRegisterMulticamTools(
   projectId: string | undefined,
-): Promise<boolean> {
+): boolean {
   if (!projectId) return false;
   if (!getVideoFeatureFlag('video.multicam')) return false;
-  const groups = await listMulticamGroups(projectId);
-  return groups.length > 0;
+  return hasMulticamGroups(projectId);
 }
 
 function guard(): MulticamUnavailable | null {
@@ -305,34 +307,68 @@ export async function multicamApplyReviewedPlan(
 ) {
   const blocked = guard();
   if (blocked) return blocked;
-  const [manifest, sync, reviewEnvelope] = await Promise.all([
-    loadManifest(projectId, groupId),
-    loadSyncMap(projectId, groupId),
-    loadReview(projectId, groupId),
-  ]);
-  if (!manifest || !sync || !reviewEnvelope) {
-    return unavailable('no-analysis', `No reviewed plan for "${groupId}"`);
-  }
+  return withProjectLock(projectId, async () => {
+    const [manifest, sync, reviewEnvelope] = await Promise.all([
+      loadManifest(projectId, groupId),
+      loadSyncMap(projectId, groupId),
+      loadReview(projectId, groupId),
+    ]);
+    if (!manifest || !sync || !reviewEnvelope) {
+      return unavailable('no-analysis', `No reviewed plan for "${groupId}"`);
+    }
 
-  const review = reviewEnvelope.data;
-  const previous = alreadyApplied(review);
-  if (previous) {
-    // The plan's requirement: a repeat request returns the prior result rather
-    // than a second set of clips.
-    return {
-      available: true as const,
-      repeated: true,
-      ...previous,
+    const review = reviewEnvelope.data;
+    const previous = alreadyApplied(review);
+    if (previous) {
+      return {
+        available: true as const,
+        repeated: true,
+        ...previous,
+      };
+    }
+
+    const result = buildApplyBatch({
+      manifest,
+      review,
+      syncMap: sync.data,
+      trackId,
+    });
+    const project = await getProject(projectId);
+    const existingClipIds = new Set(
+      (project.timeline?.tracks ?? []).flatMap((track) =>
+        track.clips
+          .filter((clip) => clip.params?.multicamPlanBatchId === result.batchId)
+          .map((clip) => clip.id),
+      ),
+    );
+    const recovered =
+      result.clipIds.length > 0 &&
+      result.clipIds.every((clipId) => existingClipIds.has(clipId));
+    const applied = {
+      batchId: result.batchId,
+      reviewRevision: review.revision,
+      appliedAt: new Date().toISOString(),
+      clipIds: result.clipIds,
     };
-  }
 
-  const result = buildApplyBatch({
-    manifest,
-    review,
-    syncMap: sync.data,
-    trackId,
+    if (!recovered && result.batch.ops.length > 0) {
+      await updateProjectDocument(
+        projectId,
+        (current) =>
+          applyProjectTimelineOps(current, {
+            ops: result.batch.ops,
+            source: 'agent',
+            summary: result.summary,
+            journalId: result.batchId,
+          }).project,
+      );
+    }
+    await saveReview(projectId, { ...review, applied });
+
+    return recovered
+      ? { available: true as const, repeated: true, ...applied }
+      : { available: true as const, repeated: false, ...result };
   });
-  return { available: true as const, repeated: false, ...result };
 }
 
 export const multicamToolSchemas = {

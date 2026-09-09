@@ -33,6 +33,7 @@ interface TimelineRulerProps {
   ) => void;
   onDeleteMarker: (markerId: string) => void;
   outputRange?: VideoTimelineOutputRange | null;
+  outputRangeMaxFrame?: number;
   outputRangeInMs?: number;
   outputRangeOutMs?: number;
   outputRangeLabels?: TimelineOutputRangeLabels;
@@ -54,6 +55,7 @@ export function TimelineRuler({
   onUpdateMarker,
   onDeleteMarker,
   outputRange,
+  outputRangeMaxFrame,
   outputRangeInMs,
   outputRangeOutMs,
   outputRangeLabels,
@@ -132,6 +134,7 @@ export function TimelineRuler({
       outputRangeOutMs !== undefined ? (
         <TimelineOutputRangeOverlay
           range={outputRange}
+          maxFrame={outputRangeMaxFrame ?? outputRange.outFrameExclusive}
           inMs={outputRangeInMs}
           outMs={outputRangeOutMs}
           durationMs={durationMs}

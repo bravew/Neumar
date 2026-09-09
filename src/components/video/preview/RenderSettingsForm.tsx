@@ -9,6 +9,7 @@ import type {
   VideoRenderProviderView,
 } from '@/shared/types/video';
 
+import { timelineFrameRate } from '../timeline/outputRange';
 import { TimebaseSetting } from './TimebaseSetting';
 
 export interface RenderSettingsState {
@@ -77,7 +78,9 @@ export function RenderSettingsForm({
           }
           onToggleLocked={(locked) =>
             onSetTimebase(
-              timebase ? formatPresetId(timebase.rate) : '30',
+              timebase
+                ? formatPresetId(timebase.rate)
+                : formatFrameRate(timelineFrameRate(project.timeline)),
               locked,
             )
           }

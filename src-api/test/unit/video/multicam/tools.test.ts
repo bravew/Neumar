@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVideoToolCapabilityMetadata } from '@/extensions/agent/video/permissions';
 
 import { closeDatabase } from '@/shared/db';
+import { createVideoEditTools } from '@/shared/mcp/video-edit-server';
 import {
   MULTICAM_TOOL_NAMES,
   multicamApplyReviewedPlan,
@@ -22,13 +23,14 @@ import { parseMulticamManifest } from '@/shared/video/multicam/manifest';
 import { startReview } from '@/shared/video/multicam/review';
 import { buildShotPlan } from '@/shared/video/multicam/shot-plan';
 import {
+  loadReview,
   saveManifest,
   saveReview,
   saveShotPlan,
   saveSyncMap,
 } from '@/shared/video/multicam/store';
 import { buildSyncMap } from '@/shared/video/multicam/sync';
-import { writeProject } from '@/shared/video/store';
+import { getProject, writeProject } from '@/shared/video/store';
 import type { VideoProject } from '@/shared/video/types';
 
 let workDir: string;
@@ -141,6 +143,11 @@ describe('multicam tool registration', () => {
     await seed();
 
     expect(await shouldRegisterMulticamTools('project-1')).toBe(true);
+    expect(
+      createVideoEditTools({ projectId: 'project-1' })
+        .map((definition) => definition.name)
+        .filter((name) => name.startsWith('video_multicam_')),
+    ).toEqual(MULTICAM_TOOL_NAMES);
   });
 
   it('withholds the domain when the feature is off', async () => {
@@ -248,7 +255,7 @@ describe('multicam tool handlers', () => {
     });
   });
 
-  it('builds a fresh batch when nothing has been applied', async () => {
+  it('applies a fresh batch once and persists the review marker', async () => {
     const { plan } = await seed();
     await saveReview('project-1', {
       ...startReview(plan),
@@ -268,6 +275,37 @@ describe('multicam tool handlers', () => {
     expect(result).toMatchObject({ available: true, repeated: false });
     if (!result.available || result.repeated) return;
     expect(result.batch.ops.length).toBeGreaterThan(0);
+
+    const appliedProject = await getProject('project-1');
+    const appliedClips = appliedProject.timeline?.tracks.flatMap(
+      (track) => track.clips,
+    );
+    expect(appliedClips?.map((clip) => clip.id)).toEqual(result.clipIds);
+    expect(appliedProject.history?.entries.at(-1)?.id).toBe(result.batchId);
+    expect(
+      (await loadReview('project-1', 'group-1'))?.data.applied,
+    ).toMatchObject({
+      batchId: result.batchId,
+      reviewRevision: 1,
+      clipIds: result.clipIds,
+    });
+
+    const repeated = await multicamApplyReviewedPlan(
+      'project-1',
+      'group-1',
+      'track-multicam',
+    );
+    expect(repeated).toMatchObject({
+      available: true,
+      repeated: true,
+      batchId: result.batchId,
+      clipIds: result.clipIds,
+    });
+    expect(
+      (await getProject('project-1')).timeline?.tracks.flatMap(
+        (track) => track.clips,
+      ),
+    ).toHaveLength(result.clipIds.length);
   });
 });
 
@@ -283,7 +321,18 @@ function projectFixture(): VideoProject {
       schema: 'neuma.video.timeline.v1',
       durationMs: 10_000,
       fps: 30,
-      tracks: [],
+      tracks: [
+        {
+          id: 'track-multicam',
+          kind: 'video',
+          name: 'Multicam',
+          muted: false,
+          locked: false,
+          hidden: false,
+          order: 0,
+          clips: [],
+        },
+      ],
     },
     render: { status: 'idle' },
     budget: { capUsd: 5, spentUsd: 0 },

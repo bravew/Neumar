@@ -37,6 +37,19 @@ import type {
 } from '@neumar/video-ir';
 import { z } from 'zod';
 
+import {
+  multicamAnnotateRange,
+  multicamApplyReviewedPlan,
+  multicamGetActivity,
+  multicamGetEditSummary,
+  multicamGetManifest,
+  multicamGetTranscript,
+  multicamOverrideCut,
+  multicamPreviewFrame,
+  multicamSetPolicy,
+  multicamToolSchemas,
+  shouldRegisterMulticamTools,
+} from '@/shared/mcp/video-multicam-tools';
 import { validatePath } from '@/shared/services/ffmpeg';
 import { getSessionContext } from '@/shared/services/session-context';
 import { createLogger } from '@/shared/utils/logger';
@@ -2474,7 +2487,7 @@ function withVideoRefResolution<
 }
 
 function buildVideoEditTools(options: VideoEditServerOptions) {
-  return [
+  const tools = [
     tool(
       'video_get_plan',
       'Read the canonical durable Video agent plan and report whether agent/plan.md has drifted.',
@@ -3858,6 +3871,167 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
       },
     ),
     ...createVideoEditMutationTools(options),
+  ];
+  return shouldRegisterMulticamTools(activeContext(options).projectId)
+    ? [...tools, ...buildMulticamTools(options)]
+    : tools;
+}
+
+function buildMulticamTools(options: VideoEditServerOptions) {
+  const projectAndGroup = {
+    projectId: PROJECT_ID_SCHEMA,
+    groupId: multicamToolSchemas.groupId,
+  };
+  return [
+    tool(
+      'video_multicam_get_manifest',
+      'Read a multicamera group manifest, readiness, and camera sync offsets.',
+      projectAndGroup,
+      ({ projectId, groupId }) =>
+        serviceResult(
+          multicamGetManifest(resolveProjectId(projectId, options), groupId),
+        ),
+    ),
+    tool(
+      'video_multicam_get_activity',
+      'Read participant activity for a multicamera group, optionally limited to a time range.',
+      { ...projectAndGroup, range: multicamToolSchemas.range },
+      ({ projectId, groupId, range }) =>
+        serviceResult(
+          multicamGetActivity(
+            resolveProjectId(projectId, options),
+            groupId,
+            range,
+          ),
+        ),
+    ),
+    tool(
+      'video_multicam_get_transcript',
+      'Read participant-scoped transcript data for a multicamera group when available.',
+      projectAndGroup,
+      ({ projectId, groupId }) =>
+        serviceResult(
+          multicamGetTranscript(resolveProjectId(projectId, options), groupId),
+        ),
+    ),
+    tool(
+      'video_multicam_set_policy',
+      'Request a new multicamera editing policy before re-running shot planning.',
+      {
+        ...projectAndGroup,
+        policy: z.record(z.string(), z.unknown()),
+      },
+      async ({ projectId, groupId, policy }) => {
+        const proposal = await proposalOnlyServiceMutationResult(
+          projectId,
+          options,
+          'video_multicam_set_policy',
+        );
+        if (proposal) return proposal;
+        return serviceResult(
+          multicamSetPolicy(
+            resolveProjectId(projectId, options),
+            groupId,
+            policy,
+          ),
+        );
+      },
+    ),
+    tool(
+      'video_multicam_annotate_range',
+      'Attach a reviewer note to a planned multicamera shot.',
+      {
+        ...projectAndGroup,
+        shotId: multicamToolSchemas.shotId,
+        note: multicamToolSchemas.note,
+      },
+      async ({ projectId, groupId, shotId, note }) => {
+        const proposal = await proposalOnlyServiceMutationResult(
+          projectId,
+          options,
+          'video_multicam_annotate_range',
+        );
+        if (proposal) return proposal;
+        return serviceResult(
+          multicamAnnotateRange(
+            resolveProjectId(projectId, options),
+            groupId,
+            shotId,
+            note,
+          ),
+        );
+      },
+    ),
+    tool(
+      'video_multicam_get_edit_summary',
+      'Read the multicamera shot plan and its current review status.',
+      projectAndGroup,
+      ({ projectId, groupId }) =>
+        serviceResult(
+          multicamGetEditSummary(resolveProjectId(projectId, options), groupId),
+        ),
+    ),
+    tool(
+      'video_multicam_override_cut',
+      'Choose a different camera for a planned shot and accept that shot.',
+      {
+        ...projectAndGroup,
+        shotId: multicamToolSchemas.shotId,
+        cameraId: z.string().min(1).max(64),
+      },
+      async ({ projectId, groupId, shotId, cameraId }) => {
+        const proposal = await proposalOnlyServiceMutationResult(
+          projectId,
+          options,
+          'video_multicam_override_cut',
+        );
+        if (proposal) return proposal;
+        return serviceResult(
+          multicamOverrideCut(
+            resolveProjectId(projectId, options),
+            groupId,
+            shotId,
+            cameraId,
+          ),
+        );
+      },
+    ),
+    tool(
+      'video_multicam_preview_frame',
+      'Resolve one reference-timeline instant onto every synchronized camera angle.',
+      {
+        ...projectAndGroup,
+        atReferenceMs: multicamToolSchemas.atReferenceMs,
+      },
+      ({ projectId, groupId, atReferenceMs }) =>
+        serviceResult(
+          multicamPreviewFrame(
+            resolveProjectId(projectId, options),
+            groupId,
+            atReferenceMs,
+          ),
+        ),
+    ),
+    tool(
+      'video_multicam_apply_reviewed_plan',
+      'Apply all accepted multicamera shots to one timeline track as a single undoable batch.',
+      { ...projectAndGroup, trackId: multicamToolSchemas.trackId },
+      async ({ projectId, groupId, trackId }) => {
+        const proposal = await proposalOnlyServiceMutationResult(
+          projectId,
+          options,
+          'video_multicam_apply_reviewed_plan',
+        );
+        if (proposal) return proposal;
+        return serviceResult(
+          multicamApplyReviewedPlan(
+            resolveProjectId(projectId, options),
+            groupId,
+            trackId,
+          ),
+        );
+      },
+    ),
   ];
 }
 

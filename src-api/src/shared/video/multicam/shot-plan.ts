@@ -95,7 +95,7 @@ export function buildShotPlan(input: BuildShotPlanInput): ShotPlan {
 
   const merged = mergeAdjacent(segments);
   const withoutJumpCuts = policy.forbidJumpCuts
-    ? avoidJumpCuts(merged, closeByParticipant)
+    ? avoidJumpCuts(merged)
     : merged;
   const shots = enforceShotLengths(withoutJumpCuts, policy);
 
@@ -227,11 +227,7 @@ function mergeAdjacent(shots: PlannedShot[]): PlannedShot[] {
  * subject barely moves and the edit reads as a glitch. Hold the previous angle
  * instead.
  */
-function avoidJumpCuts(
-  shots: PlannedShot[],
-  closeByParticipant: Map<string, { id: string }>,
-): PlannedShot[] {
-  void closeByParticipant;
+function avoidJumpCuts(shots: PlannedShot[]): PlannedShot[] {
   const result: PlannedShot[] = [];
   for (const shot of shots) {
     const previous = result.at(-1);

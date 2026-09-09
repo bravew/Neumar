@@ -170,6 +170,27 @@ describe('Timeline', () => {
 
     expect(screen.getByTestId('timeline-marker-editor')).toBeInTheDocument();
   });
+
+  it('exposes the timeline end as the output-range slider maximum', () => {
+    const project = projectFixture();
+    project.timeline = {
+      ...project.timeline!,
+      outputRange: { inFrame: 30, outFrameExclusive: 300 },
+    };
+
+    renderWithProviders(
+      <Timeline project={project} onTimelineChange={vi.fn()} />,
+    );
+
+    expect(screen.getByTestId('timeline-output-range-in')).toHaveAttribute(
+      'aria-valuemax',
+      '5400',
+    );
+    expect(screen.getByTestId('timeline-output-range-out')).toHaveAttribute(
+      'aria-valuemax',
+      '5400',
+    );
+  });
 });
 
 function projectFixture(): VideoProject {

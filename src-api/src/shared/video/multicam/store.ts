@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readdirSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -195,6 +196,17 @@ export async function listMulticamGroups(projectId: string): Promise<string[]> {
       .sort();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+export function hasMulticamGroups(projectId: string): boolean {
+  try {
+    return readdirSync(path.join(getVideoProjectDir(projectId), 'multicam'), {
+      withFileTypes: true,
+    }).some((entry) => entry.isDirectory());
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
     throw error;
   }
 }
