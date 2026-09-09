@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+## [26.9.9] - 2026-09-09
+
+### Added
+
+- **video**: expand Video Mode with durable planning and external-footage export.
+- **mcp**: accept inbound MCP connections from Codex and Claude Code.
+
+### Fixed
+
+- **video**: validate audio assets before use to keep video workflows reliable.
+
 ## [26.8.27] - 2026-08-27
 
 Maintenance release.
