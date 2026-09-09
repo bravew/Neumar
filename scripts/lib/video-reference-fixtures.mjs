@@ -12,6 +12,7 @@ export const VIDEO_REFERENCE_FIXTURES = [
   'offline-media',
   'stale-revision',
   'timebase-range',
+  'multicam-analysis',
 ];
 
 function baseProject(id, name, durationMs) {
@@ -543,6 +544,111 @@ function timebaseRangeFixture() {
   };
 }
 
+// A deterministic two-person, three-camera session. Speech is expressed as
+// windows rather than audio so the fixture stays byte-stable and the planner's
+// determinism is testable without shipping media.
+function multicamAnalysisFixture() {
+  const project = baseProject(
+    'video-multicam-v1',
+    'Video multicam analysis v1',
+    30_000,
+  );
+  project.assets = [
+    cameraAsset('mc-wide', 30_000),
+    cameraAsset('mc-ana', 30_000),
+    cameraAsset('mc-ben', 30_000),
+    { ...cameraAsset('mc-ana-mic', 30_000), kind: 'audio' },
+    { ...cameraAsset('mc-ben-mic', 30_000), kind: 'audio' },
+  ];
+  const manifest = {
+    schema: 'neuma.video.multicam-manifest.v1',
+    id: 'session-1',
+    label: 'Two-person panel',
+    referenceCameraId: 'cam-wide',
+    participants: [
+      { id: 'p-ana', name: 'Ana' },
+      { id: 'p-ben', name: 'Ben' },
+    ],
+    cameras: [
+      { id: 'cam-wide', label: 'Wide', type: 'wide', assetId: 'mc-wide' },
+      {
+        id: 'cam-ana',
+        label: 'Ana close',
+        type: 'close',
+        assetId: 'mc-ana',
+        participantId: 'p-ana',
+        isolatedAudioAssetId: 'mc-ana-mic',
+        offsetMs: 200,
+      },
+      {
+        id: 'cam-ben',
+        label: 'Ben close',
+        type: 'close',
+        assetId: 'mc-ben',
+        participantId: 'p-ben',
+        isolatedAudioAssetId: 'mc-ben-mic',
+        offsetMs: -120,
+      },
+    ],
+    policy: {
+      minShotMs: 1000,
+      maxShotMs: 12_000,
+      cutLeadMs: 0,
+      minSpeechMs: 600,
+      silenceFallbackMs: 1500,
+      overlapPolicy: 'wide',
+      forbidJumpCuts: true,
+    },
+    syncMode: 'manual',
+  };
+
+  // Ana 2-8s, Ben 10-16s, both 18-20s (overlap), silence elsewhere. Ben's mic
+  // hears 30% of Ana, which is what the bleed calibration has to remove.
+  const windowMs = 200;
+  const frames = [];
+  for (
+    let atReferenceMs = 0;
+    atReferenceMs < 30_000;
+    atReferenceMs += windowMs
+  ) {
+    const anaSpeaks =
+      (atReferenceMs >= 2000 && atReferenceMs < 8000) ||
+      (atReferenceMs >= 18_000 && atReferenceMs < 20_000);
+    const benSpeaks =
+      (atReferenceMs >= 10_000 && atReferenceMs < 16_000) ||
+      (atReferenceMs >= 18_000 && atReferenceMs < 20_000);
+    frames.push({
+      atReferenceMs,
+      ana: anaSpeaks ? 0.9 : 0.05,
+      ben: benSpeaks ? 0.9 : anaSpeaks ? 0.27 : 0.05,
+    });
+  }
+
+  return {
+    kind: 'multicam-analysis',
+    project,
+    manifest,
+    activity: { windowMs, frames },
+    expected: {
+      syncOffsetFrames: { 'cam-wide': 0, 'cam-ana': 6, 'cam-ben': -4 },
+      bleed: { 'p-ben': { 'p-ana': 0.3 } },
+      // Wide, Ana, wide, Ben, wide, both (wide), wide.
+      shotCameraIds: ['cam-wide', 'cam-ana', 'cam-wide', 'cam-ben', 'cam-wide'],
+      offsetToleranceFrames: 1,
+    },
+  };
+}
+
+function cameraAsset(id, durationMs) {
+  return {
+    id,
+    kind: 'video',
+    source: 'user',
+    path: `fixtures/${id}.mp4`,
+    metadata: { durationMs, width: 1920, height: 1080, frameRate: 30 },
+  };
+}
+
 export function buildVideoReferenceFixture(name, options = {}) {
   switch (name) {
     case 'parity':
@@ -560,6 +666,8 @@ export function buildVideoReferenceFixture(name, options = {}) {
       return staleRevisionFixture();
     case 'timebase-range':
       return timebaseRangeFixture();
+    case 'multicam-analysis':
+      return multicamAnalysisFixture();
     default:
       throw new Error(`Unknown video reference fixture: ${name}`);
   }

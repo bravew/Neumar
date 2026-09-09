@@ -118,7 +118,9 @@ function environment() {
 
 function assertFixture(name, fixture) {
   const timeline =
-    name === 'stale-revision' || name === 'timebase-range'
+    name === 'stale-revision' ||
+    name === 'timebase-range' ||
+    name === 'multicam-analysis'
       ? fixture.project.timeline
       : fixture.timeline;
   const clips = timeline.tracks.flatMap((track) => track.clips);
@@ -390,6 +392,30 @@ function runTimebaseRange(outputDir, fixture) {
   return JSON.parse(marker.slice('VIDEO_ACCEPTANCE_RESULT='.length));
 }
 
+// Runs the shipped multicamera analysis chain through tsx.
+function runMulticamAnalysis(outputDir, fixture) {
+  fs.mkdirSync(outputDir, { recursive: true });
+  const fixturePath = path.join(outputDir, 'fixture.json');
+  fs.writeFileSync(fixturePath, stableJson(fixture));
+  const result = run('pnpm', [
+    'exec',
+    'tsx',
+    '--tsconfig',
+    'src-api/tsconfig.json',
+    'src-api/test/acceptance/video-multicam-acceptance.ts',
+    `--fixture=${fixturePath}`,
+  ]);
+  const marker = result.stdout
+    .split('\n')
+    .find((line) => line.startsWith('VIDEO_ACCEPTANCE_RESULT='));
+  if (!marker) {
+    throw new Error(
+      `Multicam runner returned no result marker\n${result.stderr.slice(-2000)}`,
+    );
+  }
+  return JSON.parse(marker.slice('VIDEO_ACCEPTANCE_RESULT='.length));
+}
+
 function comparisonFor(fixture, render, label) {
   if (!label || !render) return undefined;
   const reportName =
@@ -605,6 +631,78 @@ function main() {
       ),
     );
     render = { timebaseRange: observed };
+  }
+  if (args.fixture === 'multicam-analysis') {
+    const observed = runMulticamAnalysis(
+      path.join(outputDir, 'multicam'),
+      fixture,
+    );
+    const expected = fixture.expected;
+    const offsetsWithinTolerance = Object.entries(
+      expected.syncOffsetFrames,
+    ).every(
+      ([cameraId, frames]) =>
+        Math.abs((observed.syncOffsetFrames[cameraId] ?? 0) - frames) <=
+        expected.offsetToleranceFrames,
+    );
+    checks.push(
+      check('automatic-mode-ready', observed.readiness.automaticReady),
+      check(
+        'offset-error-within-one-frame',
+        offsetsWithinTolerance,
+        JSON.stringify(observed.syncOffsetFrames),
+      ),
+      check(
+        'reference-camera-is-zero',
+        observed.syncOffsetMs['cam-wide'] === 0,
+      ),
+      check(
+        'bleed-measured',
+        Math.abs(
+          (observed.bleed['p-ben']?.['p-ana'] ?? 0) -
+            expected.bleed['p-ben']['p-ana'],
+        ) < 0.05,
+        String(observed.bleed['p-ben']?.['p-ana']),
+      ),
+      check(
+        'bleed-correction-applied-above-threshold',
+        observed.bleedCorrectionApplied,
+        `confidence ${observed.bleedConfidence}`,
+      ),
+      check('raw-probabilities-preserved', observed.rawPreserved),
+      check(
+        'silence-falls-back-to-wide',
+        observed.shots[0]?.cameraId === 'cam-wide' &&
+          observed.shots[0]?.reason === 'silence',
+      ),
+      check(
+        'overlap-follows-policy',
+        observed.shots.some((shot) => shot.reason === 'overlap-wide'),
+      ),
+      check(
+        'shot-sequence-matches-expected',
+        JSON.stringify(
+          observed.shots
+            .map((shot) => shot.cameraId)
+            .filter(
+              (cameraId, index, all) =>
+                index === 0 || all[index - 1] !== cameraId,
+            ),
+        ) === JSON.stringify(expected.shotCameraIds),
+        observed.shots.map((shot) => shot.cameraId).join(','),
+      ),
+      check(
+        'no-shot-shorter-than-policy',
+        observed.shots.every(
+          (shot) =>
+            shot.endMs - shot.startMs >= 1000 || shot.reason === 'min-shot',
+        ),
+      ),
+      check('artifacts-deterministic', observed.deterministic),
+      check('fingerprint-stable', observed.fingerprintStable),
+      check('timeline-not-mutated', observed.timelineTouched === false),
+    );
+    render = { multicam: observed };
   }
   const comparison = comparisonFor(args.fixture, render, args.compare);
   if (comparison?.peakRssWithinTenPercent !== undefined) {
