@@ -444,7 +444,7 @@ jobs:
             - Path traversal: file operations that don't validate against workspace boundaries
             - Command injection: shell commands constructed from user input without sanitization
             - SQL injection: raw SQL queries with string interpolation instead of parameterized queries
-            - GitHub Actions: `${{ }}` interpolated directly into a `run:` block — must go through an `env:` block
+            - GitHub Actions: workflow expressions interpolated directly into a `run:` block — values must be passed through an `env:` block instead
             - Sensitive data in URLs or query parameters
 
             ### Performance
