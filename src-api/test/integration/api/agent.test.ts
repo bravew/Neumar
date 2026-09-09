@@ -46,6 +46,11 @@ vi.mock('@/shared/plugins', () => ({
   ),
 }));
 
+vi.mock('@/shared/services/external-mcp/run-commands', () => ({
+  registerExternalMcpRunLauncher: vi.fn(),
+  registerExternalMcpRunSession: vi.fn(),
+}));
+
 vi.mock('@/shared/services/task-event-bus', () => ({
   taskEventBus: {
     subscribe: vi.fn().mockReturnValue(vi.fn()), // returns unsubscribe fn
