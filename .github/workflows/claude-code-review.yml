@@ -82,12 +82,6 @@ permissions:
   id-token: write
   actions: read
 
-# Prevent multiple reviews running simultaneously for the same PR
-# Cancels in-progress reviews when new commits are pushed
-concurrency:
-  group: pr-review-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
-  cancel-in-progress: true
-
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -113,6 +107,11 @@ jobs:
           !contains(github.event.issue.labels.*.name, 'skip AI review')
         )
       )
+    # Keep this at job level so unrelated issue comments that skip the job
+    # cannot cancel an active review for the same PR.
+    concurrency:
+      group: pr-review-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+      cancel-in-progress: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
