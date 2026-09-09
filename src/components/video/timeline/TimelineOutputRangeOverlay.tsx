@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { cn } from '@/shared/lib/utils';
 import type { VideoTimelineOutputRange } from '@/shared/types/video';
 
@@ -104,6 +106,13 @@ function RangeHandle({
   pixelsPerSecond: number;
   onMove: (ms: number) => void;
 }) {
+  // A drag registers window listeners that only `pointerup` used to remove, so a
+  // cancelled gesture (touch interrupted, browser take-over) or an unmount mid-drag
+  // left them attached, still calling `onMove` on every subsequent pointer move.
+  // The controller ends the drag exactly once from any of those paths.
+  const dragRef = useRef<AbortController | null>(null);
+  useEffect(() => () => dragRef.current?.abort(), []);
+
   return (
     <button
       type="button"
@@ -127,16 +136,21 @@ function RangeHandle({
         const ruler = event.currentTarget.parentElement;
         if (!ruler) return;
         const rect = ruler.getBoundingClientRect();
+        dragRef.current?.abort();
+        const drag = new AbortController();
+        dragRef.current = drag;
+        const { signal } = drag;
         const move = (pointer: PointerEvent) => {
           const x = pointer.clientX - rect.left - headerWidth;
           onMove(Math.max(0, (x / pixelsPerSecond) * 1000));
         };
-        const up = () => {
-          window.removeEventListener('pointermove', move);
-          window.removeEventListener('pointerup', up);
+        const end = () => {
+          drag.abort();
+          if (dragRef.current === drag) dragRef.current = null;
         };
-        window.addEventListener('pointermove', move);
-        window.addEventListener('pointerup', up);
+        window.addEventListener('pointermove', move, { signal });
+        window.addEventListener('pointerup', end, { signal });
+        window.addEventListener('pointercancel', end, { signal });
       }}
     />
   );
