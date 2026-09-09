@@ -48,8 +48,11 @@ name: Claude - Diff-Aware PR Reviewer
 # - Claude must write the summary to review.md AND end the posted comment with the
 #   <!-- claude-review-complete --> marker.
 # - The guard checks the PR itself, not the runner's disk: it looks for this run's claude[bot]
-#   comment (stamped with the run id) carrying that marker. A local review.md proves only that
-#   Claude started writing — run 34312666877 ended with a summary it never posted.
+#   comment carrying that marker. A local review.md proves only that Claude started writing —
+#   run 34312666877 ended with a summary it never posted.
+# - "This run's comment" is identified two independent ways — absent from the pre-run comment
+#   snapshot, or stamped with the run id — so neither an action version that reformats tracking
+#   comments nor a missing snapshot can make the guard fail closed on every run.
 # - No marker means the job fails. If review.md exists it is salvaged into a comment so a partial
 #   review still reaches the PR; otherwise an explicit failure notice is posted. Either way a
 #   half-finished review can never masquerade as a green check.
@@ -177,6 +180,17 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+
+          # Snapshot which claude[bot] comments already exist. The completion guard uses this
+          # to identify the comment *this* run posted, so it does not depend solely on the
+          # action stamping the run id into the tracking comment — an internal formatting
+          # detail that could change between action versions. Anything not in this list is
+          # new, and the job-level concurrency group means no other review run can be posting
+          # concurrently on this PR.
+          gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.user.login == "claude[bot]") | .id' \
+            > pre-run-claude-comments.txt
+          echo "claude[bot] comments before this run: $(wc -l < pre-run-claude-comments.txt | tr -d ' ')"
 
           minimize() {
             gh api graphql -f query='
@@ -559,15 +573,36 @@ jobs:
 
           # The source of truth is what is actually on the PR, not what is on disk. A local
           # review.md proves only that Claude started writing — the run that prompted this
-          # workflow ended with a summary it never posted. So look for this run's tracking
-          # comment (the action stamps it with the run id) carrying the completion marker.
-          POSTED=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq '.[]
-                  | select(.user.login == "claude[bot]")
-                  | select(.body | contains($ENV.GITHUB_RUN_ID))
-                  | .body' || true)
+          # workflow ended with a summary it never posted.
+          #
+          # A comment counts as this run's if it did not exist before the run started, or if
+          # it carries the run id. Either signal alone is enough: the snapshot survives a
+          # change to how the action formats tracking comments, and the run id survives a
+          # missing snapshot. Requiring both would make the guard fail closed on every run
+          # if either mechanism drifted.
+          PRE_RUN_IDS=pre-run-claude-comments.txt
+          [ -f "$PRE_RUN_IDS" ] || : > "$PRE_RUN_IDS"
 
-          if printf '%s' "$POSTED" | grep -q '<!-- claude-review-complete -->'; then
+          gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.user.login == "claude[bot]") | "\(.id) \(.body | @base64)"' \
+            > claude-comments.txt || : > claude-comments.txt
+
+          REVIEW_POSTED=no
+          while read -r comment_id body_b64; do
+            [ -n "${body_b64:-}" ] || continue
+            body=$(printf '%s' "$body_b64" | base64 -d)
+            # Pre-existing and not stamped with this run id — belongs to an earlier review.
+            if grep -qx "$comment_id" "$PRE_RUN_IDS" \
+               && ! printf '%s' "$body" | grep -qF "$GITHUB_RUN_ID"; then
+              continue
+            fi
+            if printf '%s' "$body" | grep -qF '<!-- claude-review-complete -->'; then
+              REVIEW_POSTED=yes
+              break
+            fi
+          done < claude-comments.txt
+
+          if [ "$REVIEW_POSTED" = yes ]; then
             echo "Review posted and marked complete."
             exit 0
           fi
