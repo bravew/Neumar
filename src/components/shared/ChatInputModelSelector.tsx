@@ -8,27 +8,20 @@
  * truth.
  */
 
-import type { RefObject } from 'react';
+import { useState, type RefObject } from 'react';
 
-import { Check, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
-import { AgentRuntimeIcon } from './AgentRuntimeIcon';
 import type { ModelOption } from './ChatInput.types';
-import {
-  groupModelOptionsByAgent,
-  modelMetadataLabel,
-} from './runtime-model-catalog';
+import { ModelSearchMenu } from './ModelSearchMenu';
 
 export interface ModelSelectorProps {
   modelOptions: ModelOption[];
@@ -52,14 +45,16 @@ export function ModelSelector({
   triggerRef,
 }: ModelSelectorProps) {
   const { t } = useLanguage();
-  const groups = groupModelOptionsByAgent(modelOptions, {
+  const [open, setOpen] = useState(false);
+
+  const groupLabels = {
     claude: t.home.modelGroupClaude,
     codex: t.home.modelGroupCodex,
     other: t.home.modelGroupOtherProviders,
-  });
+  };
 
   return (
-    <DropdownMenu modal={false}>
+    <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         ref={triggerRef}
         disabled={isRunning || disabled}
@@ -79,49 +74,23 @@ export function ModelSelector({
         </span>
         <ChevronDown className="size-3 shrink-0" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="z-50 w-56">
-        {groups.map((group, index) => (
-          <div key={group.provider}>
-            {index > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase opacity-60">
-              {group.provider !== 'other' && (
-                <AgentRuntimeIcon
-                  runtimeId={group.provider}
-                  className="size-3.5"
-                />
-              )}
-              {group.label}
-            </DropdownMenuLabel>
-            {group.options.map((model) => (
-              <DropdownMenuItem
-                key={model.id}
-                disabled={model.disabled}
-                onSelect={() => {
-                  if (!model.disabled) onModelChange(model.id);
-                }}
-                className={cn(
-                  'gap-2 py-2',
-                  model.disabled ? 'opacity-60' : 'cursor-pointer',
-                )}
-              >
-                <Check
-                  className={cn(
-                    'size-3.5 shrink-0',
-                    activeModelId === model.id ? 'opacity-100' : 'opacity-0',
-                  )}
-                />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">{model.label}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {model.disabledReason ||
-                      modelMetadataLabel(model) ||
-                      model.description}
-                  </span>
-                </div>
-              </DropdownMenuItem>
-            ))}
-          </div>
-        ))}
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="z-50 h-[min(24rem,var(--radix-dropdown-menu-content-available-height))] w-80 overflow-hidden p-0"
+      >
+        <ModelSearchMenu
+          fillHeight
+          options={modelOptions}
+          activeModelId={activeModelId}
+          onSelect={(modelId) => {
+            if (modelId) onModelChange(modelId);
+            setOpen(false);
+          }}
+          groupLabels={groupLabels}
+          searchPlaceholder={t.settings.modelPickerSearchPlaceholder}
+          emptyLabel={t.settings.modelPickerNoResults}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

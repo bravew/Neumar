@@ -851,6 +851,14 @@ export const BYTEPLUS_MODELS = [
   'dreamina-seedance-2-0-fast-260128',
 ] as const;
 
+// DeepSeek API model list — single source of truth for frontend
+// See https://api-docs.deepseek.com/quick_start/pricing for the current catalog.
+export const DEEPSEEK_MODELS = [
+  'deepseek-v4-flash',
+  'deepseek-v4-flash-vision-exp',
+  'deepseek-v4-pro',
+] as const;
+
 // Google Gemini model list — single source of truth for frontend
 // Covers text/reasoning, image generation, audio/TTS, video generation, and embeddings.
 // See https://ai.google.dev/gemini-api/docs/models for the full list.
@@ -1031,7 +1039,7 @@ export const defaultProviders: AIProvider[] = [
     apiKey: '',
     baseUrl: 'https://api.deepseek.com/v1',
     enabled: false,
-    models: ['deepseek-chat', 'deepseek-reasoner'],
+    models: [...DEEPSEEK_MODELS],
     icon: 'D',
     apiKeyUrl: 'https://platform.deepseek.com/api_keys',
     canDelete: true,
@@ -1396,7 +1404,7 @@ export const providerDefaultModels: Record<string, string[]> = {
 
 // Model suggestions for custom providers (matched by name pattern)
 export const customProviderModels: Record<string, string[]> = {
-  deepseek: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'],
+  deepseek: [...DEEPSEEK_MODELS],
   moonshot: ['kimi-k3'],
   kimi: ['kimi-k3'],
   qwen: ['qwen-max', 'qwen-plus', 'qwen-turbo'],

@@ -36,4 +36,12 @@ describe('model capability detection', () => {
       'video-input',
     ]);
   });
+
+  it.each([
+    ['deepseek-v4-flash', ['chat', 'code', 'reasoning']],
+    ['deepseek-v4-pro', ['chat', 'code', 'reasoning']],
+    ['deepseek-v4-flash-vision-exp', ['chat', 'vision', 'code', 'reasoning']],
+  ])('detects current DeepSeek capabilities for %s', (model, capabilities) => {
+    expect(detectModelCapabilities(model)).toEqual(capabilities);
+  });
 });

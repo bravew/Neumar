@@ -463,7 +463,15 @@ const MODEL_CAPABILITY_RULES: Array<{
   { pattern: /^ministral/i, capabilities: ['chat', 'vision'] },
   { pattern: /^devstral/i, capabilities: ['chat', 'code'] },
 
-  // ── DeepSeek V3.x ────────────────────────────────────────────────
+  // ── DeepSeek V4 / V3.x ───────────────────────────────────────────
+  {
+    pattern: /^deepseek[-_]?v4.*vision/i,
+    capabilities: ['chat', 'vision', 'code', 'reasoning'],
+  },
+  {
+    pattern: /^deepseek[-_]?v4/i,
+    capabilities: ['chat', 'code', 'reasoning'],
+  },
   {
     pattern: /^deepseek[-_]?v3/i,
     capabilities: ['chat', 'code', 'reasoning'],

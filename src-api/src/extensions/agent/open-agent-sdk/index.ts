@@ -42,6 +42,7 @@ import type {
 
 import { DEFAULT_AGENT_MODEL, DEFAULT_WORK_DIR } from '@/config/constants';
 
+import { DEEPSEEK_MODELS } from '@/shared/provider/deepseek-models';
 import { getRemainingBudgetUsd } from '@/shared/services/budget';
 import { logUsage } from '@/shared/services/usage-logger';
 import { createLogger } from '@/shared/utils/logger';
@@ -543,8 +544,7 @@ export const OPEN_AGENT_SDK_METADATA = {
     'claude-opus-4-6',
     'claude-haiku-4-5-20251001',
     'gpt-4o',
-    'deepseek-chat',
-    'deepseek-reasoner',
+    ...DEEPSEEK_MODELS,
   ],
   defaultModel: DEFAULT_AGENT_MODEL,
   tags: ['multi-llm', 'in-process', 'anthropic', 'openai'],

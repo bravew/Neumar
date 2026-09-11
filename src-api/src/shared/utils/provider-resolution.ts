@@ -6,6 +6,7 @@
  * and any other service that makes lightweight LLM calls.
  */
 
+import { DEEPSEEK_MODELS } from '@/shared/provider/deepseek-models';
 import { getProviderManager } from '@/shared/provider/manager';
 
 // ============================================================================
@@ -21,7 +22,7 @@ export const FAST_MODEL_MAP: Record<string, string> = {
   'api.openai.com': 'gpt-5.4-nano',
   'api.groq.com': 'llama-3.1-8b-instant',
   'generativelanguage.googleapis.com': 'gemini-3.1-flash-lite',
-  'api.deepseek.com': 'deepseek-chat',
+  'api.deepseek.com': DEEPSEEK_MODELS[0],
   'api.x.ai': 'grok-4-1-fast-non-reasoning',
   'api.together.xyz': 'meta-llama/Llama-3.3-8B-Instruct-Turbo',
   'api.fireworks.ai': 'accounts/fireworks/models/llama-v3p3-8b-instruct',

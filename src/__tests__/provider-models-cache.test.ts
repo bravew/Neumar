@@ -78,6 +78,28 @@ describe('provider models cache', () => {
       description: 'OpenRouter',
     });
   });
+
+  it('keeps distinct model IDs visible when a provider has several models', () => {
+    const deepSeekProvider = {
+      id: 'deepseek',
+      name: 'DeepSeek',
+      apiKey: 'sk-secret-deepseek-key',
+      baseUrl: 'https://api.deepseek.com/v1',
+      enabled: true,
+      models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+      agentType: 'openai-compat',
+    } satisfies AIProvider;
+
+    expect(
+      buildModelOptions({}, [deepSeekProvider]).map(({ id, label }) => ({
+        id,
+        label,
+      })),
+    ).toEqual([
+      { id: 'deepseek-v4-flash', label: 'deepseek-v4-flash' },
+      { id: 'deepseek-v4-pro', label: 'deepseek-v4-pro' },
+    ]);
+  });
 });
 
 const providerFixture = {

@@ -5,6 +5,8 @@
  * Used by the auto-detect endpoint and ModelSettings UI.
  */
 
+import { DEEPSEEK_MODELS } from '@/shared/provider/deepseek-models';
+
 export interface ProviderPreset {
   id: string;
   name: string;
@@ -250,7 +252,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     category: 'cloud',
     baseUrl: 'https://api.deepseek.com/v1',
     requiresAuth: true,
-    defaultModels: ['deepseek-chat', 'deepseek-reasoner'],
+    defaultModels: [...DEEPSEEK_MODELS],
     supportsModelDiscovery: true,
   },
   {
