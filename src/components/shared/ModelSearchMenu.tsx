@@ -42,6 +42,7 @@ export interface ModelSearchMenuProps {
   onSelect: (modelId: string | null) => void;
   /** Show a row that clears the model override. */
   showDefault?: boolean;
+  /** Required (and must be localized) when `showDefault` is true. */
   defaultLabel?: string;
   defaultDescription?: string;
   groupLabels: { claude: string; codex: string; other: string };
@@ -79,7 +80,7 @@ export function ModelSearchMenu({
   activeModelId,
   onSelect,
   showDefault = false,
-  defaultLabel = 'Default',
+  defaultLabel,
   defaultDescription,
   groupLabels,
   searchPlaceholder,

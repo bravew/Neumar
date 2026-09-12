@@ -51,7 +51,7 @@ export function ModelPicker({
   value,
   onChange,
   showDefault = false,
-  defaultLabel = 'Default',
+  defaultLabel,
   allowedProviders,
   mode = 'task',
   disabled = false,
@@ -61,6 +61,8 @@ export function ModelPicker({
   const [open, setOpen] = useState(false);
   const allOptions = useModelOptions(mode);
   const providerKey = allowedProviders?.join(',') ?? '';
+  const resolvedDefaultLabel =
+    defaultLabel ?? t.settings.modelPickerDefaultLabel;
 
   const modelOptions = useMemo(() => {
     return allowedProviders
@@ -73,7 +75,7 @@ export function ModelPicker({
   const activeLabel = activeModelId
     ? (modelOptions.find((m) => m.id === activeModelId)?.label ??
       getModelShortLabel(activeModelId))
-    : defaultLabel;
+    : resolvedDefaultLabel;
 
   const groupLabels = {
     claude: t.settings.modelPickerGroupClaude,
@@ -108,7 +110,7 @@ export function ModelPicker({
             setOpen(false);
           }}
           showDefault={showDefault}
-          defaultLabel={defaultLabel}
+          defaultLabel={resolvedDefaultLabel}
           defaultDescription={t.settings.modelPickerDefaultDescription}
           groupLabels={groupLabels}
           searchPlaceholder={t.settings.modelPickerSearchPlaceholder}
