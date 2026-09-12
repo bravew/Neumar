@@ -96,10 +96,7 @@ export function buildModelOptions(
       const cachedModel = cachedModelsById.get(modelId);
       options.push({
         id: modelId,
-        label:
-          cachedModel?.displayLabel ??
-          cachedModel?.name ??
-          getModelShortLabel(modelId),
+        label: cachedModel?.displayLabel ?? cachedModel?.name ?? modelId,
         description: provider.name,
         provider: provider.agentType,
       });

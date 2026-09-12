@@ -18,6 +18,10 @@ import { getConfigLoader } from '@/config/loader';
 import { saveSetting } from '@/shared/db/operations';
 import { normalizeHost } from '@/shared/network-policy/host';
 import { trustedLocalPolicy } from '@/shared/network-policy/schema';
+import {
+  DEEPSEEK_MODELS,
+  isOfficialDeepSeekApiUrl,
+} from '@/shared/provider/deepseek-models';
 import { getProviderManager } from '@/shared/provider/manager';
 import { PROVIDER_CONNECTION_TEST_TIMEOUT_MS } from '@/shared/utils/connection-test-timeout';
 import {
@@ -1614,6 +1618,12 @@ providersRoutes.post(
               models.push({ id: m.id, name: m.name || undefined });
             }
           }
+        }
+
+        // DeepSeek's model-list endpoint omits documented API models such as
+        // its experimental vision model. Keep official-host discovery complete.
+        if (isOfficialDeepSeekApiUrl(baseUrl)) {
+          models.push(...DEEPSEEK_MODELS.map((id) => ({ id })));
         }
       }
 

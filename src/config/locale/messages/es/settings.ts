@@ -585,6 +585,7 @@ export default {
   useEnvModel: 'Usar variables de entorno',
   modelPickerSearchPlaceholder: 'Buscar modelos...',
   modelPickerNoResults: 'No se encontraron modelos',
+  modelPickerDefaultLabel: 'Predeterminado',
   modelPickerDefaultDescription: 'Usar el modelo configurado globalmente',
   modelPickerGroupClaude: 'Claude',
   modelPickerGroupCodex: 'OpenAI Codex',

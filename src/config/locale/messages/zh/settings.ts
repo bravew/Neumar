@@ -542,6 +542,7 @@ export default {
   useEnvModel: '使用环境变量配置',
   modelPickerSearchPlaceholder: '搜索模型...',
   modelPickerNoResults: '未找到模型',
+  modelPickerDefaultLabel: '默认',
   modelPickerDefaultDescription: '使用全局配置的模型',
   modelPickerGroupClaude: 'Claude',
   modelPickerGroupCodex: 'OpenAI Codex',

@@ -567,6 +567,7 @@ export default {
   useEnvModel: 'एनवायरनमेंट वेरिएबल का उपयोग करें',
   modelPickerSearchPlaceholder: 'मॉडल खोजें...',
   modelPickerNoResults: 'कोई मॉडल नहीं मिला',
+  modelPickerDefaultLabel: 'डिफ़ॉल्ट',
   modelPickerDefaultDescription: 'वैश्विक रूप से कॉन्फ़िगर किया गया मॉडल उपयोग करें',
   modelPickerGroupClaude: 'Claude',
   modelPickerGroupCodex: 'OpenAI Codex',

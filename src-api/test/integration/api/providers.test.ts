@@ -167,6 +167,44 @@ describe('Providers API', () => {
     expect(typeof body.latencyMs).toBe('number');
   });
 
+  it('supplements the incomplete DeepSeek model catalog', async () => {
+    mocks.safeFetch.mockResolvedValueOnce({
+      status: 200,
+      headers: {},
+      body: Buffer.from(
+        JSON.stringify({
+          data: [{ id: 'deepseek-v4-pro' }, { id: 'deepseek-v4-flash' }],
+        }),
+      ),
+      finalUrl: 'https://api.deepseek.com/v1/models',
+      redirectChain: [],
+    });
+
+    const { providersRoutes } = await import('@/app/api/providers');
+    const res = await providersRoutes.request('/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        providerId: 'deepseek',
+        apiKey: 'sk-test-secret-123',
+        baseUrl: 'https://api.deepseek.com/v1',
+        agentType: 'openai-compat',
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      models: Array<{ id: string; displayLabel: string }>;
+      totalCount: number;
+    };
+    expect(body.models.map((model) => model.id)).toEqual([
+      'deepseek-v4-flash',
+      'deepseek-v4-flash-vision-exp',
+      'deepseek-v4-pro',
+    ]);
+    expect(body.totalCount).toBe(3);
+  });
+
   it('rejects Azure OpenAI deployment discovery explicitly', async () => {
     const { providersRoutes } = await import('@/app/api/providers');
     const res = await providersRoutes.request('/models', {
