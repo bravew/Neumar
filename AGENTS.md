@@ -10,6 +10,18 @@ Read the **Working agreement** first. It records project policy; the reference
 sections describe the implementation and link to its sources of truth. When code
 and documentation disagree, verify the relevant call path and report the mismatch.
 
+Nested instruction files currently tracked, each governing its own subtree:
+
+- [plugins/builtin/design-systems/_schema/AGENTS.md](plugins/builtin/design-systems/_schema/AGENTS.md)
+- [src-api/src/shared/services/design-mode/critique/AGENTS.md](src-api/src/shared/services/design-mode/critique/AGENTS.md)
+- [src/components/design/critique/AGENTS.md](src/components/design/critique/AGENTS.md)
+
+Confirm the list with `git ls-files '**/AGENTS.md'` rather than trusting it as
+permanent. `.claude/` and vendored `_sample/` are gitignored: treat anything there
+as one contributor's local setup, not shared project context. `.cursor/` is tracked
+but currently holds only [codacy.mdc](.cursor/rules/codacy.mdc); shared rules
+belong in this file, so agents reading either entry point see them.
+
 ## Working agreement
 
 ### 1. Read the structure before you change it
@@ -168,7 +180,9 @@ pnpm validate                              # root quality gate, no test suite
 
 The [frontend config](vitest.config.ts) includes `src/**/*.test.{ts,tsx}`.
 The [API config](src-api/vitest.config.ts) includes unit, integration, and eval files
-under `src-api/test/`, excluding `*.e2e.test.ts`. The real-server suite uses
+under `src-api/test/`, excluding `*.e2e.test.ts`. The API workspace has two further
+configs: `pnpm test:gate` runs [vitest.eval.config.ts](src-api/vitest.eval.config.ts)
+over `test/evals/**/*.eval.ts` only, and the real-server suite uses
 [vitest.e2e.config.ts](src-api/vitest.e2e.config.ts); browser tests use
 [playwright.config.ts](playwright.config.ts). `pnpm test:e2e` and
 `pnpm test:e2e:browser` lack the same prebuild hooks: build video IR first with
