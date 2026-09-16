@@ -20,7 +20,7 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | 5 Framework extraction | done | `62ed921` | structure-only VideoFramework, lint, review panel |
 | 6 Template materialization | done | `2c26ad6` | custom VideoTemplate + structural thumbnail |
 | 7 Apply to an editing task | done | `4150f52` | bind slots, propose TimelineOp[], approval path |
-| PR | in progress | — | |
+| PR | done | https://github.com/bravew/Neumar/pull/43 | |
 
 ## Phase 0 notes
 
