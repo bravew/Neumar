@@ -1,0 +1,10 @@
+{
+  "clip": "hard-cuts-12s.mp4",
+  "durationMs": 12000,
+  "hardCutsMs": [
+    3000,
+    6000,
+    9000
+  ],
+  "notes": "Four 3s color holds. Instant cuts at 3/6/9s."
+}
