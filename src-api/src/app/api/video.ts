@@ -225,6 +225,14 @@ import {
   listVideoRecipes,
   recordVideoIntentLog,
 } from '@/shared/video/recipes';
+import {
+  acquireReference,
+  deleteReference,
+  getReference,
+  listReferences,
+  promoteReference,
+  ReferenceAcquireError,
+} from '@/shared/video/reference/acquire';
 import { reframeProject } from '@/shared/video/reframe/pipeline';
 import {
   applyRenderPlanSceneModel,
@@ -384,6 +392,20 @@ const sourceYtdlSchema = z.object({
   maxDurationSec: z.number().int().positive().max(3600).optional(),
   format: z.enum(['mp4', 'best']).optional(),
   userConfirmedRights: z.literal(true),
+});
+
+const referenceCreateSchema = z.object({
+  origin: z.enum(['link', 'upload', 'workspace-path']),
+  url: z.string().url().optional(),
+  path: z.string().min(1).optional(),
+  label: z.string().min(1).max(200).optional(),
+  studyAcknowledged: z.literal(true),
+  allowLonger: z.boolean().optional(),
+  notes: z.string().max(500).optional(),
+});
+
+const referencePromoteSchema = z.object({
+  reuseAcknowledged: z.literal(true),
 });
 
 const cutPlanSchema = z.object({
@@ -945,7 +967,7 @@ const linkedFolderChildrenSchema = z.object({
 });
 
 function errorResponse(error: unknown): {
-  body: { error: string; detail?: unknown };
+  body: { error: string; detail?: unknown; code?: string };
   status: ContentfulStatusCode;
 } {
   const message = error instanceof Error ? error.message : String(error);
@@ -953,6 +975,21 @@ function errorResponse(error: unknown): {
     error: message,
     detail: error instanceof AssetsError ? error.detail : undefined,
   });
+  if (error instanceof ReferenceAcquireError) {
+    const status =
+      error.code === 'not-found' || error.code === 'flag-disabled'
+        ? 404
+        : error.code === 'study-required' ||
+            error.code === 'reuse-required' ||
+            error.code === 'youtube-capability'
+          ? 403
+          : error.code === 'duration' ||
+              error.code === 'live' ||
+              error.code === 'playlist'
+            ? 422
+            : 400;
+    return { body: { error: message, code: error.code }, status };
+  }
   if (error instanceof AssetsError) {
     return {
       body: { error: message, detail: error.detail },
@@ -2300,6 +2337,121 @@ function multicamUnavailable(c: Context) {
     404,
   );
 }
+
+function referenceUnavailable(c: Context) {
+  return c.json(
+    {
+      error: 'Reference analysis is not enabled for this workspace',
+      reason: 'feature-disabled' as const,
+      flag: 'video.referenceAnalysis' as const,
+    },
+    404,
+  );
+}
+
+videoRoutes.post('/projects/:id/references', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const projectId = c.req.param('id');
+    const contentType = c.req.header('content-type') ?? '';
+    if (contentType.includes('multipart/form-data')) {
+      const form = await c.req.parseBody();
+      const file = form.file;
+      if (!file || typeof file === 'string') {
+        return c.json({ error: 'file part required' }, 400);
+      }
+      if (form.studyAcknowledged !== 'true') {
+        throw new ReferenceAcquireError(
+          'Studying a reference requires an explicit study acknowledgement.',
+          'study-required',
+        );
+      }
+      const result = await acquireReference(projectId, {
+        origin: 'upload',
+        studyAcknowledged: true,
+        fileBytes: Buffer.from(await file.arrayBuffer()),
+        fileName: file.name,
+        ...(typeof form.label === 'string' ? { label: form.label } : {}),
+        allowLonger: form.allowLonger === 'true',
+      });
+      return c.json(result, 201);
+    }
+    const parsed = referenceCreateSchema.parse(await c.req.json());
+    const result = await acquireReference(projectId, {
+      origin: parsed.origin,
+      studyAcknowledged: parsed.studyAcknowledged,
+      ...(parsed.url ? { url: parsed.url } : {}),
+      ...(parsed.path ? { filePath: parsed.path } : {}),
+      ...(parsed.label ? { label: parsed.label } : {}),
+      ...(parsed.notes ? { notes: parsed.notes } : {}),
+      allowLonger: parsed.allowLonger,
+    });
+    return c.json(result, 201);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const references = await listReferences(c.req.param('id'));
+    return c.json({ references });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const reference = await getReference(
+      c.req.param('id'),
+      c.req.param('refId'),
+    );
+    return c.json({ reference });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.delete('/projects/:id/references/:refId', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const project = await deleteReference(
+      c.req.param('id'),
+      c.req.param('refId'),
+    );
+    return c.json({ project });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/promote', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const parsed = referencePromoteSchema.parse(await c.req.json());
+    const result = await promoteReference(
+      c.req.param('id'),
+      c.req.param('refId'),
+      parsed.reuseAcknowledged,
+    );
+    return c.json(result);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 videoRoutes.get('/projects/:id/multicam', async (c) => {
   if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);

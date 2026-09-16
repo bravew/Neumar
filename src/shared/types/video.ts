@@ -24,6 +24,63 @@ export type VideoTemplateId =
   | 'ugc-ad'
   | 'custom';
 
+export type VideoReferenceArtifactKind =
+  | 'probe'
+  | 'transcript'
+  | 'packed-transcript'
+  | 'boundaries'
+  | 'evidence'
+  | 'analysis'
+  | 'timeline'
+  | 'framework';
+
+export interface VideoReferenceArtifactEnvelope<T> {
+  kind: VideoReferenceArtifactKind;
+  referenceId: string;
+  sourceFingerprint: string;
+  derivedFrom: Partial<Record<VideoReferenceArtifactKind, string>>;
+  generatedAt: string;
+  producer: string;
+  stale?: boolean;
+  data: T;
+}
+
+export interface VideoReferenceProbe {
+  durationMs: number;
+  width: number;
+  height: number;
+  frameRate: FrameRate;
+  hasAudio: boolean;
+  audioTrackCount: number;
+  containerFormat: string;
+  videoCodec?: string;
+  audioCodec?: string;
+}
+
+export interface VideoReferenceRights {
+  studyAcknowledged: boolean;
+  reuseAcknowledged: boolean;
+  studyAcknowledgedAt?: string;
+  studyPolicyVersion?: string;
+  studyAckOrigin?: 'explicit' | 'project-preference';
+  notes?: string;
+}
+
+export interface VideoReference {
+  id: string;
+  label: string;
+  origin: 'link' | 'upload' | 'workspace-path';
+  sourceUrl?: string;
+  extractor?: string;
+  mediaPath: string;
+  contentHash: string;
+  durationMs: number;
+  rights: VideoReferenceRights;
+  runId?: string;
+  artifactIds: string[];
+  createdAt: string;
+}
+
 export type VideoAudioFadeCurve = AudioFadeCurve;
 export type VideoAudioTransitionSpec = AudioTransitionSpec;
 
@@ -73,6 +130,7 @@ export interface VideoProject {
   };
   budget?: { capUsd: number; spentUsd: number };
   outputs?: VideoRenderOutput[];
+  videoReferences?: VideoReference[];
   createdAt: string;
   updatedAt: string;
 }

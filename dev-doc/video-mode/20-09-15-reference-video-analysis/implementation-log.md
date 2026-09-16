@@ -12,8 +12,8 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 
 | Phase | Status | Commit | Notes |
 | --- | --- | --- | --- |
-| 0 Spikes and fixtures | in progress — evidence written, awaiting commit | — | fixtures + S1–S4 in `evidence/` |
-| 1 Reference acquisition | not started | — | |
+| 0 Spikes and fixtures | done | `ddb09bd` | fixtures + S1–S4 in `evidence/` |
+| 1 Reference acquisition | in progress — tests green, awaiting commit | — | types, archive, routes, MCP, locales, hooks |
 | 2 Evidence toolset | not started | — | ship `store.ts` stub fix as its own commit |
 | 3 Analysis run and progress | not started | — | |
 | 4 Structured reading | not started | — | |
@@ -31,6 +31,43 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 - S4: whisper CLI not installed. Fixtures have real speech+music audio. No language-confidence gate; surface `degraded`.
 - Do not commit `evidence/_raw/` or `__pycache__/` (gitignored spike work product).
 
+## Phase 1 notes
+
+### Review (before commit)
+
+- `VideoReference` lives on both type trees; `videoReferences[]` is optional and ignored by existing readers.
+- Archive is `references/<id>/` with `assertSafeReferenceId` `/^[a-z0-9][a-z0-9-]{2,100}$/` and `validatePath(..., getVideoProjectRoot, 'write')`.
+- Intake requires `studyAcknowledged`; promote is the only path that creates a `MediaItem` and sets `reuseAcknowledged`.
+- yt-dlp destination is generalized (`destinationDir`, `--format-sort`); stderr is classified, never raw.
+- YouTube plugin path is gated by `network:youtube` (`mcp__video-edit__video_add_reference`); first-party MCP defaults `youtubeImportGranted ?? true`.
+- Live streams and playlists are rejected. Duration ceiling is 10 minutes unless `allowLonger`.
+- Six-locale intake copy is distinct from `sources.rights` publish-ack. `pnpm check:locale-parity` passed for `video.ts`.
+- Tests: 27 passed (`reference-store`, `reference-acquire`, `flags`, `video-reference-routes`). MCP tool list still matches `VIDEO_EDIT_TOOL_NAMES`.
+
+### Verification run
+
+```bash
+pnpm --filter @neumar/video-ir build
+pnpm vitest run --config src-api/vitest.config.ts \
+  test/unit/video/reference-store.test.ts \
+  test/unit/video/reference-acquire.test.ts \
+  test/unit/video/flags.test.ts \
+  test/integration/video-reference-routes.test.ts
+pnpm check:locale-parity
+pnpm --filter neumar-api exec oxlint src/shared/video/reference \
+  src/shared/video/types.ts src/shared/video/store.ts \
+  src/shared/video/source/ytdlp.ts src/shared/video/plugins/types.ts \
+  src/app/api/video.ts src/shared/mcp/video-edit-server.ts \
+  src/extensions/agent/video/permissions.ts
+```
+
+`pnpm --filter neumar-api lint` still fails on pre-existing unused `validateInputFile` imports outside this phase. Full `pnpm validate` was not claimed; it is known to trip on unrelated untracked `VideoProjectFilePreview.tsx`. Codacy MCP timed out on individual files after a clean scan of `src-api/src/shared/video/reference/`.
+
+### Known gaps
+
+- Promote is not idempotent: a second promote copies another `MediaItem`.
+- Phase 1 has no SideRail UI yet (Phase 3). Hooks and locales are ready.
+- Do not commit dirty plan-doc edits (`01`–`05`, `README`) or the large untracked `dev-doc/` tree.
 
 ## How to resume
 
@@ -50,3 +87,7 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
   No copyrighted reference bytes enter the repository.
 - S2 uses `yt-dlp --simulate` / skip-download so the spike records extractor
   keys and classified failures without storing platform media.
+- Per-reference study ack + `reference-study.v1` policy version.
+- 10-minute duration unless `allowLonger`; no DRM/cookies; reject live/playlists.
+- `workspace-path` copies into the archive (allow external media on read, then write under `references/`).
+- Default yt-dlp runner is injectable via `spawnFn` so tests can assert classified errors without mocking ESM `spawn`.

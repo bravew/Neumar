@@ -20,6 +20,7 @@ import type {
   VideoLoudnessTargetLufs,
   VideoJob,
   VideoProject,
+  VideoReference,
   VideoRenderPlan,
   VideoSourceMedia,
   VideoStoryboard,
@@ -107,6 +108,18 @@ export interface VideoProjectEditorActions {
     url: string,
     userConfirmedRights: boolean,
   ) => Promise<{ job: { id: string; status: string } } | null>;
+  addVideoReference: (input: {
+    origin: 'link' | 'upload' | 'workspace-path';
+    url?: string;
+    path?: string;
+    file?: File;
+    label?: string;
+    studyAcknowledged: true;
+    allowLonger?: boolean;
+  }) => Promise<VideoProject | null>;
+  listVideoReferences: () => Promise<VideoReference[]>;
+  deleteVideoReference: (referenceId: string) => Promise<VideoProject | null>;
+  promoteVideoReference: (referenceId: string) => Promise<VideoProject | null>;
   analyzeSource: (sourceId: string) => Promise<VideoProject | null>;
   createCutPlan: (
     sourceId: string,

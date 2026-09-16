@@ -816,6 +816,7 @@ export default {
       assets: { label: 'Recursos' },
       transitions: { label: 'Transiciones' },
       overlays: { label: 'Superposiciones' },
+      reference: { label: 'Referencias' },
       sources: {
         label: 'Fuentes',
         footage: {
@@ -2074,6 +2075,24 @@ export default {
     empty: 'Aún no hay videos fuente importados.',
     analyze: 'Analizar',
     acceptCuts: 'Aceptar cortes',
+  },
+  reference: {
+    title: 'Analizar video',
+    description:
+      'Estudia un archivo de video o un enlace autorizado. Estudiar no es publicar.',
+    addFile: 'Añadir archivo local',
+    addLink: 'Añadir enlace autorizado',
+    pathPlaceholder: 'Ruta de video del workspace',
+    urlPlaceholder: 'URL de video autorizada por el usuario',
+    studyAck:
+      'Puedo estudiar este video en privado. Esto no otorga derechos de reutilización ni publicación.',
+    reuseAck:
+      'Tengo derecho a reutilizar este video como metraje del proyecto.',
+    empty: 'Aún no hay videos de referencia.',
+    promote: 'Promover a recurso',
+    delete: 'Quitar referencia',
+    unsupportedLink: 'Este enlace no es compatible. Añade un archivo local.',
+    durationOverride: 'Permitir referencias de más de 10 minutos',
   },
   htmlGallery: {
     engineLabel: 'Motor',

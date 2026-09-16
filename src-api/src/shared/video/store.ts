@@ -515,6 +515,16 @@ export function getVideoSourcesDir(projectId: string): string {
   return path.join(getVideoProjectDir(projectId), 'sources');
 }
 
+export function getVideoReferenceDir(
+  projectId: string,
+  referenceId: string,
+): string {
+  if (!/^[a-z0-9][a-z0-9-]{2,100}$/.test(referenceId)) {
+    throw new Error(`Invalid video reference id "${referenceId}"`);
+  }
+  return path.join(getVideoProjectDir(projectId), 'references', referenceId);
+}
+
 /**
  * Where generated stand-ins for an asset live — proxies, filmstrips, waveform
  * peaks. Always inside the project, never beside the master: a master may sit

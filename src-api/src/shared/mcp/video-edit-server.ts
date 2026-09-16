@@ -170,6 +170,11 @@ import { recordVideoResearchBrief } from '@/shared/video/plugins/atoms/research'
 import { withProjectLock } from '@/shared/video/project-lock';
 import { recordVideoIntentLog } from '@/shared/video/recipes';
 import { reconcileVideoProjectPlan } from '@/shared/video/reconciliation';
+import {
+  acquireReference,
+  getReference,
+  listReferences,
+} from '@/shared/video/reference/acquire';
 import { renderTimelineFramesWithRemotion } from '@/shared/video/remotion-renderer';
 import { shareVideoProject } from '@/shared/video/share';
 import { fetchSource, SourceIngestError } from '@/shared/video/source/ingest';
@@ -305,6 +310,9 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_set_aspect_ratio',
   'video_analyze_assets',
   'video_import_youtube',
+  'video_add_reference',
+  'video_list_references',
+  'video_get_reference',
   'video_select_template',
   'video_save_as_template',
   'video_write_content_graph',
@@ -3862,6 +3870,93 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
             name: result.asset.provenance?.sourceDisplayName,
             kind: result.asset.kind,
             durationMs: result.asset.metadata.durationMs,
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_add_reference',
+      'Attach a video file or authorized link as a study-only VideoReference. ' +
+        'This does not add the media to project assets. Requires studyAcknowledged. ' +
+        'YouTube URLs also require network:youtube when the caller is a plugin.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        origin: z.enum(['link', 'upload', 'workspace-path']),
+        url: z.string().url().optional(),
+        path: z.string().min(1).optional(),
+        label: z.string().min(1).max(200).optional(),
+        studyAcknowledged: z.literal(true),
+        allowLonger: z.boolean().optional(),
+        notes: z.string().max(500).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const result = await acquireReference(projectId, {
+            origin: input.origin,
+            studyAcknowledged: input.studyAcknowledged,
+            youtubeCapabilityGranted: options.youtubeImportGranted ?? true,
+            ...(input.url ? { url: input.url } : {}),
+            ...(input.path ? { filePath: input.path } : {}),
+            ...(input.label ? { label: input.label } : {}),
+            ...(input.notes ? { notes: input.notes } : {}),
+            allowLonger: input.allowLonger,
+          });
+          return jsonResult({
+            projectId,
+            reference: result.reference,
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_list_references',
+      'List study-only video references on the project. These are not assets.',
+      { projectId: PROJECT_ID_SCHEMA },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult({
+            projectId,
+            references: await listReferences(projectId),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_get_reference',
+      'Read one study-only video reference by id, including probe metadata.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult({
+            projectId,
+            reference: await getReference(projectId, input.referenceId),
           });
         } catch (error) {
           return errorResult(

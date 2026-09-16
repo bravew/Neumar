@@ -187,6 +187,63 @@ export type LipsyncProvider =
   | 'omnihuman'
   | 'pika';
 
+export type ReferenceArtifactKind =
+  | 'probe'
+  | 'transcript'
+  | 'packed-transcript'
+  | 'boundaries'
+  | 'evidence'
+  | 'analysis'
+  | 'timeline'
+  | 'framework';
+
+export interface ReferenceArtifactEnvelope<T> {
+  kind: ReferenceArtifactKind;
+  referenceId: string;
+  sourceFingerprint: string;
+  derivedFrom: Partial<Record<ReferenceArtifactKind, string>>;
+  generatedAt: string;
+  producer: string;
+  stale?: boolean;
+  data: T;
+}
+
+export interface ReferenceProbe {
+  durationMs: number;
+  width: number;
+  height: number;
+  frameRate: FrameRate;
+  hasAudio: boolean;
+  audioTrackCount: number;
+  containerFormat: string;
+  videoCodec?: string;
+  audioCodec?: string;
+}
+
+export interface VideoReferenceRights {
+  studyAcknowledged: boolean;
+  reuseAcknowledged: boolean;
+  studyAcknowledgedAt?: string;
+  studyPolicyVersion?: string;
+  studyAckOrigin?: 'explicit' | 'project-preference';
+  notes?: string;
+}
+
+export interface VideoReference {
+  id: string;
+  label: string;
+  origin: 'link' | 'upload' | 'workspace-path';
+  sourceUrl?: string;
+  extractor?: string;
+  mediaPath: string;
+  contentHash: string;
+  durationMs: number;
+  rights: VideoReferenceRights;
+  runId?: string;
+  artifactIds: string[];
+  createdAt: string;
+}
+
 export interface VideoProject {
   /** Project document schema version; absent means v1 and is migrated on load. */
   schemaVersion?: 2;
@@ -225,6 +282,11 @@ export interface VideoProject {
    * the render's audio mix; the MiniMax provider adapters are still to come.
    */
   soundtrack?: ProjectSoundtrack;
+  /**
+   * Analyzed reference videos. Distinct from `MediaProvenance.references`,
+   * `LinkedSourceRole = 'reference'`, and generation `uploadReferenceImages`.
+   */
+  videoReferences?: VideoReference[];
   createdAt: string;
   updatedAt: string;
 }

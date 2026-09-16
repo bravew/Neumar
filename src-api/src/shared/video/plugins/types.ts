@@ -296,7 +296,7 @@ const VIDEO_CAPABILITY_DEFINITIONS: readonly CapabilityDefinition[] = [
     description: 'Download or analyze YouTube references after rights review.',
     risk: 'high',
     defaultGrant: 'explicit',
-    toolNames: ['mcp__broll__youtube'],
+    toolNames: ['mcp__broll__youtube', 'mcp__video-edit__video_add_reference'],
   },
 ];
 

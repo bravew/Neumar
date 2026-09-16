@@ -795,6 +795,7 @@ export default {
       assets: { label: 'एसेट' },
       transitions: { label: 'ट्रांज़िशन' },
       overlays: { label: 'ओवरले' },
+      reference: { label: 'संदर्भ' },
       sources: {
         label: 'स्रोत',
         footage: {
@@ -2015,6 +2016,23 @@ export default {
     empty: 'अभी कोई स्रोत वीडियो इम्पोर्ट नहीं है।',
     analyze: 'विश्लेषण',
     acceptCuts: 'कट स्वीकार करें',
+  },
+  reference: {
+    title: 'वीडियो विश्लेषण',
+    description:
+      'किसी वीडियो फ़ाइल या अधिकृत लिंक का अध्ययन करें। अध्ययन प्रकाशन नहीं है।',
+    addFile: 'स्थानीय फ़ाइल जोड़ें',
+    addLink: 'अधिकृत लिंक जोड़ें',
+    pathPlaceholder: 'वर्कस्पेस वीडियो पथ',
+    urlPlaceholder: 'उपयोगकर्ता-अधिकृत वीडियो URL',
+    studyAck:
+      'मैं इस वीडियो का निजी अध्ययन कर सकता हूँ। इससे पुनः उपयोग या प्रकाशन का अधिकार नहीं मिलता।',
+    reuseAck: 'मेरे पास इस वीडियो को प्रोजेक्ट फुटेज के रूप में उपयोग करने का अधिकार है।',
+    empty: 'अभी कोई संदर्भ वीडियो नहीं है।',
+    promote: 'एसेट बनाएँ',
+    delete: 'संदर्भ हटाएँ',
+    unsupportedLink: 'यह लिंक समर्थित नहीं है। स्थानीय फ़ाइल जोड़ें।',
+    durationOverride: '10 मिनट से लंबे संदर्भ की अनुमति दें',
   },
   htmlGallery: {
     engineLabel: 'इंजन',

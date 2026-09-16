@@ -786,6 +786,7 @@ export default {
       assets: { label: '资产' },
       transitions: { label: '转场' },
       overlays: { label: '叠加层' },
+      reference: { label: '参考' },
       sources: {
         label: '来源',
         footage: {
@@ -1997,6 +1998,21 @@ export default {
     empty: '还没有导入源视频。',
     analyze: '分析',
     acceptCuts: '接受剪辑',
+  },
+  reference: {
+    title: '分析视频',
+    description: '研究本地视频或经授权的链接。研究不等于发布。',
+    addFile: '添加本地文件',
+    addLink: '添加授权链接',
+    pathPlaceholder: '工作区视频路径',
+    urlPlaceholder: '用户授权的视频 URL',
+    studyAck: '我可以私下研究此视频。这不授予转载或发布权利。',
+    reuseAck: '我有权将此视频作为项目素材使用。',
+    empty: '还没有参考视频。',
+    promote: '提升为素材',
+    delete: '移除参考',
+    unsupportedLink: '不支持此链接。请改用本地文件。',
+    durationOverride: '允许超过 10 分钟的参考视频',
   },
   htmlGallery: {
     engineLabel: '引擎',

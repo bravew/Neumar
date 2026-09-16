@@ -805,6 +805,7 @@ export default {
       assets: { label: 'Assets' },
       transitions: { label: 'Transitions' },
       overlays: { label: 'Overlays' },
+      reference: { label: 'References' },
       sources: {
         label: 'Sources',
         footage: {
@@ -2040,6 +2041,23 @@ export default {
     empty: 'No source videos imported yet.',
     analyze: 'Analyze',
     acceptCuts: 'Accept cuts',
+  },
+  reference: {
+    title: 'Analyze video',
+    description:
+      'Study a video file or authorized link. Studying is not publishing.',
+    addFile: 'Add local file',
+    addLink: 'Add authorized link',
+    pathPlaceholder: 'Workspace video path',
+    urlPlaceholder: 'User-authorized video URL',
+    studyAck:
+      'I may study this video privately. This does not grant reuse or publishing rights.',
+    reuseAck: 'I have the right to reuse this video as project footage.',
+    empty: 'No reference videos yet.',
+    promote: 'Promote to asset',
+    delete: 'Remove reference',
+    unsupportedLink: 'This link is not supported. Add a local file instead.',
+    durationOverride: 'Allow references longer than 10 minutes',
   },
   htmlGallery: {
     engineLabel: 'Engine',
