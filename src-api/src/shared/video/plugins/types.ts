@@ -288,6 +288,10 @@ const VIDEO_CAPABILITY_DEFINITIONS: readonly CapabilityDefinition[] = [
     description: 'Send keyframes to a vision-capable model.',
     risk: 'high',
     defaultGrant: 'explicit',
+    toolNames: [
+      'mcp__video-edit__video_reference_write_analysis',
+      'mcp__video-edit__video_reference_write_timeline',
+    ],
   },
   {
     id: 'network:youtube',

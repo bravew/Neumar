@@ -15,8 +15,8 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | 0 Spikes and fixtures | done | `ddb09bd` | fixtures + S1–S4 in `evidence/` |
 | 1 Reference acquisition | done | `5888d3b` | types, archive, routes, MCP, locales, hooks |
 | 2 Evidence toolset | done | stub `74e42f4`; evidence `4b73470` | labeled grids, advisory boundaries, packed-transcript MCP |
-| 3 Analysis run and progress | done | this commit | run ledger, SSE, SideRail, review dialog |
-| 4 Structured reading | not started | — | |
+| 3 Analysis run and progress | done | `793796b` | run ledger, SSE, SideRail, review dialog |
+| 4 Structured reading | done | pending SHA | agent writes; Neumar validates; ANALYSIS.md/TIMELINE.md; SideRail review view |
 | 5 Framework extraction | not started | — | |
 | 6 Template materialization | not started | — | |
 | 7 Apply to an editing task | not started | — | |
@@ -196,3 +196,38 @@ pnpm check:component-size
 - Semantic `read`/`extract` still skip with a note (Phases 4–5).
 - SSE reconnect is implemented; the integration test only checks the stream route status, not event-order bounds.
 - Default transcribe still needs whisper CLI; jobs may error until ASR is present, then resume from that step.
+
+## Phase 4 notes
+
+### Review (before commit)
+
+- Agent writes; Neumar validates. Typed `ReferenceReadingValidationError` names the offending anchor (`out-of-range`, `evidence-overlap`, `unknown-system`, `thin-ranges`, `confidence`).
+- Coverage follows document 06: still samples are points. `thinRanges` are computed from `sampledAtMs` (default gap 2s) plus optional packed-transcript phrase coverage. Writes persist the computed coverage; claimed thinRanges that understate computed gaps are rejected.
+- `promptVersion` (`reference-reading.v1`) is in the reading fingerprint. A method bump marks timeline/framework stale without deleting them.
+- MCP: `video_reference_write_analysis` / `write_timeline` (write + `media:vision`) and `video_reference_get_reading` (read). Flag `video.referenceSemanticReading` gates writes.
+- `ANALYSIS.md` / `TIMELINE.md` render beside the JSON envelopes. These are not `AnalysisArtifactKind` values.
+- Default run `read` step uses on-disk envelopes when present; otherwise skips with an agent-write note (not "later phase"). Extract still waits for Phase 5.
+- Review dialog loads GET `.../reading` and shows `ReferenceReadingView` (sections, coverage bar, open questions, confidence). Six-locale `reference.reading.*`.
+- Dual type tree: `VideoReferenceAnalysis` / timeline / coverage on the frontend.
+
+### Verification run
+
+```bash
+pnpm vitest run --config src-api/vitest.config.ts \
+  test/unit/video/reference-reading-validate.test.ts \
+  test/unit/video/reference-markdown.test.ts \
+  test/unit/video/reference-reading-fingerprint.test.ts \
+  test/unit/video/reference-run.test.ts
+pnpm test src/__tests__/video/ReferenceReadingView.test.tsx
+pnpm check:locale-parity
+pnpm check:component-size
+```
+
+8 API reading tests, 1 run test, 2 frontend tests, plus MCP name/classification tests passed. Codacy MCP timed out. Full `pnpm validate` not claimed.
+
+### Known gaps
+
+- Evidence thumbnails are id labels, not archive image URLs (media route still serves only the source file).
+- Run `read` does not block the job waiting for the agent; the agent writes after evidence exists.
+- Framework extraction remains skipped (Phase 5).
+- Promote still not idempotent (Phase 1 gap).

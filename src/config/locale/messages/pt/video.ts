@@ -2088,7 +2088,8 @@ export default {
     openResults: 'Abrir resultados',
     focusPlaceholder: 'Em que esta análise deve focar? (opcional)',
     flagsLoading: 'Verificando se Analisar vídeo está disponível…',
-    flagsError: 'Não foi possível confirmar a disponibilidade de Analisar vídeo.',
+    flagsError:
+      'Não foi possível confirmar a disponibilidade de Analisar vídeo.',
     retryFlags: 'Tentar de novo',
     steps: {
       fetch: 'Obter',
@@ -2112,6 +2113,16 @@ export default {
       description:
         'Player privado e etapas de análise. Isto não é a timeline de edição.',
       noRun: 'Ainda não há uma análise.',
+    },
+    reading: {
+      empty: 'Ainda não há uma leitura estruturada.',
+      stale:
+        'Esta leitura ficou desatualizada após uma mudança de método ou evidência.',
+      coverage: 'Cobertura',
+      intent: 'Intenção',
+      openQuestions: 'Perguntas em aberto',
+      confidence: 'Confiança',
+      none: 'Nenhuma registrada.',
     },
   },
   htmlGallery: {

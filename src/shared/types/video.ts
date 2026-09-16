@@ -132,6 +132,74 @@ export interface VideoReferenceRun {
   updatedAt: string;
 }
 
+export interface VideoReferenceSystem {
+  id: string;
+  role: string;
+  content: string;
+  appearance: string;
+  spatial: string;
+  entry: string;
+  behavior: string;
+  persistence: string;
+  exit: string;
+  function: string;
+  occurrences: Array<{ startMs: number; endMs: number; variation?: string }>;
+  evidenceIds: string[];
+  confidence: number;
+}
+
+export interface VideoReferenceAnalysis {
+  intent: string;
+  arc: string;
+  thesis: string;
+  systems: VideoReferenceSystem[];
+  openQuestions: Array<{ question: string; atMs?: number; note?: string }>;
+  observed: string[];
+  inferred: string[];
+  promptVersion: string;
+}
+
+export interface VideoReferenceTimelineSection {
+  id: string;
+  startMs: number;
+  endMs: number;
+  phase: string;
+  anchor?: string;
+  activeSystems: Array<{ systemId: string; note: string }>;
+  effect: string;
+  evidenceIds: string[];
+  confidence: number;
+  overlapsWith?: string[];
+}
+
+export interface VideoReferenceCoverage {
+  totalMs: number;
+  sampleCount: number;
+  maxGapMs: number;
+  thinRanges: Array<{ startMs: number; endMs: number }>;
+  transcriptCoveredMs?: number;
+}
+
+export interface VideoReferenceTimelineArtifact {
+  sections: VideoReferenceTimelineSection[];
+  coverage: VideoReferenceCoverage;
+  promptVersion: string;
+}
+
+export interface VideoReferenceEvidenceItem {
+  id: string;
+  range: { startMs: number; endMs: number };
+  sampledAtMs: number[];
+  paths: string[];
+  samples?: Array<{
+    id: string;
+    atMs: number;
+    page: number;
+    cell: number;
+    gridPath: string;
+  }>;
+}
+
 export type VideoAudioFadeCurve = AudioFadeCurve;
 export type VideoAudioTransitionSpec = AudioTransitionSpec;
 

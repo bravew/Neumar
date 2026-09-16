@@ -2093,9 +2093,11 @@ export default {
     cancel: 'Annuler',
     resume: 'Reprendre',
     openResults: 'Ouvrir les résultats',
-    focusPlaceholder: 'Sur quoi cette analyse doit-elle se concentrer ? (facultatif)',
+    focusPlaceholder:
+      'Sur quoi cette analyse doit-elle se concentrer ? (facultatif)',
     flagsLoading: 'Vérification de la disponibilité d’Analyser une vidéo…',
-    flagsError: 'Impossible de confirmer la disponibilité d’Analyser une vidéo.',
+    flagsError:
+      'Impossible de confirmer la disponibilité d’Analyser une vidéo.',
     retryFlags: 'Réessayer',
     steps: {
       fetch: 'Récupérer',
@@ -2119,6 +2121,16 @@ export default {
       description:
         'Lecteur source privé et étapes d’analyse. Ce n’est pas la timeline de montage.',
       noRun: 'Aucune analyse pour le moment.',
+    },
+    reading: {
+      empty: 'Pas encore de lecture structurée.',
+      stale:
+        'Cette lecture est obsolète après un changement de méthode ou de preuves.',
+      coverage: 'Couverture',
+      intent: 'Intention',
+      openQuestions: 'Questions ouvertes',
+      confidence: 'Confiance',
+      none: 'Aucune enregistrée.',
     },
   },
   htmlGallery: {

@@ -374,6 +374,62 @@ export interface ReferenceTag {
   revision: number;
 }
 
+export const REFERENCE_READING_PROMPT_VERSION = 'reference-reading.v1';
+
+export interface ReferenceSystem {
+  id: string;
+  role: string;
+  content: string;
+  appearance: string;
+  spatial: string;
+  entry: string;
+  behavior: string;
+  persistence: string;
+  exit: string;
+  function: string;
+  occurrences: Array<{ startMs: number; endMs: number; variation?: string }>;
+  evidenceIds: string[];
+  confidence: number;
+}
+
+export interface ReferenceAnalysis {
+  intent: string;
+  arc: string;
+  thesis: string;
+  systems: ReferenceSystem[];
+  openQuestions: Array<{ question: string; atMs?: number; note?: string }>;
+  observed: string[];
+  inferred: string[];
+  promptVersion: string;
+}
+
+export interface ReferenceTimelineSection {
+  id: string;
+  startMs: number;
+  endMs: number;
+  phase: string;
+  anchor?: string;
+  activeSystems: Array<{ systemId: string; note: string }>;
+  effect: string;
+  evidenceIds: string[];
+  confidence: number;
+  overlapsWith?: string[];
+}
+
+export interface ReferenceCoverage {
+  totalMs: number;
+  sampleCount: number;
+  maxGapMs: number;
+  thinRanges: Array<{ startMs: number; endMs: number }>;
+  transcriptCoveredMs?: number;
+}
+
+export interface ReferenceTimelineArtifact {
+  sections: ReferenceTimelineSection[];
+  coverage: ReferenceCoverage;
+  promptVersion: string;
+}
+
 export interface VideoProject {
   /** Project document schema version; absent means v1 and is migrated on load. */
   schemaVersion?: 2;

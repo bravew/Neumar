@@ -35,6 +35,7 @@ import {
   transcribeReference,
   writePackedTranscriptForReference,
 } from './evidence';
+import { getReferenceReading } from './reading';
 
 export const REFERENCE_RUN_STEP_IDS: readonly ReferenceRunStepId[] = [
   'fetch',
@@ -474,16 +475,23 @@ const defaultHandlers: Record<
       note: `sampling 0–${endSec} s at 1 s into a ${columns}×${result.item.grid?.rows ?? 3} grid (page 1 of ${pages}, ${result.sampledAtMs.length}/48 cell cap)`,
     };
   },
-  async read() {
+  async read(ctx) {
     if (!getVideoFeatureFlag('video.referenceSemanticReading')) {
       return {
         skipped: true,
         note: 'Structured reading is off. Transcript and evidence remain available.',
       };
     }
+    const reading = await getReferenceReading(ctx.projectId, ctx.reference.id);
+    if (reading.analysis && reading.timeline && !reading.analysis.stale) {
+      return {
+        artifactIds: ['analysis', 'timeline'],
+        note: 'Structured reading already on disk.',
+      };
+    }
     return {
       skipped: true,
-      note: 'Semantic reading runs in a later phase.',
+      note: 'Agent writes analysis with video_reference_write_analysis then video_reference_write_timeline.',
     };
   },
   async extract() {

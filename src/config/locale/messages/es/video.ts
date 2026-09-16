@@ -2124,6 +2124,16 @@ export default {
         'Reproductor privado y pasos de análisis. No es la línea de tiempo de edición.',
       noRun: 'Aún no hay un análisis.',
     },
+    reading: {
+      empty: 'Aún no hay una lectura estructurada.',
+      stale:
+        'Esta lectura está desactualizada tras un cambio de método o evidencia.',
+      coverage: 'Cobertura',
+      intent: 'Intención',
+      openQuestions: 'Preguntas abiertas',
+      confidence: 'Confianza',
+      none: 'Ninguna registrada.',
+    },
   },
   htmlGallery: {
     engineLabel: 'Motor',

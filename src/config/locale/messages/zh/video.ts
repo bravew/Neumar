@@ -2043,6 +2043,15 @@ export default {
       description: '私有源播放器和分析步骤。这不是剪辑时间线。',
       noRun: '还没有分析运行。',
     },
+    reading: {
+      empty: '还没有结构化阅读。',
+      stale: '方法或证据变更后，此阅读已过期。',
+      coverage: '覆盖',
+      intent: '意图',
+      openQuestions: '未决问题',
+      confidence: '置信度',
+      none: '暂无记录。',
+    },
   },
   htmlGallery: {
     engineLabel: '引擎',

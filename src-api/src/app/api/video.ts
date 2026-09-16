@@ -242,6 +242,8 @@ import {
   buildEvidence,
   detectReferenceBoundaries,
 } from '@/shared/video/reference/evidence';
+import { getReferenceReading } from '@/shared/video/reference/reading';
+import { ReferenceReadingValidationError } from '@/shared/video/reference/reading-validate';
 import {
   attachReferenceRunJobId,
   cancelReferenceRun,
@@ -1051,6 +1053,12 @@ function errorResponse(error: unknown): {
             ? 409
             : 400;
     return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof ReferenceReadingValidationError) {
+    return {
+      body: { error: message, code: error.code, detail: error.anchor },
+      status: 422,
+    };
   }
   if (error instanceof AssetsError) {
     return {
@@ -2700,6 +2708,19 @@ videoRoutes.post('/projects/:id/references/:refId/run/resume', async (c) => {
       run: await attachReferenceRunJobId(projectId, referenceId, job.id),
       job,
     });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/reading', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    return c.json(
+      await getReferenceReading(c.req.param('id'), c.req.param('refId')),
+    );
   } catch (error) {
     return jsonError(c, error);
   }

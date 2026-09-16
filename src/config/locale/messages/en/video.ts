@@ -2085,8 +2085,18 @@ export default {
       skipped: 'Skipped',
     },
     review: {
-      description: 'Private source player and analysis steps. This is not the edit timeline.',
+      description:
+        'Private source player and analysis steps. This is not the edit timeline.',
       noRun: 'No analysis run yet.',
+    },
+    reading: {
+      empty: 'No structured reading yet.',
+      stale: 'This reading is stale after a method or evidence change.',
+      coverage: 'Coverage',
+      intent: 'Intent',
+      openQuestions: 'Open questions',
+      confidence: 'Confidence',
+      none: 'None recorded.',
     },
   },
   htmlGallery: {

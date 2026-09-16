@@ -182,6 +182,17 @@ import {
   loadReferenceProbe,
   transcribeReference,
 } from '@/shared/video/reference/evidence';
+import {
+  getReferenceReading,
+  writeReferenceAnalysis,
+  writeReferenceTimeline,
+} from '@/shared/video/reference/reading';
+import { REFERENCE_READING_PROMPT } from '@/shared/video/reference/reading-prompt';
+import {
+  referenceAnalysisSchema,
+  referenceTimelineArtifactSchema,
+} from '@/shared/video/reference/reading-schema';
+import { ReferenceReadingValidationError } from '@/shared/video/reference/reading-validate';
 import { renderTimelineFramesWithRemotion } from '@/shared/video/remotion-renderer';
 import { shareVideoProject } from '@/shared/video/share';
 import { fetchSource, SourceIngestError } from '@/shared/video/source/ingest';
@@ -328,6 +339,9 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_reference_transcribe',
   'video_reference_boundaries',
   'video_reference_build_evidence',
+  'video_reference_get_reading',
+  'video_reference_write_analysis',
+  'video_reference_write_timeline',
   'video_select_template',
   'video_save_as_template',
   'video_write_content_graph',
@@ -646,6 +660,16 @@ function errorResult(
     ...jsonResult({ error: message, code, committed }),
     isError: true,
   };
+}
+
+function readingToolError(error: unknown) {
+  if (error instanceof ReferenceReadingValidationError) {
+    return errorResult(
+      `[${error.code}${error.anchor ? ` @ ${error.anchor}` : ''}] ${error.message}`,
+      error.code,
+    );
+  }
+  return errorResult(error instanceof Error ? error.message : String(error));
 }
 
 /**
@@ -4183,6 +4207,87 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
           return errorResult(
             error instanceof Error ? error.message : String(error),
           );
+        }
+      },
+    ),
+    tool(
+      'video_reference_get_reading',
+      'Read the structured analysis and timeline for a study-only reference, ' +
+        'including coverage thinRanges and stale flags.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult(
+            await getReferenceReading(projectId, input.referenceId),
+          );
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_reference_write_analysis',
+      'Validate and persist a whole-piece reference analysis. ' +
+        'The agent writes; Neumar checks times, evidence overlap, and confidence. ' +
+        REFERENCE_READING_PROMPT,
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        analysis: referenceAnalysisSchema,
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const envelope = await writeReferenceAnalysis(
+            projectId,
+            input.referenceId,
+            input.analysis,
+          );
+          return jsonResult({ envelope });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_reference_write_timeline',
+      'Validate and persist a time-locatable reference timeline. ' +
+        'thinRanges cannot understate sampled gaps. Write analysis first.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        timeline: referenceTimelineArtifactSchema,
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const envelope = await writeReferenceTimeline(
+            projectId,
+            input.referenceId,
+            input.timeline,
+          );
+          return jsonResult({ envelope });
+        } catch (error) {
+          return readingToolError(error);
         }
       },
     ),
