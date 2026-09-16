@@ -13,8 +13,8 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | Phase | Status | Commit | Notes |
 | --- | --- | --- | --- |
 | 0 Spikes and fixtures | done | `ddb09bd` | fixtures + S1–S4 in `evidence/` |
-| 1 Reference acquisition | in progress — tests green, awaiting commit | — | types, archive, routes, MCP, locales, hooks |
-| 2 Evidence toolset | not started | — | ship `store.ts` stub fix as its own commit |
+| 1 Reference acquisition | done | `5888d3b` | types, archive, routes, MCP, locales, hooks |
+| 2 Evidence toolset | in progress — stub fix awaiting commit | — | `store.ts` no longer claims `ffmpeg-scdet` |
 | 3 Analysis run and progress | not started | — | |
 | 4 Structured reading | not started | — | |
 | 5 Framework extraction | not started | — | |
@@ -91,3 +91,12 @@ pnpm --filter neumar-api exec oxlint src/shared/video/reference \
 - 10-minute duration unless `allowLonger`; no DRM/cookies; reject live/playlists.
 - `workspace-path` copies into the archive (allow external media on read, then write under `references/`).
 - Default yt-dlp runner is injectable via `spawnFn` so tests can assert classified errors without mocking ESM `spawn`.
+
+## Phase 2 notes
+
+### Stub fix (own commit)
+
+`buildDeterministicAnalysis()` no longer emits two fabricated scenes labeled
+`method: 'ffmpeg-scdet'`. It now writes `scenes: []` and empty `visualBeats`.
+Heuristic cut candidates (dead-air / no-audio review-only) remain. The real
+detector lands in the evidence-toolset commit.

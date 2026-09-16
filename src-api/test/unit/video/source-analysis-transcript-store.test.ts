@@ -59,6 +59,8 @@ describe('source analysis transcript store integration', () => {
     const { analysis } = await analyzeSource(project.id, source.id);
 
     expect(transcribeSourceMediaMock).toHaveBeenCalledTimes(1);
+    expect(analysis.scenes).toEqual([]);
+    expect(JSON.stringify(analysis)).not.toContain('ffmpeg-scdet');
     expect(analysis.transcript?.words).toHaveLength(3);
     expect(analysis.speechRanges).toEqual([
       { startMs: 100, endMs: 1200, source: 'asr' },

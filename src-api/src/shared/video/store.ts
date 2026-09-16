@@ -2378,34 +2378,11 @@ function buildDeterministicAnalysis(
     contentHash: source.contentHash,
     durationMs,
     streams: metadata,
-    scenes: [
-      {
-        id: randomUUID(),
-        startMs: 0,
-        endMs: sceneMidpoint,
-        confidence: 0.6,
-        method: 'ffmpeg-scdet',
-      },
-      {
-        id: randomUUID(),
-        startMs: sceneMidpoint,
-        endMs: durationMs,
-        confidence: 0.6,
-        method: 'ffmpeg-scdet',
-      },
-    ],
+    scenes: [],
     speechRanges: metadata.audioTrackCount
       ? [{ startMs: 0, endMs: durationMs, source: 'vad' }]
       : [],
-    visualBeats: [
-      {
-        startMs: 0,
-        endMs: durationMs,
-        caption: 'Imported source material',
-        tags: ['source'],
-        source: 'scene-detector',
-      },
-    ],
+    visualBeats: [],
     qualitySignals: metadata.audioTrackCount
       ? []
       : [
