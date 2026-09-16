@@ -200,6 +200,75 @@ export interface VideoReferenceEvidenceItem {
   }>;
 }
 
+export type VideoFrameworkSectionRole =
+  | 'hook'
+  | 'premise'
+  | 'context'
+  | 'proof'
+  | 'escalation'
+  | 'turn'
+  | 'demonstration'
+  | 'payoff'
+  | 'cta'
+  | 'outro';
+
+export interface VideoFrameworkSection {
+  id: string;
+  role: VideoFrameworkSectionRole;
+  purpose: string;
+  timing: {
+    proportion: number;
+    minMs: number;
+    maxMs: number;
+    observedMs: number;
+  };
+  slots: Array<{
+    id: string;
+    kind: string;
+    constraints: Record<string, unknown>;
+    fallback: {
+      kind: string;
+      promptTemplate?: string;
+      queryTemplate?: string;
+      textTemplate?: string;
+    };
+    required: boolean;
+  }>;
+  systemIds: string[];
+  pacing: {
+    cutsPerMinute: number;
+    shortestHoldMs: number;
+    longestHoldMs: number;
+  };
+  confidence: number;
+  derivedFromSectionIds: string[];
+}
+
+export interface VideoFramework {
+  id: string;
+  version: 1;
+  displayName: string;
+  category: string;
+  hook: string;
+  pace: string;
+  aspectRatios: Array<'16:9' | '9:16' | '1:1' | '4:5'>;
+  totalDuration: { typicalMs: number; minMs: number; maxMs: number };
+  sections: VideoFrameworkSection[];
+  systems: Array<{
+    id: string;
+    role: string;
+    behavior: { entry: string; active: string; exit: string };
+    spans: string[];
+  }>;
+  provenance: {
+    referenceId: string;
+    derivedFromArtifacts: string[];
+    extractedBy: string;
+    extractedAt: string;
+  };
+  confidence: number;
+}
+
 export type VideoAudioFadeCurve = AudioFadeCurve;
 export type VideoAudioTransitionSpec = AudioTransitionSpec;
 

@@ -430,6 +430,108 @@ export interface ReferenceTimelineArtifact {
   promptVersion: string;
 }
 
+export const FRAMEWORK_SECTION_ROLES = [
+  'hook',
+  'premise',
+  'context',
+  'proof',
+  'escalation',
+  'turn',
+  'demonstration',
+  'payoff',
+  'cta',
+  'outro',
+] as const;
+
+export type FrameworkSectionRole = (typeof FRAMEWORK_SECTION_ROLES)[number];
+
+export type FrameworkSlotFallback =
+  | { kind: 'ai-image'; promptTemplate: string }
+  | { kind: 'ai-clip'; promptTemplate: string }
+  | { kind: 'broll-search'; queryTemplate: string }
+  | { kind: 'tts-narration'; textTemplate: string }
+  | { kind: 'ask-user' };
+
+export interface FrameworkSlot {
+  id: string;
+  kind: string;
+  constraints: {
+    minDurationMs?: number;
+    aspect?: AspectRatio[];
+    requiresSpeech?: boolean;
+    requiresMotion?: boolean;
+    subject?: string;
+  };
+  fallback: FrameworkSlotFallback;
+  required: boolean;
+}
+
+export interface FrameworkSection {
+  id: string;
+  role: FrameworkSectionRole;
+  purpose: string;
+  timing: {
+    proportion: number;
+    minMs: number;
+    maxMs: number;
+    observedMs: number;
+  };
+  slots: FrameworkSlot[];
+  systemIds: string[];
+  pacing: {
+    cutsPerMinute: number;
+    shortestHoldMs: number;
+    longestHoldMs: number;
+  };
+  confidence: number;
+  derivedFromSectionIds: string[];
+}
+
+export interface FrameworkSystem {
+  id: string;
+  role: string;
+  behavior: { entry: string; active: string; exit: string };
+  style?: { fontFamily?: string; palette?: string[] };
+  spans: string[];
+}
+
+export interface VideoFramework {
+  id: string;
+  version: 1;
+  displayName: string;
+  category:
+    | 'shorts'
+    | 'explainer'
+    | 'ad'
+    | 'tutorial'
+    | 'product'
+    | 'podcast'
+    | 'testimonial'
+    | 'recap'
+    | 'announcement'
+    | 'other'
+    | 'custom';
+  hook: 'punch-in' | 'question' | 'reveal' | 'pattern-interrupt' | 'cold-open';
+  pace: 'slow' | 'medium' | 'fast' | 'extreme';
+  aspectRatios: AspectRatio[];
+  totalDuration: { typicalMs: number; minMs: number; maxMs: number };
+  sections: FrameworkSection[];
+  systems: FrameworkSystem[];
+  audio?: {
+    bedCharacter: string;
+    duckingUnderSpeech: boolean;
+    tempoBpm?: number;
+  };
+  provenance: {
+    referenceId: string;
+    referenceUrl?: string;
+    derivedFromArtifacts: string[];
+    extractedBy: string;
+    extractedAt: string;
+  };
+  confidence: number;
+}
+
 export interface VideoProject {
   /** Project document schema version; absent means v1 and is migrated on load. */
   schemaVersion?: 2;

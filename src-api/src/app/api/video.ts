@@ -242,6 +242,13 @@ import {
   buildEvidence,
   detectReferenceBoundaries,
 } from '@/shared/video/reference/evidence';
+import {
+  extractReferenceFramework,
+  FrameworkExtractError,
+  getReferenceFramework,
+  reviseReferenceFramework,
+} from '@/shared/video/reference/framework-extract';
+import { FrameworkLintError } from '@/shared/video/reference/framework-lint';
 import { getReferenceReading } from '@/shared/video/reference/reading';
 import { ReferenceReadingValidationError } from '@/shared/video/reference/reading-validate';
 import {
@@ -1057,6 +1064,16 @@ function errorResponse(error: unknown): {
   if (error instanceof ReferenceReadingValidationError) {
     return {
       body: { error: message, code: error.code, detail: error.anchor },
+      status: 422,
+    };
+  }
+  if (error instanceof FrameworkExtractError) {
+    const status = error.code === 'missing-reading' ? 404 : 422;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof FrameworkLintError) {
+    return {
+      body: { error: message, code: error.code, detail: error.field },
       status: 422,
     };
   }
@@ -2721,6 +2738,59 @@ videoRoutes.get('/projects/:id/references/:refId/reading', async (c) => {
     return c.json(
       await getReferenceReading(c.req.param('id'), c.req.param('refId')),
     );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/framework', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const framework = await extractReferenceFramework(
+      c.req.param('id'),
+      c.req.param('refId'),
+      body.framework,
+    );
+    return c.json({ framework });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/framework', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    return c.json(
+      (await getReferenceFramework(
+        c.req.param('id'),
+        c.req.param('refId'),
+      )) ?? {
+        framework: null,
+        stale: false,
+      },
+    );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.patch('/projects/:id/references/:refId/framework', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const body = await c.req.json();
+    const framework = await reviseReferenceFramework(
+      c.req.param('id'),
+      c.req.param('refId'),
+      body.framework,
+    );
+    return c.json({ framework });
   } catch (error) {
     return jsonError(c, error);
   }

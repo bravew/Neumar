@@ -183,6 +183,14 @@ import {
   transcribeReference,
 } from '@/shared/video/reference/evidence';
 import {
+  extractReferenceFramework,
+  FrameworkExtractError,
+  getReferenceFramework,
+  reviseReferenceFramework,
+} from '@/shared/video/reference/framework-extract';
+import { FrameworkLintError } from '@/shared/video/reference/framework-lint';
+import { videoFrameworkSchema } from '@/shared/video/reference/framework-schema';
+import {
   getReferenceReading,
   writeReferenceAnalysis,
   writeReferenceTimeline,
@@ -342,6 +350,9 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_reference_get_reading',
   'video_reference_write_analysis',
   'video_reference_write_timeline',
+  'video_extract_framework',
+  'video_get_framework',
+  'video_revise_framework',
   'video_select_template',
   'video_save_as_template',
   'video_write_content_graph',
@@ -666,6 +677,15 @@ function readingToolError(error: unknown) {
   if (error instanceof ReferenceReadingValidationError) {
     return errorResult(
       `[${error.code}${error.anchor ? ` @ ${error.anchor}` : ''}] ${error.message}`,
+      error.code,
+    );
+  }
+  if (error instanceof FrameworkExtractError) {
+    return errorResult(`[${error.code}] ${error.message}`, error.code);
+  }
+  if (error instanceof FrameworkLintError) {
+    return errorResult(
+      `[${error.code}${error.field ? ` @ ${error.field}` : ''}] ${error.message}`,
       error.code,
     );
   }
@@ -4286,6 +4306,84 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
             input.timeline,
           );
           return jsonResult({ envelope });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_extract_framework',
+      'Extract a structure-only VideoFramework from the reference reading. ' +
+        'Refuses thin coverage or low-confidence sections. Optional draft is post-processed.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        framework: videoFrameworkSchema.optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const framework = await extractReferenceFramework(
+            projectId,
+            input.referenceId,
+            input.framework,
+          );
+          return jsonResult({ framework });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_get_framework',
+      'Read the extracted VideoFramework for a reference, including stale.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult(
+            await getReferenceFramework(projectId, input.referenceId),
+          );
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_revise_framework',
+      'Replace a VideoFramework after user or agent corrections, then lint again.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        framework: videoFrameworkSchema,
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const framework = await reviseReferenceFramework(
+            projectId,
+            input.referenceId,
+            input.framework,
+          );
+          return jsonResult({ framework });
         } catch (error) {
           return readingToolError(error);
         }

@@ -16,8 +16,8 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | 1 Reference acquisition | done | `5888d3b` | types, archive, routes, MCP, locales, hooks |
 | 2 Evidence toolset | done | stub `74e42f4`; evidence `4b73470` | labeled grids, advisory boundaries, packed-transcript MCP |
 | 3 Analysis run and progress | done | `793796b` | run ledger, SSE, SideRail, review dialog |
-| 4 Structured reading | done | pending SHA | agent writes; Neumar validates; ANALYSIS.md/TIMELINE.md; SideRail review view |
-| 5 Framework extraction | not started | — | |
+| 4 Structured reading | done | `f7fb706` | agent writes; Neumar validates; ANALYSIS.md/TIMELINE.md; SideRail review view |
+| 5 Framework extraction | done | pending SHA | structure-only VideoFramework, lint, review panel |
 | 6 Template materialization | not started | — | |
 | 7 Apply to an editing task | not started | — | |
 | PR | not started | — | |
@@ -229,5 +229,38 @@ pnpm check:component-size
 
 - Evidence thumbnails are id labels, not archive image URLs (media route still serves only the source file).
 - Run `read` does not block the job waiting for the agent; the agent writes after evidence exists.
-- Framework extraction remains skipped (Phase 5).
+- Promote still not idempotent (Phase 1 gap).
+
+## Phase 5 notes
+
+### Review (before commit)
+
+- `VideoFramework` is structure-only: roles, relative timing, typed slots (`ask-user` plus live asset-plan fallbacks), spanning systems, pacing, min section confidence.
+- Extraction refuses when thinRanges exceed 40% of duration or when more than 30% of timeline sections sit below confidence 0.4.
+- Spine is non-overlapping (document 06). Proportions normalize from `observedMs`. Pacing derives from boundary candidates in range.
+- `framework-lint.ts` fails on archive paths, contentHash, data URIs, and 8-token transcript runs in purpose/prompt/text/query templates. Do not weaken this lint.
+- MCP: `video_extract_framework`, `video_get_framework`, `video_revise_framework`. HTTP POST/GET/PATCH `.../framework`.
+- Default run `extract` tries extraction when a reading exists; coverage/confidence/missing-reading skip the step instead of failing the run.
+- `FrameworkReviewPanel` shows proportion bars, slots, systems, confidence, and role correction. Six-locale role labels.
+
+### Verification run
+
+```bash
+pnpm vitest run --config src-api/vitest.config.ts \
+  test/unit/video/framework-extract.test.ts \
+  test/unit/video/framework-lint.test.ts \
+  test/unit/video/framework-schema.test.ts \
+  test/unit/video/reference-run.test.ts
+pnpm test src/__tests__/video/FrameworkReviewPanel.test.tsx
+pnpm check:locale-parity
+pnpm check:component-size
+```
+
+12 API tests and 1 frontend test passed. MCP name/classification tests passed. Codacy MCP not re-run (timeouts). Full `pnpm validate` not claimed.
+
+### Known gaps
+
+- Auto-extract maps every spine section to a single `a-roll` / `ask-user` slot; richer slot kinds wait on the agent draft.
+- `analyzeSourceBeats` is not wired into `audio.tempoBpm` yet.
+- Materialization is Phase 6.
 - Promote still not idempotent (Phase 1 gap).

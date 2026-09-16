@@ -35,6 +35,10 @@ import {
   transcribeReference,
   writePackedTranscriptForReference,
 } from './evidence';
+import {
+  extractReferenceFramework,
+  FrameworkExtractError,
+} from './framework-extract';
 import { getReferenceReading } from './reading';
 
 export const REFERENCE_RUN_STEP_IDS: readonly ReferenceRunStepId[] = [
@@ -494,17 +498,34 @@ const defaultHandlers: Record<
       note: 'Agent writes analysis with video_reference_write_analysis then video_reference_write_timeline.',
     };
   },
-  async extract() {
+  async extract(ctx) {
     if (!getVideoFeatureFlag('video.referenceSemanticReading')) {
       return {
         skipped: true,
         note: 'Framework extraction is off until structured reading is enabled.',
       };
     }
-    return {
-      skipped: true,
-      note: 'Framework extraction runs in a later phase.',
-    };
+    try {
+      const framework = await extractReferenceFramework(
+        ctx.projectId,
+        ctx.reference.id,
+      );
+      return {
+        artifactIds: [framework.id],
+        note: `Extracted ${framework.sections.length} framework sections.`,
+      };
+    } catch (error) {
+      if (
+        error instanceof FrameworkExtractError &&
+        (error.code === 'missing-reading' ||
+          error.code === 'coverage' ||
+          error.code === 'confidence' ||
+          error.code === 'stale')
+      ) {
+        return { skipped: true, note: error.message };
+      }
+      throw error;
+    }
   },
 };
 

@@ -44,7 +44,10 @@ Use the VideoProject IR:
   video_reference_write_analysis then video_reference_write_timeline. Keep
   observed facts and inferences in separate arrays. Every claim must cite
   evidence ids whose sampled range overlaps the claim. Do not invent a
-  shot-scale taxonomy from boundary detector scores. Do not promote a
+  shot-scale taxonomy from boundary detector scores. Extract a structure-only
+  framework with video_extract_framework once the reading is dense enough;
+  revise with video_revise_framework after the user corrects a section role.
+  Do not promote a
   study-only reference into assets unless asked.
 - When the user asks to recreate / make a video "similar to" a reference (a
   pasted/imported video, or a template), MATCH the reference's aspect ratio:
