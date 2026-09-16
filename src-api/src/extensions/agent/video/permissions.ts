@@ -12,6 +12,9 @@ const READ_TOOLS = [
   'video_list_assets',
   'video_list_references',
   'video_get_reference',
+  'video_get_packed_transcript',
+  'video_inspect_source_range',
+  'video_reference_probe',
   'video_describe_scene',
   'video_search_assets',
   'video_rank_moments',
@@ -49,6 +52,9 @@ const READ_TOOLS = [
 const WRITE_TOOLS = [
   'video_detect_beats',
   'video_analyze_image',
+  'video_reference_transcribe',
+  'video_reference_boundaries',
+  'video_reference_build_evidence',
   'video_set_project_template',
   'video_set_aspect_ratio',
   'video_add_scene',
@@ -168,6 +174,7 @@ const METERED_TOOLS = new Set([
   // Rendering a frame from a source angle costs real decode work; the agent
   // should not loop on it for free.
   'mcp__video-edit__video_multicam_preview_frame',
+  'mcp__video-edit__video_reference_transcribe',
 ]);
 
 export type VideoToolCostClass = 'free' | 'metered';

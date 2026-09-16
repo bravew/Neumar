@@ -171,6 +171,8 @@ export interface InspectSourceRangeInput {
   startMs: number;
   endMs: number;
   frameCount?: number;
+  maxFrameCount?: number;
+  frameWidth?: number;
   waveformBins?: number;
 }
 
@@ -1640,6 +1642,8 @@ export async function inspectSourceRange(
     startMs: input.startMs,
     endMs: input.endMs,
     frameCount: input.frameCount,
+    maxFrameCount: input.maxFrameCount ?? input.frameCount,
+    frameWidth: input.frameWidth,
     waveformBins: input.waveformBins,
     dependencies,
   });

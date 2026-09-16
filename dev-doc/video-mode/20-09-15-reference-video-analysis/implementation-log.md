@@ -14,7 +14,7 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | --- | --- | --- | --- |
 | 0 Spikes and fixtures | done | `ddb09bd` | fixtures + S1–S4 in `evidence/` |
 | 1 Reference acquisition | done | `5888d3b` | types, archive, routes, MCP, locales, hooks |
-| 2 Evidence toolset | in progress — stub fix awaiting commit | — | `store.ts` no longer claims `ffmpeg-scdet` |
+| 2 Evidence toolset | done | stub `74e42f4`; evidence this commit | labeled grids, advisory boundaries, packed-transcript MCP |
 | 3 Analysis run and progress | not started | — | |
 | 4 Structured reading | not started | — | |
 | 5 Framework extraction | not started | — | |
@@ -94,9 +94,69 @@ pnpm --filter neumar-api exec oxlint src/shared/video/reference \
 
 ## Phase 2 notes
 
-### Stub fix (own commit)
+### Stub fix (own commit `74e42f4`)
 
 `buildDeterministicAnalysis()` no longer emits two fabricated scenes labeled
 `method: 'ffmpeg-scdet'`. It now writes `scenes: []` and empty `visualBeats`.
-Heuristic cut candidates (dead-air / no-audio review-only) remain. The real
-detector lands in the evidence-toolset commit.
+Heuristic cut candidates (dead-air / no-audio review-only) remain.
+
+### Evidence toolset (this commit)
+
+- `detectBoundaries()` via ffmpeg `select='gt(scene,t)'` (default) or `scdet`.
+  Scores are capped (48 default / 192 route max) and always carry
+  `REFERENCE_BOUNDARY_CAVEAT`. Candidates are not promoted to `DetectedScene`.
+- Labeled grids: sharp SVG time/word labels **below** the picture (Homebrew
+  ffmpeg has no `drawtext`). Media writes `mkdtemp` + rename; existing dest is
+  an error; staging dirs are removed on failure.
+- Phrase range: `--around` occurrence + padding, typed `PhraseRangeError`.
+- `buildEvidence()`: coarse interval with hard cell cap, `sampledAtMs` in the
+  result, fingerprint cache (contentHash + range + samples + grid). Packed
+  transcript is written with transcribe, before dense grids.
+- API: `POST …/boundaries`, `POST/GET …/evidence`.
+- MCP: `video_get_packed_transcript` (source or `referenceId`),
+  `video_inspect_source_range` (unlabeled; not reference evidence),
+  `video_reference_probe|transcribe|boundaries|build_evidence`.
+- `inspectSourceRange` now forwards caller `maxFrameCount` / `frameWidth`
+  (default cap remains 8). Unlabeled filmstrip path kept for SourceMedia.
+- Transcribe is in `METERED_TOOLS` so the agent cannot loop it for free;
+  actual cost still goes through `transcribeSourceMedia()` → `cost-approval.ts`.
+
+### Review (before commit)
+
+- Labels sit under the frame, not over it.
+- Cache hit writes no new media (`already exists` would fire otherwise).
+- Hard-cut fixture: precision (every candidate near a known cut) + ≥2 of 3
+  cuts within 100 ms at threshold 0.2; still clip is empty; caveat present.
+- `rg "method: 'ffmpeg-scdet'"` in `store.ts` is only the `DetectedScene` union.
+- Dual type tree: evidence types stay API-only until Phase 3/4 UI.
+- Do not commit dirty plan-doc edits or unrelated `VideoProjectFilePreview`.
+
+### Verification run
+
+```bash
+pnpm --filter neumar-api exec oxfmt <phase-2 files>
+pnpm vitest run --config src-api/vitest.config.ts \
+  test/unit/video/boundaries.test.ts \
+  test/unit/video/labeled-frames.test.ts \
+  test/unit/video/phrase-range.test.ts \
+  test/unit/video/reference-evidence.test.ts \
+  test/unit/video/auto-cut-store.test.ts \
+  test/unit/video/source-range-evidence.test.ts \
+  test/integration/video-reference-evidence-routes.test.ts
+# 7 files, 14 tests passed
+# MCP name/classification tests passed
+pnpm --filter neumar-api exec oxlint <phase-2 source files>
+```
+
+Codacy MCP timed out on individual files. Full `pnpm validate` not claimed.
+
+### Known gaps
+
+- `detectBoundaries.sampleRate` is recorded but not applied as an ffmpeg fps
+  prefilter; the filters scan the whole file then cap.
+- `kind: 'frames' | 'clip'` is accepted on the input type but `buildEvidence`
+  currently always materializes a labeled grid.
+- Unlabeled `inspectSourceRange` filmstrip still uses ffmpeg `tile`, not
+  `labeled-frames.ts`. Labeled drawing is the reference-evidence path.
+- `video_reference_transcribe` is untested end-to-end (S4: no whisper CLI).
+- Promote still not idempotent (Phase 1 gap).

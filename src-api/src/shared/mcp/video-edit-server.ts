@@ -175,13 +175,22 @@ import {
   getReference,
   listReferences,
 } from '@/shared/video/reference/acquire';
+import {
+  buildEvidence,
+  detectReferenceBoundaries,
+  loadPackedTranscriptForReference,
+  loadReferenceProbe,
+  transcribeReference,
+} from '@/shared/video/reference/evidence';
 import { renderTimelineFramesWithRemotion } from '@/shared/video/remotion-renderer';
 import { shareVideoProject } from '@/shared/video/share';
 import { fetchSource, SourceIngestError } from '@/shared/video/source/ingest';
 import { buildSourceProvenance } from '@/shared/video/source/provenance';
 import {
   approveStoryboard,
+  getPackedTranscript,
   getProject,
+  inspectSourceRange,
   getVideoProjectRoot,
   getVideoProjectJsonPath,
   getVideoWorkspaceRoot,
@@ -313,6 +322,12 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_add_reference',
   'video_list_references',
   'video_get_reference',
+  'video_get_packed_transcript',
+  'video_inspect_source_range',
+  'video_reference_probe',
+  'video_reference_transcribe',
+  'video_reference_boundaries',
+  'video_reference_build_evidence',
   'video_select_template',
   'video_save_as_template',
   'video_write_content_graph',
@@ -3957,6 +3972,212 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
           return jsonResult({
             projectId,
             reference: await getReference(projectId, input.referenceId),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_get_packed_transcript',
+      'Read the packed transcript for a source or study-only reference. Phrase ids are stable citations.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        sourceId: z.string().min(1).optional(),
+        referenceId: z.string().min(3).max(100).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (input.referenceId) {
+            if (input.sourceId) {
+              return errorResult('Provide sourceId or referenceId, not both.');
+            }
+            if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+              return errorResult('Reference analysis is disabled.');
+            }
+            return jsonResult({
+              projectId,
+              referenceId: input.referenceId,
+              packed: await loadPackedTranscriptForReference(
+                projectId,
+                input.referenceId,
+              ),
+            });
+          }
+          return jsonResult(
+            await getPackedTranscript(projectId, input.sourceId),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_inspect_source_range',
+      'Inspect an unlabeled source-media time range (filmstrip + waveform). ' +
+        'Do not use this as labeled reference evidence.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        sourceId: z.string().min(1),
+        startMs: z.number().nonnegative(),
+        endMs: z.number().positive(),
+        frameCount: z.number().int().positive().max(48).optional(),
+        waveformBins: z.number().int().positive().max(512).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          return jsonResult(
+            await inspectSourceRange(projectId, input.sourceId, {
+              startMs: input.startMs,
+              endMs: input.endMs,
+              frameCount: input.frameCount,
+              maxFrameCount: input.frameCount,
+              waveformBins: input.waveformBins,
+            }),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_probe',
+      'Read the stored ffprobe envelope for a study-only video reference.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult({
+            probe: await loadReferenceProbe(projectId, input.referenceId),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_transcribe',
+      'Transcribe a study-only video reference and write packed-transcript. ' +
+        'Read the packed transcript before requesting dense evidence grids.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult({
+            transcript: await transcribeReference(projectId, input.referenceId),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_boundaries',
+      'Detect advisory adjacent-frame change candidates. ' +
+        'Mechanical adjacent-frame change candidates. Not shot labels.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        threshold: z.number().positive().optional(),
+        maxCandidates: z.number().int().positive().max(192).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const boundaries = await detectReferenceBoundaries(
+            projectId,
+            input.referenceId,
+            {
+              threshold: input.threshold,
+              maxCandidates: input.maxCandidates,
+            },
+          );
+          return jsonResult({ boundaries, caveat: boundaries.caveat });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_build_evidence',
+      'Build time- and word-labeled evidence grids for a reference. ' +
+        'Returns sampledAtMs. Cache hits write nothing.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        around: z.string().min(1).optional(),
+        occurrence: z.number().int().positive().optional(),
+        paddingMs: z.number().int().nonnegative().optional(),
+        everyMs: z.number().int().positive().optional(),
+        columns: z.number().int().positive().max(12).optional(),
+        rows: z.number().int().positive().max(12).optional(),
+        cellWidth: z.number().int().positive().max(1280).optional(),
+        question: z.string().max(500).optional(),
+        maxCells: z.number().int().positive().max(192).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const {
+            around,
+            occurrence,
+            paddingMs,
+            everyMs,
+            columns,
+            rows,
+            cellWidth,
+            question,
+            maxCells,
+            ...rest
+          } = input;
+          void rest;
+          const result = await buildEvidence(projectId, input.referenceId, {
+            around,
+            occurrence,
+            paddingMs,
+            everyMs,
+            columns,
+            rows,
+            cellWidth,
+            question,
+            maxCells,
+          });
+          return jsonResult({
+            item: result.item,
+            sampledAtMs: result.sampledAtMs,
+            cacheHit: result.cacheHit,
           });
         } catch (error) {
           return errorResult(

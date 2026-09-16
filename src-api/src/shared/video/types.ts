@@ -244,6 +244,39 @@ export interface VideoReference {
   createdAt: string;
 }
 
+export const REFERENCE_BOUNDARY_CAVEAT =
+  'Mechanical adjacent-frame change candidates. Not shot labels.' as const;
+
+export interface BoundaryCandidate {
+  atMs: number;
+  /** 0..1 adjacent-frame change score for select; scdet uses its own scale. */
+  score: number;
+  method?: 'select' | 'scdet';
+}
+
+export interface ReferenceBoundaries {
+  sampleRate: number;
+  threshold: number;
+  maxCandidates: number;
+  candidates: BoundaryCandidate[];
+  capped: boolean;
+  caveat: typeof REFERENCE_BOUNDARY_CAVEAT;
+}
+
+export type EvidenceKind = 'grid' | 'frames' | 'clip';
+
+export interface EvidenceItem {
+  id: string;
+  kind: EvidenceKind;
+  name: string;
+  range: { startMs: number; endMs: number };
+  sampledAtMs: number[];
+  paths: string[];
+  labels: { time: boolean; words: boolean };
+  grid?: { columns: number; rows: number; cellWidth: number; pages: number };
+  question?: string;
+}
+
 export interface VideoProject {
   /** Project document schema version; absent means v1 and is migrated on load. */
   schemaVersion?: 2;

@@ -233,6 +233,11 @@ import {
   promoteReference,
   ReferenceAcquireError,
 } from '@/shared/video/reference/acquire';
+import {
+  buildEvidence,
+  detectReferenceBoundaries,
+} from '@/shared/video/reference/evidence';
+import { readReferenceEnvelope } from '@/shared/video/reference/store';
 import { reframeProject } from '@/shared/video/reframe/pipeline';
 import {
   applyRenderPlanSceneModel,
@@ -406,6 +411,18 @@ const referenceCreateSchema = z.object({
 
 const referencePromoteSchema = z.object({
   reuseAcknowledged: z.literal(true),
+});
+
+const referenceEvidenceSchema = z.object({
+  around: z.string().min(1).optional(),
+  occurrence: z.number().int().positive().optional(),
+  paddingMs: z.number().int().nonnegative().optional(),
+  everyMs: z.number().int().positive().max(10_000).optional(),
+  columns: z.number().int().positive().max(12).optional(),
+  rows: z.number().int().positive().max(12).optional(),
+  cellWidth: z.number().int().positive().max(1280).optional(),
+  question: z.string().max(500).optional(),
+  maxCells: z.number().int().positive().max(192).optional(),
 });
 
 const cutPlanSchema = z.object({
@@ -2448,6 +2465,60 @@ videoRoutes.post('/projects/:id/references/:refId/promote', async (c) => {
       parsed.reuseAcknowledged,
     );
     return c.json(result);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/boundaries', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const boundaries = await detectReferenceBoundaries(
+      c.req.param('id'),
+      c.req.param('refId'),
+    );
+    return c.json({ boundaries, caveat: boundaries.caveat });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/evidence', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const parsed = referenceEvidenceSchema.parse(
+      await c.req.json().catch(() => ({})),
+    );
+    const result = await buildEvidence(
+      c.req.param('id'),
+      c.req.param('refId'),
+      parsed,
+    );
+    return c.json({
+      item: result.item,
+      sampledAtMs: result.sampledAtMs,
+      cacheHit: result.cacheHit,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/evidence', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const envelope = await readReferenceEnvelope(
+      c.req.param('id'),
+      c.req.param('refId'),
+      'evidence',
+    );
+    return c.json({ items: envelope?.data ?? [] });
   } catch (error) {
     return jsonError(c, error);
   }

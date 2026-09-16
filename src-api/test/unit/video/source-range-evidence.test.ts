@@ -100,6 +100,44 @@ describe('source range evidence artifacts', () => {
     await expect(fs.stat(result.artifact.cachePath!)).resolves.toBeTruthy();
   });
 
+  it('honors caller-supplied frame count above the unlabeled default cap', async () => {
+    const buildFilmstrip = vi.fn(async (input: { frameCount: number }) => ({
+      path: path.join(cacheDir, 'filmstrip.png'),
+      frameWidth: 320,
+      frameHeight: 180,
+      frameCount: input.frameCount,
+    }));
+
+    const result = await buildSourceRangeEvidenceArtifact({
+      source: sourceFixture(),
+      asset: assetFixture(),
+      analysis: analysisFixture(),
+      workspaceRoot: workDir,
+      cacheDir,
+      startMs: 0,
+      endMs: 2000,
+      frameCount: 12,
+      maxFrameCount: 48,
+      frameWidth: 320,
+      dependencies: {
+        buildFilmstrip,
+        getPeaks: async () => ({
+          bins: 32,
+          peaks: Array.from({ length: 32 }, (_, index) => index / 31),
+          durationMs: 2000,
+        }),
+      },
+    });
+
+    expect(buildFilmstrip).toHaveBeenCalledWith(
+      expect.objectContaining({
+        frameCount: 12,
+        frameWidth: 320,
+      }),
+    );
+    expect(result.payload.filmstrip?.frameCount).toBe(12);
+  });
+
   it('rejects non-finite source ranges before cache paths are built', () => {
     expect(() =>
       normalizeSourceRange({
