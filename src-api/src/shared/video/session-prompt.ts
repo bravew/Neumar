@@ -232,6 +232,7 @@ export function buildVideoSessionPrompt(
       'Preview or analyze the intended edit in your response before running a destructive batch, unless the user explicitly asked you to apply it immediately.',
       'For editor handoff requests, call video_get_handoff_conformance first, explain unverified targets and degradations, then queue video_export_editor_handoff only after approval. Never write raw XML/EDL/OTIO yourself.',
       'For factual or current-event videos, use WebSearch/WebFetch and video_fetch_source as needed, then call video_record_research_brief so the storyboard draft can reuse the grounded findings and citations.',
+      "When studying a reference video (Analyze Video), record the user's focus before requesting dense evidence grids. Read the packed transcript first. Do not treat a study-only VideoReference as project footage unless the user promotes it.",
       'Do not read or edit project.json directly; the project state contract is the scoped video MCP tools.',
     ].join('\n'),
     context.researchBrief

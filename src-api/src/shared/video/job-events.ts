@@ -20,7 +20,11 @@
 
 import { taskEventBus } from '@/shared/services/task-event-bus';
 
-import type { RenderStatus } from './types';
+import type {
+  ReferenceRun,
+  ReferenceRunStreamEvent,
+  RenderStatus,
+} from './types';
 
 /** Wire shape pushed onto the bus for each render-status update. */
 export interface RenderStreamEvent {
@@ -105,4 +109,57 @@ export function isRenderStreamActive(projectId: string): boolean {
 /** Number of buffered events for a project's render stream. */
 export function getRenderStreamBufferSize(projectId: string): number {
   return taskEventBus.getBufferSize(renderChannel(projectId));
+}
+
+function referenceRunChannel(runId: string): string {
+  return `video-reference-run:${runId}`;
+}
+
+function referenceRunEnvelopeType(
+  status: ReferenceRun['status'],
+): ReferenceRunStreamEvent['type'] {
+  if (status === 'done') return 'done';
+  if (status === 'error' || status === 'cancelled') return 'error';
+  return 'progress';
+}
+
+/** Publish a reference-run ledger snapshot. Best-effort; never throw to callers. */
+export function publishReferenceRunStatus(run: ReferenceRun): void {
+  const event: ReferenceRunStreamEvent = {
+    type: referenceRunEnvelopeType(run.status),
+    run,
+    revision: run.revision,
+    updatedAt: run.updatedAt,
+  };
+  taskEventBus.publish(referenceRunChannel(run.id), event);
+}
+
+export function subscribeReferenceRunStream(
+  runId: string,
+  callback: (
+    message: ReferenceRunStreamEvent,
+    event: { id: string; seq: number },
+  ) => void,
+  options: { afterSeq?: number } = {},
+): () => void {
+  return taskEventBus.subscribe(
+    referenceRunChannel(runId),
+    (message, event) => callback(message as ReferenceRunStreamEvent, event),
+    options,
+  );
+}
+
+export function getReferenceRunStreamSeqBounds(runId: string): {
+  minSeq: number | null;
+  maxSeq: number | null;
+} {
+  return taskEventBus.getSeqBounds(referenceRunChannel(runId));
+}
+
+export function isReferenceRunStreamActive(runId: string): boolean {
+  return taskEventBus.isTaskActive(referenceRunChannel(runId));
+}
+
+export function getReferenceRunStreamBufferSize(runId: string): number {
+  return taskEventBus.getBufferSize(referenceRunChannel(runId));
 }

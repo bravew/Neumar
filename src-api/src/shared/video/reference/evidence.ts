@@ -315,6 +315,17 @@ export async function buildEvidence(
     range,
     sampledAtMs: grid.sampledAtMs,
     paths: grid.paths.map((filePath) => relativeToProject(projectId, filePath)),
+    samples: grid.sampledAtMs.map((atMs, index) => {
+      const pageSize = grid.columns * grid.rows;
+      const pageIndex = Math.floor(index / pageSize);
+      return {
+        id: `ev-${fingerprint.slice(0, 12)}-s${index + 1}`,
+        atMs,
+        page: pageIndex + 1,
+        cell: index % pageSize,
+        gridPath: relativeToProject(projectId, grid.paths[pageIndex]!),
+      };
+    }),
     labels: { time: true, words: Boolean(transcript) },
     grid: {
       columns: grid.columns,

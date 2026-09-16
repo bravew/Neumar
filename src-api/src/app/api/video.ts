@@ -112,14 +112,19 @@ import {
   resolveHyperframesStudioProjectDir,
 } from '@/shared/video/hyperframes-studio';
 import {
+  getReferenceRunStreamBufferSize,
+  getReferenceRunStreamSeqBounds,
   getRenderStreamBufferSize,
   getRenderStreamSeqBounds,
+  isReferenceRunStreamActive,
   isRenderStreamActive,
+  subscribeReferenceRunStream,
   subscribeRenderStream,
 } from '@/shared/video/job-events';
 import {
   cancelVideoJob,
   enqueueEditorHandoffJob,
+  enqueueReferenceAnalysisJob,
   enqueueRenderJob,
   getVideoJob,
   listRenderJobs,
@@ -237,6 +242,18 @@ import {
   buildEvidence,
   detectReferenceBoundaries,
 } from '@/shared/video/reference/evidence';
+import {
+  attachReferenceRunJobId,
+  cancelReferenceRun,
+  readReferenceRun,
+  ReferenceRunError,
+  resetReferenceRunForResume,
+  startReferenceRun,
+} from '@/shared/video/reference/run';
+import {
+  resolveReferenceArchiveFile,
+  streamLocalMediaFile,
+} from '@/shared/video/reference/serve';
 import { readReferenceEnvelope } from '@/shared/video/reference/store';
 import { reframeProject } from '@/shared/video/reframe/pipeline';
 import {
@@ -423,6 +440,23 @@ const referenceEvidenceSchema = z.object({
   cellWidth: z.number().int().positive().max(1280).optional(),
   question: z.string().max(500).optional(),
   maxCells: z.number().int().positive().max(192).optional(),
+});
+
+const referenceAnalyzeSchema = z.object({
+  focus: z
+    .object({
+      text: z.string().min(1).max(2000).optional(),
+      ranges: z
+        .array(
+          z.object({
+            startMs: z.number().int().nonnegative(),
+            endMs: z.number().int().positive(),
+          }),
+        )
+        .max(12)
+        .optional(),
+    })
+    .optional(),
 });
 
 const cutPlanSchema = z.object({
@@ -1004,6 +1038,17 @@ function errorResponse(error: unknown): {
               error.code === 'live' ||
               error.code === 'playlist'
             ? 422
+            : 400;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof ReferenceRunError) {
+    const status =
+      error.code === 'not-found' || error.code === 'disabled'
+        ? 404
+        : error.code === 'busy'
+          ? 409
+          : error.code === 'cancelled'
+            ? 409
             : 400;
     return { body: { error: message, code: error.code }, status };
   }
@@ -2519,6 +2564,163 @@ videoRoutes.get('/projects/:id/references/:refId/evidence', async (c) => {
       'evidence',
     );
     return c.json({ items: envelope?.data ?? [] });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/analyze', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const parsed = referenceAnalyzeSchema.parse(
+      await c.req.json().catch(() => ({})),
+    );
+    const projectId = c.req.param('id');
+    const referenceId = c.req.param('refId');
+    const run = await startReferenceRun(projectId, referenceId, parsed);
+    const job = await enqueueReferenceAnalysisJob(projectId, {
+      referenceId,
+      runId: run.id,
+    });
+    return c.json({
+      run: await attachReferenceRunJobId(projectId, referenceId, job.id),
+      job,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/run', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const run = await readReferenceRun(c.req.param('id'), c.req.param('refId'));
+    if (!run) return c.json({ error: 'Reference run not found' }, 404);
+    return c.json({ run });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/run/stream', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const run = await readReferenceRun(c.req.param('id'), c.req.param('refId'));
+    if (!run) return c.json({ error: 'Reference run not found' }, 404);
+    const lastEventId = parseSSECursor(
+      c.req.query('from') ?? c.req.header('Last-Event-ID'),
+    );
+    const seqBounds = getReferenceRunStreamSeqBounds(run.id);
+    const canReplayFromCursor =
+      lastEventId !== null &&
+      seqBounds.minSeq !== null &&
+      lastEventId >= seqBounds.minSeq - 1;
+    c.header('X-Accel-Buffering', 'no');
+    return streamSSE(c, async (stream) => {
+      let resolveDone: () => void = () => {};
+      const done = new Promise<void>((resolve) => {
+        resolveDone = resolve;
+      });
+      let replaying = true;
+      let sawTerminal = false;
+      const unsubscribe = subscribeReferenceRunStream(
+        run.id,
+        (message, event) => {
+          void stream
+            .writeSSE({ id: String(event.seq), data: JSON.stringify(message) })
+            .catch(() => resolveDone());
+          if (message.type === 'done' || message.type === 'error') {
+            sawTerminal = true;
+            if (!replaying) resolveDone();
+          }
+        },
+        canReplayFromCursor ? { afterSeq: lastEventId } : undefined,
+      );
+      replaying = false;
+      if (!isReferenceRunStreamActive(run.id) || sawTerminal) {
+        if (!sawTerminal && getReferenceRunStreamBufferSize(run.id) === 0) {
+          await stream.writeSSE({ data: JSON.stringify({ type: 'idle' }) });
+        }
+        unsubscribe();
+        return;
+      }
+      stream.onAbort(() => {
+        unsubscribe();
+        resolveDone();
+      });
+      await done;
+      unsubscribe();
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/run/cancel', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const run = await cancelReferenceRun(
+      c.req.param('id'),
+      c.req.param('refId'),
+    );
+    if (run.jobId) {
+      try {
+        cancelVideoJob(run.jobId);
+      } catch {
+        // Job may already be terminal.
+      }
+    }
+    return c.json({ run });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/run/resume', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const projectId = c.req.param('id');
+    const referenceId = c.req.param('refId');
+    const run = await resetReferenceRunForResume(projectId, referenceId);
+    const job = await enqueueReferenceAnalysisJob(projectId, {
+      referenceId,
+      runId: run.id,
+    });
+    return c.json({
+      run: await attachReferenceRunJobId(projectId, referenceId, job.id),
+      job,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/media', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const project = await getProject(c.req.param('id'));
+    const reference = project.videoReferences?.find(
+      (item) => item.id === c.req.param('refId'),
+    );
+    if (!reference) return c.json({ error: 'Reference not found' }, 404);
+    const filePath = await resolveReferenceArchiveFile(
+      project.id,
+      reference.id,
+      reference.mediaPath,
+    );
+    return streamLocalMediaFile(filePath, c.req.header('Range'));
   } catch (error) {
     return jsonError(c, error);
   }

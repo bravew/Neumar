@@ -29,6 +29,7 @@ import type {
   VideoLinkedSourceRole,
   VideoProjectListItem,
   VideoReference,
+  VideoReferenceRun,
   VideoProviderView,
   VideoRenderProviderView,
   VideoRenderPlan,
@@ -656,6 +657,56 @@ export function useVideoProject(projectId: string | undefined) {
       );
       setProject(data.project);
       return data.project;
+    },
+    [projectId],
+  );
+
+  const analyzeVideoReference = useCallback(
+    async (referenceId: string, focusText?: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ run: VideoReferenceRun }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/analyze`,
+        {
+          method: 'POST',
+          body: JSON.stringify(focusText ? { focus: { text: focusText } } : {}),
+        },
+      );
+      return data.run;
+    },
+    [projectId],
+  );
+
+  const getVideoReferenceRun = useCallback(
+    async (referenceId: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ run: VideoReferenceRun }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/run`,
+      );
+      return data.run;
+    },
+    [projectId],
+  );
+
+  const cancelVideoReferenceRun = useCallback(
+    async (referenceId: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ run: VideoReferenceRun }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/run/cancel`,
+        { method: 'POST' },
+      );
+      return data.run;
+    },
+    [projectId],
+  );
+
+  const resumeVideoReferenceRun = useCallback(
+    async (referenceId: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ run: VideoReferenceRun }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/run/resume`,
+        { method: 'POST' },
+      );
+      return data.run;
     },
     [projectId],
   );
@@ -1516,6 +1567,10 @@ export function useVideoProject(projectId: string | undefined) {
     listVideoReferences,
     deleteVideoReference,
     promoteVideoReference,
+    analyzeVideoReference,
+    getVideoReferenceRun,
+    cancelVideoReferenceRun,
+    resumeVideoReferenceRun,
     analyzeSource,
     createCutPlan,
     generateStoryboard,

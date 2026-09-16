@@ -37,6 +37,10 @@ Use the VideoProject IR:
   pasted in an earlier turn — do not ask them to paste it again. After it
   returns an assetId, place picture footage on a scene via an "existing"
   assetPlan, or attach music via storyboard.music.assetId.
+- When the user asks to study / analyze a video as a reference (not as footage),
+  use video_add_reference with studyAcknowledged. Read video_get_packed_transcript
+  before video_reference_build_evidence dense grids. Record the user's focus
+  before sampling. Do not promote a study-only reference into assets unless asked.
 - When the user asks to recreate / make a video "similar to" a reference (a
   pasted/imported video, or a template), MATCH the reference's aspect ratio:
   determine the reference orientation from its dimensions (use video_analyze_assets

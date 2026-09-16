@@ -265,6 +265,14 @@ export interface ReferenceBoundaries {
 
 export type EvidenceKind = 'grid' | 'frames' | 'clip';
 
+export interface EvidenceSample {
+  id: string;
+  atMs: number;
+  page: number;
+  cell: number;
+  gridPath: string;
+}
+
 export interface EvidenceItem {
   id: string;
   kind: EvidenceKind;
@@ -272,9 +280,98 @@ export interface EvidenceItem {
   range: { startMs: number; endMs: number };
   sampledAtMs: number[];
   paths: string[];
+  samples?: EvidenceSample[];
   labels: { time: boolean; words: boolean };
   grid?: { columns: number; rows: number; cellWidth: number; pages: number };
   question?: string;
+}
+
+export type ReferenceRunStepId =
+  | 'fetch'
+  | 'probe'
+  | 'transcribe'
+  | 'pack'
+  | 'boundaries'
+  | 'sample'
+  | 'read'
+  | 'extract';
+
+export type ReferenceRunStepStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'error'
+  | 'cancelled'
+  | 'skipped';
+
+export type ReferenceRunStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'error'
+  | 'cancelled';
+
+export interface ReferenceRunStep {
+  id: ReferenceRunStepId;
+  owner: 'system' | 'agent';
+  status: ReferenceRunStepStatus;
+  startedAt?: string;
+  endedAt?: string;
+  producedArtifactIds: string[];
+  costEstimate?: number;
+  costActual?: number;
+  error?: { code: string; message: string };
+  note?: string;
+}
+
+export interface ReferenceRunFocus {
+  text?: string;
+  ranges?: Array<{ startMs: number; endMs: number }>;
+  revision: number;
+}
+
+export interface ReferenceRun {
+  id: string;
+  referenceId: string;
+  jobId?: string;
+  status: ReferenceRunStatus;
+  revision: number;
+  sequence: number;
+  steps: ReferenceRunStep[];
+  focus?: ReferenceRunFocus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReferenceRunStreamEvent {
+  type: 'progress' | 'done' | 'error';
+  run: ReferenceRun;
+  revision: number;
+  updatedAt: string;
+}
+
+export interface ReferenceMoment {
+  id: string;
+  atMs: number;
+  startMs?: number;
+  endMs?: number;
+  description: string;
+  kind: 'observed' | 'inferred';
+  producer?: string;
+  evidenceIds: string[];
+  sampleIds: string[];
+  sectionIds?: string[];
+  systemIds?: string[];
+  confidence?: number;
+}
+
+export interface ReferenceTag {
+  id: string;
+  label: string;
+  origin: 'user' | 'model';
+  momentIds: string[];
+  systemIds: string[];
+  revision: number;
 }
 
 export interface VideoProject {
@@ -2129,7 +2226,8 @@ export interface VideoJob {
     | 'reframe'
     | 'broll'
     | 'music'
-    | 'eval';
+    | 'eval'
+    | 'reference-analysis';
   status: 'queued' | 'running' | 'done' | 'error' | 'cancelled';
   payload: Record<string, unknown>;
   result?: Record<string, unknown>;

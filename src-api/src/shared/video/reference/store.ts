@@ -159,6 +159,43 @@ export function envelopeFileName(kind: ReferenceArtifactKind): string {
   return `${kind}.json`;
 }
 
+export function referenceRunPath(
+  projectId: string,
+  referenceId: string,
+): string {
+  return validatedReferencePath(
+    projectId,
+    path.join(getVideoReferenceDir(projectId, referenceId), 'run.json'),
+  );
+}
+
+export function referenceProgressPath(
+  projectId: string,
+  referenceId: string,
+): string {
+  return validatedReferencePath(
+    projectId,
+    path.join(getVideoReferenceDir(projectId, referenceId), 'PROGRESS.md'),
+  );
+}
+
+export async function writeReferenceText(
+  projectId: string,
+  target: string,
+  contents: string,
+): Promise<void> {
+  const resolved = validatedReferencePath(projectId, target);
+  await fs.mkdir(path.dirname(resolved), { recursive: true });
+  const tmp = `${resolved}.${randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(tmp, contents);
+    await fs.rename(tmp, resolved);
+  } catch (error) {
+    await fs.rm(tmp, { force: true });
+    throw error;
+  }
+}
+
 export function relativeToProject(
   projectId: string,
   absolutePath: string,

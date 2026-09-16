@@ -21,6 +21,7 @@ import type {
   VideoJob,
   VideoProject,
   VideoReference,
+  VideoReferenceRun,
   VideoRenderPlan,
   VideoSourceMedia,
   VideoStoryboard,
@@ -120,6 +121,19 @@ export interface VideoProjectEditorActions {
   listVideoReferences: () => Promise<VideoReference[]>;
   deleteVideoReference: (referenceId: string) => Promise<VideoProject | null>;
   promoteVideoReference: (referenceId: string) => Promise<VideoProject | null>;
+  analyzeVideoReference: (
+    referenceId: string,
+    focusText?: string,
+  ) => Promise<VideoReferenceRun | null>;
+  getVideoReferenceRun: (
+    referenceId: string,
+  ) => Promise<VideoReferenceRun | null>;
+  cancelVideoReferenceRun: (
+    referenceId: string,
+  ) => Promise<VideoReferenceRun | null>;
+  resumeVideoReferenceRun: (
+    referenceId: string,
+  ) => Promise<VideoReferenceRun | null>;
   analyzeSource: (sourceId: string) => Promise<VideoProject | null>;
   createCutPlan: (
     sourceId: string,

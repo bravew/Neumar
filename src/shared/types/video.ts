@@ -81,6 +81,57 @@ export interface VideoReference {
   createdAt: string;
 }
 
+export type VideoReferenceRunStepId =
+  | 'fetch'
+  | 'probe'
+  | 'transcribe'
+  | 'pack'
+  | 'boundaries'
+  | 'sample'
+  | 'read'
+  | 'extract';
+
+export type VideoReferenceRunStepStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'error'
+  | 'cancelled'
+  | 'skipped';
+
+export type VideoReferenceRunStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'error'
+  | 'cancelled';
+
+export interface VideoReferenceRunStep {
+  id: VideoReferenceRunStepId;
+  owner: 'system' | 'agent';
+  status: VideoReferenceRunStepStatus;
+  startedAt?: string;
+  endedAt?: string;
+  producedArtifactIds: string[];
+  costEstimate?: number;
+  costActual?: number;
+  error?: { code: string; message: string };
+  note?: string;
+}
+
+export interface VideoReferenceRun {
+  id: string;
+  referenceId: string;
+  jobId?: string;
+  status: VideoReferenceRunStatus;
+  revision: number;
+  sequence: number;
+  steps: VideoReferenceRunStep[];
+  focus?: { text?: string; revision: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type VideoAudioFadeCurve = AudioFadeCurve;
 export type VideoAudioTransitionSpec = AudioTransitionSpec;
 
@@ -1861,7 +1912,8 @@ export interface VideoJob {
     | 'reframe'
     | 'broll'
     | 'music'
-    | 'eval';
+    | 'eval'
+    | 'reference-analysis';
   status: 'queued' | 'running' | 'done' | 'error' | 'cancelled';
   payload: Record<string, unknown>;
   result?: Record<string, unknown>;

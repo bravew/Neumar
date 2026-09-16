@@ -14,8 +14,8 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | --- | --- | --- | --- |
 | 0 Spikes and fixtures | done | `ddb09bd` | fixtures + S1–S4 in `evidence/` |
 | 1 Reference acquisition | done | `5888d3b` | types, archive, routes, MCP, locales, hooks |
-| 2 Evidence toolset | done | stub `74e42f4`; evidence this commit | labeled grids, advisory boundaries, packed-transcript MCP |
-| 3 Analysis run and progress | not started | — | |
+| 2 Evidence toolset | done | stub `74e42f4`; evidence `4b73470` | labeled grids, advisory boundaries, packed-transcript MCP |
+| 3 Analysis run and progress | done | this commit | run ledger, SSE, SideRail, review dialog |
 | 4 Structured reading | not started | — | |
 | 5 Framework extraction | not started | — | |
 | 6 Template materialization | not started | — | |
@@ -160,3 +160,39 @@ Codacy MCP timed out on individual files. Full `pnpm validate` not claimed.
   `labeled-frames.ts`. Labeled drawing is the reference-evidence path.
 - `video_reference_transcribe` is untested end-to-end (S4: no whisper CLI).
 - Promote still not idempotent (Phase 1 gap).
+
+## Phase 3 notes
+
+### Review (before commit)
+
+- Ordered ledger `fetch → probe → transcribe → pack → boundaries → sample → read → extract`. Deterministic steps are system-owned; read/extract skip when semantic reading is off.
+- Resume restarts the first non-`done`/`skipped` step. Cancel keeps finished artifacts.
+- Progress `note` is specific (sample step includes range, grid, page, cell cap). `PROGRESS.md` is rewritten, not appended.
+- `taskEventBus` channel `video-reference-run:${runId}` is additive; render SSE is unchanged.
+- `VideoJob.kind` includes `reference-analysis` and participates in `drainVideoJobs` / cancel.
+- SideRail tab `'reference'` is gated with `flags['video.referenceAnalysis'] !== false`. Loading disables Analyze; error shows retry. Hidden tab redirects to sources.
+- Expanded review dialog is a private player + run steps, not a rail-only summary. Evidence sample IDs (`page`/`cell`/`gridPath`) land on new grids.
+- Six-locale copy for steps/status/review. `pnpm check:locale-parity` and component-size passed (`SideRail` 341/350).
+- Plugin atom `reference-analyze` runs the pipeline. Focus text is optional run input; `video_record_research_brief` is not reused.
+
+### Verification run
+
+```bash
+pnpm vitest run --config src-api/vitest.config.ts \
+  test/unit/video/reference-run.test.ts \
+  test/unit/video/reference-progress-markdown.test.ts \
+  test/unit/video/jobs-reference-analysis.test.ts \
+  test/integration/video-reference-run-routes.test.ts
+pnpm test src/__tests__/video/ReferenceRunProgress.test.tsx \
+  src/__tests__/video/editorLocation.test.ts
+pnpm check:locale-parity
+pnpm check:component-size
+```
+
+4 API tests and 7 frontend tests passed. Codacy MCP not re-run (prior timeouts). Full `pnpm validate` not claimed.
+
+### Known gaps
+
+- Semantic `read`/`extract` still skip with a note (Phases 4–5).
+- SSE reconnect is implemented; the integration test only checks the stream route status, not event-order bounds.
+- Default transcribe still needs whisper CLI; jobs may error until ASR is present, then resume from that step.

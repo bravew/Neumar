@@ -1,0 +1,34 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderReferenceProgressMarkdown > photographs the current ledger 1`] = `
+"# Reference analysis
+
+- Run ID: \`run-1\`
+- Reference: \`ref-1\`
+- Status: running
+- Revision: 4
+- Sequence: 6
+- Updated: 2026-09-15T00:00:10.000Z
+
+## Focus
+
+caption entry
+
+## Steps
+
+### fetch (\`done\`)
+
+- Owner: system
+- Elapsed: 1s
+- Artifacts: \`media/source.mp4\`
+- Note: Archive already acquired. Fetch not repeated.
+
+### transcribe (\`error\`)
+
+- Owner: system
+- Elapsed: not started
+- Artifacts: none
+- Error: \`step-failed\` whisper missing
+
+"
+`;

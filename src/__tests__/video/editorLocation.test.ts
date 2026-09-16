@@ -35,6 +35,7 @@ describe('editor location', () => {
     // An unknown rail tab would open nothing; honouring it would strand the
     // rail on a tab with no content.
     expect(parse('step=brief&rail=nonsense').rail).toBeNull();
+    expect(parse('step=brief&rail=reference').rail).toBe('reference');
     expect(parse('step=brief&step=bogus').step).toBe('brief');
     // `view` outside Preview has no meaning and no control to change it.
     expect(parse('step=generate&view=output').view).toBeNull();

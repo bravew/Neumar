@@ -2089,6 +2089,37 @@ export default {
     unsupportedLink:
       'Ce lien n’est pas pris en charge. Ajoutez un fichier local.',
     durationOverride: 'Autoriser les références de plus de 10 minutes',
+    analyze: 'Analyser',
+    cancel: 'Annuler',
+    resume: 'Reprendre',
+    openResults: 'Ouvrir les résultats',
+    focusPlaceholder: 'Sur quoi cette analyse doit-elle se concentrer ? (facultatif)',
+    flagsLoading: 'Vérification de la disponibilité d’Analyser une vidéo…',
+    flagsError: 'Impossible de confirmer la disponibilité d’Analyser une vidéo.',
+    retryFlags: 'Réessayer',
+    steps: {
+      fetch: 'Récupérer',
+      probe: 'Sonder',
+      transcribe: 'Transcrire',
+      pack: 'Empaqueter la transcription',
+      boundaries: 'Limites',
+      sample: 'Échantillonner',
+      read: 'Lire',
+      extract: 'Extraire',
+    },
+    status: {
+      queued: 'En file',
+      running: 'En cours',
+      done: 'Terminé',
+      error: 'Erreur',
+      cancelled: 'Annulé',
+      skipped: 'Ignoré',
+    },
+    review: {
+      description:
+        'Lecteur source privé et étapes d’analyse. Ce n’est pas la timeline de montage.',
+      noRun: 'Aucune analyse pour le moment.',
+    },
   },
   htmlGallery: {
     engineLabel: 'Moteur',
