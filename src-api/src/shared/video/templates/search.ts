@@ -152,6 +152,8 @@ export function inspectTemplate(
   return { metadata: m, formSpec, provenanceStatus, examples };
 }
 
+export { searchVideoTemplates } from '@/shared/video/reference/materialize';
+
 function classifyProvenance(m: TemplateMetadata): TemplateProvenanceStatus {
   if (!m.provenance) return 'derived-unverified';
   const originKind = m.provenance.origin.kind;

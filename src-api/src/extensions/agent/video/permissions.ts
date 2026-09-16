@@ -61,6 +61,7 @@ const WRITE_TOOLS = [
   'video_reference_write_timeline',
   'video_extract_framework',
   'video_revise_framework',
+  'video_materialize_framework_template',
   'video_set_project_template',
   'video_set_aspect_ratio',
   'video_add_scene',

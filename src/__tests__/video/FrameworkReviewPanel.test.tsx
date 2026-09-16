@@ -17,6 +17,7 @@ vi.mock('@/shared/providers/language-provider', () => ({
             slots: 'Slots',
             systems: 'Systems',
             none: 'None',
+            saveAsTemplate: 'Save as template',
             roles: {
               hook: 'Hook',
               premise: 'Premise',
@@ -97,5 +98,18 @@ describe('FrameworkReviewPanel', () => {
     expect(screen.getByText(/Orient the viewer/)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Premise' }));
     expect(onChangeRole).toHaveBeenCalledWith('fw-sec-1', 'premise');
+  });
+
+  it('saves a reviewed framework as a template', async () => {
+    const user = userEvent.setup();
+    const onSaveAsTemplate = vi.fn();
+    render(
+      <FrameworkReviewPanel
+        framework={framework}
+        onSaveAsTemplate={onSaveAsTemplate}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Save as template' }));
+    expect(onSaveAsTemplate).toHaveBeenCalledTimes(1);
   });
 });

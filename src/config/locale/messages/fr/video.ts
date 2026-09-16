@@ -108,6 +108,7 @@ export default {
       pace: 'Rythme',
       loading: 'Chargement des modèles...',
       pickTemplate: 'Choisir un modèle',
+      frameworkBadge: 'Cadre',
     },
     category: {
       shorts: 'Shorts',
@@ -2139,6 +2140,7 @@ export default {
       slots: 'Emplacements',
       systems: 'Systèmes',
       none: 'Aucun',
+      saveAsTemplate: 'Enregistrer comme modèle',
       roles: {
         hook: 'Accroche',
         premise: 'Prémisse',
@@ -2164,6 +2166,7 @@ export default {
     attribution: 'attribution',
     customTemplate: 'Personnalisé',
     brandTemplate: 'Marque',
+    frameworkBadge: 'Cadre',
     variablesLabel: 'variables du modèle',
     previewTitle: 'aperçu du cadre HTML',
     panelTitle: 'Vidéo HTML',

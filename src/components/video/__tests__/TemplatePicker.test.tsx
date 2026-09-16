@@ -39,7 +39,7 @@ const fakeGallery = {
         name: 'Quote Card',
         engine: 'html',
         category: 'quote',
-        tags: ['quote'],
+        tags: ['quote', 'framework'],
         version: '0.1.0',
         license: {
           spdx: 'CC-BY-4.0',
@@ -150,5 +150,11 @@ describe('TemplatePicker', () => {
         String(url).includes('/frame-clean-title/source'),
       ),
     ).toBe(false);
+  });
+
+  it('shows a framework badge on tagged gallery templates', async () => {
+    render(<TemplatePicker selectedId={null} onSelect={() => {}} />);
+    await waitFor(() => screen.getByTestId('template-row-frame-quote-card'));
+    expect(screen.getByText('Framework')).toBeTruthy();
   });
 });

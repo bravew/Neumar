@@ -108,6 +108,7 @@ export default {
       pace: 'Ritmo',
       loading: 'Cargando plantillas...',
       pickTemplate: 'Elegir plantilla',
+      frameworkBadge: 'Marco',
     },
     category: {
       shorts: 'Shorts',
@@ -2141,6 +2142,7 @@ export default {
       slots: 'Huecos',
       systems: 'Sistemas',
       none: 'Ninguno',
+      saveAsTemplate: 'Guardar como plantilla',
       roles: {
         hook: 'Gancho',
         premise: 'Premisa',
@@ -2166,6 +2168,7 @@ export default {
     attribution: 'atribución',
     customTemplate: 'Personalizada',
     brandTemplate: 'Marca',
+    frameworkBadge: 'Marco',
     variablesLabel: 'variables de plantilla',
     previewTitle: 'vista previa del cuadro HTML',
     panelTitle: 'Video HTML',

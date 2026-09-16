@@ -108,6 +108,7 @@ export default {
       pace: 'Ritmo',
       loading: 'Carregando modelos...',
       pickTemplate: 'Escolher modelo',
+      frameworkBadge: 'Framework',
     },
     category: {
       shorts: 'Shorts',
@@ -2131,6 +2132,7 @@ export default {
       slots: 'Espaços',
       systems: 'Sistemas',
       none: 'Nenhum',
+      saveAsTemplate: 'Salvar como modelo',
       roles: {
         hook: 'Gancho',
         premise: 'Premissa',
@@ -2156,6 +2158,7 @@ export default {
     attribution: 'atribuição',
     customTemplate: 'Personalizado',
     brandTemplate: 'Marca',
+    frameworkBadge: 'Framework',
     variablesLabel: 'variáveis do modelo',
     previewTitle: 'pré-visualização do quadro HTML',
     panelTitle: 'Vídeo HTML',

@@ -101,6 +101,7 @@ export default {
       pace: '节奏',
       loading: '正在加载模板...',
       pickTemplate: '选择模板',
+      frameworkBadge: '框架',
     },
     category: {
       shorts: '短视频',
@@ -2059,6 +2060,7 @@ export default {
       slots: '槽位',
       systems: '系统',
       none: '无',
+      saveAsTemplate: '保存为模板',
       roles: {
         hook: '钩子',
         premise: '前提',
@@ -2084,6 +2086,7 @@ export default {
     attribution: '需署名',
     customTemplate: '自定义',
     brandTemplate: '品牌',
+    frameworkBadge: '框架',
     variablesLabel: '模板变量',
     previewTitle: 'HTML 帧预览',
     panelTitle: 'HTML 视频',

@@ -2251,6 +2251,8 @@ export interface VideoTemplate {
       assetPlan: VideoTemplateAssetPlan;
       caption?: { text: string; style?: VideoSubtitleStyle };
       transition?: VideoTimelineTransition;
+      slotId?: string;
+      role?: string;
     }>;
     music?: VideoMusicPlan;
     intro?: VideoTimelineBookend;
@@ -2267,4 +2269,10 @@ export interface VideoTemplate {
   authorHandle?: string;
   license: 'CC0' | 'CC-BY' | 'proprietary';
   projectTemplateId?: VideoTemplateId;
+  frameworkProvenance?: {
+    referenceId: string;
+    referenceUrl?: string;
+    extractedAt: string;
+    extractedBy: string;
+  };
 }

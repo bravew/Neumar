@@ -17,8 +17,8 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | 2 Evidence toolset | done | stub `74e42f4`; evidence `4b73470` | labeled grids, advisory boundaries, packed-transcript MCP |
 | 3 Analysis run and progress | done | `793796b` | run ledger, SSE, SideRail, review dialog |
 | 4 Structured reading | done | `f7fb706` | agent writes; Neumar validates; ANALYSIS.md/TIMELINE.md; SideRail review view |
-| 5 Framework extraction | done | pending SHA | structure-only VideoFramework, lint, review panel |
-| 6 Template materialization | not started | — | |
+| 5 Framework extraction | done | `62ed921` | structure-only VideoFramework, lint, review panel |
+| 6 Template materialization | done | — | fill SHA after commit |
 | 7 Apply to an editing task | not started | — | |
 | PR | not started | — | |
 
@@ -262,5 +262,41 @@ pnpm check:component-size
 
 - Auto-extract maps every spine section to a single `a-roll` / `ask-user` slot; richer slot kinds wait on the agent draft.
 - `analyzeSourceBeats` is not wired into `audio.tempoBpm` yet.
-- Materialization is Phase 6.
+- Promote still not idempotent (Phase 1 gap).
+
+## Phase 6 notes
+
+### Review (before commit)
+
+- Reviewed frameworks save as `VideoTemplate` with `source: 'custom'`. New fields (`frameworkProvenance`, scene `slotId`/`role`) are optional; builtins still validate.
+- `frameworkToTemplate()` maps `proportion × targetMs` to scene durations (min 500ms), first slot → `VideoTemplateAssetPlan` (`ai-image` / `ai-clip` / `broll-search` / `tts-narration` / `existing` for `ask-user`), all slots → typed `inputs[]` (`ask-user` → required asset input when `required`).
+- Structural SVG thumbnail is a proportion diagram labeled by role, persisted as `templates/thumbnails/${id}.svg`. Never a reference frame; never a data URI (lint would fail).
+- Materialization lints the draft and the saved template. Missing or stale frameworks refuse.
+- MCP: `video_materialize_framework_template` (write). `video_search_templates` gained additive `role` / `referenceId` and returns `videoTemplates` without changing the HTML gallery hit shape.
+- HTTP POST `.../framework/template`. Review dialog "Save as template" calls it. `FrameworkReviewPanel` shows the button when a callback is present and the framework is not stale.
+- `TemplatePicker` badges HTML gallery rows tagged `framework`. `TemplateInlinePicker` badges IR templates that carry `frameworkProvenance` and shows the source `referenceId`.
+- Six-locale `reference.framework.saveAsTemplate`, `templates.library.frameworkBadge`, `htmlGallery.frameworkBadge`.
+
+### Verification run
+
+```bash
+pnpm --filter @neumar/video-ir build
+pnpm vitest run --config src-api/vitest.config.ts \
+  test/unit/video/framework-materialize.test.ts \
+  test/unit/video/template-validator.test.ts \
+  test/unit/video/framework-lint.test.ts
+pnpm test src/__tests__/video/TemplatePicker.test.tsx \
+  src/__tests__/video/FrameworkReviewPanel.test.tsx \
+  src/components/video/__tests__/TemplatePicker.test.tsx
+pnpm check:component-size && pnpm check:locale-parity
+```
+
+11 API tests and 9 frontend tests passed. Locale parity and component size passed. Codacy MCP timed out. Full `pnpm validate` not claimed.
+
+### Known gaps
+
+- Caption/lower-third systems map into `styleDefaults` only; intro/outro bookends are not auto-synthesized.
+- Save-as-template does not navigate to the gallery or toast success; the template is written to `getVideoRoot()/templates/`.
+- HTML gallery badge is tag-based (`framework`); IR VideoTemplates live in `TemplateInlinePicker`, not the HTML picker.
+- Apply-to-timeline is Phase 7.
 - Promote still not idempotent (Phase 1 gap).

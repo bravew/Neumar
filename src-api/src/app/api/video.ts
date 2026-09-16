@@ -249,6 +249,7 @@ import {
   reviseReferenceFramework,
 } from '@/shared/video/reference/framework-extract';
 import { FrameworkLintError } from '@/shared/video/reference/framework-lint';
+import { materializeFrameworkTemplate } from '@/shared/video/reference/materialize';
 import { getReferenceReading } from '@/shared/video/reference/reading';
 import { ReferenceReadingValidationError } from '@/shared/video/reference/reading-validate';
 import {
@@ -2795,6 +2796,29 @@ videoRoutes.patch('/projects/:id/references/:refId/framework', async (c) => {
     return jsonError(c, error);
   }
 });
+
+videoRoutes.post(
+  '/projects/:id/references/:refId/framework/template',
+  async (c) => {
+    if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+      return referenceUnavailable(c);
+    }
+    try {
+      const body = await c.req.json().catch(() => ({}));
+      const template = await materializeFrameworkTemplate(
+        c.req.param('id'),
+        c.req.param('refId'),
+        {
+          targetMs:
+            typeof body.targetMs === 'number' ? body.targetMs : undefined,
+        },
+      );
+      return c.json({ template });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 videoRoutes.get('/projects/:id/references/:refId/media', async (c) => {
   if (!getVideoFeatureFlag('video.referenceAnalysis')) {

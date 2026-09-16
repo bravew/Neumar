@@ -107,6 +107,7 @@ export default {
       pace: 'Pace',
       loading: 'Loading templates...',
       pickTemplate: 'Pick a template',
+      frameworkBadge: 'Framework',
     },
     category: {
       shorts: 'Shorts',
@@ -2105,6 +2106,7 @@ export default {
       slots: 'Slots',
       systems: 'Systems',
       none: 'None',
+      saveAsTemplate: 'Save as template',
       roles: {
         hook: 'Hook',
         premise: 'Premise',
@@ -2130,6 +2132,7 @@ export default {
     attribution: 'attribution',
     customTemplate: 'Custom',
     brandTemplate: 'Brand',
+    frameworkBadge: 'Framework',
     variablesLabel: 'template variables',
     previewTitle: 'html-frame preview',
     panelTitle: 'HTML video',

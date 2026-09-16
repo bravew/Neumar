@@ -190,6 +190,7 @@ import {
 } from '@/shared/video/reference/framework-extract';
 import { FrameworkLintError } from '@/shared/video/reference/framework-lint';
 import { videoFrameworkSchema } from '@/shared/video/reference/framework-schema';
+import { materializeFrameworkTemplate } from '@/shared/video/reference/materialize';
 import {
   getReferenceReading,
   writeReferenceAnalysis,
@@ -219,6 +220,7 @@ import {
   updateProjectDocument,
   writeProject,
 } from '@/shared/video/store';
+import { listVideoTemplates } from '@/shared/video/templates';
 import { saveProjectAsTemplate } from '@/shared/video/templates/agent-bridge';
 import {
   loadTemplateGallery,
@@ -227,6 +229,7 @@ import {
 import {
   inspectTemplate,
   searchTemplates,
+  searchVideoTemplates,
 } from '@/shared/video/templates/search';
 import { migrateStoryboardToTimeline } from '@/shared/video/timeline';
 import { proposeProjectTimelineOps } from '@/shared/video/timeline-ops';
@@ -353,6 +356,7 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_extract_framework',
   'video_get_framework',
   'video_revise_framework',
+  'video_materialize_framework_template',
   'video_select_template',
   'video_save_as_template',
   'video_write_content_graph',
@@ -3526,6 +3530,8 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
         search: z.string().min(1).optional(),
         requireCommercialUse: z.boolean().optional(),
         requireRedistributable: z.boolean().optional(),
+        role: z.string().min(1).optional(),
+        referenceId: z.string().min(1).optional(),
       },
       async (filters) => {
         try {
@@ -3534,8 +3540,25 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
           );
           const gallery = await loadTemplateGallery(roots);
           const result = searchTemplates(gallery.templates, filters);
+          const videoTemplates = searchVideoTemplates(
+            await listVideoTemplates(),
+            {
+              role: filters.role,
+              referenceId: filters.referenceId,
+              search: filters.search,
+            },
+          );
           return jsonResult({
             ...result,
+            videoTemplates: videoTemplates.map((template) => ({
+              id: template.id,
+              displayName: template.displayName,
+              category: template.category,
+              frameworkProvenance: template.frameworkProvenance,
+              roles: template.storyboardSeed.scenes
+                .map((scene) => scene.role)
+                .filter(Boolean),
+            })),
             galleryIssues: gallery.issues,
           });
         } catch (error) {
@@ -4384,6 +4407,35 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
             input.framework,
           );
           return jsonResult({ framework });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_materialize_framework_template',
+      'Save a reviewed VideoFramework as a custom VideoTemplate. ' +
+        'Uses a structural thumbnail, never a reference frame. Lints the template.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        targetMs: z.number().int().positive().optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const template = await materializeFrameworkTemplate(
+            projectId,
+            input.referenceId,
+            { targetMs: input.targetMs },
+          );
+          return jsonResult({ template });
         } catch (error) {
           return readingToolError(error);
         }

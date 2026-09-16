@@ -293,6 +293,8 @@ export const VideoTemplateSchema = z
               .optional(),
             transition: transitionSpecSchema.optional(),
             reframe: reframeOverrideSchema.optional(),
+            slotId: z.string().min(1).max(80).optional(),
+            role: z.string().min(1).max(80).optional(),
           }),
         )
         .min(1)
@@ -336,6 +338,15 @@ export const VideoTemplateSchema = z
         'ugc-ad',
         'custom',
       ])
+      .optional(),
+    frameworkProvenance: z
+      .object({
+        referenceId: z.string().min(1).max(100),
+        referenceUrl: z.string().max(2000).optional(),
+        extractedAt: z.string().min(1).max(40),
+        extractedBy: z.string().min(1).max(80),
+      })
+      .strict()
       .optional(),
   })
   .refine(

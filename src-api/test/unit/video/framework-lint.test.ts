@@ -4,6 +4,7 @@ import {
   FrameworkLintError,
   lintFramework,
 } from '@/shared/video/reference/framework-lint';
+import { frameworkToTemplate } from '@/shared/video/reference/materialize';
 import type { VideoFramework } from '@/shared/video/types';
 
 const CLEAN: VideoFramework = {
@@ -161,6 +162,30 @@ describe('framework-lint', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(FrameworkLintError);
       expect(error).toMatchObject({ code: 'transcript-run' });
+    }
+  });
+
+  it('passes a clean materialized template', () => {
+    const template = frameworkToTemplate(CLEAN, {
+      thumbnailUrl: 'templates/thumbnails/explainer.svg',
+    });
+    expect(() =>
+      lintFramework(template, {
+        referenceId: 'ref-read1',
+        contentHash: 'abc123',
+      }),
+    ).not.toThrow();
+  });
+
+  it('fails when a materialized template leaks an archive path', () => {
+    const template = frameworkToTemplate(CLEAN, {
+      thumbnailUrl: 'references/ref-read1/media/source.mp4',
+    });
+    try {
+      lintFramework(template, { referenceId: 'ref-read1' });
+      throw new Error('expected rejection');
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'archive-path' });
     }
   });
 });

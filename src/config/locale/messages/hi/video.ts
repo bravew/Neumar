@@ -105,6 +105,7 @@ export default {
       pace: 'गति',
       loading: 'टेम्पलेट लोड हो रहे हैं...',
       pickTemplate: 'टेम्पलेट चुनें',
+      frameworkBadge: 'फ्रेमवर्क',
     },
     category: {
       shorts: 'शॉर्ट्स',
@@ -2079,6 +2080,7 @@ export default {
       slots: 'स्लॉट',
       systems: 'सिस्टम',
       none: 'कोई नहीं',
+      saveAsTemplate: 'टेम्पलेट के रूप में सहेजें',
       roles: {
         hook: 'हुक',
         premise: 'आधार',
@@ -2104,6 +2106,7 @@ export default {
     attribution: 'श्रेय आवश्यक',
     customTemplate: 'कस्टम',
     brandTemplate: 'ब्रांड',
+    frameworkBadge: 'फ्रेमवर्क',
     variablesLabel: 'टेम्पलेट चर',
     previewTitle: 'HTML फ्रेम पूर्वावलोकन',
     panelTitle: 'HTML वीडियो',

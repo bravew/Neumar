@@ -21,12 +21,14 @@ export interface FrameworkReviewPanelProps {
   framework: VideoFramework | null;
   stale?: boolean;
   onChangeRole?: (sectionId: string, role: VideoFrameworkSectionRole) => void;
+  onSaveAsTemplate?: () => void;
 }
 
 export function FrameworkReviewPanel({
   framework,
   stale = false,
   onChangeRole,
+  onSaveAsTemplate,
 }: FrameworkReviewPanelProps) {
   const { t } = useLanguage();
   const copy = t.video.reference.framework;
@@ -42,6 +44,15 @@ export function FrameworkReviewPanel({
         {framework.displayName} · {copy.confidence}{' '}
         {framework.confidence.toFixed(2)}
       </p>
+      {onSaveAsTemplate && !stale ? (
+        <button
+          type="button"
+          className="border-border hover:bg-accent rounded border px-2 py-1"
+          onClick={onSaveAsTemplate}
+        >
+          {copy.saveAsTemplate}
+        </button>
+      ) : null}
       <ol className="space-y-2">
         {framework.sections.map((section) => (
           <li

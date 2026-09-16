@@ -165,6 +165,16 @@ export function ReferenceReviewDialog({
                   },
                 ).catch(() => undefined);
               }}
+              onSaveAsTemplate={() => {
+                void fetch(
+                  `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(reference.id)}/framework/template`,
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}),
+                  },
+                ).catch(() => undefined);
+              }}
             />
           </>
         ) : null}
