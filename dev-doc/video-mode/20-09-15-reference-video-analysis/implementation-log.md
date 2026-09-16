@@ -18,8 +18,8 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | 3 Analysis run and progress | done | `793796b` | run ledger, SSE, SideRail, review dialog |
 | 4 Structured reading | done | `f7fb706` | agent writes; Neumar validates; ANALYSIS.md/TIMELINE.md; SideRail review view |
 | 5 Framework extraction | done | `62ed921` | structure-only VideoFramework, lint, review panel |
-| 6 Template materialization | done | — | fill SHA after commit |
-| 7 Apply to an editing task | not started | — | |
+| 6 Template materialization | done | `2c26ad6` | custom VideoTemplate + structural thumbnail |
+| 7 Apply to an editing task | done | — | fill SHA after commit |
 | PR | not started | — | |
 
 ## Phase 0 notes
@@ -298,5 +298,38 @@ pnpm check:component-size && pnpm check:locale-parity
 - Caption/lower-third systems map into `styleDefaults` only; intro/outro bookends are not auto-synthesized.
 - Save-as-template does not navigate to the gallery or toast success; the template is written to `getVideoRoot()/templates/`.
 - HTML gallery badge is tag-based (`framework`); IR VideoTemplates live in `TemplateInlinePicker`, not the HTML picker.
-- Apply-to-timeline is Phase 7.
+- Promote still not idempotent (Phase 1 gap).
+
+## Phase 7 notes
+
+### Review (before commit)
+
+- Binder ranks `project.assets` only (never `references/`). Hard filters: kind, min duration, aspect, speech, motion. Stable tie-break by asset id. No candidate → gap, not a bad bind.
+- `analyzeProjectAssets` contributes logo demotion only. Moments from `sourceAnalyses` can boost score. Frame hits are optional input (flag `video.frameSearch`).
+- Section durations = `proportion × targetMs`, clamped to min/max, remainder distributed to sections with slack.
+- `frameworkToTimelineOps()` emits `clip.insert` (and `track.insert` when needed). Speech slots snap to packed-transcript words with 30–200 ms pad. Audio clips carry 30 ms fades.
+- Unfilled required slots block apply until bound or waived. Gap report includes fallback kind + estimated cents. Cost-bearing fallbacks go through `cost-approval.ts` when apply is attempted with remaining cost.
+- Apply proposes via `proposeProjectTimelineOps`. MCP `video_apply_framework` respects `video.agentApply` the same way other mutations do (proposal-only for external MCP unless the flag + `agentEdits` allow apply). HTTP POST `.../apply` is the user approval path and writes through `updateProjectDocument`.
+- Revision conflicts throw `Project revision conflict: plan expects N, current M`.
+- MCP: `video_bind_framework` / `video_preview_framework_apply` (read), `video_apply_framework` (destructive). HTTP POST `.../frameworks/:fid/bind|preview|apply`.
+- `FrameworkApplyPanel` shows chosen asset, alternatives, gaps, op diff, preview/approve. Six-locale `reference.apply.*`.
+
+### Verification run
+
+```bash
+pnpm vitest run --config src-api/vitest.config.ts \
+  test/unit/video/framework-bind.test.ts \
+  test/unit/video/framework-apply.test.ts \
+  test/unit/video/framework-gap-report.test.ts \
+  test/integration/video-framework-apply-routes.test.ts
+pnpm test src/__tests__/video/FrameworkApplyPanel.test.tsx
+pnpm check:component-size && pnpm check:locale-parity
+```
+
+9 API tests and 1 frontend test passed. MCP name/classification tests passed. Codacy MCP timed out. Full `pnpm validate` / `pnpm test:fast` not claimed.
+
+### Known gaps
+
+- Cost-bearing fallbacks are reported and gated; they do not auto-generate AI/b-roll/TTS media in this phase.
+- Frame-search hits are accepted as bind input but the HTTP bind route does not yet refresh `searchProjectFrames`.
 - Promote still not idempotent (Phase 1 gap).

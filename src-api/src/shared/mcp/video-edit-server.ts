@@ -176,6 +176,13 @@ import {
   listReferences,
 } from '@/shared/video/reference/acquire';
 import {
+  applyFrameworkToProject,
+  findProjectFramework,
+  FrameworkApplyError,
+  previewFrameworkApply,
+} from '@/shared/video/reference/apply';
+import { bindFrameworkSlots } from '@/shared/video/reference/bind';
+import {
   buildEvidence,
   detectReferenceBoundaries,
   loadPackedTranscriptForReference,
@@ -190,6 +197,7 @@ import {
 } from '@/shared/video/reference/framework-extract';
 import { FrameworkLintError } from '@/shared/video/reference/framework-lint';
 import { videoFrameworkSchema } from '@/shared/video/reference/framework-schema';
+import { reportFrameworkGaps } from '@/shared/video/reference/gap-report';
 import { materializeFrameworkTemplate } from '@/shared/video/reference/materialize';
 import {
   getReferenceReading,
@@ -357,6 +365,9 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_get_framework',
   'video_revise_framework',
   'video_materialize_framework_template',
+  'video_bind_framework',
+  'video_preview_framework_apply',
+  'video_apply_framework',
   'video_select_template',
   'video_save_as_template',
   'video_write_content_graph',
@@ -692,6 +703,9 @@ function readingToolError(error: unknown) {
       `[${error.code}${error.field ? ` @ ${error.field}` : ''}] ${error.message}`,
       error.code,
     );
+  }
+  if (error instanceof FrameworkApplyError) {
+    return errorResult(`[${error.code}] ${error.message}`, error.code);
   }
   return errorResult(error instanceof Error ? error.message : String(error));
 }
@@ -4436,6 +4450,131 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
             { targetMs: input.targetMs },
           );
           return jsonResult({ template });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_bind_framework',
+      'Rank the project’s own assets into a VideoFramework’s slots. ' +
+        'Never reads the reference archive. Returns gaps for unbound slots.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        frameworkId: z.string().min(1).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const project = await loadProjectForTool(projectId, options);
+          const loaded = await findProjectFramework(
+            projectId,
+            input.frameworkId,
+          );
+          const bindings = bindFrameworkSlots(project, loaded.framework);
+          return jsonResult({
+            bindings,
+            gaps: reportFrameworkGaps(bindings),
+            stale: loaded.stale,
+            referenceId: loaded.referenceId,
+          });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_preview_framework_apply',
+      'Build a TimelineOp proposal from bound framework slots without applying it.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        frameworkId: z.string().min(1).max(100),
+        targetMs: z.number().int().positive().optional(),
+        waivedSlotIds: z.array(z.string().min(1)).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const preview = await previewFrameworkApply(
+            projectId,
+            input.frameworkId,
+            {
+              targetMs: input.targetMs,
+              waivedSlotIds: input.waivedSlotIds,
+            },
+          );
+          return jsonResult(preview);
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_apply_framework',
+      'Propose or apply a framework-derived TimelineOp batch. ' +
+        'Respects video.agentApply the same way video_propose_timeline_ops does. ' +
+        'Carries expectedProjectRevision and rejects on conflict.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        frameworkId: z.string().min(1).max(100),
+        targetMs: z.number().int().positive().optional(),
+        waivedSlotIds: z.array(z.string().min(1)).optional(),
+        expectedProjectRevision: z.number().int().nonnegative().optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const project = await loadProjectForTool(projectId, options);
+          const preview = await previewFrameworkApply(
+            projectId,
+            input.frameworkId,
+            {
+              targetMs: input.targetMs,
+              waivedSlotIds: input.waivedSlotIds,
+            },
+          );
+          if (preview.blocked.length > 0) {
+            return errorResult(
+              'Unfilled required slots block apply until each is bound or waived.',
+              'blocked-gaps',
+            );
+          }
+          const gated = await proposalOnlyServiceMutationResult(
+            projectId,
+            options,
+            'video_apply_framework',
+          );
+          if (gated) {
+            return jsonResult(
+              timelineApplyProposalPayload(project, preview.ops, {
+                tool: 'video_apply_framework',
+                summary: 'Apply framework',
+              }),
+            );
+          }
+          const next = await applyFrameworkToProject(
+            projectId,
+            input.frameworkId,
+            {
+              targetMs: input.targetMs,
+              waivedSlotIds: input.waivedSlotIds,
+              expectedProjectRevision: input.expectedProjectRevision,
+            },
+          );
+          return jsonResult({
+            projectId: next.id,
+            revision: next.revision,
+            timelineDurationMs: next.timeline?.durationMs,
+          });
         } catch (error) {
           return readingToolError(error);
         }

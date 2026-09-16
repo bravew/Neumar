@@ -20,6 +20,7 @@ import type {
   VideoReferenceTimelineArtifact,
 } from '@/shared/types/video';
 
+import { FrameworkApplyPanel } from './FrameworkApplyPanel';
 import { FrameworkReviewPanel } from './FrameworkReviewPanel';
 import { ReferenceReadingView } from './ReferenceReadingView';
 import { ReferenceRunProgress } from './ReferenceRunProgress';
@@ -175,6 +176,11 @@ export function ReferenceReviewDialog({
                   },
                 ).catch(() => undefined);
               }}
+            />
+            <FrameworkApplyPanel
+              projectId={projectId}
+              framework={activeFramework?.framework ?? null}
+              stale={activeFramework?.stale}
             />
           </>
         ) : null}

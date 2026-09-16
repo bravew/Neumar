@@ -2154,6 +2154,22 @@ export default {
         outro: 'Outro',
       },
     },
+    apply: {
+      title: 'Appliquer à la timeline',
+      chosen: 'Choisi',
+      alternatives: 'Alternatives',
+      gaps: 'Emplacements requis non remplis',
+      fallback: 'Repli',
+      cost: 'Coût estimé',
+      empty: 'Aucun média du projet ne correspond encore.',
+      blocked:
+        'Remplissez ou ignorez les emplacements requis avant d’appliquer.',
+      reason: 'Raison',
+      none: 'Aucun candidat',
+      preview: 'Aperçu',
+      approve: 'Approuver',
+      ops: 'Opérations proposées',
+    },
   },
   htmlGallery: {
     engineLabel: 'Moteur',

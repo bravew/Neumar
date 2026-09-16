@@ -86,6 +86,7 @@ import {
   writeContentGraph,
   writeTemplateVariables,
 } from '@/shared/video/content-graph/persistence';
+import { VideoCostApprovalError } from '@/shared/video/cost-approval';
 import {
   EngineSelectionError,
   listEngineSelectionOptions,
@@ -239,6 +240,13 @@ import {
   ReferenceAcquireError,
 } from '@/shared/video/reference/acquire';
 import {
+  applyFrameworkToProject,
+  findProjectFramework,
+  FrameworkApplyError,
+  previewFrameworkApply,
+} from '@/shared/video/reference/apply';
+import { bindFrameworkSlots } from '@/shared/video/reference/bind';
+import {
   buildEvidence,
   detectReferenceBoundaries,
 } from '@/shared/video/reference/evidence';
@@ -249,6 +257,7 @@ import {
   reviseReferenceFramework,
 } from '@/shared/video/reference/framework-extract';
 import { FrameworkLintError } from '@/shared/video/reference/framework-lint';
+import { reportFrameworkGaps } from '@/shared/video/reference/gap-report';
 import { materializeFrameworkTemplate } from '@/shared/video/reference/materialize';
 import { getReferenceReading } from '@/shared/video/reference/reading';
 import { ReferenceReadingValidationError } from '@/shared/video/reference/reading-validate';
@@ -1066,6 +1075,25 @@ function errorResponse(error: unknown): {
     return {
       body: { error: message, code: error.code, detail: error.anchor },
       status: 422,
+    };
+  }
+  if (error instanceof FrameworkApplyError) {
+    const status =
+      error.code === 'missing-framework'
+        ? 404
+        : error.code === 'revision-conflict'
+          ? 409
+          : 422;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof VideoCostApprovalError) {
+    return {
+      body: {
+        error: message,
+        code: error.code,
+        detail: error.decision,
+      },
+      status: 402,
     };
   }
   if (error instanceof FrameworkExtractError) {
@@ -2819,6 +2847,76 @@ videoRoutes.post(
     }
   },
 );
+
+videoRoutes.post('/projects/:id/frameworks/:fid/bind', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const project = await getProject(c.req.param('id'));
+    const loaded = await findProjectFramework(
+      c.req.param('id'),
+      c.req.param('fid'),
+    );
+    const bindings = bindFrameworkSlots(project, loaded.framework);
+    return c.json({
+      bindings,
+      gaps: reportFrameworkGaps(bindings),
+      stale: loaded.stale,
+      referenceId: loaded.referenceId,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/frameworks/:fid/preview', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const preview = await previewFrameworkApply(
+      c.req.param('id'),
+      c.req.param('fid'),
+      {
+        targetMs: typeof body.targetMs === 'number' ? body.targetMs : undefined,
+        waivedSlotIds: Array.isArray(body.waivedSlotIds)
+          ? body.waivedSlotIds.filter((id: unknown) => typeof id === 'string')
+          : undefined,
+      },
+    );
+    return c.json(preview);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/frameworks/:fid/apply', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const project = await applyFrameworkToProject(
+      c.req.param('id'),
+      c.req.param('fid'),
+      {
+        targetMs: typeof body.targetMs === 'number' ? body.targetMs : undefined,
+        expectedProjectRevision:
+          typeof body.expectedProjectRevision === 'number'
+            ? body.expectedProjectRevision
+            : undefined,
+        waivedSlotIds: Array.isArray(body.waivedSlotIds)
+          ? body.waivedSlotIds.filter((id: unknown) => typeof id === 'string')
+          : undefined,
+      },
+    );
+    return c.json({ project });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
 
 videoRoutes.get('/projects/:id/references/:refId/media', async (c) => {
   if (!getVideoFeatureFlag('video.referenceAnalysis')) {
