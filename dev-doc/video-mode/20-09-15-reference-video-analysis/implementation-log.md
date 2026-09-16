@@ -19,8 +19,8 @@ Base: `feat/reference-video-analysis` @ `b4a7cfd` (flags already default-on)
 | 4 Structured reading | done | `f7fb706` | agent writes; Neumar validates; ANALYSIS.md/TIMELINE.md; SideRail review view |
 | 5 Framework extraction | done | `62ed921` | structure-only VideoFramework, lint, review panel |
 | 6 Template materialization | done | `2c26ad6` | custom VideoTemplate + structural thumbnail |
-| 7 Apply to an editing task | done | — | fill SHA after commit |
-| PR | not started | — | |
+| 7 Apply to an editing task | done | `4150f52` | bind slots, propose TimelineOp[], approval path |
+| PR | in progress | — | |
 
 ## Phase 0 notes
 
