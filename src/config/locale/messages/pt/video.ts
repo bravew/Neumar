@@ -2090,6 +2090,16 @@ export default {
     flagsError:
       'Não foi possível confirmar a disponibilidade de Analisar vídeo.',
     retryFlags: 'Tentar de novo',
+    reanalyze: 'Reanalisar',
+    showSteps: 'Etapas',
+    hideSteps: 'Ocultar etapas',
+    owner: {
+      system: 'neste painel',
+      agent: 'no chat',
+    },
+    handoffPrompt:
+      'Continue a análise de vídeo de "{label}": construa a leitura estruturada e depois escreva a análise e a linha do tempo. Foco: {focus}.',
+    handoffDefaultFocus: 'a estrutura narrativa geral e o ritmo',
     steps: {
       fetch: 'Obter',
       probe: 'Sondar',

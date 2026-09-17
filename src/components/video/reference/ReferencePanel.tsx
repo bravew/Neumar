@@ -1,18 +1,19 @@
-import { useEffect, useState } from 'react';
-
-import { FileVideo, Link, Upload } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLanguage } from '@/shared/providers/language-provider';
-import type {
-  VideoProject,
-  VideoReference,
-  VideoReferenceRun,
-} from '@/shared/types/video';
+import type { VideoProject, VideoReference } from '@/shared/types/video';
 
 import type { VideoProjectEditorActions } from '../editorTypes';
 import { PanelShell } from '../PanelShell';
+import { ReferenceAddForm } from './ReferenceAddForm';
+import { ReferenceCard } from './ReferenceCard';
 import { ReferenceReviewDialog } from './ReferenceReviewDialog';
-import { ReferenceRunProgress } from './ReferenceRunProgress';
+import { useReferenceRunPolling } from './useReferenceRunPolling';
+import {
+  pendingAgentSteps,
+  systemStepsSettled,
+  useReferenceStudyStore,
+} from './useReferenceStudyStore';
 
 interface ReferencePanelProps {
   project: VideoProject;
@@ -22,6 +23,15 @@ interface ReferencePanelProps {
   onRetryFlags: () => void;
 }
 
+/**
+ * Analyze video tab — the one surface that owns a reference study.
+ *
+ * Adding, analyzing, cancelling, progress, and the jump into results all live
+ * here. The pipeline's `read` and `extract` steps are agent-owned, so when a
+ * run reaches them the panel asks the chat dock to finish the job through the
+ * shared study store; the dock sends that as a visible turn, which is what
+ * connects this panel to the conversation on the left.
+ */
 export function ReferencePanel({
   project,
   actions,
@@ -30,208 +40,164 @@ export function ReferencePanel({
   onRetryFlags,
 }: ReferencePanelProps) {
   const { t } = useLanguage();
-  const [pathValue, setPathValue] = useState('');
-  const [urlValue, setUrlValue] = useState('');
+  const labels = t.video.reference;
   const [focusText, setFocusText] = useState('');
   const [selected, setSelected] = useState<VideoReference | null>(null);
-  const [run, setRun] = useState<VideoReferenceRun | null>(null);
-  const references = project.videoReferences ?? [];
+  const references = useMemo(
+    () => project.videoReferences ?? [],
+    [project.videoReferences],
+  );
   const actionsEnabled = !flagsLoading && !flagsError;
 
+  const syncProject = useReferenceStudyStore((state) => state.syncProject);
+  const setRun = useReferenceStudyStore((state) => state.setRun);
+  const setActiveReference = useReferenceStudyStore(
+    (state) => state.setActiveReference,
+  );
+  const requestHandoff = useReferenceStudyStore(
+    (state) => state.requestHandoff,
+  );
+  const runs = useReferenceStudyStore((state) => state.runs);
+  const activeReferenceId = useReferenceStudyStore(
+    (state) => state.activeReferenceId,
+  );
+  const agentStreaming = useReferenceStudyStore(
+    (state) => state.agentStreaming,
+  );
+
   useEffect(() => {
-    if (!selected) return;
-    let cancelled = false;
-    void actions.getVideoReferenceRun(selected.id).then((next) => {
-      if (!cancelled) setRun(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [actions, selected]);
+    syncProject(project.id);
+  }, [project.id, syncProject]);
+
+  const { getVideoReferenceRun } = actions;
+  useReferenceRunPolling({
+    referenceIds: references.map((reference) => reference.id),
+    getRun: getVideoReferenceRun,
+    agentStreaming,
+  });
+
+  // A run parks on its agent-owned steps once the system steps have settled.
+  // Hand it to the chat then — not at click time — so the agent reads evidence
+  // that actually exists. Only runs this session started are eligible: a run
+  // parked from an earlier visit must not spend an agent turn on page load.
+  const awaitingHandoff = useRef(new Set<string>());
+  useEffect(() => {
+    for (const reference of references) {
+      if (!awaitingHandoff.current.has(reference.id)) continue;
+      const run = runs[reference.id];
+      if (!run || !systemStepsSettled(run)) continue;
+      if (pendingAgentSteps(run).length === 0) {
+        awaitingHandoff.current.delete(reference.id);
+        continue;
+      }
+      awaitingHandoff.current.delete(reference.id);
+      requestHandoff({
+        referenceId: reference.id,
+        label: reference.label,
+        ...(focusText.trim() ? { focus: focusText.trim() } : {}),
+      });
+    }
+  }, [focusText, references, requestHandoff, runs]);
+
+  const analyze = useCallback(
+    async (reference: VideoReference) => {
+      setActiveReference(reference.id);
+      const run = await actions.analyzeVideoReference(
+        reference.id,
+        focusText.trim() || undefined,
+      );
+      if (run) {
+        awaitingHandoff.current.add(reference.id);
+        setRun(run);
+      }
+    },
+    [actions, focusText, setActiveReference, setRun],
+  );
+
+  const cancel = useCallback(
+    async (reference: VideoReference) => {
+      const run = await actions.cancelVideoReferenceRun(reference.id);
+      if (run) setRun(run);
+    },
+    [actions, setRun],
+  );
 
   return (
-    <PanelShell
-      title={t.video.reference.title}
-      description={t.video.reference.description}
-    >
+    <PanelShell title={labels.title} description={labels.description}>
       <div className="space-y-3">
         {flagsLoading ? (
-          <p className="text-muted-foreground text-xs">
-            {t.video.reference.flagsLoading}
-          </p>
+          <p className="text-muted-foreground text-xs">{labels.flagsLoading}</p>
         ) : null}
         {flagsError ? (
           <div className="space-y-2">
-            <p className="text-destructive text-xs">
-              {t.video.reference.flagsError}
-            </p>
+            <p className="text-destructive text-xs">{labels.flagsError}</p>
             <button
               type="button"
               className="border-border hover:bg-accent rounded-md border px-2 py-1 text-xs"
               onClick={onRetryFlags}
             >
-              {t.video.reference.retryFlags}
+              {labels.retryFlags}
             </button>
           </div>
         ) : null}
-        <label className="border-border hover:bg-accent/40 flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-3 py-4 text-sm">
-          <Upload className="size-4" />
-          <span>{t.video.reference.addFile}</span>
-          <input
-            type="file"
-            accept="video/*"
-            className="sr-only"
-            disabled={!actionsEnabled}
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
-              if (file) {
-                void actions.addVideoReference({
-                  origin: 'upload',
-                  file,
-                  studyAcknowledged: true,
-                });
-              }
-              event.currentTarget.value = '';
-            }}
-          />
-        </label>
-        <div className="flex gap-2">
-          <input
-            value={pathValue}
-            onChange={(event) => setPathValue(event.target.value)}
-            placeholder={t.video.reference.pathPlaceholder}
-            className="border-input bg-background min-w-0 flex-1 rounded-md border px-3 py-2 text-xs"
-            disabled={!actionsEnabled}
-          />
-          <button
-            type="button"
-            className="border-border hover:bg-accent rounded-md border px-3 py-2 text-xs disabled:opacity-40"
-            disabled={!actionsEnabled || !pathValue.trim()}
-            onClick={() => {
-              void actions.addVideoReference({
-                origin: 'workspace-path',
-                path: pathValue.trim(),
-                studyAcknowledged: true,
-              });
-              setPathValue('');
-            }}
-          >
-            <FileVideo className="size-4" />
-          </button>
-        </div>
-        <div className="flex gap-2">
-          <input
-            value={urlValue}
-            onChange={(event) => setUrlValue(event.target.value)}
-            placeholder={t.video.reference.urlPlaceholder}
-            className="border-input bg-background min-w-0 flex-1 rounded-md border px-3 py-2 text-xs"
-            disabled={!actionsEnabled}
-          />
-          <button
-            type="button"
-            className="border-border hover:bg-accent rounded-md border px-3 py-2 text-xs disabled:opacity-40"
-            disabled={!actionsEnabled || !urlValue.trim()}
-            onClick={() => {
-              void actions.addVideoReference({
-                origin: 'link',
-                url: urlValue.trim(),
-                studyAcknowledged: true,
-              });
-              setUrlValue('');
-            }}
-          >
-            <Link className="size-4" />
-          </button>
-        </div>
+        <ReferenceAddForm
+          disabled={!actionsEnabled}
+          onAddFile={(file) => {
+            void actions.addVideoReference({
+              origin: 'upload',
+              file,
+              studyAcknowledged: true,
+            });
+          }}
+          onAddPath={(path) => {
+            void actions.addVideoReference({
+              origin: 'workspace-path',
+              path,
+              studyAcknowledged: true,
+            });
+          }}
+          onAddUrl={(url) => {
+            void actions.addVideoReference({
+              origin: 'link',
+              url,
+              studyAcknowledged: true,
+            });
+          }}
+        />
         <input
           value={focusText}
           onChange={(event) => setFocusText(event.target.value)}
-          placeholder={t.video.reference.focusPlaceholder}
+          placeholder={labels.focusPlaceholder}
           className="border-input bg-background w-full rounded-md border px-3 py-2 text-xs"
           disabled={!actionsEnabled}
         />
         {references.length === 0 ? (
-          <p className="text-muted-foreground text-xs">
-            {t.video.reference.empty}
-          </p>
+          <p className="text-muted-foreground text-xs">{labels.empty}</p>
         ) : (
           <ul className="space-y-2">
             {references.map((reference) => (
-              <li
+              <ReferenceCard
                 key={reference.id}
-                className="border-border space-y-2 rounded-md border p-2"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    className="text-foreground truncate text-left text-xs font-medium"
-                    onClick={() => setSelected(reference)}
-                  >
-                    {reference.label}
-                  </button>
-                  <span className="text-muted-foreground text-[10px]">
-                    {(reference.durationMs / 1000).toFixed(1)}s
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  <button
-                    type="button"
-                    className="border-border hover:bg-accent rounded border px-2 py-1 text-[11px] disabled:opacity-40"
-                    disabled={!actionsEnabled}
-                    onClick={async () => {
-                      const next = await actions.analyzeVideoReference(
-                        reference.id,
-                        focusText.trim() || undefined,
-                      );
-                      if (next) setRun(next);
-                    }}
-                  >
-                    {t.video.reference.analyze}
-                  </button>
-                  <button
-                    type="button"
-                    className="border-border hover:bg-accent rounded border px-2 py-1 text-[11px] disabled:opacity-40"
-                    disabled={!actionsEnabled}
-                    onClick={async () => {
-                      const next = await actions.cancelVideoReferenceRun(
-                        reference.id,
-                      );
-                      if (next) setRun(next);
-                    }}
-                  >
-                    {t.video.reference.cancel}
-                  </button>
-                  <button
-                    type="button"
-                    className="border-border hover:bg-accent rounded border px-2 py-1 text-[11px] disabled:opacity-40"
-                    disabled={!actionsEnabled}
-                    onClick={async () => {
-                      const next = await actions.resumeVideoReferenceRun(
-                        reference.id,
-                      );
-                      if (next) setRun(next);
-                    }}
-                  >
-                    {t.video.reference.resume}
-                  </button>
-                  <button
-                    type="button"
-                    className="border-border hover:bg-accent rounded border px-2 py-1 text-[11px]"
-                    onClick={() => setSelected(reference)}
-                  >
-                    {t.video.reference.openResults}
-                  </button>
-                </div>
-              </li>
+                reference={reference}
+                run={runs[reference.id]}
+                active={activeReferenceId === reference.id}
+                actionsEnabled={actionsEnabled}
+                onAnalyze={() => void analyze(reference)}
+                onCancel={() => void cancel(reference)}
+                onOpenResults={() => {
+                  setActiveReference(reference.id);
+                  setSelected(reference);
+                }}
+                onSelect={() => setActiveReference(reference.id)}
+              />
             ))}
           </ul>
         )}
-        {run ? <ReferenceRunProgress run={run} /> : null}
       </div>
       <ReferenceReviewDialog
         projectId={project.id}
         reference={selected}
-        run={run}
+        run={selected ? (runs[selected.id] ?? null) : null}
         onOpenChange={(open) => {
           if (!open) setSelected(null);
         }}

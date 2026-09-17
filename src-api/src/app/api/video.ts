@@ -541,6 +541,7 @@ const agentTurnSchema = z.object({
             .optional(),
         })
         .optional(),
+      referenceId: z.string().min(1).max(120).optional(),
       pluginId: z.string().min(1).max(160).optional(),
       pluginInputs: z.record(z.string(), z.unknown()).optional(),
       approvedPluginCapabilities: z.array(z.string().min(1)).max(50).optional(),

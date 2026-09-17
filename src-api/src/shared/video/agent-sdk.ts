@@ -236,6 +236,7 @@ export function runVideoAgentTurn(
         aspectRatio: context?.aspectRatio,
         transcriptSelection: context?.transcriptSelection,
         editorSelection: context?.editorSelection,
+        referenceId: context?.referenceId,
         pluginId: context?.pluginId,
         pluginInputs: context?.pluginInputs,
         approvedPluginCapabilities: context?.approvedPluginCapabilities,

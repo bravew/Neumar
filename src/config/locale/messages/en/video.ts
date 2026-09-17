@@ -2065,6 +2065,16 @@ export default {
     flagsLoading: 'Checking whether Analyze video is available…',
     flagsError: 'Could not confirm Analyze video availability.',
     retryFlags: 'Retry',
+    reanalyze: 'Re-analyze',
+    showSteps: 'Steps',
+    hideSteps: 'Hide steps',
+    owner: {
+      system: 'in this panel',
+      agent: 'in chat',
+    },
+    handoffPrompt:
+      'Continue the Analyze video run for "{label}": build the structured reading, then write the analysis and timeline. Focus: {focus}.',
+    handoffDefaultFocus: 'overall narrative structure and pacing',
     steps: {
       fetch: 'Fetch',
       probe: 'Probe',

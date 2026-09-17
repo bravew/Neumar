@@ -9,6 +9,7 @@ import {
 import { buildCurrentVideoContext } from './editor-context';
 import type { VideoResearchBrief } from './plugins/atoms/research';
 import type { VideoPluginPromptContext } from './plugins/runtime';
+import type { ReferenceStudyPromptContext } from './reference/prompt-context';
 import { getVideoProjectRoot } from './store';
 import {
   loadTemplateGallery,
@@ -61,6 +62,7 @@ export interface VideoSessionPromptContext {
   plugin?: VideoPluginPromptContext;
   catalogContext?: string;
   htmlTemplateContext?: VideoHtmlTemplatePromptContext;
+  referenceStudy?: ReferenceStudyPromptContext;
 }
 
 export async function buildVideoHtmlTemplateContext(
@@ -270,6 +272,15 @@ export function buildVideoSessionPrompt(
             null,
             2,
           ),
+        ].join('\n')
+      : '',
+    context.referenceStudy
+      ? [
+          '## Reference Study (Analyze video panel)',
+          JSON.stringify(context.referenceStudy, null, 2),
+          'This is the reference the user has open in the Analyze video panel. The panel runs the system steps (fetch, probe, transcribe, pack, boundaries, sample) and parks the agent-owned steps for you.',
+          'When `read` is not yet done, build the structured reading: sample evidence as needed, then video_reference_write_analysis followed by video_reference_write_timeline. `extract` then runs on its own from the panel.',
+          'Describe progress against these step ids so the user can match what you say to the panel they are looking at.',
         ].join('\n')
       : '',
     context.htmlTemplateContext

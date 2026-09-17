@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ChatPanel } from '@/components/shared/chat-panel';
 import { ChatInput } from '@/components/shared/ChatInput';
@@ -32,6 +32,8 @@ import {
   projectAssetMetaSummary,
 } from './assets/ProjectAssetTile';
 import type { VideoEditorStep, VideoProjectEditorActions } from './editorTypes';
+import { useReferenceStudyHandoff } from './reference/useReferenceStudyHandoff';
+import { useReferenceStudyStore } from './reference/useReferenceStudyStore';
 import { useAgentDock } from './useAgentDock';
 import { useAgentDockActionHandlers } from './useAgentDockActionHandlers';
 import { useAgentDockSubmit } from './useAgentDockSubmit';
@@ -141,6 +143,28 @@ export function AgentDock({
     onStreamingChange?.(streaming);
   }, [onStreamingChange, streaming]);
 
+  // The Analyze video panel owns a reference run but cannot finish its
+  // agent-owned steps; it posts a handoff and this turns it into a visible
+  // turn here. The same reference rides along as context on ordinary messages
+  // so follow-up questions land on the study the user is looking at.
+  const activeReferenceId = useReferenceStudyStore(
+    (state) => state.activeReferenceId,
+  );
+  const buildHandoffContext = useCallback(
+    () => ({
+      selectedSceneId: selectedScene?.id,
+      aspectRatio,
+      step: activeStep,
+      editorSelection,
+    }),
+    [activeStep, aspectRatio, editorSelection, selectedScene?.id],
+  );
+  useReferenceStudyHandoff({
+    streaming,
+    sendMessage,
+    buildContext: buildHandoffContext,
+  });
+
   const sendWithAttachments = useAgentDockSubmit({
     activeStep,
     actions,
@@ -155,6 +179,7 @@ export function AgentDock({
     sendMessage,
     setDraft,
     transcriptSelection,
+    referenceId: activeReferenceId,
   });
 
   const send = (content: string) => void sendWithAttachments(content, []);

@@ -645,6 +645,8 @@ export interface AgentOptions {
         tab?: string;
       };
     };
+    /** Reference selected in the Analyze video panel. */
+    referenceId?: string;
     /** Resolved VideoPlugin object, or a plugin id resolved by VideoAgent. */
     plugin?: unknown;
     pluginId?: string;

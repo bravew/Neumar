@@ -65,6 +65,7 @@ import {
   recordVideoIntentLog,
   type VideoAppliedPluginSnapshot,
 } from '@/shared/video/recipes';
+import { buildReferenceStudyContext } from '@/shared/video/reference/prompt-context';
 import {
   buildVideoHtmlTemplateContext,
   buildVideoSessionPrompt,
@@ -153,6 +154,7 @@ export class VideoAgent extends BaseAgent {
     const projectAssetIds = options?.videoContext?.projectAssetIds;
     const transcriptSelection = options?.videoContext?.transcriptSelection;
     const editorSelection = options?.videoContext?.editorSelection;
+    const referenceId = options?.videoContext?.referenceId;
     const aspectRatio =
       options?.videoContext?.aspectRatio ??
       project.settings?.defaultAspectRatios?.[0];
@@ -281,6 +283,9 @@ export class VideoAgent extends BaseAgent {
         })
       : '';
     const htmlTemplateContext = await buildVideoHtmlTemplateContext(projectId);
+    const referenceStudy = referenceId
+      ? await buildReferenceStudyContext(project, referenceId)
+      : undefined;
     const researchBrief = getLatestVideoResearchBrief(project);
     const systemPrompt = buildVideoSessionPrompt(project, {
       selectedSceneId,
@@ -292,6 +297,7 @@ export class VideoAgent extends BaseAgent {
       plugin: pluginGate?.promptContext,
       catalogContext,
       htmlTemplateContext,
+      referenceStudy,
     });
     // execute() (unlike run()) does not inject conversation history, so fold the
     // prior turns into the system context — this is what lets the agent reuse a

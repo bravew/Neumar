@@ -2040,6 +2040,16 @@ export default {
     flagsLoading: 'जाँच हो रही है कि वीडियो विश्लेषण उपलब्ध है या नहीं…',
     flagsError: 'वीडियो विश्लेषण की उपलब्धता पुष्टि नहीं हो सकी।',
     retryFlags: 'फिर कोशिश करें',
+    reanalyze: 'फिर विश्लेषण करें',
+    showSteps: 'चरण',
+    hideSteps: 'चरण छिपाएँ',
+    owner: {
+      system: 'इस पैनल में',
+      agent: 'चैट में',
+    },
+    handoffPrompt:
+      '"{label}" के लिए Analyze video चलाना जारी रखें: संरचित रीडिंग बनाएँ, फिर विश्लेषण और टाइमलाइन लिखें। फोकस: {focus}।',
+    handoffDefaultFocus: 'समग्र कथा संरचना और गति',
     steps: {
       fetch: 'प्राप्त करें',
       probe: 'जांच',

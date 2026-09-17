@@ -30,6 +30,52 @@ describe('video session prompt', () => {
     await fs.rm(workDir, { recursive: true, force: true });
   });
 
+  it('injects live Analyze video run state so the chat can speak to the panel', async () => {
+    const project = await createProject({
+      name: 'Reference study',
+      template: 'custom',
+      prompt: 'Study a reference',
+    });
+    const prompt = buildVideoSessionPrompt(project, {
+      referenceStudy: {
+        referenceId: 'ref-1',
+        label: 'iPhone_Duo',
+        durationMs: 186_628,
+        focus: 'narrative structure',
+        run: {
+          status: 'running',
+          steps: [
+            { id: 'sample', owner: 'system', status: 'done' },
+            { id: 'read', owner: 'agent', status: 'queued' },
+          ],
+        },
+        artifacts: {
+          analysis: false,
+          timeline: false,
+          evidenceCount: 24,
+          analysisStale: false,
+        },
+      },
+    });
+
+    expect(prompt).toContain('## Reference Study (Analyze video panel)');
+    expect(prompt).toContain('iPhone_Duo');
+    expect(prompt).toContain('video_reference_write_analysis');
+    // The parked agent-owned step is what the chat must pick up.
+    expect(prompt).toContain('"owner": "agent"');
+  });
+
+  it('omits the reference block when no reference is open', async () => {
+    const project = await createProject({
+      name: 'No reference',
+      template: 'custom',
+      prompt: 'Plain project',
+    });
+    expect(buildVideoSessionPrompt(project)).not.toContain(
+      '## Reference Study',
+    );
+  });
+
   it('injects selected HTML template and content graph context', async () => {
     const project = await createProject({
       name: 'HTML market recap',

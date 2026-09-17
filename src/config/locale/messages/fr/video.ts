@@ -2098,6 +2098,16 @@ export default {
     flagsError:
       'Impossible de confirmer la disponibilité d’Analyser une vidéo.',
     retryFlags: 'Réessayer',
+    reanalyze: 'Réanalyser',
+    showSteps: 'Étapes',
+    hideSteps: 'Masquer les étapes',
+    owner: {
+      system: 'dans ce panneau',
+      agent: 'dans la discussion',
+    },
+    handoffPrompt:
+      'Poursuis l’analyse vidéo de « {label} » : construis la lecture structurée, puis écris l’analyse et la timeline. Focus : {focus}.',
+    handoffDefaultFocus: 'la structure narrative globale et le rythme',
     steps: {
       fetch: 'Récupérer',
       probe: 'Sonder',

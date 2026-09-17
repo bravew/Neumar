@@ -2100,6 +2100,16 @@ export default {
     flagsLoading: 'Comprobando si Analizar video está disponible…',
     flagsError: 'No se pudo confirmar la disponibilidad de Analizar video.',
     retryFlags: 'Reintentar',
+    reanalyze: 'Reanalizar',
+    showSteps: 'Pasos',
+    hideSteps: 'Ocultar pasos',
+    owner: {
+      system: 'en este panel',
+      agent: 'en el chat',
+    },
+    handoffPrompt:
+      'Continúa el análisis de video de "{label}": construye la lectura estructurada y luego escribe el análisis y la línea de tiempo. Enfoque: {focus}.',
+    handoffDefaultFocus: 'la estructura narrativa general y el ritmo',
     steps: {
       fetch: 'Obtener',
       probe: 'Sondear',

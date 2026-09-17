@@ -2021,6 +2021,16 @@ export default {
     flagsLoading: '正在确认“分析视频”是否可用…',
     flagsError: '无法确认“分析视频”是否可用。',
     retryFlags: '重试',
+    reanalyze: '重新分析',
+    showSteps: '步骤',
+    hideSteps: '隐藏步骤',
+    owner: {
+      system: '在此面板中',
+      agent: '在对话中',
+    },
+    handoffPrompt:
+      '继续“{label}”的分析视频流程：完成结构化解读，然后写入分析与时间线。重点：{focus}。',
+    handoffDefaultFocus: '整体叙事结构与节奏',
     steps: {
       fetch: '获取',
       probe: '探测',
