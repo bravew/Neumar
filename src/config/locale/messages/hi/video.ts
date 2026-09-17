@@ -2040,6 +2040,8 @@ export default {
     flagsLoading: 'जाँच हो रही है कि वीडियो विश्लेषण उपलब्ध है या नहीं…',
     flagsError: 'वीडियो विश्लेषण की उपलब्धता पुष्टि नहीं हो सकी।',
     retryFlags: 'फिर कोशिश करें',
+    deleteConfirm: 'इस संदर्भ और इसके विश्लेषण को हटाएँ?',
+    deleteKeep: 'रखें',
     reanalyze: 'फिर विश्लेषण करें',
     showSteps: 'चरण',
     hideSteps: 'चरण छिपाएँ',

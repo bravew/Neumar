@@ -11,6 +11,7 @@ import { ReferenceReviewDialog } from './ReferenceReviewDialog';
 import { useReferenceRunPolling } from './useReferenceRunPolling';
 import {
   pendingAgentSteps,
+  runIsActive,
   systemStepsSettled,
   useReferenceStudyStore,
 } from './useReferenceStudyStore';
@@ -56,6 +57,9 @@ export function ReferencePanel({
   );
   const requestHandoff = useReferenceStudyStore(
     (state) => state.requestHandoff,
+  );
+  const forgetReference = useReferenceStudyStore(
+    (state) => state.forgetReference,
   );
   const runs = useReferenceStudyStore((state) => state.runs);
   const activeReferenceId = useReferenceStudyStore(
@@ -112,6 +116,21 @@ export function ReferencePanel({
       }
     },
     [actions, focusText, setActiveReference, setRun],
+  );
+
+  // Cancel an in-flight run before removing the reference so the pipeline is
+  // not left working on media that is about to be deleted.
+  const remove = useCallback(
+    async (reference: VideoReference) => {
+      awaitingHandoff.current.delete(reference.id);
+      if (runIsActive(runs[reference.id])) {
+        await actions.cancelVideoReferenceRun(reference.id);
+      }
+      await actions.deleteVideoReference(reference.id);
+      forgetReference(reference.id);
+      setSelected((current) => (current?.id === reference.id ? null : current));
+    },
+    [actions, forgetReference, runs],
   );
 
   const cancel = useCallback(
@@ -189,6 +208,7 @@ export function ReferencePanel({
                   setSelected(reference);
                 }}
                 onSelect={() => setActiveReference(reference.id)}
+                onDelete={() => void remove(reference)}
               />
             ))}
           </ul>

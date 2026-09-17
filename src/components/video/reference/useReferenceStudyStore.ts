@@ -33,6 +33,7 @@ interface ReferenceStudyState {
   setAgentStreaming: (streaming: boolean) => void;
   setActiveReference: (referenceId: string | null) => void;
   setRun: (run: VideoReferenceRun) => void;
+  forgetReference: (referenceId: string) => void;
   requestHandoff: (input: Omit<ReferenceHandoffRequest, 'nonce'>) => void;
   clearHandoff: () => void;
 }
@@ -61,6 +62,20 @@ export const useReferenceStudyStore = create<ReferenceStudyState>(
       set((state) => ({
         runs: { ...state.runs, [run.referenceId]: run },
       })),
+    forgetReference: (referenceId) =>
+      set((state) => {
+        const { [referenceId]: removed, ...runs } = state.runs;
+        void removed;
+        return {
+          runs,
+          activeReferenceId:
+            state.activeReferenceId === referenceId
+              ? null
+              : state.activeReferenceId,
+          handoff:
+            state.handoff?.referenceId === referenceId ? null : state.handoff,
+        };
+      }),
     requestHandoff: (input) =>
       set((state) => ({
         activeReferenceId: input.referenceId,

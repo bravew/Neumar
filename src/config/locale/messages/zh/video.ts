@@ -2021,6 +2021,8 @@ export default {
     flagsLoading: '正在确认“分析视频”是否可用…',
     flagsError: '无法确认“分析视频”是否可用。',
     retryFlags: '重试',
+    deleteConfirm: '删除此参考视频及其分析结果？',
+    deleteKeep: '保留',
     reanalyze: '重新分析',
     showSteps: '步骤',
     hideSteps: '隐藏步骤',

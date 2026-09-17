@@ -7,6 +7,7 @@ import {
   systemStepsSettled,
   useReferenceStudyStore,
 } from '@/components/video/reference/useReferenceStudyStore';
+import type { AgentDockContext } from '@/components/video/useAgentDock';
 import type { VideoReferenceRun } from '@/shared/types/video';
 
 vi.mock('@/shared/providers/language-provider', () => ({
@@ -49,7 +50,7 @@ function Harness({
   sendMessage,
 }: {
   streaming: boolean;
-  sendMessage: (content: string, context: Record<string, unknown>) => void;
+  sendMessage: (content: string, context: AgentDockContext) => void;
 }) {
   useReferenceStudyHandoff({
     streaming,
@@ -150,6 +151,36 @@ describe('reference study handoff', () => {
     expect(sendMessage.mock.calls[0]?.[0]).toBe(
       'Continue "iPhone_Duo". Focus: overall structure.',
     );
+  });
+
+  it('drops a deleted reference from panel state', () => {
+    useReferenceStudyStore.setState({
+      runs: { 'ref-1': run(), 'ref-2': run({ referenceId: 'ref-2' }) },
+      activeReferenceId: 'ref-1',
+      handoff: { referenceId: 'ref-1', label: 'iPhone_Duo', nonce: 1 },
+    });
+
+    useReferenceStudyStore.getState().forgetReference('ref-1');
+
+    const state = useReferenceStudyStore.getState();
+    expect(Object.keys(state.runs)).toEqual(['ref-2']);
+    expect(state.activeReferenceId).toBeNull();
+    expect(state.handoff).toBeNull();
+  });
+
+  it('keeps unrelated references when one is deleted', () => {
+    useReferenceStudyStore.setState({
+      runs: { 'ref-2': run({ referenceId: 'ref-2' }) },
+      activeReferenceId: 'ref-2',
+      handoff: { referenceId: 'ref-2', label: 'other', nonce: 1 },
+    });
+
+    useReferenceStudyStore.getState().forgetReference('ref-1');
+
+    const state = useReferenceStudyStore.getState();
+    expect(Object.keys(state.runs)).toEqual(['ref-2']);
+    expect(state.activeReferenceId).toBe('ref-2');
+    expect(state.handoff).not.toBeNull();
   });
 
   it('mirrors the dock stream state for the panel to poll against', () => {

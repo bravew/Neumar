@@ -2100,6 +2100,8 @@ export default {
     flagsLoading: 'Comprobando si Analizar video está disponible…',
     flagsError: 'No se pudo confirmar la disponibilidad de Analizar video.',
     retryFlags: 'Reintentar',
+    deleteConfirm: '¿Eliminar esta referencia y su análisis?',
+    deleteKeep: 'Conservar',
     reanalyze: 'Reanalizar',
     showSteps: 'Pasos',
     hideSteps: 'Ocultar pasos',

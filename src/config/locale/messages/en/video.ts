@@ -2065,6 +2065,8 @@ export default {
     flagsLoading: 'Checking whether Analyze video is available…',
     flagsError: 'Could not confirm Analyze video availability.',
     retryFlags: 'Retry',
+    deleteConfirm: 'Remove this reference and its analysis?',
+    deleteKeep: 'Keep',
     reanalyze: 'Re-analyze',
     showSteps: 'Steps',
     hideSteps: 'Hide steps',

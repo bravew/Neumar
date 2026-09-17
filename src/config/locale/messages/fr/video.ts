@@ -2098,6 +2098,8 @@ export default {
     flagsError:
       'Impossible de confirmer la disponibilité d’Analyser une vidéo.',
     retryFlags: 'Réessayer',
+    deleteConfirm: 'Supprimer cette référence et son analyse ?',
+    deleteKeep: 'Conserver',
     reanalyze: 'Réanalyser',
     showSteps: 'Étapes',
     hideSteps: 'Masquer les étapes',

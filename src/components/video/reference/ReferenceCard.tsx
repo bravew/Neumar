@@ -1,6 +1,13 @@
 import { useState } from 'react';
 
-import { ChevronDown, ChevronRight, Loader2, Play, Square } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Play,
+  Square,
+  Trash2,
+} from 'lucide-react';
 
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoReference, VideoReferenceRun } from '@/shared/types/video';
@@ -18,6 +25,7 @@ interface ReferenceCardProps {
   onCancel: () => void;
   onOpenResults: () => void;
   onSelect: () => void;
+  onDelete: () => void;
 }
 
 /**
@@ -36,10 +44,14 @@ export function ReferenceCard({
   onCancel,
   onOpenResults,
   onSelect,
+  onDelete,
 }: ReferenceCardProps) {
   const { t } = useLanguage();
   const labels = t.video.reference;
   const [expanded, setExpanded] = useState(false);
+  // Removal drops the media and every artifact, so it confirms in place rather
+  // than in a modal — a side rail this narrow should not open a dialog to ask.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const running = runIsActive(run);
   const hasRun = run !== undefined;
   return (
@@ -59,7 +71,40 @@ export function ReferenceCard({
         <span className="text-muted-foreground shrink-0 text-[10px] tabular-nums">
           {(reference.durationMs / 1000).toFixed(1)}s
         </span>
+        <button
+          type="button"
+          aria-label={labels.delete}
+          title={labels.delete}
+          className="text-muted-foreground hover:text-destructive shrink-0"
+          onClick={() => setConfirmingDelete(true)}
+        >
+          <Trash2 className="size-3.5" />
+        </button>
       </div>
+      {confirmingDelete ? (
+        <div className="border-destructive/50 bg-destructive/10 space-y-2 rounded border p-2">
+          <p className="text-foreground text-[11px]">{labels.deleteConfirm}</p>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              className="border-destructive/60 text-destructive hover:bg-destructive/20 rounded border px-2 py-1 text-[11px]"
+              onClick={() => {
+                setConfirmingDelete(false);
+                onDelete();
+              }}
+            >
+              {labels.delete}
+            </button>
+            <button
+              type="button"
+              className="border-border hover:bg-accent rounded border px-2 py-1 text-[11px]"
+              onClick={() => setConfirmingDelete(false)}
+            >
+              {labels.deleteKeep}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {run ? <ReferenceRunSummary run={run} /> : null}
       <div className="flex flex-wrap items-center gap-1">
         {running ? (

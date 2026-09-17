@@ -2090,6 +2090,8 @@ export default {
     flagsError:
       'Não foi possível confirmar a disponibilidade de Analisar vídeo.',
     retryFlags: 'Tentar de novo',
+    deleteConfirm: 'Remover esta referência e a análise dela?',
+    deleteKeep: 'Manter',
     reanalyze: 'Reanalisar',
     showSteps: 'Etapas',
     hideSteps: 'Ocultar etapas',
