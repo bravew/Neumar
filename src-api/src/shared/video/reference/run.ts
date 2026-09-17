@@ -171,10 +171,14 @@ export async function startReferenceRun(
   const existing = await readReferenceRun(projectId, referenceId);
   if (
     existing &&
-    (existing.status === 'queued' || existing.status === 'running')
+    (existing.status === 'queued' ||
+      existing.status === 'running' ||
+      existing.status === 'waiting')
   ) {
     throw new ReferenceRunError(
-      'A reference analysis is already running.',
+      existing.status === 'waiting'
+        ? 'A reference analysis is parked waiting on input. Resume or unblock it instead of starting a new one.'
+        : 'A reference analysis is already running.',
       'busy',
     );
   }
@@ -349,7 +353,13 @@ export async function executeReferenceRun(
       if (controller.signal.aborted) {
         return cancelReferenceRun(projectId, referenceId);
       }
-      const current = run.steps.find((step) => step.id === stepId)!;
+      const current = run.steps.find((step) => step.id === stepId);
+      if (!current) {
+        throw new ReferenceRunError(
+          `Run is missing step "${stepId}".`,
+          'step-failed',
+        );
+      }
       if (isComplete(current)) continue;
       run = await markStep(projectId, reference, run, stepId, {
         status: 'running',

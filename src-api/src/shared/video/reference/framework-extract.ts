@@ -229,24 +229,17 @@ export function postProcessFramework(
   framework: VideoFramework,
   boundaries?: ReferenceBoundaries | null,
 ): VideoFramework {
+  let cursorMs = 0;
   const sections = normalizeProportions(
-    framework.sections.map((section) => ({
-      ...section,
-      pacing: derivePacing(
-        {
-          startMs: 0,
-          endMs: Math.max(1, section.timing.observedMs),
-        },
-        boundaries
-          ? {
-              ...boundaries,
-              candidates: boundaries.candidates.filter(
-                (candidate) => candidate.atMs < section.timing.observedMs,
-              ),
-            }
-          : null,
-      ),
-    })),
+    framework.sections.map((section) => {
+      const startMs = cursorMs;
+      const endMs = startMs + Math.max(1, section.timing.observedMs);
+      cursorMs = endMs;
+      return {
+        ...section,
+        pacing: derivePacing({ startMs, endMs }, boundaries),
+      };
+    }),
   );
   const typicalMs = Math.max(
     1,

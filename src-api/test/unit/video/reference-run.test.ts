@@ -110,6 +110,9 @@ describe('reference analysis run', () => {
     });
     expect(calls).toEqual([]);
 
+    // A parked run blocks a fresh start same as a running one does; cancel it
+    // first, the way the UI's Cancel control would, before starting anew.
+    await cancelReferenceRun(project.id, reference.id);
     const failing = await startReferenceRun(project.id, reference.id);
     await executeReferenceRun(project.id, reference.id, {
       transcribe: async () => {
@@ -130,6 +133,7 @@ describe('reference analysis run', () => {
       'done',
     );
 
+    await cancelReferenceRun(project.id, reference.id);
     const cancellable = await startReferenceRun(project.id, reference.id);
     const running = executeReferenceRun(project.id, reference.id, {
       transcribe: async () => {
@@ -186,6 +190,36 @@ describe('reference analysis run', () => {
     expect(finished.steps.find((step) => step.id === 'extract')?.status).toBe(
       'done',
     );
+  });
+
+  it('rejects starting a fresh run while one is parked waiting on input', async () => {
+    const project = await createProject({
+      name: 'Parked run guard',
+      template: 'explainer',
+    });
+    const { reference } = await acquireReference(project.id, {
+      origin: 'upload',
+      studyAcknowledged: true,
+      fileBytes: await fs.readFile(FIXTURE),
+      fileName: 'still-8s.mp4',
+    });
+    await startReferenceRun(project.id, reference.id);
+    const parked = await executeReferenceRun(
+      project.id,
+      reference.id,
+      instantHandlers,
+    );
+    expect(parked.status).toBe('waiting');
+
+    // Starting fresh here used to silently replace the parked run (new id,
+    // sequence reset to 0), discarding its progress instead of resuming it.
+    await expect(startReferenceRun(project.id, reference.id)).rejects.toThrow(
+      /parked waiting on input/,
+    );
+
+    const stillParked = await readReferenceRun(project.id, reference.id);
+    expect(stillParked?.id).toBe(parked.id);
+    expect(stillParked?.status).toBe('waiting');
   });
 
   it('parks again with the blocking reason when extraction is still blocked', async () => {

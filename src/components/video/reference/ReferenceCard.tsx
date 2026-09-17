@@ -127,7 +127,7 @@ export function ReferenceCard({
           <button
             type="button"
             className="border-primary/60 bg-primary/10 hover:bg-primary/20 text-foreground flex items-center gap-1 rounded border px-2 py-1 text-[11px] disabled:opacity-40"
-            disabled={!actionsEnabled}
+            disabled={!actionsEnabled || blocked.length > 0}
             onClick={onAnalyze}
           >
             <Play className="size-3" />

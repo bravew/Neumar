@@ -86,7 +86,10 @@ import {
   writeContentGraph,
   writeTemplateVariables,
 } from '@/shared/video/content-graph/persistence';
-import { VideoCostApprovalError } from '@/shared/video/cost-approval';
+import {
+  readVideoCostApproval,
+  VideoCostApprovalError,
+} from '@/shared/video/cost-approval';
 import {
   EngineSelectionError,
   listEngineSelectionOptions,
@@ -2911,6 +2914,7 @@ videoRoutes.post('/projects/:id/frameworks/:fid/apply', async (c) => {
         waivedSlotIds: Array.isArray(body.waivedSlotIds)
           ? body.waivedSlotIds.filter((id: unknown) => typeof id === 'string')
           : undefined,
+        costApproval: readVideoCostApproval(body.costApproval),
       },
     );
     return c.json({ project });

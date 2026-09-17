@@ -42,7 +42,14 @@ export function FrameworkApplyPanel({
   const [bindings, setBindings] = useState<BoundSlotView[]>([]);
   const [gaps, setGaps] = useState<GapView[]>([]);
   const [preview, setPreview] = useState<PreviewView | null>(null);
+  const [applyState, setApplyState] = useState<
+    | { status: 'idle' }
+    | { status: 'applying' }
+    | { status: 'applied' }
+    | { status: 'error'; message: string }
+  >({ status: 'idle' });
   useEffect(() => {
+    setApplyState({ status: 'idle' });
     if (!framework || stale) return;
     const controller = new AbortController();
     void fetch(
@@ -133,9 +140,12 @@ export function FrameworkApplyPanel({
         </button>
         <button
           type="button"
-          className="border-border hover:bg-accent rounded border px-2 py-1"
-          disabled={blocked.length > 0 || stale}
+          className="border-border hover:bg-accent rounded border px-2 py-1 disabled:opacity-40"
+          disabled={
+            blocked.length > 0 || stale || applyState.status === 'applying'
+          }
           onClick={() => {
+            setApplyState({ status: 'applying' });
             void fetch(
               `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/frameworks/${encodeURIComponent(framework.id)}/apply`,
               {
@@ -145,12 +155,42 @@ export function FrameworkApplyPanel({
                   targetMs: framework.totalDuration.typicalMs,
                 }),
               },
-            ).catch(() => undefined);
+            )
+              .then(async (response) => {
+                if (!response.ok) {
+                  const body = (await response.json().catch(() => null)) as {
+                    error?: string;
+                  } | null;
+                  setApplyState({
+                    status: 'error',
+                    message: body?.error ?? `HTTP ${response.status}`,
+                  });
+                  return;
+                }
+                setApplyState({ status: 'applied' });
+              })
+              .catch((error: unknown) => {
+                setApplyState({
+                  status: 'error',
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                });
+              });
           }}
         >
-          {copy.approve}
+          {applyState.status === 'applying' ? copy.applying : copy.approve}
         </button>
       </div>
+      {applyState.status === 'applied' ? (
+        <p className="text-emerald-700 dark:text-emerald-400">
+          {copy.applySuccess}
+        </p>
+      ) : null}
+      {applyState.status === 'error' ? (
+        <p className="text-destructive">
+          {copy.applyError.replace('{error}', applyState.message)}
+        </p>
+      ) : null}
       {preview?.ops?.length ? (
         <TimelineDiffBox
           labels={{

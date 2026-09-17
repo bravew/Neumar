@@ -23,6 +23,9 @@ vi.mock('@/shared/providers/language-provider', () => ({
             none: 'No candidates',
             preview: 'Preview',
             approve: 'Approve',
+            applying: 'Applying…',
+            applySuccess: 'Applied to the timeline.',
+            applyError: 'Apply failed: {error}',
             ops: 'Proposed operations',
           },
         },
@@ -100,6 +103,52 @@ describe('FrameworkApplyPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     expect(await screen.findByText('clip.insert')).toBeTruthy();
     expect(initWasPreview()).toBe(true);
+  });
+
+  it('reports apply failure instead of swallowing it', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (input: RequestInfo) => {
+        const url = String(input);
+        if (url.includes('/bind')) {
+          return { ok: true, json: async () => ({ bindings: [], gaps: [] }) };
+        }
+        if (url.includes('/apply')) {
+          return {
+            ok: false,
+            status: 409,
+            json: async () => ({ error: 'Project revision conflict' }),
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      }),
+    );
+    render(<FrameworkApplyPanel projectId="project-1" framework={framework} />);
+    await user.click(await screen.findByRole('button', { name: 'Approve' }));
+    expect(
+      await screen.findByText(/Apply failed: Project revision conflict/),
+    ).toBeTruthy();
+  });
+
+  it('confirms apply success', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (input: RequestInfo) => {
+        const url = String(input);
+        if (url.includes('/bind')) {
+          return { ok: true, json: async () => ({ bindings: [], gaps: [] }) };
+        }
+        if (url.includes('/apply')) {
+          return { ok: true, json: async () => ({ project: {} }) };
+        }
+        return { ok: true, json: async () => ({}) };
+      }),
+    );
+    render(<FrameworkApplyPanel projectId="project-1" framework={framework} />);
+    await user.click(await screen.findByRole('button', { name: 'Approve' }));
+    expect(await screen.findByText('Applied to the timeline.')).toBeTruthy();
   });
 });
 
