@@ -2159,6 +2159,13 @@ export default {
       play: 'Reproducir',
       pause: 'Pausar',
       seek: 'Desplazarse por la referencia',
+      mute: 'Silenciar',
+      unmute: 'Activar el sonido',
+      volume: 'Volumen',
+      enterFullscreen: 'Pantalla completa',
+      exitFullscreen: 'Salir de pantalla completa',
+      showAnalysis: 'Mostrar el análisis',
+      hideAnalysis: 'Ocultar el análisis',
     },
     framework: {
       empty: 'Aún no hay un marco.',

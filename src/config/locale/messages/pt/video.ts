@@ -2149,6 +2149,13 @@ export default {
       play: 'Reproduzir',
       pause: 'Pausar',
       seek: 'Navegar na referência',
+      mute: 'Silenciar',
+      unmute: 'Ativar o som',
+      volume: 'Volume',
+      enterFullscreen: 'Tela cheia',
+      exitFullscreen: 'Sair da tela cheia',
+      showAnalysis: 'Mostrar a análise',
+      hideAnalysis: 'Ocultar a análise',
     },
     framework: {
       empty: 'Ainda não há um framework.',

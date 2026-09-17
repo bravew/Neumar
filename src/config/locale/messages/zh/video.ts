@@ -2078,6 +2078,13 @@ export default {
       play: '播放',
       pause: '暂停',
       seek: '在参考视频中跳转',
+      mute: '静音',
+      unmute: '取消静音',
+      volume: '音量',
+      enterFullscreen: '全屏',
+      exitFullscreen: '退出全屏',
+      showAnalysis: '显示分析',
+      hideAnalysis: '隐藏分析',
     },
     framework: {
       empty: '还没有框架。',

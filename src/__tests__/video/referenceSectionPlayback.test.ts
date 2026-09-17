@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   activeSectionAt,
   reachedSectionEnd,
+  volumeAfterMuteToggle,
+  volumeAfterSliderChange,
 } from '@/components/video/reference/sectionPlayback';
 import type { VideoReferenceTimelineSection } from '@/shared/types/video';
 
@@ -60,5 +62,32 @@ describe('reference section playback', () => {
   it('never stops when no section is clamped', () => {
     // Free playback must run to the end of the reference.
     expect(reachedSectionEnd(null, 999_999)).toBe(false);
+  });
+
+  it('treats dragging the slider to zero as a mute', () => {
+    expect(volumeAfterSliderChange(0)).toEqual({ volume: 0, muted: true });
+  });
+
+  it('unmutes when the slider is dragged off zero', () => {
+    // Otherwise the speaker button has to be pressed too, which nobody expects.
+    expect(volumeAfterSliderChange(0.4)).toEqual({ volume: 0.4, muted: false });
+  });
+
+  it('keeps the level when the speaker button mutes and unmutes', () => {
+    expect(volumeAfterMuteToggle(0.3, false, 1)).toEqual({
+      volume: 0.3,
+      muted: true,
+    });
+    expect(volumeAfterMuteToggle(0.3, true, 1)).toEqual({
+      volume: 0.3,
+      muted: false,
+    });
+  });
+
+  it('restores an audible level when unmuting from zero', () => {
+    expect(volumeAfterMuteToggle(0, true, 1)).toEqual({
+      volume: 1,
+      muted: false,
+    });
   });
 });

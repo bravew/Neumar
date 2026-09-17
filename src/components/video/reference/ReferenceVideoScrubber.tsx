@@ -1,8 +1,17 @@
-import { Pause, Play } from 'lucide-react';
+import {
+  Maximize2,
+  Minimize2,
+  PanelRightClose,
+  PanelRightOpen,
+  Pause,
+  Play,
+} from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoReferenceTimelineSection } from '@/shared/types/video';
+
+import { ReferenceVolumeControl } from './ReferenceVolumeControl';
 
 interface ReferenceVideoScrubberProps {
   sections: VideoReferenceTimelineSection[];
@@ -10,8 +19,17 @@ interface ReferenceVideoScrubberProps {
   currentMs: number;
   playing: boolean;
   activeSectionId: string | null;
+  volume: number;
+  muted: boolean;
+  fullscreen: boolean;
+  /** Only meaningful in fullscreen, where the analysis has a column of its own. */
+  analysisOpen: boolean;
   onTogglePlay: () => void;
   onSeek: (ms: number) => void;
+  onVolumeChange: (volume: number) => void;
+  onToggleMute: () => void;
+  onToggleFullscreen: () => void;
+  onToggleAnalysis: () => void;
 }
 
 /**
@@ -30,8 +48,16 @@ export function ReferenceVideoScrubber({
   currentMs,
   playing,
   activeSectionId,
+  volume,
+  muted,
+  fullscreen,
+  analysisOpen,
   onTogglePlay,
   onSeek,
+  onVolumeChange,
+  onToggleMute,
+  onToggleFullscreen,
+  onToggleAnalysis,
 }: ReferenceVideoScrubberProps) {
   const { t } = useLanguage();
   const copy = t.video.reference.reading;
@@ -106,6 +132,40 @@ export function ReferenceVideoScrubber({
         <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">
           {formatClock(currentMs)} / {formatClock(durationMs)}
         </span>
+        <ReferenceVolumeControl
+          volume={volume}
+          muted={muted}
+          onVolumeChange={onVolumeChange}
+          onToggleMute={onToggleMute}
+        />
+        {fullscreen ? (
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground flex size-6 shrink-0 items-center justify-center"
+            aria-label={analysisOpen ? copy.hideAnalysis : copy.showAnalysis}
+            title={analysisOpen ? copy.hideAnalysis : copy.showAnalysis}
+            onClick={onToggleAnalysis}
+          >
+            {analysisOpen ? (
+              <PanelRightClose className="size-3.5" />
+            ) : (
+              <PanelRightOpen className="size-3.5" />
+            )}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground flex size-6 shrink-0 items-center justify-center"
+          aria-label={fullscreen ? copy.exitFullscreen : copy.enterFullscreen}
+          title={fullscreen ? copy.exitFullscreen : copy.enterFullscreen}
+          onClick={onToggleFullscreen}
+        >
+          {fullscreen ? (
+            <Minimize2 className="size-3.5" />
+          ) : (
+            <Maximize2 className="size-3.5" />
+          )}
+        </button>
       </div>
     </div>
   );

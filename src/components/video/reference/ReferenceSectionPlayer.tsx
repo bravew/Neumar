@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Play, Square } from 'lucide-react';
-
 import { cn } from '@/shared/lib/utils';
-import { useLanguage } from '@/shared/providers/language-provider';
 import type {
   VideoReferenceEvidenceItem,
   VideoReferenceTimelineSection,
 } from '@/shared/types/video';
 
+import { ReferenceSectionList } from './ReferenceSectionList';
 import { ReferenceVideoScrubber } from './ReferenceVideoScrubber';
-import { activeSectionAt, reachedSectionEnd } from './sectionPlayback';
+import {
+  activeSectionAt,
+  reachedSectionEnd,
+  volumeAfterMuteToggle,
+  volumeAfterSliderChange,
+} from './sectionPlayback';
 import { useReferenceThumbnails } from './useReferenceThumbnails';
 
 interface ReferenceSectionPlayerProps {
@@ -18,6 +21,8 @@ interface ReferenceSectionPlayerProps {
   sections: VideoReferenceTimelineSection[];
   evidence: VideoReferenceEvidenceItem[];
 }
+
+const DEFAULT_VOLUME = 1;
 
 /**
  * The reference's timeline, playable one section at a time.
@@ -28,18 +33,25 @@ interface ReferenceSectionPlayerProps {
  * clips the user can flip between. Playback runs the other way too: whatever
  * the playhead is over is the row highlighted in the list, so scrubbing the
  * video reads the analysis with you.
+ *
+ * Fullscreen keeps that pairing rather than dropping to a bare video: the
+ * analysis moves to a column beside the picture, which is where it is most
+ * useful — a big frame to judge, and the claim about it next to the evidence.
  */
 export function ReferenceSectionPlayer({
   mediaUrl,
   sections,
   evidence,
 }: ReferenceSectionPlayerProps) {
-  const { t } = useLanguage();
-  const copy = t.video.reference.reading;
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentMs, setCurrentMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [volume, setVolume] = useState(DEFAULT_VOLUME);
+  const [muted, setMuted] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(true);
   const thumbnails = useReferenceThumbnails(
     mediaUrl,
     sections.map((section) => section.startMs),
@@ -88,6 +100,45 @@ export function ReferenceSectionPlayer({
     setCurrentMs(ms);
   }, []);
 
+  const changeVolume = useCallback((next: number) => {
+    const state = volumeAfterSliderChange(next);
+    setVolume(state.volume);
+    setMuted(state.muted);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const state = volumeAfterMuteToggle(volume, muted, DEFAULT_VOLUME);
+    setVolume(state.volume);
+    setMuted(state.muted);
+  }, [muted, volume]);
+
+  const toggleFullscreen = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    } else {
+      void container.requestFullscreen().catch(() => undefined);
+    }
+  }, []);
+
+  // The browser owns fullscreen state: Esc and the OS chrome can leave it
+  // without going through our button, so follow the event rather than assume.
+  useEffect(() => {
+    const onChange = () => {
+      setFullscreen(document.fullscreenElement === containerRef.current);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.volume = volume;
+    video.muted = muted;
+  }, [muted, volume]);
+
   // `timeupdate` fires about four times a second, which makes the playhead
   // visibly step. Drive it from the frame loop while playing instead.
   useEffect(() => {
@@ -129,13 +180,40 @@ export function ReferenceSectionPlayer({
     };
   }, []);
 
+  const sectionList = (
+    <ReferenceSectionList
+      sections={sections}
+      evidence={evidence}
+      thumbnails={thumbnails}
+      activeSectionId={activeSection?.id ?? null}
+      clampedSectionId={clampedId}
+      playing={playing}
+      onPlay={play}
+      onStop={stop}
+    />
+  );
+
   return (
-    <div className="space-y-3">
-      <div className="bg-background/95 sticky top-0 z-10 -mx-1 space-y-1 px-1 pb-2 backdrop-blur">
+    <div
+      ref={containerRef}
+      className={cn(
+        fullscreen ? 'bg-background flex size-full gap-3 p-3 text-xs' : 'block',
+      )}
+    >
+      <div
+        className={cn(
+          fullscreen
+            ? 'flex min-w-0 flex-1 flex-col justify-center gap-2'
+            : 'bg-background/95 sticky top-0 z-10 -mx-1 space-y-1 px-1 pb-2 backdrop-blur',
+        )}
+      >
         {/* eslint-disable-next-line jsx-a11y/media-has-caption -- reference footage carries no captions track */}
         <video
           ref={videoRef}
-          className="bg-muted aspect-video w-full rounded-md"
+          className={cn(
+            'bg-muted w-full rounded-md',
+            fullscreen ? 'min-h-0 flex-1 object-contain' : 'aspect-video',
+          )}
           preload="metadata"
           crossOrigin="anonymous"
           src={mediaUrl}
@@ -147,8 +225,16 @@ export function ReferenceSectionPlayer({
           currentMs={currentMs}
           playing={playing}
           activeSectionId={activeSection?.id ?? null}
+          volume={volume}
+          muted={muted}
+          fullscreen={fullscreen}
+          analysisOpen={analysisOpen}
           onTogglePlay={togglePlay}
           onSeek={seek}
+          onVolumeChange={changeVolume}
+          onToggleMute={toggleMute}
+          onToggleFullscreen={toggleFullscreen}
+          onToggleAnalysis={() => setAnalysisOpen((prev) => !prev)}
         />
         {activeSection ? (
           <p className="text-muted-foreground truncate text-[11px]">
@@ -156,101 +242,15 @@ export function ReferenceSectionPlayer({
           </p>
         ) : null}
       </div>
-      <ol className="space-y-2">
-        {sections.map((section) => {
-          const isActive = activeSection?.id === section.id;
-          const isClamped = clampedId === section.id;
-          const thumbnail = thumbnails[section.startMs];
-          return (
-            <li
-              key={section.id}
-              className={cn(
-                'rounded border p-2 transition-colors',
-                isActive ? 'border-primary/60 bg-accent/30' : 'border-border',
-              )}
-            >
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="group relative shrink-0 overflow-hidden rounded"
-                  onClick={() => (isClamped ? stop() : play(section))}
-                  aria-label={
-                    isClamped
-                      ? copy.stopSection
-                      : copy.playSection.replace('{phase}', section.phase)
-                  }
-                >
-                  {thumbnail ? (
-                    <img
-                      src={thumbnail}
-                      alt=""
-                      className="h-14 w-24 object-cover"
-                    />
-                  ) : (
-                    <span className="bg-muted block h-14 w-24" />
-                  )}
-                  <span
-                    className={cn(
-                      'absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity',
-                      isClamped
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100',
-                    )}
-                  >
-                    {isClamped && playing ? (
-                      <Square className="size-4 text-white" />
-                    ) : (
-                      <Play className="size-4 text-white" />
-                    )}
-                  </span>
-                </button>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <button
-                      type="button"
-                      className="truncate text-left font-medium"
-                      onClick={() => play(section)}
-                    >
-                      {section.phase}
-                    </button>
-                    <span className="text-muted-foreground shrink-0 text-[11px]">
-                      {formatRange(section.startMs, section.endMs)} ·{' '}
-                      {copy.confidence} {section.confidence.toFixed(2)}
-                    </span>
-                  </div>
-                  {section.anchor ? (
-                    <p className="text-muted-foreground">{section.anchor}</p>
-                  ) : null}
-                  <p>{section.effect}</p>
-                  <EvidenceIds
-                    evidenceIds={section.evidenceIds}
-                    evidence={evidence}
-                  />
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+      {fullscreen ? (
+        analysisOpen ? (
+          <div className="w-96 shrink-0 overflow-y-auto pr-1">
+            {sectionList}
+          </div>
+        ) : null
+      ) : (
+        <div className="mt-3">{sectionList}</div>
+      )}
     </div>
   );
-}
-
-function EvidenceIds({
-  evidenceIds,
-  evidence,
-}: {
-  evidenceIds: string[];
-  evidence: VideoReferenceEvidenceItem[];
-}) {
-  const labels = evidenceIds.map((id) =>
-    evidence.some((item) => item.id === id) ? id : `${id}?`,
-  );
-  return (
-    <p className="text-muted-foreground text-[11px]">{labels.join(', ')}</p>
-  );
-}
-
-function formatRange(startMs: number, endMs: number): string {
-  return `${(startMs / 1000).toFixed(1)}s–${(endMs / 1000).toFixed(1)}s`;
 }

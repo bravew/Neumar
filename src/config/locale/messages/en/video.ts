@@ -2123,6 +2123,13 @@ export default {
       play: 'Play',
       pause: 'Pause',
       seek: 'Seek in the reference',
+      mute: 'Mute',
+      unmute: 'Unmute',
+      volume: 'Volume',
+      enterFullscreen: 'Fullscreen',
+      exitFullscreen: 'Exit fullscreen',
+      showAnalysis: 'Show analysis',
+      hideAnalysis: 'Hide analysis',
     },
     framework: {
       empty: 'No framework yet.',

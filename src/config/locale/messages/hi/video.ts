@@ -2097,6 +2097,13 @@ export default {
       play: 'चलाएँ',
       pause: 'रोकें',
       seek: 'संदर्भ में आगे-पीछे जाएँ',
+      mute: 'म्यूट करें',
+      unmute: 'अनम्यूट करें',
+      volume: 'आवाज़',
+      enterFullscreen: 'फ़ुल स्क्रीन',
+      exitFullscreen: 'फ़ुल स्क्रीन से बाहर',
+      showAnalysis: 'विश्लेषण दिखाएँ',
+      hideAnalysis: 'विश्लेषण छिपाएँ',
     },
     framework: {
       empty: 'अभी कोई फ्रेमवर्क नहीं है।',

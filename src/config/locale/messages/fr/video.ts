@@ -2157,6 +2157,13 @@ export default {
       play: 'Lire',
       pause: 'Pause',
       seek: 'Se déplacer dans la référence',
+      mute: 'Couper le son',
+      unmute: 'Rétablir le son',
+      volume: 'Volume',
+      enterFullscreen: 'Plein écran',
+      exitFullscreen: 'Quitter le plein écran',
+      showAnalysis: 'Afficher l’analyse',
+      hideAnalysis: 'Masquer l’analyse',
     },
     framework: {
       empty: 'Pas encore de cadre.',

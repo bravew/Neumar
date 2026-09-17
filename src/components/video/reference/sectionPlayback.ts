@@ -24,3 +24,28 @@ export function reachedSectionEnd(
 ): boolean {
   return section !== null && currentMs >= section.endMs;
 }
+
+/** Volume state after dragging the slider. Zero is a mute. */
+export function volumeAfterSliderChange(next: number): {
+  volume: number;
+  muted: boolean;
+} {
+  return { volume: next, muted: next === 0 };
+}
+
+/**
+ * Volume state after pressing the speaker button.
+ *
+ * Unmuting from a zeroed slider has to restore something audible, or the
+ * button appears to do nothing.
+ */
+export function volumeAfterMuteToggle(
+  volume: number,
+  muted: boolean,
+  defaultVolume: number,
+): { volume: number; muted: boolean } {
+  const nextMuted = !muted;
+  if (!nextMuted && volume === 0)
+    return { volume: defaultVolume, muted: false };
+  return { volume, muted: nextMuted };
+}
