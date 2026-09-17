@@ -2056,6 +2056,7 @@ export default {
     promote: 'Promote to asset',
     delete: 'Remove reference',
     unsupportedLink: 'This link is not supported. Add a local file instead.',
+    addError: 'Could not add reference: {error}',
     durationOverride: 'Allow references longer than 10 minutes',
     analyze: 'Analyze',
     cancel: 'Cancel',

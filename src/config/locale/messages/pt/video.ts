@@ -2080,6 +2080,7 @@ export default {
     promote: 'Promover a recurso',
     delete: 'Remover referência',
     unsupportedLink: 'Este link não é suportado. Adicione um arquivo local.',
+    addError: 'Não foi possível adicionar a referência: {error}',
     durationOverride: 'Permitir referências com mais de 10 minutos',
     analyze: 'Analisar',
     cancel: 'Cancelar',

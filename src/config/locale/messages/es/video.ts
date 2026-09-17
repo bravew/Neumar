@@ -2091,6 +2091,7 @@ export default {
     promote: 'Promover a recurso',
     delete: 'Quitar referencia',
     unsupportedLink: 'Este enlace no es compatible. Añade un archivo local.',
+    addError: 'No se pudo añadir la referencia: {error}',
     durationOverride: 'Permitir referencias de más de 10 minutos',
     analyze: 'Analizar',
     cancel: 'Cancelar',

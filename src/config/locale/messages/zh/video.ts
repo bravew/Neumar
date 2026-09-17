@@ -2012,6 +2012,7 @@ export default {
     promote: '提升为素材',
     delete: '移除参考',
     unsupportedLink: '不支持此链接。请改用本地文件。',
+    addError: '无法添加参考视频：{error}',
     durationOverride: '允许超过 10 分钟的参考视频',
     analyze: '分析',
     cancel: '取消',

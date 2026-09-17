@@ -2087,6 +2087,7 @@ export default {
     delete: 'Retirer la référence',
     unsupportedLink:
       'Ce lien n’est pas pris en charge. Ajoutez un fichier local.',
+    addError: 'Impossible d’ajouter la référence : {error}',
     durationOverride: 'Autoriser les références de plus de 10 minutes',
     analyze: 'Analyser',
     cancel: 'Annuler',

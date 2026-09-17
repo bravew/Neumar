@@ -2031,6 +2031,7 @@ export default {
     promote: 'एसेट बनाएँ',
     delete: 'संदर्भ हटाएँ',
     unsupportedLink: 'यह लिंक समर्थित नहीं है। स्थानीय फ़ाइल जोड़ें।',
+    addError: 'संदर्भ नहीं जोड़ा जा सका: {error}',
     durationOverride: '10 मिनट से लंबे संदर्भ की अनुमति दें',
     analyze: 'विश्लेषण करें',
     cancel: 'रद्द करें',

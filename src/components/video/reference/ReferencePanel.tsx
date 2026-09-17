@@ -44,6 +44,7 @@ export function ReferencePanel({
   const { t } = useLanguage();
   const labels = t.video.reference;
   const [focusText, setFocusText] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
   // Drill-down target. The results live in this rail, not over it, so the
   // editor and the chat stay reachable while a reading is open.
   const [openedId, setOpenedId] = useState<string | null>(null);
@@ -112,6 +113,25 @@ export function ReferencePanel({
       });
     }
   }, [focusText, references, requestHandoff, runs]);
+
+  // Reports success back to the form so a failed add (e.g. a link over the
+  // duration limit) leaves the value in place instead of silently clearing,
+  // and surfaces the server's reason instead of swallowing it.
+  const addReference = useCallback(
+    async (
+      input: Parameters<VideoProjectEditorActions['addVideoReference']>[0],
+    ) => {
+      setAddError(null);
+      try {
+        const project = await actions.addVideoReference(input);
+        return project !== null;
+      } catch (error) {
+        setAddError(error instanceof Error ? error.message : String(error));
+        return false;
+      }
+    },
+    [actions],
+  );
 
   const analyze = useCallback(
     async (reference: VideoReference) => {
@@ -219,28 +239,36 @@ export function ReferencePanel({
         ) : null}
         <ReferenceAddForm
           disabled={!actionsEnabled}
-          onAddFile={(file) => {
-            void actions.addVideoReference({
+          onAddFile={(file, { allowLonger }) => {
+            void addReference({
               origin: 'upload',
               file,
               studyAcknowledged: true,
+              allowLonger,
             });
           }}
-          onAddPath={(path) => {
-            void actions.addVideoReference({
+          onAddPath={(path, { allowLonger }) =>
+            addReference({
               origin: 'workspace-path',
               path,
               studyAcknowledged: true,
-            });
-          }}
-          onAddUrl={(url) => {
-            void actions.addVideoReference({
+              allowLonger,
+            })
+          }
+          onAddUrl={(url, { allowLonger }) =>
+            addReference({
               origin: 'link',
               url,
               studyAcknowledged: true,
-            });
-          }}
+              allowLonger,
+            })
+          }
         />
+        {addError ? (
+          <p className="text-destructive text-xs">
+            {labels.addError.replace('{error}', addError)}
+          </p>
+        ) : null}
         <input
           value={focusText}
           onChange={(event) => setFocusText(event.target.value)}
