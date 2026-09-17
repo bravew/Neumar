@@ -106,7 +106,7 @@ export function ReferenceReviewDialog({
       : null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col overflow-hidden">
         {reference ? (
           <>
             <DialogHeader>
@@ -117,71 +117,78 @@ export function ReferenceReviewDialog({
                 {t.video.reference.review.description}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-3 md:grid-cols-2">
-              <video
-                className="bg-muted aspect-video w-full rounded-md"
-                controls
-                src={mediaUrl}
+            {/* The reading, framework and apply sections together are taller
+                than any viewport, so the dialog body owns the scroll rather
+                than overflowing off-screen with no way to reach the rest. */}
+            <div className="-mx-1 min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
+              <details className="border-border rounded border p-2">
+                <summary className="cursor-pointer text-xs font-medium">
+                  {t.video.reference.showSteps}
+                </summary>
+                <div className="mt-2">
+                  {run ? (
+                    <ReferenceRunProgress run={run} />
+                  ) : (
+                    <p className="text-muted-foreground text-xs">
+                      {t.video.reference.review.noRun}
+                    </p>
+                  )}
+                </div>
+              </details>
+              <ReferenceReadingView
+                projectId={projectId}
+                referenceId={reference.id}
+                mediaUrl={mediaUrl}
+                analysis={activeReading?.analysis ?? null}
+                timeline={activeReading?.timeline ?? null}
+                evidence={activeReading?.evidence ?? []}
+                coverage={activeReading?.coverage ?? null}
               />
-              <div className="max-h-80 min-h-0 overflow-auto">
-                {run ? (
-                  <ReferenceRunProgress run={run} />
-                ) : (
-                  <p className="text-muted-foreground text-xs">
-                    {t.video.reference.review.noRun}
-                  </p>
-                )}
-              </div>
+              <FrameworkReviewPanel
+                framework={activeFramework?.framework ?? null}
+                stale={activeFramework?.stale}
+                onChangeRole={(sectionId, role) => {
+                  if (!activeFramework) return;
+                  const next: VideoFramework = {
+                    ...activeFramework.framework,
+                    sections: activeFramework.framework.sections.map(
+                      (section) =>
+                        section.id === sectionId
+                          ? { ...section, role }
+                          : section,
+                    ),
+                  };
+                  setFrameworkState({
+                    referenceId: activeFramework.referenceId,
+                    framework: next,
+                    stale: activeFramework.stale,
+                  });
+                  void fetch(
+                    `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(reference.id)}/framework`,
+                    {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ framework: next }),
+                    },
+                  ).catch(() => undefined);
+                }}
+                onSaveAsTemplate={() => {
+                  void fetch(
+                    `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(reference.id)}/framework/template`,
+                    {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({}),
+                    },
+                  ).catch(() => undefined);
+                }}
+              />
+              <FrameworkApplyPanel
+                projectId={projectId}
+                framework={activeFramework?.framework ?? null}
+                stale={activeFramework?.stale}
+              />
             </div>
-            <ReferenceReadingView
-              projectId={projectId}
-              referenceId={reference.id}
-              analysis={activeReading?.analysis ?? null}
-              timeline={activeReading?.timeline ?? null}
-              evidence={activeReading?.evidence ?? []}
-              coverage={activeReading?.coverage ?? null}
-            />
-            <FrameworkReviewPanel
-              framework={activeFramework?.framework ?? null}
-              stale={activeFramework?.stale}
-              onChangeRole={(sectionId, role) => {
-                if (!activeFramework) return;
-                const next: VideoFramework = {
-                  ...activeFramework.framework,
-                  sections: activeFramework.framework.sections.map((section) =>
-                    section.id === sectionId ? { ...section, role } : section,
-                  ),
-                };
-                setFrameworkState({
-                  referenceId: activeFramework.referenceId,
-                  framework: next,
-                  stale: activeFramework.stale,
-                });
-                void fetch(
-                  `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(reference.id)}/framework`,
-                  {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ framework: next }),
-                  },
-                ).catch(() => undefined);
-              }}
-              onSaveAsTemplate={() => {
-                void fetch(
-                  `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(reference.id)}/framework/template`,
-                  {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({}),
-                  },
-                ).catch(() => undefined);
-              }}
-            />
-            <FrameworkApplyPanel
-              projectId={projectId}
-              framework={activeFramework?.framework ?? null}
-              stale={activeFramework?.stale}
-            />
           </>
         ) : null}
       </DialogContent>

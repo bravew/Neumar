@@ -2140,6 +2140,11 @@ export default {
       openQuestions: 'Perguntas em aberto',
       confidence: 'Confiança',
       none: 'Nenhuma registrada.',
+      playSection: 'Reproduzir a seção {phase}',
+      stopSection: 'Parar a reprodução',
+      play: 'Reproduzir',
+      pause: 'Pausar',
+      seek: 'Navegar na referência',
     },
     framework: {
       empty: 'Ainda não há um framework.',

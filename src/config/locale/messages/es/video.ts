@@ -2150,6 +2150,11 @@ export default {
       openQuestions: 'Preguntas abiertas',
       confidence: 'Confianza',
       none: 'Ninguna registrada.',
+      playSection: 'Reproducir la sección {phase}',
+      stopSection: 'Detener la reproducción',
+      play: 'Reproducir',
+      pause: 'Pausar',
+      seek: 'Desplazarse por la referencia',
     },
     framework: {
       empty: 'Aún no hay un marco.',

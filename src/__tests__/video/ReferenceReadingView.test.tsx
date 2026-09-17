@@ -21,6 +21,11 @@ vi.mock('@/shared/providers/language-provider', () => ({
             openQuestions: 'Open questions',
             confidence: 'Confidence',
             none: 'None recorded.',
+            playSection: 'Play section {phase}',
+            stopSection: 'Stop playback',
+            play: 'Play',
+            pause: 'Pause',
+            seek: 'Seek in the reference',
           },
         },
       },
@@ -101,6 +106,7 @@ describe('ReferenceReadingView', () => {
       <ReferenceReadingView
         projectId="proj-1"
         referenceId="ref-1"
+        mediaUrl="http://localhost/media.mp4"
         analysis={analysis}
         timeline={timeline}
         evidence={[
@@ -114,7 +120,12 @@ describe('ReferenceReadingView', () => {
         coverage={timeline.data.coverage}
       />,
     );
-    expect(screen.getByText('The hook')).toBeTruthy();
+    // The phase now appears twice: in its row, and as the label for the
+    // section the playhead is currently over.
+    expect(screen.getAllByText('The hook')).toHaveLength(2);
+    expect(
+      screen.getByRole('button', { name: 'Play section The hook' }),
+    ).toBeTruthy();
     expect(screen.getByText(/Confidence 0.70/)).toBeTruthy();
     expect(screen.getByText('Teach a workflow.')).toBeTruthy();
     expect(screen.getByText(/Is the last beat a callback/)).toBeTruthy();
@@ -127,6 +138,7 @@ describe('ReferenceReadingView', () => {
       <ReferenceReadingView
         projectId="proj-1"
         referenceId="ref-1"
+        mediaUrl="http://localhost/media.mp4"
         analysis={null}
         timeline={null}
         evidence={[]}

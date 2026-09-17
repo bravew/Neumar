@@ -2114,6 +2114,11 @@ export default {
       openQuestions: 'Open questions',
       confidence: 'Confidence',
       none: 'None recorded.',
+      playSection: 'Play section {phase}',
+      stopSection: 'Stop playback',
+      play: 'Play',
+      pause: 'Pause',
+      seek: 'Seek in the reference',
     },
     framework: {
       empty: 'No framework yet.',

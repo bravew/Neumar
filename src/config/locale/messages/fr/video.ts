@@ -2148,6 +2148,11 @@ export default {
       openQuestions: 'Questions ouvertes',
       confidence: 'Confiance',
       none: 'Aucune enregistrée.',
+      playSection: 'Lire la section {phase}',
+      stopSection: 'Arrêter la lecture',
+      play: 'Lire',
+      pause: 'Pause',
+      seek: 'Se déplacer dans la référence',
     },
     framework: {
       empty: 'Pas encore de cadre.',

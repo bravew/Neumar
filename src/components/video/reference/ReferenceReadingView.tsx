@@ -7,9 +7,13 @@ import type {
   VideoReferenceTimelineArtifact,
 } from '@/shared/types/video';
 
+import { ReferenceSectionPlayer } from './ReferenceSectionPlayer';
+
 export interface ReferenceReadingViewProps {
   projectId: string;
   referenceId: string;
+  /** Streams the reference itself, so sections are playable in place. */
+  mediaUrl: string;
   analysis: VideoReferenceArtifactEnvelope<VideoReferenceAnalysis> | null;
   timeline: VideoReferenceArtifactEnvelope<VideoReferenceTimelineArtifact> | null;
   evidence: VideoReferenceEvidenceItem[];
@@ -19,6 +23,7 @@ export interface ReferenceReadingViewProps {
 export function ReferenceReadingView({
   projectId,
   referenceId,
+  mediaUrl,
   analysis,
   timeline,
   evidence,
@@ -48,30 +53,11 @@ export function ReferenceReadingView({
         />
       ) : null}
       {timeline ? (
-        <ol className="space-y-2">
-          {timeline.data.sections.map((section) => (
-            <li
-              key={section.id}
-              className="border-border space-y-1 rounded border p-2"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="font-medium">{section.phase}</p>
-                <span className="text-muted-foreground">
-                  {formatRange(section.startMs, section.endMs)} ·{' '}
-                  {copy.confidence} {section.confidence.toFixed(2)}
-                </span>
-              </div>
-              {section.anchor ? (
-                <p className="text-muted-foreground">{section.anchor}</p>
-              ) : null}
-              <p>{section.effect}</p>
-              <EvidenceIds
-                evidenceIds={section.evidenceIds}
-                evidence={evidence}
-              />
-            </li>
-          ))}
-        </ol>
+        <ReferenceSectionPlayer
+          mediaUrl={mediaUrl}
+          sections={timeline.data.sections}
+          evidence={evidence}
+        />
       ) : null}
       {analysis ? (
         <div className="space-y-2">
@@ -129,21 +115,4 @@ function CoverageBar({
       </div>
     </div>
   );
-}
-
-function EvidenceIds({
-  evidenceIds,
-  evidence,
-}: {
-  evidenceIds: string[];
-  evidence: VideoReferenceEvidenceItem[];
-}) {
-  const labels = evidenceIds.map((id) =>
-    evidence.some((item) => item.id === id) ? id : `${id}?`,
-  );
-  return <p className="text-muted-foreground">{labels.join(', ')}</p>;
-}
-
-function formatRange(startMs: number, endMs: number): string {
-  return `${(startMs / 1000).toFixed(1)}s–${(endMs / 1000).toFixed(1)}s`;
 }

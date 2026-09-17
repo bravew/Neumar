@@ -2088,6 +2088,11 @@ export default {
       openQuestions: 'खुले प्रश्न',
       confidence: 'विश्वास',
       none: 'कोई रिकॉर्ड नहीं।',
+      playSection: '{phase} खंड चलाएँ',
+      stopSection: 'चलाना रोकें',
+      play: 'चलाएँ',
+      pause: 'रोकें',
+      seek: 'संदर्भ में आगे-पीछे जाएँ',
     },
     framework: {
       empty: 'अभी कोई फ्रेमवर्क नहीं है।',

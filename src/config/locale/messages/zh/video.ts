@@ -2069,6 +2069,11 @@ export default {
       openQuestions: '未决问题',
       confidence: '置信度',
       none: '暂无记录。',
+      playSection: '播放片段：{phase}',
+      stopSection: '停止播放',
+      play: '播放',
+      pause: '暂停',
+      seek: '在参考视频中跳转',
     },
     framework: {
       empty: '还没有框架。',
