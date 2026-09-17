@@ -2051,8 +2051,6 @@ export default {
     addLink: 'Add authorized link',
     pathPlaceholder: 'Workspace video path',
     urlPlaceholder: 'User-authorized video URL',
-    studyAck:
-      'I may study this video privately. This does not grant reuse or publishing rights.',
     reuseAck: 'I have the right to reuse this video as project footage.',
     empty: 'No reference videos yet.',
     promote: 'Promote to asset',

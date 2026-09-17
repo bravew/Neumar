@@ -2085,8 +2085,6 @@ export default {
     addLink: 'Añadir enlace autorizado',
     pathPlaceholder: 'Ruta de video del workspace',
     urlPlaceholder: 'URL de video autorizada por el usuario',
-    studyAck:
-      'Puedo estudiar este video en privado. Esto no otorga derechos de reutilización ni publicación.',
     reuseAck:
       'Tengo derecho a reutilizar este video como metraje del proyecto.',
     empty: 'Aún no hay videos de referencia.',

@@ -2007,7 +2007,6 @@ export default {
     addLink: '添加授权链接',
     pathPlaceholder: '工作区视频路径',
     urlPlaceholder: '用户授权的视频 URL',
-    studyAck: '我可以私下研究此视频。这不授予转载或发布权利。',
     reuseAck: '我有权将此视频作为项目素材使用。',
     empty: '还没有参考视频。',
     promote: '提升为素材',

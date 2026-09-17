@@ -32,7 +32,6 @@ export function ReferencePanel({
   const { t } = useLanguage();
   const [pathValue, setPathValue] = useState('');
   const [urlValue, setUrlValue] = useState('');
-  const [studyAck, setStudyAck] = useState(false);
   const [focusText, setFocusText] = useState('');
   const [selected, setSelected] = useState<VideoReference | null>(null);
   const [run, setRun] = useState<VideoReferenceRun | null>(null);
@@ -82,7 +81,7 @@ export function ReferencePanel({
             type="file"
             accept="video/*"
             className="sr-only"
-            disabled={!actionsEnabled || !studyAck}
+            disabled={!actionsEnabled}
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
               if (file) {
@@ -107,7 +106,7 @@ export function ReferencePanel({
           <button
             type="button"
             className="border-border hover:bg-accent rounded-md border px-3 py-2 text-xs disabled:opacity-40"
-            disabled={!actionsEnabled || !studyAck || !pathValue.trim()}
+            disabled={!actionsEnabled || !pathValue.trim()}
             onClick={() => {
               void actions.addVideoReference({
                 origin: 'workspace-path',
@@ -131,7 +130,7 @@ export function ReferencePanel({
           <button
             type="button"
             className="border-border hover:bg-accent rounded-md border px-3 py-2 text-xs disabled:opacity-40"
-            disabled={!actionsEnabled || !studyAck || !urlValue.trim()}
+            disabled={!actionsEnabled || !urlValue.trim()}
             onClick={() => {
               void actions.addVideoReference({
                 origin: 'link',
@@ -144,14 +143,6 @@ export function ReferencePanel({
             <Link className="size-4" />
           </button>
         </div>
-        <label className="text-muted-foreground flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={studyAck}
-            onChange={(event) => setStudyAck(event.target.checked)}
-          />
-          {t.video.reference.studyAck}
-        </label>
         <input
           value={focusText}
           onChange={(event) => setFocusText(event.target.value)}
