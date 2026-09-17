@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { createLogger } from '@/shared/utils/logger';
 import { getVideoFeatureFlag } from '@/shared/video/flags';
 import { publishReferenceRunStatus } from '@/shared/video/job-events';
 import { renderReferenceProgressMarkdown } from '@/shared/video/reference/progress-markdown';
@@ -52,6 +53,8 @@ export const REFERENCE_RUN_STEP_IDS: readonly ReferenceRunStepId[] = [
   'extract',
 ];
 
+const logger = createLogger('ReferenceRun');
+
 const SYSTEM_STEPS = new Set<ReferenceRunStepId>([
   'fetch',
   'probe',
@@ -88,7 +91,14 @@ export interface ReferenceRunStepContext {
 export interface ReferenceRunStepResult {
   artifactIds?: string[];
   note?: string;
+  /** Not applicable at all — a disabled feature. The step is never retried. */
   skipped?: boolean;
+  /**
+   * Blocked on work this run cannot do itself. The run parks here instead of
+   * closing as `done`, so a later resume picks the step up once the blocker is
+   * gone. `note` must say what would unblock it.
+   */
+  waiting?: boolean;
 }
 
 export interface StartReferenceRunInput {
@@ -289,6 +299,35 @@ export async function resumeReferenceRun(
   return executeReferenceRun(projectId, referenceId, handlers);
 }
 
+/**
+ * Resume a run parked on a `waiting` step, if it is parked at all.
+ *
+ * Called right after the agent persists a reading artifact: that write is
+ * exactly the input the parked step was waiting for, so the run advances
+ * itself instead of leaving the user to guess that a second Analyze click is
+ * what records the work they can already see in the chat.
+ *
+ * Never throws — the caller's own write already succeeded, and a continuation
+ * failure must not be reported as a failed write.
+ */
+export async function continueWaitingReferenceRun(
+  projectId: string,
+  referenceId: string,
+): Promise<ReferenceRun | null> {
+  try {
+    const run = await readReferenceRun(projectId, referenceId);
+    if (!run || run.status !== 'waiting') return null;
+    return await resumeReferenceRun(projectId, referenceId);
+  } catch (error) {
+    logger.warn('Reference run continuation failed', {
+      projectId,
+      referenceId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
 export async function executeReferenceRun(
   projectId: string,
   referenceId: string,
@@ -326,6 +365,26 @@ export async function executeReferenceRun(
         });
         if (controller.signal.aborted) {
           return cancelReferenceRun(projectId, referenceId);
+        }
+        if (result.waiting) {
+          // Park the whole run on the blocked step. Closing as `done` here is
+          // what used to orphan the agent's later writes: the step was marked
+          // skipped, `isComplete` treated that as final, and no resume could
+          // ever pick it back up.
+          run = await markStep(projectId, reference, run, stepId, {
+            status: 'waiting',
+            startedAt: undefined,
+            endedAt: undefined,
+            producedArtifactIds: result.artifactIds ?? [],
+            note: result.note,
+          });
+          return persistRun(projectId, reference, {
+            ...run,
+            status: 'waiting',
+            revision: run.revision + 1,
+            sequence: run.sequence + 1,
+            updatedAt: new Date().toISOString(),
+          });
         }
         run = await markStep(projectId, reference, run, stepId, {
           status: result.skipped ? 'skipped' : 'done',
@@ -494,8 +553,8 @@ const defaultHandlers: Record<
       };
     }
     return {
-      skipped: true,
-      note: 'Agent writes analysis with video_reference_write_analysis then video_reference_write_timeline.',
+      waiting: true,
+      note: 'Waiting for the agent to write the analysis (video_reference_write_analysis) and timeline (video_reference_write_timeline).',
     };
   },
   async extract(ctx) {
@@ -522,7 +581,9 @@ const defaultHandlers: Record<
           error.code === 'confidence' ||
           error.code === 'stale')
       ) {
-        return { skipped: true, note: error.message };
+        // Recoverable: more or better evidence unblocks extraction, so park the
+        // step with the reason rather than declaring the run finished.
+        return { waiting: true, note: error.message };
       }
       throw error;
     }

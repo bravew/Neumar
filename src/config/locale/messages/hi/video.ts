@@ -2040,6 +2040,11 @@ export default {
     flagsLoading: 'जाँच हो रही है कि वीडियो विश्लेषण उपलब्ध है या नहीं…',
     flagsError: 'वीडियो विश्लेषण की उपलब्धता पुष्टि नहीं हो सकी।',
     retryFlags: 'फिर कोशिश करें',
+    blockedOn: '{step} पर रुका है',
+    unblock: 'एजेंट से जारी रखने को कहें',
+    skippedNote: '{count} चरण छोड़े गए।',
+    unblockPrompt:
+      '"{label}" का Analyze video रन {step} चरण पर रुका है: {reason} इसे हल करने के लिए जो ज़रूरी है वह करें, फिर रन जारी रखें।',
     deleteConfirm: 'इस संदर्भ और इसके विश्लेषण को हटाएँ?',
     deleteKeep: 'रखें',
     reanalyze: 'फिर विश्लेषण करें',
@@ -2069,6 +2074,7 @@ export default {
       error: 'त्रुटि',
       cancelled: 'रद्द',
       skipped: 'छोड़ा गया',
+      waiting: 'प्रतीक्षा में',
     },
     review: {
       description: 'निजी स्रोत प्लेयर और विश्लेषण चरण। यह संपादन टाइमलाइन नहीं है।',

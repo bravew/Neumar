@@ -22,6 +22,9 @@ export function ReferenceRunSummary({ run }: ReferenceRunSummaryProps) {
   const labels = t.video.reference;
   const done = completedStepCount(run);
   const active = currentStep(run);
+  const skippedCount = run.steps.filter(
+    (step) => step.status === 'skipped',
+  ).length;
   return (
     <div className="space-y-1" aria-live="polite">
       <div className="flex items-center gap-2">
@@ -43,6 +46,11 @@ export function ReferenceRunSummary({ run }: ReferenceRunSummaryProps) {
           ? `${labels.steps[active.id]} · ${labels.owner[active.owner]}`
           : labels.status[run.status]}
       </p>
+      {skippedCount > 0 ? (
+        <p className="text-muted-foreground text-[11px]">
+          {labels.skippedNote.replace('{count}', String(skippedCount))}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -52,7 +60,9 @@ function dotClass(step: VideoReferenceRunStep): string {
     case 'done':
       return 'bg-primary';
     case 'skipped':
-      return 'bg-primary/40';
+      return 'bg-muted-foreground/30';
+    case 'waiting':
+      return 'bg-amber-500/70';
     case 'running':
       return 'bg-primary animate-pulse';
     case 'error':

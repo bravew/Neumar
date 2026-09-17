@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useReferenceStudyHandoff } from '@/components/video/reference/useReferenceStudyHandoff';
 import {
+  blockedSteps,
+  completedStepCount,
   pendingAgentSteps,
   systemStepsSettled,
   useReferenceStudyStore,
@@ -17,6 +19,7 @@ vi.mock('@/shared/providers/language-provider', () => ({
         reference: {
           handoffPrompt: 'Continue "{label}". Focus: {focus}.',
           handoffDefaultFocus: 'overall structure',
+          unblockPrompt: 'Paused at {step}: {reason} Clear it.',
         },
       },
     },
@@ -183,8 +186,97 @@ describe('reference study handoff', () => {
     expect(state.handoff).not.toBeNull();
   });
 
+  it('sends each handoff exactly once across effect re-runs', async () => {
+    const sendMessage = vi.fn();
+    const { rerender } = render(
+      <Harness streaming={false} sendMessage={sendMessage} />,
+    );
+
+    act(() => {
+      useReferenceStudyStore
+        .getState()
+        .requestHandoff({ referenceId: 'ref-1', label: 'iPhone_Duo' });
+    });
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+
+    // Stands in for StrictMode's repeat effect run with the same request.
+    rerender(<Harness streaming={false} sendMessage={sendMessage} />);
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+  });
+
   it('mirrors the dock stream state for the panel to poll against', () => {
     render(<Harness streaming sendMessage={vi.fn()} />);
     expect(useReferenceStudyStore.getState().agentStreaming).toBe(true);
+  });
+  it('counts only finished steps, so a parked run never reads as complete', () => {
+    const parked = run({
+      status: 'waiting',
+      steps: [
+        {
+          id: 'sample',
+          owner: 'system',
+          status: 'done',
+          producedArtifactIds: [],
+        },
+        {
+          id: 'read',
+          owner: 'agent',
+          status: 'waiting',
+          producedArtifactIds: [],
+          note: 'Reading coverage is too thin (74% gaps).',
+        },
+        {
+          id: 'extract',
+          owner: 'agent',
+          status: 'skipped',
+          producedArtifactIds: [],
+        },
+      ],
+    });
+
+    expect(completedStepCount(parked)).toBe(1);
+    expect(blockedSteps(parked).map((step) => step.id)).toEqual(['read']);
+    expect(blockedSteps(parked)[0]?.note).toContain('74% gaps');
+  });
+
+  it('prefers the parked step reason over the generic ask', async () => {
+    const sendMessage = vi.fn();
+    render(<Harness streaming={false} sendMessage={sendMessage} />);
+
+    act(() => {
+      useReferenceStudyStore.getState().requestHandoff({
+        referenceId: 'ref-1',
+        label: 'iPhone_Duo',
+        focus: 'editing rhythm',
+        blocked: {
+          stepId: 'extract',
+          reason: 'Reading coverage is too thin (74% gaps).',
+        },
+      });
+    });
+
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+    // A generic "build the structured reading" ask is wrong here: the reading
+    // exists and the real blocker is coverage.
+    expect(sendMessage.mock.calls[0]?.[0]).toContain('74% gaps');
+    expect(sendMessage.mock.calls[0]?.[0]).not.toContain('editing rhythm');
+  });
+
+  it('sends the blocking reason when a handoff targets a parked step', async () => {
+    const sendMessage = vi.fn();
+    render(<Harness streaming={false} sendMessage={sendMessage} />);
+
+    act(() => {
+      useReferenceStudyStore.getState().requestHandoff({
+        referenceId: 'ref-1',
+        label: 'iPhone_Duo',
+        blocked: { stepId: 'extract', reason: 'Coverage is too thin.' },
+      });
+    });
+
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+    expect(sendMessage.mock.calls[0]?.[0]).toBe(
+      'Paused at extract: Coverage is too thin. Clear it.',
+    );
   });
 });

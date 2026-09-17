@@ -2065,6 +2065,11 @@ export default {
     flagsLoading: 'Checking whether Analyze video is available…',
     flagsError: 'Could not confirm Analyze video availability.',
     retryFlags: 'Retry',
+    blockedOn: 'Paused at {step}',
+    unblock: 'Ask the agent to continue',
+    skippedNote: '{count} step(s) skipped.',
+    unblockPrompt:
+      'The Analyze video run for "{label}" is paused at the {step} step: {reason} Do what is needed to clear that, then continue the run.',
     deleteConfirm: 'Remove this reference and its analysis?',
     deleteKeep: 'Keep',
     reanalyze: 'Re-analyze',
@@ -2094,6 +2099,7 @@ export default {
       error: 'Error',
       cancelled: 'Cancelled',
       skipped: 'Skipped',
+      waiting: 'Waiting',
     },
     review: {
       description:

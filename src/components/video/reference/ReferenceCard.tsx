@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Loader2,
   Play,
+  PauseCircle,
   Square,
   Trash2,
 } from 'lucide-react';
@@ -14,7 +15,7 @@ import type { VideoReference, VideoReferenceRun } from '@/shared/types/video';
 
 import { ReferenceRunProgress } from './ReferenceRunProgress';
 import { ReferenceRunSummary } from './ReferenceRunSummary';
-import { runIsActive } from './useReferenceStudyStore';
+import { blockedSteps, runIsActive } from './useReferenceStudyStore';
 
 interface ReferenceCardProps {
   reference: VideoReference;
@@ -26,6 +27,7 @@ interface ReferenceCardProps {
   onOpenResults: () => void;
   onSelect: () => void;
   onDelete: () => void;
+  onUnblock: (stepId: string, reason: string) => void;
 }
 
 /**
@@ -45,6 +47,7 @@ export function ReferenceCard({
   onOpenResults,
   onSelect,
   onDelete,
+  onUnblock,
 }: ReferenceCardProps) {
   const { t } = useLanguage();
   const labels = t.video.reference;
@@ -54,6 +57,9 @@ export function ReferenceCard({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const running = runIsActive(run);
   const hasRun = run !== undefined;
+  // A parked step is the one thing the user can actually act on, so it gets its
+  // own block with the reason and a control — not a line buried in step detail.
+  const blocked = run ? blockedSteps(run) : [];
   return (
     <li
       className={`space-y-2 rounded-md border p-2 ${
@@ -154,6 +160,29 @@ export function ReferenceCard({
           <Loader2 className="text-muted-foreground size-3 animate-spin" />
         ) : null}
       </div>
+      {!running && blocked.length > 0 ? (
+        <div className="border-border bg-muted/40 space-y-2 rounded border p-2">
+          {blocked.map((step) => (
+            <div key={step.id} className="space-y-1">
+              <p className="text-foreground flex items-center gap-1 text-[11px] font-medium">
+                <PauseCircle className="size-3 shrink-0" />
+                {labels.blockedOn.replace('{step}', labels.steps[step.id])}
+              </p>
+              {step.note ? (
+                <p className="text-muted-foreground text-[11px]">{step.note}</p>
+              ) : null}
+              <button
+                type="button"
+                className="border-border hover:bg-accent rounded border px-2 py-1 text-[11px] disabled:opacity-40"
+                disabled={!actionsEnabled}
+                onClick={() => onUnblock(step.id, step.note ?? '')}
+              >
+                {labels.unblock}
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {run && expanded ? <ReferenceRunProgress run={run} /> : null}
     </li>
   );

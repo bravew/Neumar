@@ -97,14 +97,16 @@ export type VideoReferenceRunStepStatus =
   | 'done'
   | 'error'
   | 'cancelled'
-  | 'skipped';
+  | 'skipped'
+  | 'waiting';
 
 export type VideoReferenceRunStatus =
   | 'queued'
   | 'running'
   | 'done'
   | 'error'
-  | 'cancelled';
+  | 'cancelled'
+  | 'waiting';
 
 export interface VideoReferenceRunStep {
   id: VideoReferenceRunStepId;

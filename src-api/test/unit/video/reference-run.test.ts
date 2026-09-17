@@ -72,7 +72,10 @@ describe('reference analysis run', () => {
       reference.id,
       instantHandlers,
     );
-    expect(done.status).toBe('done');
+    // The agent-owned `read` step parks the run instead of closing it as done:
+    // the agent has not written the reading yet, and a `done` run could never
+    // pick that work up afterwards.
+    expect(done.status).toBe('waiting');
     expect(done.steps.map((step) => step.status)).toEqual([
       'done',
       'done',
@@ -80,9 +83,12 @@ describe('reference analysis run', () => {
       'done',
       'done',
       'done',
-      'skipped',
-      'skipped',
+      'waiting',
+      'queued',
     ]);
+    expect(done.steps.find((step) => step.id === 'read')?.note).toContain(
+      'video_reference_write_analysis',
+    );
     expect(done.steps.find((step) => step.id === 'sample')?.note).toContain(
       'cell cap',
     );
@@ -119,7 +125,7 @@ describe('reference analysis run', () => {
       ...instantHandlers,
       transcribe: async () => ({ artifactIds: ['transcript'], note: 'retry' }),
     });
-    expect(resumed.status).toBe('done');
+    expect(resumed.status).toBe('waiting');
     expect(resumed.steps.find((step) => step.id === 'fetch')?.status).toBe(
       'done',
     );
@@ -135,5 +141,78 @@ describe('reference analysis run', () => {
     expect(cancelled.status).toBe('cancelled');
     expect(cancelled.steps.some((step) => step.status === 'done')).toBe(true);
     expect(cancellable.id).toBeTruthy();
+  });
+  it('resumes a parked run once the agent-owned work exists', async () => {
+    const project = await createProject({
+      name: 'Parked run',
+      template: 'explainer',
+    });
+    const { reference } = await acquireReference(project.id, {
+      origin: 'upload',
+      studyAcknowledged: true,
+      fileBytes: await fs.readFile(FIXTURE),
+      fileName: 'still-8s.mp4',
+    });
+    await startReferenceRun(project.id, reference.id);
+    const parked = await executeReferenceRun(
+      project.id,
+      reference.id,
+      instantHandlers,
+    );
+    expect(parked.status).toBe('waiting');
+
+    // Stand in for the agent's writes landing on disk between the two passes.
+    const withReading: ReferenceRunStepHandlers = {
+      ...instantHandlers,
+      read: async () => ({
+        artifactIds: ['analysis', 'timeline'],
+        note: 'Structured reading already on disk.',
+      }),
+      extract: async () => ({
+        artifactIds: ['framework-1'],
+        note: 'Extracted 3 framework sections.',
+      }),
+    };
+    const finished = await resumeReferenceRun(
+      project.id,
+      reference.id,
+      withReading,
+    );
+
+    expect(finished.status).toBe('done');
+    expect(finished.steps.find((step) => step.id === 'read')?.status).toBe(
+      'done',
+    );
+    expect(finished.steps.find((step) => step.id === 'extract')?.status).toBe(
+      'done',
+    );
+  });
+
+  it('parks again with the blocking reason when extraction is still blocked', async () => {
+    const project = await createProject({
+      name: 'Blocked extract',
+      template: 'explainer',
+    });
+    const { reference } = await acquireReference(project.id, {
+      origin: 'upload',
+      studyAcknowledged: true,
+      fileBytes: await fs.readFile(FIXTURE),
+      fileName: 'still-8s.mp4',
+    });
+    await startReferenceRun(project.id, reference.id);
+    const parked = await executeReferenceRun(project.id, reference.id, {
+      ...instantHandlers,
+      read: async () => ({ artifactIds: ['analysis', 'timeline'] }),
+      extract: async () => ({
+        waiting: true,
+        note: 'Reading coverage is too thin (74% gaps).',
+      }),
+    });
+
+    expect(parked.status).toBe('waiting');
+    const extract = parked.steps.find((step) => step.id === 'extract');
+    expect(extract?.status).toBe('waiting');
+    // The reason is what the panel offers the user an action against.
+    expect(extract?.note).toContain('74% gaps');
   });
 });

@@ -10,7 +10,7 @@ import {
   toolSummary,
   ToolOutputSummary,
 } from './toolActivityFormat';
-import type { ChatToolCall } from './types';
+import type { ChatToolCall, ChatToolCallStage } from './types';
 
 export interface ToolActivityGroupLabels {
   hide: string;
@@ -187,6 +187,11 @@ function ToolActivityLine({
   );
 }
 
+/** Terminal stages: the call will not change again. */
+function isSettled(stage: ChatToolCallStage): boolean {
+  return stage === 'complete' || stage === 'error' || stage === 'cancelled';
+}
+
 function PollingLine({
   name,
   calls,
@@ -197,8 +202,11 @@ function PollingLine({
   labels: ToolActivityGroupLabels;
 }) {
   const [open, setOpen] = useState(false);
-  const completed = calls.filter((call) => call.stage === 'complete').length;
-  const allDone = completed === calls.length;
+  // A retried call that ends in an error is finished, not still in flight.
+  // Counting only 'complete' left a group whose first attempt failed stuck on
+  // "checking…" with a running progress bar forever.
+  const allDone = calls.every((call) => isSettled(call.stage));
+  const hasError = calls.some((call) => call.stage === 'error');
   const shortName = humanizeToolName(name);
 
   return (
@@ -211,7 +219,11 @@ function PollingLine({
         <span
           className={cn(
             'size-1.5 shrink-0 rounded-full',
-            allDone ? 'bg-emerald-500' : 'animate-pulse bg-amber-500',
+            allDone
+              ? hasError
+                ? 'bg-destructive'
+                : 'bg-emerald-500'
+              : 'animate-pulse bg-amber-500',
           )}
         />
         <span className="min-w-0 truncate">

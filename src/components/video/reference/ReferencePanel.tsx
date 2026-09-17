@@ -10,6 +10,7 @@ import { ReferenceCard } from './ReferenceCard';
 import { ReferenceReviewDialog } from './ReferenceReviewDialog';
 import { useReferenceRunPolling } from './useReferenceRunPolling';
 import {
+  blockedSteps,
   pendingAgentSteps,
   runIsActive,
   systemStepsSettled,
@@ -95,9 +96,16 @@ export function ReferencePanel({
         continue;
       }
       awaitingHandoff.current.delete(reference.id);
+      // Name the step the run is parked on and the reason it gave. A generic
+      // "build the reading" ask is wrong once the reading exists and the block
+      // is something else, such as thin evidence coverage.
+      const blocked = blockedSteps(run)[0];
       requestHandoff({
         referenceId: reference.id,
         label: reference.label,
+        ...(blocked?.note
+          ? { blocked: { stepId: blocked.id, reason: blocked.note } }
+          : {}),
         ...(focusText.trim() ? { focus: focusText.trim() } : {}),
       });
     }
@@ -131,6 +139,22 @@ export function ReferencePanel({
       setSelected((current) => (current?.id === reference.id ? null : current));
     },
     [actions, forgetReference, runs],
+  );
+
+  // Clearing a parked step is the same handoff, aimed at the blocker: the chat
+  // gets the reason the run gave, and the run continues itself once the agent
+  // writes what it was waiting for.
+  const unblock = useCallback(
+    (reference: VideoReference, stepId: string, reason: string) => {
+      setActiveReference(reference.id);
+      requestHandoff({
+        referenceId: reference.id,
+        label: reference.label,
+        blocked: { stepId, reason },
+        ...(focusText.trim() ? { focus: focusText.trim() } : {}),
+      });
+    },
+    [focusText, requestHandoff, setActiveReference],
   );
 
   const cancel = useCallback(
@@ -209,6 +233,9 @@ export function ReferencePanel({
                 }}
                 onSelect={() => setActiveReference(reference.id)}
                 onDelete={() => void remove(reference)}
+                onUnblock={(stepId, reason) =>
+                  unblock(reference, stepId, reason)
+                }
               />
             ))}
           </ul>

@@ -302,14 +302,23 @@ export type ReferenceRunStepStatus =
   | 'done'
   | 'error'
   | 'cancelled'
-  | 'skipped';
+  /** Not applicable at all — a disabled feature. Never retried. */
+  | 'skipped'
+  /**
+   * Blocked on an input the run cannot produce itself: an agent-owned write, or
+   * evidence too thin to extract from. Re-evaluated on resume, so the work the
+   * agent does afterwards is never orphaned.
+   */
+  | 'waiting';
 
 export type ReferenceRunStatus =
   | 'queued'
   | 'running'
   | 'done'
   | 'error'
-  | 'cancelled';
+  | 'cancelled'
+  /** Parked on a `waiting` step. Resumable, unlike `done`. */
+  | 'waiting';
 
 export interface ReferenceRunStep {
   id: ReferenceRunStepId;

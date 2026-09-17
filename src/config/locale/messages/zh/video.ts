@@ -2021,6 +2021,11 @@ export default {
     flagsLoading: '正在确认“分析视频”是否可用…',
     flagsError: '无法确认“分析视频”是否可用。',
     retryFlags: '重试',
+    blockedOn: '暂停于{step}',
+    unblock: '让助手继续',
+    skippedNote: '已跳过 {count} 个步骤。',
+    unblockPrompt:
+      '“{label}”的分析视频流程在 {step} 步骤暂停：{reason} 请处理该问题后继续此流程。',
     deleteConfirm: '删除此参考视频及其分析结果？',
     deleteKeep: '保留',
     reanalyze: '重新分析',
@@ -2050,6 +2055,7 @@ export default {
       error: '错误',
       cancelled: '已取消',
       skipped: '已跳过',
+      waiting: '等待中',
     },
     review: {
       description: '私有源播放器和分析步骤。这不是剪辑时间线。',

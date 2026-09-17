@@ -2090,6 +2090,11 @@ export default {
     flagsError:
       'Não foi possível confirmar a disponibilidade de Analisar vídeo.',
     retryFlags: 'Tentar de novo',
+    blockedOn: 'Em pausa em {step}',
+    unblock: 'Pedir ao agente para continuar',
+    skippedNote: '{count} etapa(s) ignorada(s).',
+    unblockPrompt:
+      'A análise de vídeo de "{label}" está em pausa na etapa {step}: {reason} Faça o necessário para resolver e continue a execução.',
     deleteConfirm: 'Remover esta referência e a análise dela?',
     deleteKeep: 'Manter',
     reanalyze: 'Reanalisar',
@@ -2119,6 +2124,7 @@ export default {
       error: 'Erro',
       cancelled: 'Cancelado',
       skipped: 'Ignorado',
+      waiting: 'Aguardando',
     },
     review: {
       description:

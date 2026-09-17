@@ -210,6 +210,7 @@ import {
   referenceTimelineArtifactSchema,
 } from '@/shared/video/reference/reading-schema';
 import { ReferenceReadingValidationError } from '@/shared/video/reference/reading-validate';
+import { continueWaitingReferenceRun } from '@/shared/video/reference/run';
 import { renderTimelineFramesWithRemotion } from '@/shared/video/remotion-renderer';
 import { shareVideoProject } from '@/shared/video/share';
 import { fetchSource, SourceIngestError } from '@/shared/video/source/ingest';
@@ -4313,7 +4314,12 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
             input.referenceId,
             input.analysis,
           );
-          return jsonResult({ envelope });
+          // The run may be parked waiting for exactly this write.
+          const run = await continueWaitingReferenceRun(
+            projectId,
+            input.referenceId,
+          );
+          return jsonResult({ envelope, ...(run ? { run } : {}) });
         } catch (error) {
           return readingToolError(error);
         }
@@ -4342,7 +4348,11 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
             input.referenceId,
             input.timeline,
           );
-          return jsonResult({ envelope });
+          const run = await continueWaitingReferenceRun(
+            projectId,
+            input.referenceId,
+          );
+          return jsonResult({ envelope, ...(run ? { run } : {}) });
         } catch (error) {
           return readingToolError(error);
         }

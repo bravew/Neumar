@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -32,6 +32,11 @@ export function useReferenceStudyHandoff({
   const setAgentStreaming = useReferenceStudyStore(
     (state) => state.setAgentStreaming,
   );
+  // A turn costs money and clutters the conversation, so each request is sent
+  // exactly once. Clearing the store is not enough on its own: StrictMode
+  // re-runs this effect with the same captured request, which posted the
+  // handoff twice.
+  const sentNonce = useRef<number | null>(null);
 
   useEffect(() => {
     setAgentStreaming(streaming);
@@ -39,12 +44,19 @@ export function useReferenceStudyHandoff({
 
   useEffect(() => {
     if (!handoff || streaming) return;
-    const prompt = t.video.reference.handoffPrompt
-      .replace('{label}', handoff.label)
-      .replace(
-        '{focus}',
-        handoff.focus ?? t.video.reference.handoffDefaultFocus,
-      );
+    if (sentNonce.current === handoff.nonce) return;
+    sentNonce.current = handoff.nonce;
+    const prompt = handoff.blocked
+      ? t.video.reference.unblockPrompt
+          .replace('{label}', handoff.label)
+          .replace('{step}', handoff.blocked.stepId)
+          .replace('{reason}', handoff.blocked.reason)
+      : t.video.reference.handoffPrompt
+          .replace('{label}', handoff.label)
+          .replace(
+            '{focus}',
+            handoff.focus ?? t.video.reference.handoffDefaultFocus,
+          );
     clearHandoff();
     sendMessage(prompt, {
       ...buildContext(),
@@ -58,5 +70,6 @@ export function useReferenceStudyHandoff({
     streaming,
     t.video.reference.handoffDefaultFocus,
     t.video.reference.handoffPrompt,
+    t.video.reference.unblockPrompt,
   ]);
 }

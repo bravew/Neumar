@@ -16,6 +16,8 @@ export interface ReferenceHandoffRequest {
   referenceId: string;
   label: string;
   focus?: string;
+  /** Set when the handoff is to clear a specific parked step. */
+  blocked?: { stepId: string; reason: string };
   /** Distinguishes repeat Analyze clicks on the same reference. */
   nonce: number;
 }
@@ -92,6 +94,7 @@ export function pendingAgentSteps(run: VideoReferenceRun): string[] {
       (step) =>
         step.owner === 'agent' &&
         step.status !== 'done' &&
+        step.status !== 'skipped' &&
         step.status !== 'cancelled',
     )
     .map((step) => step.id);
@@ -117,16 +120,25 @@ export function runIsActive(run: VideoReferenceRun | undefined): boolean {
   return run?.status === 'running' || run?.status === 'queued';
 }
 
+/**
+ * Only finished work counts. A skipped or parked step must not inflate the
+ * count — reporting "8/8 Done" for a run that never produced a reading is what
+ * made a recoverable run look finished.
+ */
 export function completedStepCount(run: VideoReferenceRun): number {
-  return run.steps.filter(
-    (step) => step.status === 'done' || step.status === 'skipped',
-  ).length;
+  return run.steps.filter((step) => step.status === 'done').length;
+}
+
+/** Steps parked on an input the run cannot produce, with the reason to show. */
+export function blockedSteps(run: VideoReferenceRun) {
+  return run.steps.filter((step) => step.status === 'waiting');
 }
 
 export function currentStep(run: VideoReferenceRun) {
   return (
     run.steps.find((step) => step.status === 'running') ??
     run.steps.find((step) => step.status === 'error') ??
+    run.steps.find((step) => step.status === 'waiting') ??
     run.steps.find((step) => step.status === 'queued') ??
     null
   );
