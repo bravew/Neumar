@@ -281,6 +281,7 @@ export function buildVideoSessionPrompt(
           'This is the reference the user has open in the Analyze video panel. The panel runs the system steps (fetch, probe, transcribe, pack, boundaries, sample) and parks the agent-owned steps for you.',
           'When `read` is not yet done, build the structured reading: sample evidence as needed, then video_reference_write_analysis followed by video_reference_write_timeline. `extract` then runs on its own from the panel.',
           'Describe progress against these step ids so the user can match what you say to the panel they are looking at.',
+          'When `reading` is present the user has these results open. Answer questions about sections, intent and open questions from it directly, citing section phases and timecodes, and only re-read artifacts when you need detail it does not carry.',
         ].join('\n')
       : '',
     context.htmlTemplateContext

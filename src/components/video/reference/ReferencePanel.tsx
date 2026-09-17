@@ -7,7 +7,7 @@ import type { VideoProjectEditorActions } from '../editorTypes';
 import { PanelShell } from '../PanelShell';
 import { ReferenceAddForm } from './ReferenceAddForm';
 import { ReferenceCard } from './ReferenceCard';
-import { ReferenceReviewDialog } from './ReferenceReviewDialog';
+import { ReferenceResultsView } from './ReferenceResultsView';
 import { useReferenceRunPolling } from './useReferenceRunPolling';
 import {
   blockedSteps,
@@ -44,7 +44,9 @@ export function ReferencePanel({
   const { t } = useLanguage();
   const labels = t.video.reference;
   const [focusText, setFocusText] = useState('');
-  const [selected, setSelected] = useState<VideoReference | null>(null);
+  // Drill-down target. The results live in this rail, not over it, so the
+  // editor and the chat stay reachable while a reading is open.
+  const [openedId, setOpenedId] = useState<string | null>(null);
   const references = useMemo(
     () => project.videoReferences ?? [],
     [project.videoReferences],
@@ -136,7 +138,7 @@ export function ReferencePanel({
       }
       await actions.deleteVideoReference(reference.id);
       forgetReference(reference.id);
-      setSelected((current) => (current?.id === reference.id ? null : current));
+      setOpenedId((current) => (current === reference.id ? null : current));
     },
     [actions, forgetReference, runs],
   );
@@ -164,6 +166,38 @@ export function ReferencePanel({
     },
     [actions, setRun],
   );
+
+  // Hand the open reading to the chat. The turn carries this reference id, so
+  // the agent answers against the analysis the user is looking at.
+  const discuss = useCallback(
+    (reference: VideoReference) => {
+      setActiveReference(reference.id);
+      requestHandoff({
+        referenceId: reference.id,
+        label: reference.label,
+        discussResults: true,
+      });
+    },
+    [requestHandoff, setActiveReference],
+  );
+
+  const opened = openedId
+    ? (references.find((reference) => reference.id === openedId) ?? null)
+    : null;
+
+  if (opened) {
+    return (
+      <PanelShell title={labels.title} description={labels.description}>
+        <ReferenceResultsView
+          projectId={project.id}
+          reference={opened}
+          run={runs[opened.id] ?? null}
+          onBack={() => setOpenedId(null)}
+          onDiscuss={() => discuss(opened)}
+        />
+      </PanelShell>
+    );
+  }
 
   return (
     <PanelShell title={labels.title} description={labels.description}>
@@ -229,7 +263,7 @@ export function ReferencePanel({
                 onCancel={() => void cancel(reference)}
                 onOpenResults={() => {
                   setActiveReference(reference.id);
-                  setSelected(reference);
+                  setOpenedId(reference.id);
                 }}
                 onSelect={() => setActiveReference(reference.id)}
                 onDelete={() => void remove(reference)}
@@ -241,14 +275,6 @@ export function ReferencePanel({
           </ul>
         )}
       </div>
-      <ReferenceReviewDialog
-        projectId={project.id}
-        reference={selected}
-        run={selected ? (runs[selected.id] ?? null) : null}
-        onOpenChange={(open) => {
-          if (!open) setSelected(null);
-        }}
-      />
     </PanelShell>
   );
 }

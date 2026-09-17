@@ -20,6 +20,7 @@ vi.mock('@/shared/providers/language-provider', () => ({
           handoffPrompt: 'Continue "{label}". Focus: {focus}.',
           handoffDefaultFocus: 'overall structure',
           unblockPrompt: 'Paused at {step}: {reason} Clear it.',
+          discussPrompt: 'I have the results for "{label}" open.',
         },
       },
     },
@@ -202,6 +203,28 @@ describe('reference study handoff', () => {
     // Stands in for StrictMode's repeat effect run with the same request.
     rerender(<Harness streaming={false} sendMessage={sendMessage} />);
     await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+  });
+
+  it('asks about the open reading when the user opens the results', async () => {
+    const sendMessage = vi.fn();
+    render(<Harness streaming={false} sendMessage={sendMessage} />);
+
+    act(() => {
+      useReferenceStudyStore.getState().requestHandoff({
+        referenceId: 'ref-1',
+        label: 'iPhone_Duo',
+        discussResults: true,
+      });
+    });
+
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+    expect(sendMessage.mock.calls[0]?.[0]).toBe(
+      'I have the results for "iPhone_Duo" open.',
+    );
+    // The reference id is what lets the agent answer against that reading.
+    expect(sendMessage.mock.calls[0]?.[1]).toMatchObject({
+      referenceId: 'ref-1',
+    });
   });
 
   it('mirrors the dock stream state for the panel to poll against', () => {

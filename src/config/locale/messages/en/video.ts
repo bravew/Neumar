@@ -2065,6 +2065,10 @@ export default {
     flagsLoading: 'Checking whether Analyze video is available…',
     flagsError: 'Could not confirm Analyze video availability.',
     retryFlags: 'Retry',
+    backToList: 'All references',
+    discuss: 'Ask the agent',
+    discussPrompt:
+      'I have the Analyze video results for "{label}" open. Answer from that reading — its sections, intent and open questions — and say which section you mean by phase and timecode.',
     blockedOn: 'Paused at {step}',
     unblock: 'Ask the agent to continue',
     skippedNote: '{count} step(s) skipped.',

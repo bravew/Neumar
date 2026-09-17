@@ -30,7 +30,27 @@ export interface ReferenceStudyPromptContext {
     evidenceCount: number;
     analysisStale: boolean;
   };
+  /**
+   * The reading itself, so the chat can answer questions about the results the
+   * user has open instead of re-reading artifacts through tool calls.
+   */
+  reading?: {
+    intent?: string;
+    sections: Array<{
+      id: string;
+      phase: string;
+      startMs: number;
+      endMs: number;
+      confidence: number;
+      effect?: string;
+    }>;
+    openQuestions: string[];
+  };
 }
+
+/** Caps on the reading folded into the prompt, so a long study stays bounded. */
+const MAX_SECTIONS = 20;
+const MAX_OPEN_QUESTIONS = 10;
 
 export async function buildReferenceStudyContext(
   project: VideoProject,
@@ -68,5 +88,27 @@ export async function buildReferenceStudyContext(
       evidenceCount: reading.evidence.length,
       analysisStale: reading.analysis?.stale === true,
     },
+    ...(reading.analysis || reading.timeline
+      ? {
+          reading: {
+            ...(reading.analysis?.data.intent
+              ? { intent: reading.analysis.data.intent }
+              : {}),
+            sections: (reading.timeline?.data.sections ?? [])
+              .slice(0, MAX_SECTIONS)
+              .map((section) => ({
+                id: section.id,
+                phase: section.phase,
+                startMs: section.startMs,
+                endMs: section.endMs,
+                confidence: section.confidence,
+                ...(section.effect ? { effect: section.effect } : {}),
+              })),
+            openQuestions: (reading.analysis?.data.openQuestions ?? [])
+              .slice(0, MAX_OPEN_QUESTIONS)
+              .map((item) => item.question),
+          },
+        }
+      : {}),
   };
 }

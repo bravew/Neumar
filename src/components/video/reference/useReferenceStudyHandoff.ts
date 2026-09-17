@@ -46,17 +46,19 @@ export function useReferenceStudyHandoff({
     if (!handoff || streaming) return;
     if (sentNonce.current === handoff.nonce) return;
     sentNonce.current = handoff.nonce;
-    const prompt = handoff.blocked
-      ? t.video.reference.unblockPrompt
-          .replace('{label}', handoff.label)
-          .replace('{step}', handoff.blocked.stepId)
-          .replace('{reason}', handoff.blocked.reason)
-      : t.video.reference.handoffPrompt
-          .replace('{label}', handoff.label)
-          .replace(
-            '{focus}',
-            handoff.focus ?? t.video.reference.handoffDefaultFocus,
-          );
+    const prompt = handoff.discussResults
+      ? t.video.reference.discussPrompt.replace('{label}', handoff.label)
+      : handoff.blocked
+        ? t.video.reference.unblockPrompt
+            .replace('{label}', handoff.label)
+            .replace('{step}', handoff.blocked.stepId)
+            .replace('{reason}', handoff.blocked.reason)
+        : t.video.reference.handoffPrompt
+            .replace('{label}', handoff.label)
+            .replace(
+              '{focus}',
+              handoff.focus ?? t.video.reference.handoffDefaultFocus,
+            );
     clearHandoff();
     sendMessage(prompt, {
       ...buildContext(),
@@ -71,5 +73,6 @@ export function useReferenceStudyHandoff({
     t.video.reference.handoffDefaultFocus,
     t.video.reference.handoffPrompt,
     t.video.reference.unblockPrompt,
+    t.video.reference.discussPrompt,
   ]);
 }

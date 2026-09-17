@@ -18,6 +18,8 @@ export interface ReferenceHandoffRequest {
   focus?: string;
   /** Set when the handoff is to clear a specific parked step. */
   blocked?: { stepId: string; reason: string };
+  /** Set when the user opened the results and wants to talk about them. */
+  discussResults?: boolean;
   /** Distinguishes repeat Analyze clicks on the same reference. */
   nonce: number;
 }

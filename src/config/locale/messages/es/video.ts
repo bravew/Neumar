@@ -2100,6 +2100,10 @@ export default {
     flagsLoading: 'Comprobando si Analizar video está disponible…',
     flagsError: 'No se pudo confirmar la disponibilidad de Analizar video.',
     retryFlags: 'Reintentar',
+    backToList: 'Todas las referencias',
+    discuss: 'Preguntar al agente',
+    discussPrompt:
+      'Tengo abiertos los resultados de Analizar video de "{label}". Responde a partir de esa lectura —sus secciones, intención y preguntas abiertas— e indica a qué sección te refieres por fase y marca de tiempo.',
     blockedOn: 'En pausa en {step}',
     unblock: 'Pedir al agente que continúe',
     skippedNote: '{count} paso(s) omitido(s).',

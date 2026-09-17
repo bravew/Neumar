@@ -2021,6 +2021,10 @@ export default {
     flagsLoading: '正在确认“分析视频”是否可用…',
     flagsError: '无法确认“分析视频”是否可用。',
     retryFlags: '重试',
+    backToList: '全部参考视频',
+    discuss: '询问助手',
+    discussPrompt:
+      '我正在查看“{label}”的分析视频结果。请基于该解读（章节、意图与待解问题）作答，并用章节名称和时间码说明所指的段落。',
     blockedOn: '暂停于{step}',
     unblock: '让助手继续',
     skippedNote: '已跳过 {count} 个步骤。',

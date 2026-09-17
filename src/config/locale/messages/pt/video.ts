@@ -2090,6 +2090,10 @@ export default {
     flagsError:
       'Não foi possível confirmar a disponibilidade de Analisar vídeo.',
     retryFlags: 'Tentar de novo',
+    backToList: 'Todas as referências',
+    discuss: 'Perguntar ao agente',
+    discussPrompt:
+      'Estou com os resultados da Análise de vídeo de "{label}" abertos. Responda a partir dessa leitura — suas seções, intenção e perguntas em aberto — e diga a que seção se refere pela fase e pelo timecode.',
     blockedOn: 'Em pausa em {step}',
     unblock: 'Pedir ao agente para continuar',
     skippedNote: '{count} etapa(s) ignorada(s).',

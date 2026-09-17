@@ -2098,6 +2098,10 @@ export default {
     flagsError:
       'Impossible de confirmer la disponibilité d’Analyser une vidéo.',
     retryFlags: 'Réessayer',
+    backToList: 'Toutes les références',
+    discuss: 'Demander à l’agent',
+    discussPrompt:
+      'J’ai sous les yeux les résultats d’Analyse vidéo de « {label} ». Réponds à partir de cette lecture — ses sections, son intention et ses questions ouvertes — et précise la section visée par sa phase et son timecode.',
     blockedOn: 'En pause à {step}',
     unblock: 'Demander à l’agent de continuer',
     skippedNote: '{count} étape(s) ignorée(s).',
