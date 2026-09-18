@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,10 +14,13 @@ import {
   executeReferenceRun,
   readReferenceRun,
   resumeReferenceRun,
+  sampleStepEveryMs,
   startReferenceRun,
   type ReferenceRunStepHandlers,
 } from '@/shared/video/reference/run';
+import { readReferenceEnvelope } from '@/shared/video/reference/store';
 import { createProject } from '@/shared/video/store';
+import type { EvidenceItem } from '@/shared/video/types';
 
 const FIXTURE = fileURLToPath(
   new URL('../../fixtures/video/reference/still-8s.mp4', import.meta.url),
@@ -248,5 +252,98 @@ describe('reference analysis run', () => {
     expect(extract?.status).toBe('waiting');
     // The reason is what the panel offers the user an action against.
     expect(extract?.note).toContain('74% gaps');
+  });
+});
+
+describe('sampleStepEveryMs', () => {
+  it('keeps the 1s default for references short enough to fit at that step', () => {
+    expect(sampleStepEveryMs(8000, 48)).toBe(1000);
+    expect(sampleStepEveryMs(40000, 48)).toBe(1000);
+  });
+
+  it('widens the step so the full cell budget spans a longer reference', () => {
+    // 112.6s at the old fixed 1s step covered only the first 47s (58% thin)
+    // and got rejected by framework extraction; this is that exact case.
+    expect(sampleStepEveryMs(112_600, 48)).toBe(2000);
+  });
+
+  it('never exceeds the thin-gap threshold, past which spacing stops helping', () => {
+    // A 10-minute reference (the analysis cap) cannot be fully covered by 48
+    // cells regardless of spacing — clamping to 2000ms still maximizes what
+    // this budget can cover instead of spreading out into an all-thin grid.
+    expect(sampleStepEveryMs(600_000, 48)).toBe(2000);
+  });
+});
+
+describe('reference analysis run — sample step coverage', () => {
+  let workDir: string;
+
+  beforeEach(async () => {
+    closeDatabase();
+    workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'reference-run-sample-'));
+    vi.stubEnv('NEUMA_VIDEO_WORKDIR', workDir);
+  });
+
+  afterEach(async () => {
+    closeDatabase();
+    vi.unstubAllEnvs();
+    await fs.rm(workDir, { recursive: true, force: true });
+  });
+
+  it('covers most of a reference longer than the old fixed-step cutoff', async () => {
+    // still-8s.mp4 looped past the 48s point the old fixed 1s step used to
+    // stop at, so the real default 'sample' handler (not overridden here)
+    // has to actually widen its step to pass this.
+    const longFixture = path.join(workDir, 'long-source.mp4');
+    execFileSync(
+      'ffmpeg',
+      [
+        '-y',
+        '-stream_loop',
+        '13',
+        '-i',
+        fileURLToPath(
+          new URL(
+            '../../fixtures/video/reference/still-8s.mp4',
+            import.meta.url,
+          ),
+        ),
+        '-c',
+        'copy',
+        longFixture,
+      ],
+      { stdio: 'ignore' },
+    );
+
+    const project = await createProject({
+      name: 'Long reference sample coverage',
+      template: 'explainer',
+    });
+    const { reference } = await acquireReference(project.id, {
+      origin: 'workspace-path',
+      studyAcknowledged: true,
+      filePath: longFixture,
+      allowLonger: true,
+    });
+    expect(reference.durationMs).toBeGreaterThan(90_000);
+
+    await startReferenceRun(project.id, reference.id);
+    await executeReferenceRun(project.id, reference.id, {
+      transcribe: async () => ({ artifactIds: ['transcript'] }),
+      pack: async () => ({ artifactIds: ['packed-transcript'] }),
+      boundaries: async () => ({ artifactIds: ['boundaries'] }),
+      read: async () => ({ waiting: true, note: 'stop before agent steps' }),
+    });
+
+    const evidence = await readReferenceEnvelope<EvidenceItem[]>(
+      project.id,
+      reference.id,
+      'evidence',
+    );
+    const sampledAtMs = evidence?.data[0]?.sampledAtMs ?? [];
+    const lastSample = sampledAtMs.at(-1) ?? 0;
+    // The old fixed 1s step would have stopped at ~47s no matter how long
+    // the reference was; this must reach much further into it.
+    expect(lastSample).toBeGreaterThan(reference.durationMs * 0.7);
   });
 });

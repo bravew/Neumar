@@ -41,6 +41,27 @@ import {
   FrameworkExtractError,
 } from './framework-extract';
 import { getReferenceReading } from './reading';
+import { DEFAULT_THIN_GAP_MS } from './reading-validate';
+
+/**
+ * The system's automatic 'sample' step spends a fixed cell budget on a
+ * reference of unknown length. A fixed 1s step only reaches the first
+ * `maxCells` seconds before the cap truncates it, so anything past ~48s of
+ * runtime got zero evidence — framework extraction then refused every such
+ * reference as "too thin" no matter what the agent tried afterwards.
+ * Stretch the step (bounded by the thin-gap threshold, past which a gap
+ * counts as thin regardless of spacing) so the same budget spans as much of
+ * the reference as it can without giving up full coverage.
+ */
+export function sampleStepEveryMs(
+  durationMs: number,
+  maxCells: number,
+): number {
+  return Math.min(
+    DEFAULT_THIN_GAP_MS,
+    Math.max(1000, Math.ceil(durationMs / maxCells)),
+  );
+}
 
 export const REFERENCE_RUN_STEP_IDS: readonly ReferenceRunStepId[] = [
   'fetch',
@@ -534,18 +555,20 @@ const defaultHandlers: Record<
       return { artifactIds: ['evidence'], note: 'Coarse evidence reused.' };
     }
     const durationMs = ctx.reference.durationMs;
-    const everyMs = 1000;
+    const maxCells = 48;
+    const everyMs = sampleStepEveryMs(durationMs, maxCells);
     const columns = 4;
     const result = await buildEvidence(ctx.projectId, ctx.reference.id, {
       everyMs,
       columns,
-      maxCells: 48,
+      maxCells,
     });
     const endSec = (durationMs / 1000).toFixed(0);
+    const stepSec = (everyMs / 1000).toFixed(1);
     const pages = result.item.grid?.pages ?? 1;
     return {
       artifactIds: [result.item.id],
-      note: `sampling 0–${endSec} s at 1 s into a ${columns}×${result.item.grid?.rows ?? 3} grid (page 1 of ${pages}, ${result.sampledAtMs.length}/48 cell cap)`,
+      note: `sampling 0–${endSec} s at ${stepSec} s into a ${columns}×${result.item.grid?.rows ?? 3} grid (page 1 of ${pages}, ${result.sampledAtMs.length}/${maxCells} cell cap)`,
     };
   },
   async read(ctx) {
