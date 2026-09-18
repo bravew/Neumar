@@ -150,6 +150,41 @@ describe('FrameworkApplyPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Approve' }));
     expect(await screen.findByText('Applied to the timeline.')).toBeTruthy();
   });
+
+  it('drops a preview from the previous framework when the selection changes', async () => {
+    const user = userEvent.setup();
+    const nextFramework: VideoFramework = { ...framework, id: 'fw-2' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (input: RequestInfo) => {
+        const url = String(input);
+        if (url.includes('/bind')) {
+          return { ok: true, json: async () => ({ bindings: [], gaps: [] }) };
+        }
+        if (url.includes('/preview')) {
+          return {
+            ok: true,
+            json: async () => ({
+              ops: [{ kind: 'clip.insert', trackId: 'track-video-main' }],
+              blocked: [],
+              gaps: [],
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      }),
+    );
+    const { rerender } = render(
+      <FrameworkApplyPanel projectId="project-1" framework={framework} />,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Preview' }));
+    expect(await screen.findByText('clip.insert')).toBeTruthy();
+
+    rerender(
+      <FrameworkApplyPanel projectId="project-1" framework={nextFramework} />,
+    );
+    expect(screen.queryByText('clip.insert')).toBeNull();
+  });
 });
 
 function initWasPreview(): boolean {

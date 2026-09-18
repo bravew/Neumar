@@ -46,12 +46,17 @@ export function useReferenceStudyHandoff({
     if (!handoff || streaming) return;
     if (sentNonce.current === handoff.nonce) return;
     sentNonce.current = handoff.nonce;
+    const stepLabels = t.video.reference.steps;
+    const blockedStepLabel =
+      handoff.blocked && handoff.blocked.stepId in stepLabels
+        ? stepLabels[handoff.blocked.stepId as keyof typeof stepLabels]
+        : handoff.blocked?.stepId;
     const prompt = handoff.discussResults
       ? t.video.reference.discussPrompt.replace('{label}', handoff.label)
       : handoff.blocked
         ? t.video.reference.unblockPrompt
             .replace('{label}', handoff.label)
-            .replace('{step}', handoff.blocked.stepId)
+            .replace('{step}', blockedStepLabel ?? handoff.blocked.stepId)
             .replace('{reason}', handoff.blocked.reason)
         : t.video.reference.handoffPrompt
             .replace('{label}', handoff.label)
@@ -72,6 +77,7 @@ export function useReferenceStudyHandoff({
     streaming,
     t.video.reference.handoffDefaultFocus,
     t.video.reference.handoffPrompt,
+    t.video.reference.steps,
     t.video.reference.unblockPrompt,
     t.video.reference.discussPrompt,
   ]);

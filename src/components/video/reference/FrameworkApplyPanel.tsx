@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { API_BASE_URL } from '@/config';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -48,32 +48,38 @@ export function FrameworkApplyPanel({
     | { status: 'applied' }
     | { status: 'error'; message: string }
   >({ status: 'idle' });
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const applyAbortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     setApplyState({ status: 'idle' });
-    if (!framework || stale) return;
-    const controller = new AbortController();
-    void fetch(
-      `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/frameworks/${encodeURIComponent(framework.id)}/bind`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-        signal: controller.signal,
-      },
-    )
-      .then(async (response) => {
-        if (!response.ok) return;
-        const payload = (await response.json()) as {
-          bindings: BoundSlotView[];
-          gaps: GapView[];
-        };
-        if (!controller.signal.aborted) {
+    setPreview(null);
+    const bindController = new AbortController();
+    if (framework && !stale) {
+      void fetch(
+        `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/frameworks/${encodeURIComponent(framework.id)}/bind`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+          signal: bindController.signal,
+        },
+      )
+        .then(async (response) => {
+          if (!response.ok || bindController.signal.aborted) return;
+          const payload = (await response.json()) as {
+            bindings: BoundSlotView[];
+            gaps: GapView[];
+          };
           setBindings(payload.bindings);
           setGaps(payload.gaps);
-        }
-      })
-      .catch(() => undefined);
-    return () => controller.abort();
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      bindController.abort();
+      previewAbortRef.current?.abort();
+      applyAbortRef.current?.abort();
+    };
   }, [framework, projectId, stale]);
   if (!framework) {
     return <p className="text-muted-foreground text-xs">{copy.empty}</p>;
@@ -119,6 +125,9 @@ export function FrameworkApplyPanel({
           type="button"
           className="border-border hover:bg-accent rounded border px-2 py-1"
           onClick={() => {
+            previewAbortRef.current?.abort();
+            const controller = new AbortController();
+            previewAbortRef.current = controller;
             void fetch(
               `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/frameworks/${encodeURIComponent(framework.id)}/preview`,
               {
@@ -127,10 +136,11 @@ export function FrameworkApplyPanel({
                 body: JSON.stringify({
                   targetMs: framework.totalDuration.typicalMs,
                 }),
+                signal: controller.signal,
               },
             )
               .then(async (response) => {
-                if (!response.ok) return;
+                if (!response.ok || controller.signal.aborted) return;
                 setPreview((await response.json()) as PreviewView);
               })
               .catch(() => undefined);
@@ -145,6 +155,9 @@ export function FrameworkApplyPanel({
             blocked.length > 0 || stale || applyState.status === 'applying'
           }
           onClick={() => {
+            applyAbortRef.current?.abort();
+            const controller = new AbortController();
+            applyAbortRef.current = controller;
             setApplyState({ status: 'applying' });
             void fetch(
               `${API_BASE_URL}/video/projects/${encodeURIComponent(projectId)}/frameworks/${encodeURIComponent(framework.id)}/apply`,
@@ -154,9 +167,11 @@ export function FrameworkApplyPanel({
                 body: JSON.stringify({
                   targetMs: framework.totalDuration.typicalMs,
                 }),
+                signal: controller.signal,
               },
             )
               .then(async (response) => {
+                if (controller.signal.aborted) return;
                 if (!response.ok) {
                   const body = (await response.json().catch(() => null)) as {
                     error?: string;
@@ -170,6 +185,7 @@ export function FrameworkApplyPanel({
                 setApplyState({ status: 'applied' });
               })
               .catch((error: unknown) => {
+                if (controller.signal.aborted) return;
                 setApplyState({
                   status: 'error',
                   message:

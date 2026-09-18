@@ -94,6 +94,35 @@ function isAllowedPath(resolvedPath: string): boolean {
 }
 
 /**
+ * Roots a recursive session-folder delete may target.
+ *
+ * Reads may trust `/tmp` and `/Volumes/` because the desktop app browses
+ * those trees. Deletes do not: a `sessions/<name>` directory is only
+ * removable when it sits directly under the app data dir or the configured
+ * workDir (which may itself live on an external volume or in temp).
+ */
+function getDeletableSessionRoots(): string[] {
+  const norm = (p: string) =>
+    process.platform === 'win32' ? p.toLowerCase() : p;
+  const roots = new Set<string>();
+  roots.add(norm(path.resolve(getAppDir())));
+  const workDir = getSetting('workDir');
+  if (workDir) roots.add(norm(path.resolve(expandPath(workDir))));
+  return [...roots];
+}
+
+function isDeletableSessionDir(resolvedPath: string): boolean {
+  const norm = (p: string) =>
+    process.platform === 'win32' ? p.toLowerCase() : p;
+  const normalized = norm(resolvedPath);
+  if (path.basename(path.dirname(normalized)) !== 'sessions') {
+    return false;
+  }
+  const workspaceRoot = path.dirname(path.dirname(normalized));
+  return getDeletableSessionRoots().some((root) => workspaceRoot === root);
+}
+
+/**
  * Common files/folders to ignore (similar to .gitignore patterns)
  */
 const IGNORED_NAMES = new Set([
@@ -1165,14 +1194,12 @@ files.delete('/delete-dir', async (c) => {
     }
 
     // Security: only allow deleting a `sessions/<name>` folder that sits
-    // directly under a trusted root (home dir, app dir, the *configured*
-    // workDir, temp, or an external volume on macOS). This used to hardcode
-    // the home-dir default location only, so any session folder under a
-    // custom workDir (an external volume, say) silently failed to delete.
+    // directly under the app data dir or the configured workDir. Reads may
+    // also trust `/tmp` and `/Volumes/`, but a recursive delete must not
+    // follow those broader roots — unless they *are* the workDir, which is
+    // how a custom workspace on an external volume gets cleaned up.
     const normalizedPath = path.resolve(dirPath);
-    const isDirectSessionChild =
-      path.basename(path.dirname(normalizedPath)) === 'sessions';
-    if (!isDirectSessionChild || !isAllowedPath(normalizedPath)) {
+    if (!isDeletableSessionDir(normalizedPath)) {
       logger.error(
         'Security: Attempt to delete a non-session or untrusted directory:',
         dirPath,

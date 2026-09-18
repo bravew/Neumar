@@ -56,4 +56,27 @@ describe('DELETE /files/delete-dir', () => {
     expect(res.status).toBe(403);
     await expect(fs.access(other)).resolves.toBeUndefined();
   });
+
+  it('refuses a sessions folder that is only trusted because it sits under /tmp', async () => {
+    // isAllowedPath() includes the OS temp dir for reads. A recursive delete
+    // must not follow that broader root when the folder is not the configured
+    // workDir's own sessions/ child.
+    const outsider = path.join(
+      '/tmp',
+      'sessions',
+      'files-delete-dir-not-workspace',
+    );
+    await fs.mkdir(outsider, { recursive: true });
+    try {
+      const res = await filesRoutes.request('/delete-dir', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: outsider }),
+      });
+      expect(res.status).toBe(403);
+      await expect(fs.access(outsider)).resolves.toBeUndefined();
+    } finally {
+      await fs.rm(outsider, { recursive: true, force: true });
+    }
+  });
 });

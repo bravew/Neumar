@@ -298,6 +298,7 @@ export function ReferencePanel({
           value={focusText}
           onChange={(event) => setFocusText(event.target.value)}
           placeholder={labels.focusPlaceholder}
+          aria-label={labels.focusPlaceholder}
           className="border-input bg-background w-full rounded-md border px-3 py-2 text-xs"
           disabled={!actionsEnabled}
         />

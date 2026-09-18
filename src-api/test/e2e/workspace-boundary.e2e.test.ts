@@ -102,9 +102,9 @@ describe('Workspace Boundary E2E', () => {
 
   describe('delete-dir is gated on the boundary', () => {
     // delete-dir is stricter than the general isAllowedPath: the target must
-    // additionally be a direct `sessions/<name>` child (of any trusted root —
-    // home, app dir, the configured workDir, temp, or an external volume),
-    // regardless of whether the target is otherwise inside HOME.
+    // be a direct `sessions/<name>` child of the app data dir or the
+    // configured workDir — not of the broader read-trusted roots (temp,
+    // /Volumes/, home).
 
     it('refuses to delete /etc — and /etc is still readable', async () => {
       const { status } = await deleteJson(api.baseUrl, '/files/delete-dir', {

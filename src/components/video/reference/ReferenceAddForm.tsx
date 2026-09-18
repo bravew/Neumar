@@ -50,6 +50,7 @@ export function ReferenceAddForm({
           value={pathValue}
           onChange={(event) => setPathValue(event.target.value)}
           placeholder={labels.pathPlaceholder}
+          aria-label={labels.pathPlaceholder}
           className="border-input bg-background min-w-0 flex-1 rounded-md border px-3 py-2 text-xs"
           disabled={disabled}
         />
@@ -75,6 +76,7 @@ export function ReferenceAddForm({
           value={urlValue}
           onChange={(event) => setUrlValue(event.target.value)}
           placeholder={labels.urlPlaceholder}
+          aria-label={labels.urlPlaceholder}
           className="border-input bg-background min-w-0 flex-1 rounded-md border px-3 py-2 text-xs"
           disabled={disabled}
         />

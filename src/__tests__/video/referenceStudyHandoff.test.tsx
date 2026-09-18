@@ -21,6 +21,10 @@ vi.mock('@/shared/providers/language-provider', () => ({
           handoffDefaultFocus: 'overall structure',
           unblockPrompt: 'Paused at {step}: {reason} Clear it.',
           discussPrompt: 'I have the results for "{label}" open.',
+          steps: {
+            extract: 'Extracción',
+            read: 'Lectura',
+          },
         },
       },
     },
@@ -299,7 +303,7 @@ describe('reference study handoff', () => {
 
     await waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
     expect(sendMessage.mock.calls[0]?.[0]).toBe(
-      'Paused at extract: Coverage is too thin. Clear it.',
+      'Paused at Extracción: Coverage is too thin. Clear it.',
     );
   });
 });

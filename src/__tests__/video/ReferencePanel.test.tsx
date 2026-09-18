@@ -146,6 +146,17 @@ describe('ReferencePanel', () => {
       studyAcknowledged: true,
       allowLonger: false,
     });
+    expect(
+      screen.getByRole('textbox', { name: 'Workspace video path' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', { name: 'User-authorized video URL' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', {
+        name: 'What should this analysis focus on?',
+      }),
+    ).toBeTruthy();
   });
 
   it('surfaces a failed link add and keeps the URL for the user to fix', async () => {
