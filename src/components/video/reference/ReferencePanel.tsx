@@ -114,6 +114,28 @@ export function ReferencePanel({
     }
   }, [focusText, references, requestHandoff, runs]);
 
+  // A run this session is actively watching gets dropped straight into its
+  // results the moment it finishes — the whole point of clicking Analyze is
+  // to see the reading, so a manual "Open results" click afterward is a step
+  // nobody asked for. Only watched here for the same reason awaitingHandoff
+  // is scoped: a run that finished on an earlier visit must not yank the
+  // user into results the instant the page loads.
+  const awaitingAutoOpen = useRef(new Set<string>());
+  useEffect(() => {
+    for (const reference of references) {
+      if (!awaitingAutoOpen.current.has(reference.id)) continue;
+      const run = runs[reference.id];
+      if (!run) continue;
+      if (run.status === 'done') {
+        awaitingAutoOpen.current.delete(reference.id);
+        setActiveReference(reference.id);
+        setOpenedId(reference.id);
+      } else if (run.status === 'error' || run.status === 'cancelled') {
+        awaitingAutoOpen.current.delete(reference.id);
+      }
+    }
+  }, [references, runs, setActiveReference]);
+
   // Reports success back to the form so a failed add (e.g. a link over the
   // duration limit) leaves the value in place instead of silently clearing,
   // and surfaces the server's reason instead of swallowing it.
@@ -142,6 +164,7 @@ export function ReferencePanel({
       );
       if (run) {
         awaitingHandoff.current.add(reference.id);
+        awaitingAutoOpen.current.add(reference.id);
         setRun(run);
       }
     },
@@ -153,6 +176,7 @@ export function ReferencePanel({
   const remove = useCallback(
     async (reference: VideoReference) => {
       awaitingHandoff.current.delete(reference.id);
+      awaitingAutoOpen.current.delete(reference.id);
       if (runIsActive(runs[reference.id])) {
         await actions.cancelVideoReferenceRun(reference.id);
       }
@@ -169,6 +193,7 @@ export function ReferencePanel({
   const unblock = useCallback(
     (reference: VideoReference, stepId: string, reason: string) => {
       setActiveReference(reference.id);
+      awaitingAutoOpen.current.add(reference.id);
       requestHandoff({
         referenceId: reference.id,
         label: reference.label,
