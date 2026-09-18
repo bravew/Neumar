@@ -20,7 +20,6 @@ import { z } from 'zod';
 import type { RunMode } from '@/core/agent/runtime-state';
 
 import {
-  APP_DIR_NAME,
   getAllSkillsDirs,
   getBundledSkillsDir,
   getClaudeSkillsDir,
@@ -39,6 +38,7 @@ import {
   safeFetch,
   validateBaseUrlForFetch,
 } from '@/shared/utils/url-validator';
+import { VIDEO_PROJECTS_DIRNAME } from '@/shared/video/store';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -1164,23 +1164,24 @@ files.delete('/delete-dir', async (c) => {
       return c.json({ success: false, error: 'Path is required' }, 400);
     }
 
-    // Security: Only allow deleting within app data directory sessions
-    const homeDir = getHomeDir();
-    const sessionsDir = path.join(homeDir, APP_DIR_NAME, 'sessions');
-    const normalizedPath = path.normalize(dirPath);
-    const normalizedSessionsDir = path.normalize(sessionsDir);
-
-    // Check if the path is within the sessions directory
-    if (!normalizedPath.startsWith(normalizedSessionsDir)) {
+    // Security: only allow deleting a `sessions/<name>` folder that sits
+    // directly under a trusted root (home dir, app dir, the *configured*
+    // workDir, temp, or an external volume on macOS). This used to hardcode
+    // the home-dir default location only, so any session folder under a
+    // custom workDir (an external volume, say) silently failed to delete.
+    const normalizedPath = path.resolve(dirPath);
+    const isDirectSessionChild =
+      path.basename(path.dirname(normalizedPath)) === 'sessions';
+    if (!isDirectSessionChild || !isAllowedPath(normalizedPath)) {
       logger.error(
-        'Security: Attempt to delete outside sessions directory:',
+        'Security: Attempt to delete a non-session or untrusted directory:',
         dirPath,
       );
       return c.json(
         {
           success: false,
           error:
-            'Can only delete directories within app data directory sessions',
+            'Can only delete a session folder within a trusted workspace directory',
         },
         403,
       );
@@ -2543,13 +2544,20 @@ files.get('/session-stats', async (c) => {
 });
 
 /** Folders to migrate when changing workspace. Ordered by priority. */
-const MIGRATABLE_FOLDERS = ['sessions', 'channels', 'logs', 'cache', 'skills'];
+const MIGRATABLE_FOLDERS = [
+  'sessions',
+  'channels',
+  'logs',
+  'cache',
+  'skills',
+  VIDEO_PROJECTS_DIRNAME,
+];
 
 /**
  * POST /files/migrate-sessions-stream
  *
  * SSE-streaming workspace data migration. Copies all data folders (sessions,
- * channels, logs, cache, skills) from oldWorkDir to newWorkDir, then updates
+ * channels, logs, cache, skills, videos) from oldWorkDir to newWorkDir, then updates
  * task.work_dir records in the DB.
  *
  * Events:
