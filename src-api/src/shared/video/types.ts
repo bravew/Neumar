@@ -235,6 +235,9 @@ export interface VideoReference {
   origin: 'link' | 'upload' | 'workspace-path';
   sourceUrl?: string;
   extractor?: string;
+  /** The media the pipeline actually analyzes — trimmed to analysisRange
+   * once the source exceeds the analysis cap, otherwise equal to
+   * sourceMediaPath. */
   mediaPath: string;
   contentHash: string;
   durationMs: number;
@@ -242,6 +245,14 @@ export interface VideoReference {
   runId?: string;
   artifactIds: string[];
   createdAt: string;
+  /** The full, untrimmed media as downloaded/imported. Absent means it is
+   * the same file as mediaPath (never needed trimming). */
+  sourceMediaPath?: string;
+  sourceDurationMs?: number;
+  /** The [startMs, endMs) window of the source that mediaPath/durationMs
+   * represent. Absent on references created before this field existed —
+   * treat as {startMs: 0, endMs: durationMs} in that case. */
+  analysisRange?: { startMs: number; endMs: number };
 }
 
 export const REFERENCE_BOUNDARY_CAVEAT =

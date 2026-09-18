@@ -13,11 +13,13 @@ import {
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoReference, VideoReferenceRun } from '@/shared/types/video';
 
+import { ReferenceRangeEditor } from './ReferenceRangeEditor';
 import { ReferenceRunProgress } from './ReferenceRunProgress';
 import { ReferenceRunSummary } from './ReferenceRunSummary';
 import { blockedSteps, runIsActive } from './useReferenceStudyStore';
 
 interface ReferenceCardProps {
+  projectId: string;
   reference: VideoReference;
   run: VideoReferenceRun | undefined;
   active: boolean;
@@ -28,6 +30,10 @@ interface ReferenceCardProps {
   onSelect: () => void;
   onDelete: () => void;
   onUnblock: (stepId: string, reason: string) => void;
+  onSetAnalysisRange: (
+    referenceId: string,
+    range: { startMs: number; endMs: number },
+  ) => Promise<VideoReference | null>;
 }
 
 /**
@@ -38,6 +44,7 @@ interface ReferenceCardProps {
  * review dialog stays for deep reading (evidence grids, framework, apply).
  */
 export function ReferenceCard({
+  projectId,
   reference,
   run,
   active,
@@ -48,10 +55,12 @@ export function ReferenceCard({
   onSelect,
   onDelete,
   onUnblock,
+  onSetAnalysisRange,
 }: ReferenceCardProps) {
   const { t } = useLanguage();
   const labels = t.video.reference;
   const [expanded, setExpanded] = useState(false);
+  const [rangeOpen, setRangeOpen] = useState(false);
   // Removal drops the media and every artifact, so it confirms in place rather
   // than in a modal — a side rail this narrow should not open a dialog to ask.
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -141,6 +150,15 @@ export function ReferenceCard({
         >
           {labels.openResults}
         </button>
+        <button
+          type="button"
+          className="border-border hover:bg-accent rounded border px-2 py-1 text-[11px] disabled:opacity-40"
+          disabled={running}
+          onClick={() => setRangeOpen((prev) => !prev)}
+          aria-expanded={rangeOpen}
+        >
+          {rangeOpen ? labels.range.toggleHide : labels.range.toggleShow}
+        </button>
         {run ? (
           <button
             type="button"
@@ -184,6 +202,14 @@ export function ReferenceCard({
         </div>
       ) : null}
       {run && expanded ? <ReferenceRunProgress run={run} /> : null}
+      {rangeOpen ? (
+        <ReferenceRangeEditor
+          projectId={projectId}
+          reference={reference}
+          disabled={running}
+          onSetRange={onSetAnalysisRange}
+        />
+      ) : null}
     </li>
   );
 }

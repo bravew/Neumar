@@ -119,6 +119,16 @@ describe('acquireReference', () => {
       expect(result.reference.mediaPath).toMatch(
         /^references\/ref-[0-9a-f]+\/media\//,
       );
+      // Under the analysis cap: no separate trim needed, so the analysis
+      // media and the source are the same file end to end.
+      expect(result.reference.sourceMediaPath).toBe(result.reference.mediaPath);
+      expect(result.reference.sourceDurationMs).toBe(
+        result.reference.durationMs,
+      );
+      expect(result.reference.analysisRange).toEqual({
+        startMs: 0,
+        endMs: result.reference.durationMs,
+      });
       expect(result.project.assets).toEqual([]);
       const probe = await readReferenceEnvelope<ReferenceProbe>(
         project.id,

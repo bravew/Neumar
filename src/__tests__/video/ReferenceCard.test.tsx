@@ -20,6 +20,10 @@ vi.mock('@/shared/providers/language-provider', () => ({
           hideSteps: 'Hide steps',
           blockedOn: 'Paused at {step}',
           unblock: 'Ask the agent to continue',
+          range: {
+            toggleShow: 'Set analysis range',
+            toggleHide: 'Hide analysis range',
+          },
           steps: {
             fetch: 'Fetch',
             probe: 'Probe',
@@ -86,6 +90,7 @@ describe('ReferenceCard', () => {
   it('disables Re-analyze while a run is parked waiting on input', () => {
     render(
       <ReferenceCard
+        projectId="project-1"
         reference={reference}
         run={parkedRun()}
         active={false}
@@ -96,6 +101,7 @@ describe('ReferenceCard', () => {
         onSelect={vi.fn()}
         onDelete={vi.fn()}
         onUnblock={vi.fn()}
+        onSetAnalysisRange={vi.fn()}
       />,
     );
     // A parked run still needs the agent to clear the block; re-analyzing

@@ -661,6 +661,25 @@ export function useVideoProject(projectId: string | undefined) {
     [projectId],
   );
 
+  const setVideoReferenceAnalysisRange = useCallback(
+    async (referenceId: string, range: { startMs: number; endMs: number }) => {
+      if (!projectId) return null;
+      const data = await videoApi<{
+        project: VideoProject;
+        reference: VideoReference;
+      }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/analysis-range`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(range),
+        },
+      );
+      setProject(data.project);
+      return data.reference;
+    },
+    [projectId],
+  );
+
   const analyzeVideoReference = useCallback(
     async (referenceId: string, focusText?: string) => {
       if (!projectId) return null;
@@ -1567,6 +1586,7 @@ export function useVideoProject(projectId: string | undefined) {
     listVideoReferences,
     deleteVideoReference,
     promoteVideoReference,
+    setVideoReferenceAnalysisRange,
     analyzeVideoReference,
     getVideoReferenceRun,
     cancelVideoReferenceRun,

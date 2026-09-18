@@ -243,6 +243,10 @@ import {
   ReferenceAcquireError,
 } from '@/shared/video/reference/acquire';
 import {
+  ReferenceAnalysisRangeError,
+  setReferenceAnalysisRange,
+} from '@/shared/video/reference/analysis-range';
+import {
   applyFrameworkToProject,
   findProjectFramework,
   FrameworkApplyError,
@@ -1062,6 +1066,10 @@ function errorResponse(error: unknown): {
               error.code === 'playlist'
             ? 422
             : 400;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof ReferenceAnalysisRangeError) {
+    const status = error.code === 'busy' ? 409 : 422;
     return { body: { error: message, code: error.code }, status };
   }
   if (error instanceof ReferenceRunError) {
@@ -2933,16 +2941,45 @@ videoRoutes.get('/projects/:id/references/:refId/media', async (c) => {
       (item) => item.id === c.req.param('refId'),
     );
     if (!reference) return c.json({ error: 'Reference not found' }, 404);
+    // `?variant=source` serves the full, untrimmed download — used by the
+    // analysis-range picker to scrub the whole video, not just the clip the
+    // pipeline currently analyzes.
+    const relativePath =
+      c.req.query('variant') === 'source' && reference.sourceMediaPath
+        ? reference.sourceMediaPath
+        : reference.mediaPath;
     const filePath = await resolveReferenceArchiveFile(
       project.id,
       reference.id,
-      reference.mediaPath,
+      relativePath,
     );
     return streamLocalMediaFile(filePath, c.req.header('Range'));
   } catch (error) {
     return jsonError(c, error);
   }
 });
+
+videoRoutes.patch(
+  '/projects/:id/references/:refId/analysis-range',
+  async (c) => {
+    if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+      return referenceUnavailable(c);
+    }
+    try {
+      const body = await c.req.json().catch(() => ({}));
+      const startMs = typeof body.startMs === 'number' ? body.startMs : NaN;
+      const endMs = typeof body.endMs === 'number' ? body.endMs : NaN;
+      const { project, reference } = await setReferenceAnalysisRange(
+        c.req.param('id'),
+        c.req.param('refId'),
+        { startMs, endMs },
+      );
+      return c.json({ project, reference });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 videoRoutes.get('/projects/:id/multicam', async (c) => {
   if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);

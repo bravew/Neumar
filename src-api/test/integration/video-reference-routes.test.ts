@@ -155,4 +155,67 @@ describe('video reference routes', () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ code: 'study-required' });
   });
+
+  it('serves the media variants and lets the analysis range be re-trimmed', async () => {
+    const project = await createProject({
+      name: 'Reference range route',
+      template: 'explainer',
+    });
+    const bytes = await fs.readFile(FIXTURE);
+    const form = new FormData();
+    form.append(
+      'file',
+      new File([bytes], 'still-8s.mp4', { type: 'video/mp4' }),
+    );
+    form.append('studyAcknowledged', 'true');
+    const created = await videoRoutes.request(
+      `/projects/${project.id}/references`,
+      { method: 'POST', body: form },
+    );
+    const { reference } = (await created.json()) as {
+      reference: VideoReference;
+    };
+
+    const media = await videoRoutes.request(
+      `/projects/${project.id}/references/${reference.id}/media`,
+    );
+    expect(media.status).toBe(200);
+    const sourceMedia = await videoRoutes.request(
+      `/projects/${project.id}/references/${reference.id}/media?variant=source`,
+    );
+    expect(sourceMedia.status).toBe(200);
+
+    const tooLong = await videoRoutes.request(
+      `/projects/${project.id}/references/${reference.id}/analysis-range`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startMs: 0,
+          endMs: reference.durationMs + 60_000,
+        }),
+      },
+    );
+    expect(tooLong.status).toBe(422);
+
+    const patched = await videoRoutes.request(
+      `/projects/${project.id}/references/${reference.id}/analysis-range`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startMs: 1000, endMs: 4000 }),
+      },
+    );
+    expect(patched.status).toBe(200);
+    const patchedBody = (await patched.json()) as { reference: VideoReference };
+    expect(patchedBody.reference.analysisRange).toEqual({
+      startMs: 1000,
+      endMs: 4000,
+    });
+
+    const mediaAfter = await videoRoutes.request(
+      `/projects/${project.id}/references/${reference.id}/media`,
+    );
+    expect(mediaAfter.status).toBe(200);
+  });
 });

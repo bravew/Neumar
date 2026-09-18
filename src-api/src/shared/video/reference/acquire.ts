@@ -15,6 +15,10 @@ import { createLogger } from '@/shared/utils/logger';
 import { getVideoFeatureFlag } from '@/shared/video/flags';
 import { referenceFingerprint } from '@/shared/video/reference/fingerprint';
 import {
+  REFERENCE_ANALYSIS_MAX_MS,
+  trimMediaFile,
+} from '@/shared/video/reference/media-trim';
+import {
   STUDY_POLICY_VERSION,
   assertSafeReferenceId,
   createReferenceId,
@@ -48,7 +52,13 @@ import type {
 
 const logger = createLogger('VideoReferenceAcquire');
 
-export const REFERENCE_MAX_DURATION_MS = 10 * 60 * 1000;
+/**
+ * Import-time sanity ceiling — guards against accidentally downloading/
+ * copying something pathological (a multi-hour recording), not against
+ * analyzing a long video. That's REFERENCE_ANALYSIS_MAX_MS's job: a source
+ * under this ceiling is still trimmed to that cap before analysis.
+ */
+export const REFERENCE_MAX_DURATION_MS = 3 * 60 * 60 * 1000;
 export const REFERENCE_STUDY_POLICY_VERSION = STUDY_POLICY_VERSION;
 
 const VIDEO_EXTENSIONS = new Set([
@@ -202,21 +212,50 @@ export async function acquireReference(
       await fs.copyFile(source, mediaAbsolute);
     }
 
-    const probed = await probeFile(mediaAbsolute, projectRoot, {
+    const sourceProbed = await probeFile(mediaAbsolute, projectRoot, {
       allowExternalMedia: false,
     });
-    const probe = toReferenceProbe(probed);
-    if (probe.durationMs > REFERENCE_MAX_DURATION_MS && !input.allowLonger) {
+    const sourceProbe = toReferenceProbe(sourceProbed);
+    if (
+      sourceProbe.durationMs > REFERENCE_MAX_DURATION_MS &&
+      !input.allowLonger
+    ) {
       throw new ReferenceAcquireError(
         `References longer than ${REFERENCE_MAX_DURATION_MS / 1000}s need an explicit override.`,
         'duration',
       );
     }
-
-    const contentHash = await hashFile(mediaAbsolute);
-    const mediaPath = relativeToProject(projectId, mediaAbsolute);
     const label =
       input.label?.trim() || path.parse(mediaAbsolute).name || referenceId;
+    const sourceMediaPath = relativeToProject(projectId, mediaAbsolute);
+
+    // A source over the analysis cap gets trimmed to its opening window right
+    // away, so the pipeline never has to look at more than it should. The
+    // user can pick a different window afterwards via the analysis-range
+    // editor, which re-trims from this preserved source.
+    let analysisAbsolute = mediaAbsolute;
+    let analysisProbe = sourceProbe;
+    let analysisRange = { startMs: 0, endMs: sourceProbe.durationMs };
+    if (sourceProbe.durationMs > REFERENCE_ANALYSIS_MAX_MS) {
+      analysisAbsolute = validatedReferencePath(
+        projectId,
+        path.join(mediaDir, 'analysis.mp4'),
+      );
+      await trimMediaFile(
+        mediaAbsolute,
+        analysisAbsolute,
+        0,
+        REFERENCE_ANALYSIS_MAX_MS,
+      );
+      const trimmedProbed = await probeFile(analysisAbsolute, projectRoot, {
+        allowExternalMedia: false,
+      });
+      analysisProbe = toReferenceProbe(trimmedProbed);
+      analysisRange = { startMs: 0, endMs: analysisProbe.durationMs };
+    }
+
+    const contentHash = await hashFile(analysisAbsolute);
+    const mediaPath = relativeToProject(projectId, analysisAbsolute);
 
     await writeReferenceEnvelope(projectId, {
       kind: 'probe',
@@ -225,7 +264,7 @@ export async function acquireReference(
       derivedFrom: {},
       generatedAt: now.toISOString(),
       producer: 'ffmpeg',
-      data: probe,
+      data: analysisProbe,
     });
 
     const reference: VideoReference = {
@@ -236,7 +275,7 @@ export async function acquireReference(
       ...(extractor ? { extractor } : {}),
       mediaPath,
       contentHash,
-      durationMs: probe.durationMs,
+      durationMs: analysisProbe.durationMs,
       rights: {
         studyAcknowledged: true,
         reuseAcknowledged: false,
@@ -247,6 +286,9 @@ export async function acquireReference(
       },
       artifactIds: ['probe'],
       createdAt: now.toISOString(),
+      sourceMediaPath,
+      sourceDurationMs: sourceProbe.durationMs,
+      analysisRange,
     };
 
     const project = await updateProjectDocument(projectId, (current) => ({
@@ -374,7 +416,7 @@ async function copyIntoAssets(
   return dest;
 }
 
-function toReferenceProbe(probed: ProbeResult): ReferenceProbe {
+export function toReferenceProbe(probed: ProbeResult): ReferenceProbe {
   const video = probed.streams.find((stream) => stream.codecType === 'video');
   const audio = probed.streams.find((stream) => stream.codecType === 'audio');
   const fps =

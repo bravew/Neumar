@@ -121,6 +121,10 @@ export interface VideoProjectEditorActions {
   listVideoReferences: () => Promise<VideoReference[]>;
   deleteVideoReference: (referenceId: string) => Promise<VideoProject | null>;
   promoteVideoReference: (referenceId: string) => Promise<VideoProject | null>;
+  setVideoReferenceAnalysisRange: (
+    referenceId: string,
+    range: { startMs: number; endMs: number },
+  ) => Promise<VideoReference | null>;
   analyzeVideoReference: (
     referenceId: string,
     focusText?: string,

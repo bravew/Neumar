@@ -79,6 +79,9 @@ export interface VideoReference {
   runId?: string;
   artifactIds: string[];
   createdAt: string;
+  sourceMediaPath?: string;
+  sourceDurationMs?: number;
+  analysisRange?: { startMs: number; endMs: number };
 }
 
 export type VideoReferenceRunStepId =

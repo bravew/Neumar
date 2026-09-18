@@ -283,6 +283,7 @@ export function ReferencePanel({
             {references.map((reference) => (
               <ReferenceCard
                 key={reference.id}
+                projectId={project.id}
                 reference={reference}
                 run={runs[reference.id]}
                 active={activeReferenceId === reference.id}
@@ -295,6 +296,7 @@ export function ReferencePanel({
                 }}
                 onSelect={() => setActiveReference(reference.id)}
                 onDelete={() => void remove(reference)}
+                onSetAnalysisRange={actions.setVideoReferenceAnalysisRange}
                 onUnblock={(stepId, reason) =>
                   unblock(reference, stepId, reason)
                 }
