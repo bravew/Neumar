@@ -2105,6 +2105,7 @@ export default {
       'J’ai sous les yeux les résultats d’Analyse vidéo de « {label} ». Réponds à partir de cette lecture — ses sections, son intention et ses questions ouvertes — et précise la section visée par sa phase et son timecode.',
     blockedOn: 'En pause à {step}',
     unblock: 'Demander à l’agent de continuer',
+    unblockPending: 'Demandé — en attente de l’agent',
     skippedNote: '{count} étape(s) ignorée(s).',
     unblockPrompt:
       'L’analyse vidéo de « {label} » est en pause à l’étape {step} : {reason} Fais le nécessaire pour la débloquer, puis poursuis l’exécution.',

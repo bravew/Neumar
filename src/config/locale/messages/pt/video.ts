@@ -2097,6 +2097,7 @@ export default {
       'Estou com os resultados da Análise de vídeo de "{label}" abertos. Responda a partir dessa leitura — suas seções, intenção e perguntas em aberto — e diga a que seção se refere pela fase e pelo timecode.',
     blockedOn: 'Em pausa em {step}',
     unblock: 'Pedir ao agente para continuar',
+    unblockPending: 'Solicitado — aguardando o agente',
     skippedNote: '{count} etapa(s) ignorada(s).',
     unblockPrompt:
       'A análise de vídeo de "{label}" está em pausa na etapa {step}: {reason} Faça o necessário para resolver e continue a execução.',

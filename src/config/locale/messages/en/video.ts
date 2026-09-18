@@ -2072,6 +2072,7 @@ export default {
       'I have the Analyze video results for "{label}" open. Answer from that reading — its sections, intent and open questions — and say which section you mean by phase and timecode.',
     blockedOn: 'Paused at {step}',
     unblock: 'Ask the agent to continue',
+    unblockPending: 'Asked — waiting for the agent',
     skippedNote: '{count} step(s) skipped.',
     unblockPrompt:
       'The Analyze video run for "{label}" is paused at the {step} step: {reason} Do what is needed to clear that, then continue the run.',

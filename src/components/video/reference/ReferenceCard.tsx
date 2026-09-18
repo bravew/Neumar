@@ -16,7 +16,11 @@ import type { VideoReference, VideoReferenceRun } from '@/shared/types/video';
 import { ReferenceRangeEditor } from './ReferenceRangeEditor';
 import { ReferenceRunProgress } from './ReferenceRunProgress';
 import { ReferenceRunSummary } from './ReferenceRunSummary';
-import { blockedSteps, runIsActive } from './useReferenceStudyStore';
+import {
+  blockedSteps,
+  runIsActive,
+  useReferenceStudyStore,
+} from './useReferenceStudyStore';
 
 interface ReferenceCardProps {
   projectId: string;
@@ -59,6 +63,9 @@ export function ReferenceCard({
 }: ReferenceCardProps) {
   const { t } = useLanguage();
   const labels = t.video.reference;
+  const agentStreaming = useReferenceStudyStore(
+    (state) => state.agentStreaming,
+  );
   const [expanded, setExpanded] = useState(false);
   const [rangeOpen, setRangeOpen] = useState(false);
   // Removal drops the media and every artifact, so it confirms in place rather
@@ -191,11 +198,14 @@ export function ReferenceCard({
               ) : null}
               <button
                 type="button"
-                className="border-border hover:bg-accent rounded border px-2 py-1 text-[11px] disabled:opacity-40"
-                disabled={!actionsEnabled}
+                className="border-border hover:bg-accent flex items-center gap-1 rounded border px-2 py-1 text-[11px] disabled:opacity-40"
+                disabled={!actionsEnabled || agentStreaming}
                 onClick={() => onUnblock(step.id, step.note ?? '')}
               >
-                {labels.unblock}
+                {agentStreaming ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : null}
+                {agentStreaming ? labels.unblockPending : labels.unblock}
               </button>
             </div>
           ))}

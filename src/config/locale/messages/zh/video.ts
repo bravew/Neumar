@@ -2028,6 +2028,7 @@ export default {
       '我正在查看“{label}”的分析视频结果。请基于该解读（章节、意图与待解问题）作答，并用章节名称和时间码说明所指的段落。',
     blockedOn: '暂停于{step}',
     unblock: '让助手继续',
+    unblockPending: '已请求——等待助手处理',
     skippedNote: '已跳过 {count} 个步骤。',
     unblockPrompt:
       '“{label}”的分析视频流程在 {step} 步骤暂停：{reason} 请处理该问题后继续此流程。',

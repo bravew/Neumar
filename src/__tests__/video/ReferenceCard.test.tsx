@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ReferenceCard } from '@/components/video/reference/ReferenceCard';
+import { useReferenceStudyStore } from '@/components/video/reference/useReferenceStudyStore';
 import type { VideoReference, VideoReferenceRun } from '@/shared/types/video';
 
 vi.mock('@/shared/providers/language-provider', () => ({
@@ -20,6 +21,7 @@ vi.mock('@/shared/providers/language-provider', () => ({
           hideSteps: 'Hide steps',
           blockedOn: 'Paused at {step}',
           unblock: 'Ask the agent to continue',
+          unblockPending: 'Asked — waiting for the agent',
           range: {
             toggleShow: 'Set analysis range',
             toggleHide: 'Hide analysis range',
@@ -87,6 +89,10 @@ function parkedRun(): VideoReferenceRun {
 }
 
 describe('ReferenceCard', () => {
+  afterEach(() => {
+    useReferenceStudyStore.getState().setAgentStreaming(false);
+  });
+
   it('disables Re-analyze while a run is parked waiting on input', () => {
     render(
       <ReferenceCard
@@ -110,5 +116,33 @@ describe('ReferenceCard', () => {
     expect(
       screen.getByRole('button', { name: 'Ask the agent to continue' }),
     ).toBeEnabled();
+  });
+
+  it('shows the ask-agent control as pending once a turn is streaming', () => {
+    useReferenceStudyStore.getState().setAgentStreaming(true);
+    render(
+      <ReferenceCard
+        projectId="project-1"
+        reference={reference}
+        run={parkedRun()}
+        active={false}
+        actionsEnabled
+        onAnalyze={vi.fn()}
+        onCancel={vi.fn()}
+        onOpenResults={vi.fn()}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onUnblock={vi.fn()}
+        onSetAnalysisRange={vi.fn()}
+      />,
+    );
+    // The control used to look identical whether or not the click had done
+    // anything, so a user asking mid-turn had no sign the ask registered.
+    expect(
+      screen.getByRole('button', { name: /Asked — waiting for the agent/ }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: 'Ask the agent to continue' }),
+    ).toBeNull();
   });
 });
