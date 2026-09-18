@@ -5,6 +5,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   FileText,
+  Film,
   FolderOpen,
   Library,
   Palette,
@@ -27,6 +28,7 @@ import { BrandRail } from './BrandRail';
 import type { VideoProjectEditorActions } from './editorTypes';
 import { InputsPanel } from './InputsPanel';
 import { OverlayLibraryRail } from './overlays/OverlayLibraryRail';
+import { ReferencePanel } from './reference/ReferencePanel';
 import { SceneInspector } from './SceneInspector';
 import { SourcesPanel } from './SourcesPanel';
 import { useTimelineEditorStore } from './timeline/useTimelineEditorStore';
@@ -40,6 +42,7 @@ export type SideRailTab =
   | 'transitions'
   | 'overlays'
   | 'sources'
+  | 'reference'
   | 'brand'
   | 'transcript'
   | 'inspector';
@@ -87,6 +90,7 @@ const TAB_ICONS = {
   transitions: Shuffle,
   overlays: Sparkles,
   sources: FolderOpen,
+  reference: Film,
   brand: Palette,
   transcript: ScrollText,
   inspector: SlidersHorizontal,
@@ -119,9 +123,15 @@ export function SideRail({
   const CollapsedIcon: ComponentType<{ className?: string }> =
     side === 'right' ? ChevronsLeft : ChevronsRight;
   const { t } = useLanguage();
-  const { flags } = useVideoFlags();
+  const {
+    flags,
+    loading: flagsLoading,
+    error: flagsError,
+    retry,
+  } = useVideoFlags();
   const transitionsEnabled = flags['video.timelineTransitions'] !== false;
   const overlaysEnabled = flags['video.vividOverlays'] !== false;
+  const referenceEnabled = flags['video.referenceAnalysis'] !== false;
   const [tab, setTab] = useState<SideRailTab>(recommendedTab ?? 'brief');
   const userPickedTabRef = useRef(false);
   useEffect(() => {
@@ -164,12 +174,25 @@ export function SideRail({
     );
   }, [recommendedTab, transitionsEnabled]);
 
+  useEffect(() => {
+    if (referenceEnabled) return;
+    setTab((current) =>
+      current === 'reference'
+        ? recommendedTab && recommendedTab !== 'reference'
+          ? recommendedTab
+          : 'sources'
+        : current,
+    );
+  }, [recommendedTab, referenceEnabled]);
+
   const visibleTabs = useMemo<readonly SideRailTab[]>(() => {
     const tabs: SideRailTab[] = ['brief'];
     if (!hideAssetsTab) tabs.push('assets');
     if (transitionsEnabled) tabs.push('transitions');
     if (overlaysEnabled) tabs.push('overlays');
-    tabs.push('sources', 'brand');
+    tabs.push('sources');
+    if (referenceEnabled) tabs.push('reference');
+    tabs.push('brand');
     if (showTranscriptTab) tabs.push('transcript');
     if (inspectorTabAvailable) tabs.push('inspector');
     return tabs;
@@ -177,6 +200,7 @@ export function SideRail({
     inspectorTabAvailable,
     hideAssetsTab,
     overlaysEnabled,
+    referenceEnabled,
     showTranscriptTab,
     transitionsEnabled,
   ]);
@@ -273,6 +297,15 @@ export function SideRail({
             onAnalyze={actions.analyzeSource}
             onCreateCutPlan={actions.createCutPlan}
             actions={actions}
+          />
+        ) : null}
+        {referenceEnabled && tab === 'reference' ? (
+          <ReferencePanel
+            project={project}
+            actions={actions}
+            flagsLoading={flagsLoading}
+            flagsError={flagsError}
+            onRetryFlags={retry}
           />
         ) : null}
         {tab === 'brand' ? (

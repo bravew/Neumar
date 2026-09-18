@@ -13,6 +13,10 @@ export type VideoFeatureFlag =
   | 'video.templateGallery'
   /** Link / repo → video ingestion (Phase 4). */
   | 'video.sourceIngestion'
+  /** Reference-video analysis availability. Only explicit false disables. */
+  | 'video.referenceAnalysis'
+  /** Semantic reference reading availability; cost approval remains separate. */
+  | 'video.referenceSemanticReading'
   /** Host-wide plugin system surfaced in Video Mode. */
   | 'video.plugins'
   /** Visual frame caption index/search. Defaults off until cost is characterized. */
@@ -42,6 +46,8 @@ const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.contentGraph': true,
   'video.templateGallery': true,
   'video.sourceIngestion': true,
+  'video.referenceAnalysis': true,
+  'video.referenceSemanticReading': true,
   'video.plugins': true,
   'video.frameSearch': false,
   'video.agentApply': false,
@@ -75,6 +81,10 @@ export function snapshotVideoFeatureFlags(): Record<VideoFeatureFlag, boolean> {
     'video.contentGraph': getVideoFeatureFlag('video.contentGraph'),
     'video.templateGallery': getVideoFeatureFlag('video.templateGallery'),
     'video.sourceIngestion': getVideoFeatureFlag('video.sourceIngestion'),
+    'video.referenceAnalysis': getVideoFeatureFlag('video.referenceAnalysis'),
+    'video.referenceSemanticReading': getVideoFeatureFlag(
+      'video.referenceSemanticReading',
+    ),
     'video.plugins': getVideoFeatureFlag('video.plugins'),
     'video.frameSearch': getVideoFeatureFlag('video.frameSearch'),
     'video.agentApply': getVideoFeatureFlag('video.agentApply'),

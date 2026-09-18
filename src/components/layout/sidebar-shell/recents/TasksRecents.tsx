@@ -80,7 +80,9 @@ export function TasksRecents({
           onSelect={handleSelect}
           onDelete={(taskId, event) => {
             event.stopPropagation();
-            onDeleteTask?.(taskId, false);
+            // Deleting a task from here used to leave its whole session
+            // folder behind on disk — only the database row was removed.
+            onDeleteTask?.(taskId, true);
           }}
           onToggleFavorite={(nextTask, event) => {
             event.stopPropagation();

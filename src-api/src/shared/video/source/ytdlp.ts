@@ -5,10 +5,13 @@ import { getVideoProjectDir } from '@/shared/video/store';
 
 export interface YtDlpImportInput {
   projectId: string;
-  sourceId: string;
+  sourceId?: string;
+  destinationDir?: string;
   url: string;
   maxDurationSec?: number;
   format?: 'mp4' | 'best';
+  /** Preference-not-filter, e.g. `res:720,ext:mp4:m4a`. */
+  formatSort?: string;
 }
 
 export async function validateYtDlpUrl(url: string): Promise<void> {
@@ -19,11 +22,13 @@ export async function validateYtDlpUrl(url: string): Promise<void> {
 }
 
 export function buildYtDlpArgs(input: YtDlpImportInput): string[] {
-  const sourceDir = path.join(
-    getVideoProjectDir(input.projectId),
-    'sources',
-    input.sourceId,
-  );
+  const sourceDir =
+    input.destinationDir ??
+    path.join(
+      getVideoProjectDir(input.projectId),
+      'sources',
+      input.sourceId ?? 'source',
+    );
   const outputTemplate = path.join(sourceDir, '%(id)s.%(ext)s');
   const args = [
     '--ignore-config',
@@ -38,6 +43,9 @@ export function buildYtDlpArgs(input: YtDlpImportInput): string[] {
     '--output',
     outputTemplate,
   ];
+  if (input.formatSort) {
+    args.push('--format-sort', input.formatSort);
+  }
 
   // Keep the full source. maxDurationSec is accepted for caller compatibility
   // but must not skip or section-download — editing may grow the picture

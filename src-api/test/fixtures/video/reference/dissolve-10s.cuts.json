@@ -1,0 +1,6 @@
+{
+  "clip": "dissolve-10s.mp4",
+  "durationMs": 10000,
+  "hardCutsMs": [],
+  "notes": "2s crossfade starting at 4s. Weak adjacent-frame scores expected."
+}

@@ -10,6 +10,15 @@ const READ_TOOLS = [
   'video_inspect_timeline_frames',
   'video_find_clips',
   'video_list_assets',
+  'video_list_references',
+  'video_get_reference',
+  'video_get_packed_transcript',
+  'video_inspect_source_range',
+  'video_reference_probe',
+  'video_reference_get_reading',
+  'video_get_framework',
+  'video_bind_framework',
+  'video_preview_framework_apply',
   'video_describe_scene',
   'video_search_assets',
   'video_rank_moments',
@@ -47,6 +56,14 @@ const READ_TOOLS = [
 const WRITE_TOOLS = [
   'video_detect_beats',
   'video_analyze_image',
+  'video_reference_transcribe',
+  'video_reference_boundaries',
+  'video_reference_build_evidence',
+  'video_reference_write_analysis',
+  'video_reference_write_timeline',
+  'video_extract_framework',
+  'video_revise_framework',
+  'video_materialize_framework_template',
   'video_set_project_template',
   'video_set_aspect_ratio',
   'video_add_scene',
@@ -126,8 +143,10 @@ const DESTRUCTIVE_TOOLS = [
   'video_verify_render',
   'video_publish_to',
   'video_import_youtube',
+  'video_add_reference',
   'video_apply_capture_to_timeline',
   'video_propose_timeline_ops',
+  'video_apply_framework',
   'video_suggest_timeline_transitions',
   'video_cut_clip',
   'video_cut_range',
@@ -165,6 +184,7 @@ const METERED_TOOLS = new Set([
   // Rendering a frame from a source angle costs real decode work; the agent
   // should not loop on it for free.
   'mcp__video-edit__video_multicam_preview_frame',
+  'mcp__video-edit__video_reference_transcribe',
 ]);
 
 export type VideoToolCostClass = 'free' | 'metered';

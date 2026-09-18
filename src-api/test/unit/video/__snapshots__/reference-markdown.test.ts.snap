@@ -1,0 +1,70 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`reference reading markdown > renders ANALYSIS.md from the JSON 1`] = `
+"# Reference analysis
+
+- Prompt version: \`reference-reading.v1\`
+
+## Intent
+
+Teach a workflow.
+
+## Arc
+
+Hook, demo, payoff.
+
+## Thesis
+
+Captions carry the argument.
+
+## Observed
+
+- White captions sit over a dark bed.
+
+## Inferred
+
+- The captions are the thesis, not decoration.
+
+## Systems
+
+### sys-caption (caption)
+
+- Function: Names the claim
+- Entry: Fades in with the hook
+- Behavior: Updates per beat
+- Persistence: Stays until payoff
+- Exit: Cuts with the last line
+- Confidence: 0.8
+- Evidence: \`ev-1\`
+
+## Open questions
+
+- Is the last beat a callback? @ 2500ms
+
+"
+`;
+
+exports[`reference reading markdown > renders TIMELINE.md from the JSON 1`] = `
+"# Reference timeline
+
+- Prompt version: \`reference-reading.v1\`
+- Samples: 3
+- Max gap: 1000ms
+
+## Thin ranges
+
+- None.
+
+## Sections
+
+## The hook
+
+- 0–2000ms
+- Anchor: first line
+- Effect: Orients the viewer
+- Confidence: 0.7
+- Systems: sys-caption (names the claim)
+- Evidence: \`ev-1\`
+
+"
+`;

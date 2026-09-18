@@ -34,6 +34,7 @@ const SIDE_RAIL_TABS: readonly SideRailTab[] = [
   'transitions',
   'overlays',
   'sources',
+  'reference',
   'brand',
   'transcript',
   'inspector',

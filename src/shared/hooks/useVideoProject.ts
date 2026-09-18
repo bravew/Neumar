@@ -28,6 +28,8 @@ import type {
   VideoLinkedSourceProvider,
   VideoLinkedSourceRole,
   VideoProjectListItem,
+  VideoReference,
+  VideoReferenceRun,
   VideoProviderView,
   VideoRenderProviderView,
   VideoRenderPlan,
@@ -574,6 +576,156 @@ export function useVideoProject(projectId: string | undefined) {
           }),
         },
       );
+    },
+    [projectId],
+  );
+
+  const addVideoReference = useCallback(
+    async (input: {
+      origin: 'link' | 'upload' | 'workspace-path';
+      url?: string;
+      path?: string;
+      file?: File;
+      label?: string;
+      studyAcknowledged: true;
+      allowLonger?: boolean;
+    }) => {
+      if (!projectId) return null;
+      if (input.file) {
+        const form = new FormData();
+        form.append('file', input.file);
+        form.append('studyAcknowledged', 'true');
+        if (input.label) form.append('label', input.label);
+        if (input.allowLonger) form.append('allowLonger', 'true');
+        const data = await videoApi<{ project: VideoProject }>(
+          `/projects/${encodeURIComponent(projectId)}/references`,
+          { method: 'POST', body: form },
+        );
+        setProject(data.project);
+        return data.project;
+      }
+      const data = await videoApi<{ project: VideoProject }>(
+        `/projects/${encodeURIComponent(projectId)}/references`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            origin: input.origin,
+            studyAcknowledged: true,
+            ...(input.url ? { url: input.url } : {}),
+            ...(input.path ? { path: input.path } : {}),
+            ...(input.label ? { label: input.label } : {}),
+            ...(input.allowLonger ? { allowLonger: true } : {}),
+          }),
+        },
+      );
+      setProject(data.project);
+      return data.project;
+    },
+    [projectId],
+  );
+
+  const listVideoReferences = useCallback(async () => {
+    if (!projectId) return [];
+    const data = await videoApi<{ references: VideoReference[] }>(
+      `/projects/${encodeURIComponent(projectId)}/references`,
+    );
+    return data.references;
+  }, [projectId]);
+
+  const deleteVideoReference = useCallback(
+    async (referenceId: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ project: VideoProject }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}`,
+        { method: 'DELETE' },
+      );
+      setProject(data.project);
+      return data.project;
+    },
+    [projectId],
+  );
+
+  const promoteVideoReference = useCallback(
+    async (referenceId: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ project: VideoProject }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/promote`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reuseAcknowledged: true }),
+        },
+      );
+      setProject(data.project);
+      return data.project;
+    },
+    [projectId],
+  );
+
+  const setVideoReferenceAnalysisRange = useCallback(
+    async (referenceId: string, range: { startMs: number; endMs: number }) => {
+      if (!projectId) return null;
+      const data = await videoApi<{
+        project: VideoProject;
+        reference: VideoReference;
+      }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/analysis-range`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(range),
+        },
+      );
+      setProject(data.project);
+      return data.reference;
+    },
+    [projectId],
+  );
+
+  const analyzeVideoReference = useCallback(
+    async (referenceId: string, focusText?: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ run: VideoReferenceRun }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/analyze`,
+        {
+          method: 'POST',
+          body: JSON.stringify(focusText ? { focus: { text: focusText } } : {}),
+        },
+      );
+      return data.run;
+    },
+    [projectId],
+  );
+
+  const getVideoReferenceRun = useCallback(
+    async (referenceId: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ run: VideoReferenceRun }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/run`,
+      );
+      return data.run;
+    },
+    [projectId],
+  );
+
+  const cancelVideoReferenceRun = useCallback(
+    async (referenceId: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ run: VideoReferenceRun }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/run/cancel`,
+        { method: 'POST' },
+      );
+      return data.run;
+    },
+    [projectId],
+  );
+
+  const resumeVideoReferenceRun = useCallback(
+    async (referenceId: string) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ run: VideoReferenceRun }>(
+        `/projects/${encodeURIComponent(projectId)}/references/${encodeURIComponent(referenceId)}/run/resume`,
+        { method: 'POST' },
+      );
+      return data.run;
     },
     [projectId],
   );
@@ -1430,6 +1582,15 @@ export function useVideoProject(projectId: string | undefined) {
     importCapturePaths,
     alignCapture,
     queueYtDlpImport,
+    addVideoReference,
+    listVideoReferences,
+    deleteVideoReference,
+    promoteVideoReference,
+    setVideoReferenceAnalysisRange,
+    analyzeVideoReference,
+    getVideoReferenceRun,
+    cancelVideoReferenceRun,
+    resumeVideoReferenceRun,
     analyzeSource,
     createCutPlan,
     generateStoryboard,

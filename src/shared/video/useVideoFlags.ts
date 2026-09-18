@@ -1,24 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { API_BASE_URL } from '@/config';
-
-// Slice K — read the video feature-flag snapshot so the UI hides the html-video
-// surface when an operator flips a kill switch off. Flags are on by default, so
-// the UI optimistically treats everything as enabled until told otherwise.
 
 export type VideoFlags = Record<string, boolean>;
 
 export interface UseVideoFlagsResult {
   flags: VideoFlags;
   loading: boolean;
+  error: string | null;
+  retry: () => void;
 }
 
 export function useVideoFlags(): UseVideoFlagsResult {
   const [flags, setFlags] = useState<VideoFlags>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const retry = useCallback(() => {
+    setNonce((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     const ac = new AbortController();
+    setLoading(true);
+    setError(null);
     (async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/video/flags`, {
@@ -29,12 +35,14 @@ export function useVideoFlags(): UseVideoFlagsResult {
         if (ac.signal.aborted) return;
         setFlags(json.flags);
         setLoading(false);
-      } catch {
-        if (!ac.signal.aborted) setLoading(false);
+      } catch (caught) {
+        if (ac.signal.aborted) return;
+        setError(caught instanceof Error ? caught.message : String(caught));
+        setLoading(false);
       }
     })();
     return () => ac.abort();
-  }, []);
+  }, [nonce]);
 
-  return { flags, loading };
+  return { flags, loading, error, retry };
 }

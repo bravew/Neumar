@@ -24,6 +24,256 @@ export type VideoTemplateId =
   | 'ugc-ad'
   | 'custom';
 
+export type VideoReferenceArtifactKind =
+  | 'probe'
+  | 'transcript'
+  | 'packed-transcript'
+  | 'boundaries'
+  | 'evidence'
+  | 'analysis'
+  | 'timeline'
+  | 'framework';
+
+export interface VideoReferenceArtifactEnvelope<T> {
+  kind: VideoReferenceArtifactKind;
+  referenceId: string;
+  sourceFingerprint: string;
+  derivedFrom: Partial<Record<VideoReferenceArtifactKind, string>>;
+  generatedAt: string;
+  producer: string;
+  stale?: boolean;
+  data: T;
+}
+
+export interface VideoReferenceProbe {
+  durationMs: number;
+  width: number;
+  height: number;
+  frameRate: FrameRate;
+  hasAudio: boolean;
+  audioTrackCount: number;
+  containerFormat: string;
+  videoCodec?: string;
+  audioCodec?: string;
+}
+
+export interface VideoReferenceRights {
+  studyAcknowledged: boolean;
+  reuseAcknowledged: boolean;
+  studyAcknowledgedAt?: string;
+  studyPolicyVersion?: string;
+  studyAckOrigin?: 'explicit' | 'project-preference';
+  notes?: string;
+}
+
+export interface VideoReference {
+  id: string;
+  label: string;
+  origin: 'link' | 'upload' | 'workspace-path';
+  sourceUrl?: string;
+  extractor?: string;
+  mediaPath: string;
+  contentHash: string;
+  durationMs: number;
+  rights: VideoReferenceRights;
+  runId?: string;
+  artifactIds: string[];
+  createdAt: string;
+  sourceMediaPath?: string;
+  sourceDurationMs?: number;
+  analysisRange?: { startMs: number; endMs: number };
+}
+
+export type VideoReferenceRunStepId =
+  | 'fetch'
+  | 'probe'
+  | 'transcribe'
+  | 'pack'
+  | 'boundaries'
+  | 'sample'
+  | 'read'
+  | 'extract';
+
+export type VideoReferenceRunStepStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'error'
+  | 'cancelled'
+  | 'skipped'
+  | 'waiting';
+
+export type VideoReferenceRunStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'error'
+  | 'cancelled'
+  | 'waiting';
+
+export interface VideoReferenceRunStep {
+  id: VideoReferenceRunStepId;
+  owner: 'system' | 'agent';
+  status: VideoReferenceRunStepStatus;
+  startedAt?: string;
+  endedAt?: string;
+  producedArtifactIds: string[];
+  costEstimate?: number;
+  costActual?: number;
+  error?: { code: string; message: string };
+  note?: string;
+}
+
+export interface VideoReferenceRun {
+  id: string;
+  referenceId: string;
+  jobId?: string;
+  status: VideoReferenceRunStatus;
+  revision: number;
+  sequence: number;
+  steps: VideoReferenceRunStep[];
+  focus?: { text?: string; revision: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoReferenceSystem {
+  id: string;
+  role: string;
+  content: string;
+  appearance: string;
+  spatial: string;
+  entry: string;
+  behavior: string;
+  persistence: string;
+  exit: string;
+  function: string;
+  occurrences: Array<{ startMs: number; endMs: number; variation?: string }>;
+  evidenceIds: string[];
+  confidence: number;
+}
+
+export interface VideoReferenceAnalysis {
+  intent: string;
+  arc: string;
+  thesis: string;
+  systems: VideoReferenceSystem[];
+  openQuestions: Array<{ question: string; atMs?: number; note?: string }>;
+  observed: string[];
+  inferred: string[];
+  promptVersion: string;
+}
+
+export interface VideoReferenceTimelineSection {
+  id: string;
+  startMs: number;
+  endMs: number;
+  phase: string;
+  anchor?: string;
+  activeSystems: Array<{ systemId: string; note: string }>;
+  effect: string;
+  evidenceIds: string[];
+  confidence: number;
+  overlapsWith?: string[];
+}
+
+export interface VideoReferenceCoverage {
+  totalMs: number;
+  sampleCount: number;
+  maxGapMs: number;
+  thinRanges: Array<{ startMs: number; endMs: number }>;
+  transcriptCoveredMs?: number;
+}
+
+export interface VideoReferenceTimelineArtifact {
+  sections: VideoReferenceTimelineSection[];
+  coverage: VideoReferenceCoverage;
+  promptVersion: string;
+}
+
+export interface VideoReferenceEvidenceItem {
+  id: string;
+  range: { startMs: number; endMs: number };
+  sampledAtMs: number[];
+  paths: string[];
+  samples?: Array<{
+    id: string;
+    atMs: number;
+    page: number;
+    cell: number;
+    gridPath: string;
+  }>;
+}
+
+export type VideoFrameworkSectionRole =
+  | 'hook'
+  | 'premise'
+  | 'context'
+  | 'proof'
+  | 'escalation'
+  | 'turn'
+  | 'demonstration'
+  | 'payoff'
+  | 'cta'
+  | 'outro';
+
+export interface VideoFrameworkSection {
+  id: string;
+  role: VideoFrameworkSectionRole;
+  purpose: string;
+  timing: {
+    proportion: number;
+    minMs: number;
+    maxMs: number;
+    observedMs: number;
+  };
+  slots: Array<{
+    id: string;
+    kind: string;
+    constraints: Record<string, unknown>;
+    fallback: {
+      kind: string;
+      promptTemplate?: string;
+      queryTemplate?: string;
+      textTemplate?: string;
+    };
+    required: boolean;
+  }>;
+  systemIds: string[];
+  pacing: {
+    cutsPerMinute: number;
+    shortestHoldMs: number;
+    longestHoldMs: number;
+  };
+  confidence: number;
+  derivedFromSectionIds: string[];
+}
+
+export interface VideoFramework {
+  id: string;
+  version: 1;
+  displayName: string;
+  category: string;
+  hook: string;
+  pace: string;
+  aspectRatios: Array<'16:9' | '9:16' | '1:1' | '4:5'>;
+  totalDuration: { typicalMs: number; minMs: number; maxMs: number };
+  sections: VideoFrameworkSection[];
+  systems: Array<{
+    id: string;
+    role: string;
+    behavior: { entry: string; active: string; exit: string };
+    spans: string[];
+  }>;
+  provenance: {
+    referenceId: string;
+    derivedFromArtifacts: string[];
+    extractedBy: string;
+    extractedAt: string;
+  };
+  confidence: number;
+}
+
 export type VideoAudioFadeCurve = AudioFadeCurve;
 export type VideoAudioTransitionSpec = AudioTransitionSpec;
 
@@ -73,6 +323,7 @@ export interface VideoProject {
   };
   budget?: { capUsd: number; spentUsd: number };
   outputs?: VideoRenderOutput[];
+  videoReferences?: VideoReference[];
   createdAt: string;
   updatedAt: string;
 }
@@ -1803,7 +2054,8 @@ export interface VideoJob {
     | 'reframe'
     | 'broll'
     | 'music'
-    | 'eval';
+    | 'eval'
+    | 'reference-analysis';
   status: 'queued' | 'running' | 'done' | 'error' | 'cancelled';
   payload: Record<string, unknown>;
   result?: Record<string, unknown>;
@@ -2004,6 +2256,8 @@ export interface VideoTemplate {
       assetPlan: VideoTemplateAssetPlan;
       caption?: { text: string; style?: VideoSubtitleStyle };
       transition?: VideoTimelineTransition;
+      slotId?: string;
+      role?: string;
     }>;
     music?: VideoMusicPlan;
     intro?: VideoTimelineBookend;
@@ -2020,4 +2274,10 @@ export interface VideoTemplate {
   authorHandle?: string;
   license: 'CC0' | 'CC-BY' | 'proprietary';
   projectTemplateId?: VideoTemplateId;
+  frameworkProvenance?: {
+    referenceId: string;
+    referenceUrl?: string;
+    extractedAt: string;
+    extractedBy: string;
+  };
 }

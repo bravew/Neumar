@@ -9,6 +9,7 @@ import {
 import { buildCurrentVideoContext } from './editor-context';
 import type { VideoResearchBrief } from './plugins/atoms/research';
 import type { VideoPluginPromptContext } from './plugins/runtime';
+import type { ReferenceStudyPromptContext } from './reference/prompt-context';
 import { getVideoProjectRoot } from './store';
 import {
   loadTemplateGallery,
@@ -61,6 +62,7 @@ export interface VideoSessionPromptContext {
   plugin?: VideoPluginPromptContext;
   catalogContext?: string;
   htmlTemplateContext?: VideoHtmlTemplatePromptContext;
+  referenceStudy?: ReferenceStudyPromptContext;
 }
 
 export async function buildVideoHtmlTemplateContext(
@@ -232,6 +234,7 @@ export function buildVideoSessionPrompt(
       'Preview or analyze the intended edit in your response before running a destructive batch, unless the user explicitly asked you to apply it immediately.',
       'For editor handoff requests, call video_get_handoff_conformance first, explain unverified targets and degradations, then queue video_export_editor_handoff only after approval. Never write raw XML/EDL/OTIO yourself.',
       'For factual or current-event videos, use WebSearch/WebFetch and video_fetch_source as needed, then call video_record_research_brief so the storyboard draft can reuse the grounded findings and citations.',
+      "When studying a reference video (Analyze Video), record the user's focus before requesting dense evidence grids. Read the packed transcript first. After sampling, write video_reference_write_analysis then video_reference_write_timeline; rejected writes name the failing anchor. Do not treat a study-only VideoReference as project footage unless the user promotes it.",
       'Do not read or edit project.json directly; the project state contract is the scoped video MCP tools.',
     ].join('\n'),
     context.researchBrief
@@ -269,6 +272,16 @@ export function buildVideoSessionPrompt(
             null,
             2,
           ),
+        ].join('\n')
+      : '',
+    context.referenceStudy
+      ? [
+          '## Reference Study (Analyze video panel)',
+          JSON.stringify(context.referenceStudy, null, 2),
+          'This is the reference the user has open in the Analyze video panel. The panel runs the system steps (fetch, probe, transcribe, pack, boundaries, sample) and parks the agent-owned steps for you.',
+          'When `read` is not yet done, build the structured reading: sample evidence as needed, then video_reference_write_analysis followed by video_reference_write_timeline. `extract` then runs on its own from the panel.',
+          'Describe progress against these step ids so the user can match what you say to the panel they are looking at.',
+          'When `reading` is present the user has these results open. Answer questions about sections, intent and open questions from it directly, citing section phases and timecodes, and only re-read artifacts when you need detail it does not carry.',
         ].join('\n')
       : '',
     context.htmlTemplateContext

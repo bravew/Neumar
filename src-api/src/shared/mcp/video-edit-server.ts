@@ -170,13 +170,56 @@ import { recordVideoResearchBrief } from '@/shared/video/plugins/atoms/research'
 import { withProjectLock } from '@/shared/video/project-lock';
 import { recordVideoIntentLog } from '@/shared/video/recipes';
 import { reconcileVideoProjectPlan } from '@/shared/video/reconciliation';
+import {
+  acquireReference,
+  getReference,
+  listReferences,
+} from '@/shared/video/reference/acquire';
+import {
+  applyFrameworkToProject,
+  findProjectFramework,
+  FrameworkApplyError,
+  previewFrameworkApply,
+} from '@/shared/video/reference/apply';
+import { bindFrameworkSlots } from '@/shared/video/reference/bind';
+import {
+  buildEvidence,
+  detectReferenceBoundaries,
+  loadPackedTranscriptForReference,
+  loadReferenceProbe,
+  transcribeReference,
+} from '@/shared/video/reference/evidence';
+import {
+  extractReferenceFramework,
+  FrameworkExtractError,
+  getReferenceFramework,
+  reviseReferenceFramework,
+} from '@/shared/video/reference/framework-extract';
+import { FrameworkLintError } from '@/shared/video/reference/framework-lint';
+import { videoFrameworkSchema } from '@/shared/video/reference/framework-schema';
+import { reportFrameworkGaps } from '@/shared/video/reference/gap-report';
+import { materializeFrameworkTemplate } from '@/shared/video/reference/materialize';
+import {
+  getReferenceReading,
+  writeReferenceAnalysis,
+  writeReferenceTimeline,
+} from '@/shared/video/reference/reading';
+import { REFERENCE_READING_PROMPT } from '@/shared/video/reference/reading-prompt';
+import {
+  referenceAnalysisSchema,
+  referenceTimelineArtifactSchema,
+} from '@/shared/video/reference/reading-schema';
+import { ReferenceReadingValidationError } from '@/shared/video/reference/reading-validate';
+import { continueWaitingReferenceRun } from '@/shared/video/reference/run';
 import { renderTimelineFramesWithRemotion } from '@/shared/video/remotion-renderer';
 import { shareVideoProject } from '@/shared/video/share';
 import { fetchSource, SourceIngestError } from '@/shared/video/source/ingest';
 import { buildSourceProvenance } from '@/shared/video/source/provenance';
 import {
   approveStoryboard,
+  getPackedTranscript,
   getProject,
+  inspectSourceRange,
   getVideoProjectRoot,
   getVideoProjectJsonPath,
   getVideoWorkspaceRoot,
@@ -186,6 +229,7 @@ import {
   updateProjectDocument,
   writeProject,
 } from '@/shared/video/store';
+import { listVideoTemplates } from '@/shared/video/templates';
 import { saveProjectAsTemplate } from '@/shared/video/templates/agent-bridge';
 import {
   loadTemplateGallery,
@@ -194,6 +238,7 @@ import {
 import {
   inspectTemplate,
   searchTemplates,
+  searchVideoTemplates,
 } from '@/shared/video/templates/search';
 import { migrateStoryboardToTimeline } from '@/shared/video/timeline';
 import { proposeProjectTimelineOps } from '@/shared/video/timeline-ops';
@@ -305,6 +350,25 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_set_aspect_ratio',
   'video_analyze_assets',
   'video_import_youtube',
+  'video_add_reference',
+  'video_list_references',
+  'video_get_reference',
+  'video_get_packed_transcript',
+  'video_inspect_source_range',
+  'video_reference_probe',
+  'video_reference_transcribe',
+  'video_reference_boundaries',
+  'video_reference_build_evidence',
+  'video_reference_get_reading',
+  'video_reference_write_analysis',
+  'video_reference_write_timeline',
+  'video_extract_framework',
+  'video_get_framework',
+  'video_revise_framework',
+  'video_materialize_framework_template',
+  'video_bind_framework',
+  'video_preview_framework_apply',
+  'video_apply_framework',
   'video_select_template',
   'video_save_as_template',
   'video_write_content_graph',
@@ -623,6 +687,28 @@ function errorResult(
     ...jsonResult({ error: message, code, committed }),
     isError: true,
   };
+}
+
+function readingToolError(error: unknown) {
+  if (error instanceof ReferenceReadingValidationError) {
+    return errorResult(
+      `[${error.code}${error.anchor ? ` @ ${error.anchor}` : ''}] ${error.message}`,
+      error.code,
+    );
+  }
+  if (error instanceof FrameworkExtractError) {
+    return errorResult(`[${error.code}] ${error.message}`, error.code);
+  }
+  if (error instanceof FrameworkLintError) {
+    return errorResult(
+      `[${error.code}${error.field ? ` @ ${error.field}` : ''}] ${error.message}`,
+      error.code,
+    );
+  }
+  if (error instanceof FrameworkApplyError) {
+    return errorResult(`[${error.code}] ${error.message}`, error.code);
+  }
+  return errorResult(error instanceof Error ? error.message : String(error));
 }
 
 /**
@@ -3459,6 +3545,8 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
         search: z.string().min(1).optional(),
         requireCommercialUse: z.boolean().optional(),
         requireRedistributable: z.boolean().optional(),
+        role: z.string().min(1).optional(),
+        referenceId: z.string().min(1).optional(),
       },
       async (filters) => {
         try {
@@ -3467,8 +3555,25 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
           );
           const gallery = await loadTemplateGallery(roots);
           const result = searchTemplates(gallery.templates, filters);
+          const videoTemplates = searchVideoTemplates(
+            await listVideoTemplates(),
+            {
+              role: filters.role,
+              referenceId: filters.referenceId,
+              search: filters.search,
+            },
+          );
           return jsonResult({
             ...result,
+            videoTemplates: videoTemplates.map((template) => ({
+              id: template.id,
+              displayName: template.displayName,
+              category: template.category,
+              frameworkProvenance: template.frameworkProvenance,
+              roles: template.storyboardSeed.scenes
+                .map((scene) => scene.role)
+                .filter(Boolean),
+            })),
             galleryIssues: gallery.issues,
           });
         } catch (error) {
@@ -3867,6 +3972,621 @@ function buildVideoEditTools(options: VideoEditServerOptions) {
           return errorResult(
             error instanceof Error ? error.message : String(error),
           );
+        }
+      },
+    ),
+    tool(
+      'video_add_reference',
+      'Attach a video file or authorized link as a study-only VideoReference. ' +
+        'This does not add the media to project assets. Requires studyAcknowledged. ' +
+        'YouTube URLs also require network:youtube when the caller is a plugin.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        origin: z.enum(['link', 'upload', 'workspace-path']),
+        url: z.string().url().optional(),
+        path: z.string().min(1).optional(),
+        label: z.string().min(1).max(200).optional(),
+        studyAcknowledged: z.literal(true),
+        allowLonger: z.boolean().optional(),
+        notes: z.string().max(500).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const result = await acquireReference(projectId, {
+            origin: input.origin,
+            studyAcknowledged: input.studyAcknowledged,
+            youtubeCapabilityGranted: options.youtubeImportGranted ?? true,
+            ...(input.url ? { url: input.url } : {}),
+            ...(input.path ? { filePath: input.path } : {}),
+            ...(input.label ? { label: input.label } : {}),
+            ...(input.notes ? { notes: input.notes } : {}),
+            allowLonger: input.allowLonger,
+          });
+          return jsonResult({
+            projectId,
+            reference: result.reference,
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_list_references',
+      'List study-only video references on the project. These are not assets.',
+      { projectId: PROJECT_ID_SCHEMA },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult({
+            projectId,
+            references: await listReferences(projectId),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_get_reference',
+      'Read one study-only video reference by id, including probe metadata.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult({
+            projectId,
+            reference: await getReference(projectId, input.referenceId),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_get_packed_transcript',
+      'Read the packed transcript for a source or study-only reference. Phrase ids are stable citations.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        sourceId: z.string().min(1).optional(),
+        referenceId: z.string().min(3).max(100).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (input.referenceId) {
+            if (input.sourceId) {
+              return errorResult('Provide sourceId or referenceId, not both.');
+            }
+            if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+              return errorResult('Reference analysis is disabled.');
+            }
+            return jsonResult({
+              projectId,
+              referenceId: input.referenceId,
+              packed: await loadPackedTranscriptForReference(
+                projectId,
+                input.referenceId,
+              ),
+            });
+          }
+          return jsonResult(
+            await getPackedTranscript(projectId, input.sourceId),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_inspect_source_range',
+      'Inspect an unlabeled source-media time range (filmstrip + waveform). ' +
+        'Do not use this as labeled reference evidence.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        sourceId: z.string().min(1),
+        startMs: z.number().nonnegative(),
+        endMs: z.number().positive(),
+        frameCount: z.number().int().positive().max(48).optional(),
+        waveformBins: z.number().int().positive().max(512).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          return jsonResult(
+            await inspectSourceRange(projectId, input.sourceId, {
+              startMs: input.startMs,
+              endMs: input.endMs,
+              frameCount: input.frameCount,
+              maxFrameCount: input.frameCount,
+              waveformBins: input.waveformBins,
+            }),
+          );
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_probe',
+      'Read the stored ffprobe envelope for a study-only video reference.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult({
+            probe: await loadReferenceProbe(projectId, input.referenceId),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_transcribe',
+      'Transcribe a study-only video reference and write packed-transcript. ' +
+        'Read the packed transcript before requesting dense evidence grids.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult({
+            transcript: await transcribeReference(projectId, input.referenceId),
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_boundaries',
+      'Detect advisory adjacent-frame change candidates. ' +
+        'Mechanical adjacent-frame change candidates. Not shot labels.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        threshold: z.number().positive().optional(),
+        maxCandidates: z.number().int().positive().max(192).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const boundaries = await detectReferenceBoundaries(
+            projectId,
+            input.referenceId,
+            {
+              threshold: input.threshold,
+              maxCandidates: input.maxCandidates,
+            },
+          );
+          return jsonResult({ boundaries, caveat: boundaries.caveat });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_build_evidence',
+      'Build time- and word-labeled evidence grids for a reference. ' +
+        'Returns sampledAtMs. Cache hits write nothing.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        around: z.string().min(1).optional(),
+        occurrence: z.number().int().positive().optional(),
+        paddingMs: z.number().int().nonnegative().optional(),
+        everyMs: z.number().int().positive().optional(),
+        columns: z.number().int().positive().max(12).optional(),
+        rows: z.number().int().positive().max(12).optional(),
+        cellWidth: z.number().int().positive().max(1280).optional(),
+        question: z.string().max(500).optional(),
+        maxCells: z.number().int().positive().max(192).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const {
+            around,
+            occurrence,
+            paddingMs,
+            everyMs,
+            columns,
+            rows,
+            cellWidth,
+            question,
+            maxCells,
+            ...rest
+          } = input;
+          void rest;
+          const result = await buildEvidence(projectId, input.referenceId, {
+            around,
+            occurrence,
+            paddingMs,
+            everyMs,
+            columns,
+            rows,
+            cellWidth,
+            question,
+            maxCells,
+          });
+          return jsonResult({
+            item: result.item,
+            sampledAtMs: result.sampledAtMs,
+            cacheHit: result.cacheHit,
+          });
+        } catch (error) {
+          return errorResult(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    ),
+    tool(
+      'video_reference_get_reading',
+      'Read the structured analysis and timeline for a study-only reference, ' +
+        'including coverage thinRanges and stale flags.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult(
+            await getReferenceReading(projectId, input.referenceId),
+          );
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_reference_write_analysis',
+      'Validate and persist a whole-piece reference analysis. ' +
+        'The agent writes; Neumar checks times, evidence overlap, and confidence. ' +
+        REFERENCE_READING_PROMPT,
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        analysis: referenceAnalysisSchema,
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const envelope = await writeReferenceAnalysis(
+            projectId,
+            input.referenceId,
+            input.analysis,
+          );
+          // The run may be parked waiting for exactly this write.
+          const run = await continueWaitingReferenceRun(
+            projectId,
+            input.referenceId,
+          );
+          return jsonResult({ envelope, ...(run ? { run } : {}) });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_reference_write_timeline',
+      'Validate and persist a time-locatable reference timeline. ' +
+        'thinRanges cannot understate sampled gaps. Write analysis first.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        timeline: referenceTimelineArtifactSchema,
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const envelope = await writeReferenceTimeline(
+            projectId,
+            input.referenceId,
+            input.timeline,
+          );
+          const run = await continueWaitingReferenceRun(
+            projectId,
+            input.referenceId,
+          );
+          return jsonResult({ envelope, ...(run ? { run } : {}) });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_extract_framework',
+      'Extract a structure-only VideoFramework from the reference reading. ' +
+        'Refuses thin coverage or low-confidence sections. Optional draft is post-processed.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        framework: videoFrameworkSchema.optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const framework = await extractReferenceFramework(
+            projectId,
+            input.referenceId,
+            input.framework,
+          );
+          return jsonResult({ framework });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_get_framework',
+      'Read the extracted VideoFramework for a reference, including stale.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          return jsonResult(
+            await getReferenceFramework(projectId, input.referenceId),
+          );
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_revise_framework',
+      'Replace a VideoFramework after user or agent corrections, then lint again.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        framework: videoFrameworkSchema,
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const framework = await reviseReferenceFramework(
+            projectId,
+            input.referenceId,
+            input.framework,
+          );
+          return jsonResult({ framework });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_materialize_framework_template',
+      'Save a reviewed VideoFramework as a custom VideoTemplate. ' +
+        'Uses a structural thumbnail, never a reference frame. Lints the template.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        referenceId: z.string().min(3).max(100),
+        targetMs: z.number().int().positive().optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (
+            !getVideoFeatureFlag('video.referenceAnalysis') ||
+            !getVideoFeatureFlag('video.referenceSemanticReading')
+          ) {
+            return errorResult('Structured reading is disabled.');
+          }
+          const template = await materializeFrameworkTemplate(
+            projectId,
+            input.referenceId,
+            { targetMs: input.targetMs },
+          );
+          return jsonResult({ template });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_bind_framework',
+      'Rank the project’s own assets into a VideoFramework’s slots. ' +
+        'Never reads the reference archive. Returns gaps for unbound slots.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        frameworkId: z.string().min(1).max(100),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const project = await loadProjectForTool(projectId, options);
+          const loaded = await findProjectFramework(
+            projectId,
+            input.frameworkId,
+          );
+          const bindings = bindFrameworkSlots(project, loaded.framework);
+          return jsonResult({
+            bindings,
+            gaps: reportFrameworkGaps(bindings),
+            stale: loaded.stale,
+            referenceId: loaded.referenceId,
+          });
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_preview_framework_apply',
+      'Build a TimelineOp proposal from bound framework slots without applying it.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        frameworkId: z.string().min(1).max(100),
+        targetMs: z.number().int().positive().optional(),
+        waivedSlotIds: z.array(z.string().min(1)).optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const preview = await previewFrameworkApply(
+            projectId,
+            input.frameworkId,
+            {
+              targetMs: input.targetMs,
+              waivedSlotIds: input.waivedSlotIds,
+            },
+          );
+          return jsonResult(preview);
+        } catch (error) {
+          return readingToolError(error);
+        }
+      },
+    ),
+    tool(
+      'video_apply_framework',
+      'Propose or apply a framework-derived TimelineOp batch. ' +
+        'Respects video.agentApply the same way video_propose_timeline_ops does. ' +
+        'Carries expectedProjectRevision and rejects on conflict.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        frameworkId: z.string().min(1).max(100),
+        targetMs: z.number().int().positive().optional(),
+        waivedSlotIds: z.array(z.string().min(1)).optional(),
+        expectedProjectRevision: z.number().int().nonnegative().optional(),
+      },
+      async (input) => {
+        try {
+          const projectId = resolveProjectId(input.projectId, options);
+          if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+            return errorResult('Reference analysis is disabled.');
+          }
+          const project = await loadProjectForTool(projectId, options);
+          const preview = await previewFrameworkApply(
+            projectId,
+            input.frameworkId,
+            {
+              targetMs: input.targetMs,
+              waivedSlotIds: input.waivedSlotIds,
+            },
+          );
+          if (preview.blocked.length > 0) {
+            return errorResult(
+              'Unfilled required slots block apply until each is bound or waived.',
+              'blocked-gaps',
+            );
+          }
+          const gated = await proposalOnlyServiceMutationResult(
+            projectId,
+            options,
+            'video_apply_framework',
+          );
+          if (gated) {
+            return jsonResult(
+              timelineApplyProposalPayload(project, preview.ops, {
+                tool: 'video_apply_framework',
+                summary: 'Apply framework',
+              }),
+            );
+          }
+          const next = await applyFrameworkToProject(
+            projectId,
+            input.frameworkId,
+            {
+              targetMs: input.targetMs,
+              waivedSlotIds: input.waivedSlotIds,
+              expectedProjectRevision: input.expectedProjectRevision,
+            },
+          );
+          return jsonResult({
+            projectId: next.id,
+            revision: next.revision,
+            timelineDurationMs: next.timeline?.durationMs,
+          });
+        } catch (error) {
+          return readingToolError(error);
         }
       },
     ),

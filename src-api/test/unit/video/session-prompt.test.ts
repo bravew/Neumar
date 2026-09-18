@@ -30,6 +30,92 @@ describe('video session prompt', () => {
     await fs.rm(workDir, { recursive: true, force: true });
   });
 
+  it('injects live Analyze video run state so the chat can speak to the panel', async () => {
+    const project = await createProject({
+      name: 'Reference study',
+      template: 'custom',
+      prompt: 'Study a reference',
+    });
+    const prompt = buildVideoSessionPrompt(project, {
+      referenceStudy: {
+        referenceId: 'ref-1',
+        label: 'iPhone_Duo',
+        durationMs: 186_628,
+        focus: 'narrative structure',
+        run: {
+          status: 'running',
+          steps: [
+            { id: 'sample', owner: 'system', status: 'done' },
+            { id: 'read', owner: 'agent', status: 'queued' },
+          ],
+        },
+        artifacts: {
+          analysis: false,
+          timeline: false,
+          evidenceCount: 24,
+          analysisStale: false,
+        },
+      },
+    });
+
+    expect(prompt).toContain('## Reference Study (Analyze video panel)');
+    expect(prompt).toContain('iPhone_Duo');
+    expect(prompt).toContain('video_reference_write_analysis');
+    // The parked agent-owned step is what the chat must pick up.
+    expect(prompt).toContain('"owner": "agent"');
+  });
+
+  it('carries the open reading so the chat can answer from it', async () => {
+    const project = await createProject({
+      name: 'Reference reading',
+      template: 'custom',
+      prompt: 'Study a reference',
+    });
+    const prompt = buildVideoSessionPrompt(project, {
+      referenceStudy: {
+        referenceId: 'ref-1',
+        label: 'iPhone_Duo',
+        durationMs: 186_628,
+        artifacts: {
+          analysis: true,
+          timeline: true,
+          evidenceCount: 2,
+          analysisStale: false,
+        },
+        reading: {
+          intent: 'Introduce a foldable phone by walking its two modes.',
+          sections: [
+            {
+              id: 'cold-open',
+              phase: 'Cold open',
+              startMs: 0,
+              endMs: 15_000,
+              confidence: 0.75,
+              effect: 'Primes the viewer.',
+            },
+          ],
+          openQuestions: ['Is the last beat a callback?'],
+        },
+      },
+    });
+
+    expect(prompt).toContain('Cold open');
+    expect(prompt).toContain('Primes the viewer.');
+    expect(prompt).toContain('Is the last beat a callback?');
+    expect(prompt).toContain('Answer questions about sections');
+  });
+
+  it('omits the reference block when no reference is open', async () => {
+    const project = await createProject({
+      name: 'No reference',
+      template: 'custom',
+      prompt: 'Plain project',
+    });
+    expect(buildVideoSessionPrompt(project)).not.toContain(
+      '## Reference Study',
+    );
+  });
+
   it('injects selected HTML template and content graph context', async () => {
     const project = await createProject({
       name: 'HTML market recap',

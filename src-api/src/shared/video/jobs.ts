@@ -19,10 +19,12 @@ import {
 } from './editor-handoff/job';
 import { runLinkedSourceSyncJob } from './linked-sources';
 import { cancelRender, renderProject } from './pipeline';
+import { runReferenceAnalyzeAtom } from './plugins/atoms/reference-analyze';
 import {
   createStoryboardVideoTask,
   generateStoryboardImage,
 } from './providers/facade';
+import { requestReferenceRunCancel } from './reference/run';
 import { getProject, getVideoProjectRoot, writeProject } from './store';
 import type {
   AspectRatio,
@@ -118,6 +120,13 @@ export function cancelVideoJob(jobId: string): VideoJob {
       });
     });
   }
+  if (existing.kind === 'reference-analysis') {
+    const runId =
+      typeof existing.payload.runId === 'string'
+        ? existing.payload.runId
+        : undefined;
+    if (runId) requestReferenceRunCancel(runId);
+  }
   return getVideoJob(jobId);
 }
 
@@ -179,6 +188,30 @@ export async function enqueueEditorHandoffJob(
   return job;
 }
 
+export async function enqueueReferenceAnalysisJob(
+  projectId: string,
+  payload: { referenceId: string; runId: string },
+  caller: VideoJob['caller'] = 'in-app',
+): Promise<VideoJob> {
+  await getProject(projectId);
+  const now = new Date().toISOString();
+  const job: VideoJob = {
+    id: randomUUID(),
+    projectId,
+    kind: 'reference-analysis',
+    status: 'queued',
+    payload: {
+      referenceId: payload.referenceId,
+      runId: payload.runId,
+      queuedAt: now,
+    },
+    caller,
+  };
+  insertVideoJob(job);
+  scheduleVideoJobDrain(1);
+  return job;
+}
+
 export function listRenderJobs(projectId?: string): VideoJob[] {
   return listVideoJobs(projectId).filter((job) => job.kind === 'render');
 }
@@ -229,7 +262,7 @@ function listQueuedJobs(limit: number): VideoJob[] {
     .prepare(
       `SELECT * FROM video_jobs
        WHERE status = 'queued'
-         AND kind IN ('clip-gen', 'source-download', 'linked-source.sync', 'render', 'editor-handoff')
+         AND kind IN ('clip-gen', 'source-download', 'linked-source.sync', 'render', 'editor-handoff', 'reference-analysis')
        ORDER BY created_at ASC
        LIMIT ?`,
     )
@@ -297,6 +330,17 @@ async function runJob(job: VideoJob): Promise<VideoJob> {
     }
     if (job.kind === 'linked-source.sync') {
       return markJobDone(job.id, await runLinkedSourceSyncJob(job));
+    }
+    if (job.kind === 'reference-analysis') {
+      const referenceId = String(job.payload.referenceId ?? '');
+      const run = await runReferenceAnalyzeAtom(job.projectId, referenceId);
+      const latest = getVideoJob(job.id);
+      return latest.status === 'cancelled'
+        ? latest
+        : markJobDone(job.id, {
+            runId: run.id,
+            status: run.status,
+          });
     }
     return markJobDone(job.id, { skipped: true });
   } catch (error) {

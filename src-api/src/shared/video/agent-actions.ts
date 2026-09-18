@@ -38,6 +38,8 @@ export interface VideoAgentContext {
   step?: string;
   transcriptSelection?: VideoTranscriptSelectionContext;
   editorSelection?: VideoEditorSelectionContext;
+  /** Reference selected in the Analyze video panel, so the chat can speak to it. */
+  referenceId?: string;
   pluginId?: string;
   pluginInputs?: Record<string, unknown>;
   approvedPluginCapabilities?: string[];

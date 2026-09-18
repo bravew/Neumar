@@ -25,11 +25,12 @@ import { GraphView } from '@/components/library/GraphView';
 import { PublishHistory } from '@/components/publish';
 import { API_BASE_URL } from '@/config';
 import type { Task } from '@/shared/db';
-import { deleteTask, getAllTasks, updateTask } from '@/shared/db';
+import { deleteTask, getAllTasks, getTask, updateTask } from '@/shared/db';
 import {
   subscribeToBackgroundTasks,
   type BackgroundTask,
 } from '@/shared/lib/background-tasks';
+import { deleteSessionFolder } from '@/shared/lib/session';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -158,14 +159,21 @@ function LibraryContent() {
     [backgroundTasks],
   );
 
-  const handleDeleteTask = useCallback(async (taskId: string) => {
-    try {
-      await deleteTask(taskId);
-      setTasks((prev) => prev.filter((x) => x.id !== taskId));
-    } catch (error) {
-      if (import.meta.env.DEV) console.error('Failed to delete task:', error);
-    }
-  }, []);
+  const handleDeleteTask = useCallback(
+    async (taskId: string, deleteFolder?: boolean) => {
+      try {
+        const task = await getTask(taskId);
+        await deleteTask(taskId);
+        setTasks((prev) => prev.filter((x) => x.id !== taskId));
+        if (deleteFolder && task) {
+          await deleteSessionFolder(task.id, task.work_dir, task.session_id);
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) console.error('Failed to delete task:', error);
+      }
+    },
+    [],
+  );
 
   const handleToggleFavorite = useCallback(
     async (taskId: string, favorite: boolean) => {

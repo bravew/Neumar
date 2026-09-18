@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { closeDatabase, getDatabase } from '@/shared/db';
 import {
+  analyzeSource,
   applyCutPlan,
   createProject,
   getProject,
@@ -85,6 +86,33 @@ describe('auto-cut store apply path', () => {
     expect(stored.sourceAnalyses?.[0]?.artifactIds).toContain(
       `cut-plan-action-${cutPlan.id}`,
     );
+  });
+
+  it('does not claim ffmpeg-scdet scenes when no detector ran', async () => {
+    const project = await createProject({
+      name: 'No fabricated scenes',
+      template: 'explainer',
+    });
+    const asset = {
+      ...assetFixture(),
+      metadata: { ...assetFixture().metadata, audioTrackCount: 0 },
+    };
+    const source = {
+      ...sourceFixture(asset.id),
+      id: 'source-silent',
+      analysisStatus: 'idle' as const,
+    };
+    await writeProject({
+      ...project,
+      assets: [asset],
+      sources: [source],
+    });
+    insertSourceRow(project.id, source);
+
+    const { analysis } = await analyzeSource(project.id, source.id);
+
+    expect(analysis.scenes).toEqual([]);
+    expect(JSON.stringify(analysis)).not.toContain('ffmpeg-scdet');
   });
 });
 

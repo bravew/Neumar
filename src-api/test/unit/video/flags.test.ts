@@ -62,6 +62,8 @@ describe('video feature flags (on by default)', () => {
       'video.contentGraph': true,
       'video.templateGallery': true,
       'video.sourceIngestion': false,
+      'video.referenceAnalysis': true,
+      'video.referenceSemanticReading': true,
       'video.plugins': true,
       'video.frameSearch': false,
       'video.agentApply': false,
@@ -75,5 +77,27 @@ describe('video feature flags (on by default)', () => {
       'video.multicam': false,
       'video.multicamAudioSync': false,
     });
+  });
+});
+
+describe.each([
+  'video.referenceAnalysis',
+  'video.referenceSemanticReading',
+] as const)('%s kill switch', (flag) => {
+  it.each([null, '', 'true', 'FALSE'])('defaults on for %s', (setting) => {
+    getSetting.mockReturnValue(setting);
+    expect(getVideoFeatureFlag(flag)).toBe(true);
+    expect(snapshotVideoFeatureFlags()[flag]).toBe(true);
+  });
+
+  it('preserves explicit opt-out without disabling the other flag', () => {
+    getSetting.mockImplementation((key) => (key === flag ? 'false' : null));
+    expect(getVideoFeatureFlag(flag)).toBe(false);
+    const other =
+      flag === 'video.referenceAnalysis'
+        ? 'video.referenceSemanticReading'
+        : 'video.referenceAnalysis';
+    expect(snapshotVideoFeatureFlags()[flag]).toBe(false);
+    expect(getVideoFeatureFlag(other)).toBe(true);
   });
 });

@@ -82,6 +82,9 @@ export function TemplateInlinePicker({
             {templates.map((template) => (
               <option key={template.id} value={template.id}>
                 {template.displayName}
+                {template.frameworkProvenance
+                  ? ` · ${t.video.templates.library.frameworkBadge} · ${template.frameworkProvenance.referenceId}`
+                  : ''}
               </option>
             ))}
           </select>

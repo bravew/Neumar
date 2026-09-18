@@ -31,6 +31,8 @@ interface UseAgentDockSubmitInput {
   editorSelection?: VideoEditorSelectionContext;
   labels: AgentDockSubmitLabels;
   onClearAssetContext?: () => void;
+  /** Reference open in the Analyze video panel, carried as turn context. */
+  referenceId?: string | null;
   selectedScene: VideoStoryboardScene | null;
   sendMessage: (content: string, context: AgentDockContext) => void;
   setDraft: (value: string) => void;
@@ -47,6 +49,7 @@ export function useAgentDockSubmit({
   editorSelection,
   labels,
   onClearAssetContext,
+  referenceId,
   selectedScene,
   sendMessage,
   setDraft,
@@ -106,6 +109,7 @@ export function useAgentDockSubmit({
         editorSelection,
         projectAssetIds:
           projectAssetIds.length > 0 ? projectAssetIds : undefined,
+        referenceId: referenceId ?? undefined,
       });
       if (projectAssetIds.length > 0) onClearAssetContext?.();
     },
@@ -119,6 +123,7 @@ export function useAgentDockSubmit({
       editorSelection,
       labels,
       onClearAssetContext,
+      referenceId,
       selectedScene?.id,
       sendMessage,
       setDraft,

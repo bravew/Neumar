@@ -392,3 +392,46 @@ function humaniseKey(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim();
 }
+
+export function videoTemplateInputsToFormSpec(
+  inputs: Array<{
+    key: string;
+    kind: 'text' | 'longText' | 'number' | 'enum' | 'asset' | 'color';
+    label: string;
+    required?: boolean;
+    assetKind?: 'image' | 'video' | 'audio';
+  }>,
+): FormSpec {
+  return {
+    type: 'object',
+    warnings: [],
+    fields: inputs.map((input) => {
+      if (input.kind === 'asset') {
+        return {
+          key: input.key,
+          label: input.label,
+          required: Boolean(input.required),
+          warnings: [],
+          kind: 'assetPicker' as const,
+          assetKind: (input.assetKind ?? 'video') as AssetPickerKind,
+        };
+      }
+      if (input.kind === 'longText') {
+        return {
+          key: input.key,
+          label: input.label,
+          required: Boolean(input.required),
+          warnings: [],
+          kind: 'textarea' as const,
+        };
+      }
+      return {
+        key: input.key,
+        label: input.label,
+        required: Boolean(input.required),
+        warnings: [],
+        kind: 'text' as const,
+      };
+    }),
+  };
+}

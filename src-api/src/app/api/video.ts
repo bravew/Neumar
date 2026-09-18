@@ -87,6 +87,10 @@ import {
   writeTemplateVariables,
 } from '@/shared/video/content-graph/persistence';
 import {
+  readVideoCostApproval,
+  VideoCostApprovalError,
+} from '@/shared/video/cost-approval';
+import {
   EngineSelectionError,
   listEngineSelectionOptions,
   listVideoEnginesWithBuiltins,
@@ -112,14 +116,19 @@ import {
   resolveHyperframesStudioProjectDir,
 } from '@/shared/video/hyperframes-studio';
 import {
+  getReferenceRunStreamBufferSize,
+  getReferenceRunStreamSeqBounds,
   getRenderStreamBufferSize,
   getRenderStreamSeqBounds,
+  isReferenceRunStreamActive,
   isRenderStreamActive,
+  subscribeReferenceRunStream,
   subscribeRenderStream,
 } from '@/shared/video/job-events';
 import {
   cancelVideoJob,
   enqueueEditorHandoffJob,
+  enqueueReferenceAnalysisJob,
   enqueueRenderJob,
   getVideoJob,
   listRenderJobs,
@@ -225,6 +234,53 @@ import {
   listVideoRecipes,
   recordVideoIntentLog,
 } from '@/shared/video/recipes';
+import {
+  acquireReference,
+  deleteReference,
+  getReference,
+  listReferences,
+  promoteReference,
+  ReferenceAcquireError,
+} from '@/shared/video/reference/acquire';
+import {
+  ReferenceAnalysisRangeError,
+  setReferenceAnalysisRange,
+} from '@/shared/video/reference/analysis-range';
+import {
+  applyFrameworkToProject,
+  findProjectFramework,
+  FrameworkApplyError,
+  previewFrameworkApply,
+} from '@/shared/video/reference/apply';
+import { bindFrameworkSlots } from '@/shared/video/reference/bind';
+import {
+  buildEvidence,
+  detectReferenceBoundaries,
+} from '@/shared/video/reference/evidence';
+import {
+  extractReferenceFramework,
+  FrameworkExtractError,
+  getReferenceFramework,
+  reviseReferenceFramework,
+} from '@/shared/video/reference/framework-extract';
+import { FrameworkLintError } from '@/shared/video/reference/framework-lint';
+import { reportFrameworkGaps } from '@/shared/video/reference/gap-report';
+import { materializeFrameworkTemplate } from '@/shared/video/reference/materialize';
+import { getReferenceReading } from '@/shared/video/reference/reading';
+import { ReferenceReadingValidationError } from '@/shared/video/reference/reading-validate';
+import {
+  attachReferenceRunJobId,
+  cancelReferenceRun,
+  readReferenceRun,
+  ReferenceRunError,
+  resetReferenceRunForResume,
+  startReferenceRun,
+} from '@/shared/video/reference/run';
+import {
+  resolveReferenceArchiveFile,
+  streamLocalMediaFile,
+} from '@/shared/video/reference/serve';
+import { readReferenceEnvelope } from '@/shared/video/reference/store';
 import { reframeProject } from '@/shared/video/reframe/pipeline';
 import {
   applyRenderPlanSceneModel,
@@ -386,6 +442,49 @@ const sourceYtdlSchema = z.object({
   userConfirmedRights: z.literal(true),
 });
 
+const referenceCreateSchema = z.object({
+  origin: z.enum(['link', 'upload', 'workspace-path']),
+  url: z.string().url().optional(),
+  path: z.string().min(1).optional(),
+  label: z.string().min(1).max(200).optional(),
+  studyAcknowledged: z.literal(true),
+  allowLonger: z.boolean().optional(),
+  notes: z.string().max(500).optional(),
+});
+
+const referencePromoteSchema = z.object({
+  reuseAcknowledged: z.literal(true),
+});
+
+const referenceEvidenceSchema = z.object({
+  around: z.string().min(1).optional(),
+  occurrence: z.number().int().positive().optional(),
+  paddingMs: z.number().int().nonnegative().optional(),
+  everyMs: z.number().int().positive().max(10_000).optional(),
+  columns: z.number().int().positive().max(12).optional(),
+  rows: z.number().int().positive().max(12).optional(),
+  cellWidth: z.number().int().positive().max(1280).optional(),
+  question: z.string().max(500).optional(),
+  maxCells: z.number().int().positive().max(192).optional(),
+});
+
+const referenceAnalyzeSchema = z.object({
+  focus: z
+    .object({
+      text: z.string().min(1).max(2000).optional(),
+      ranges: z
+        .array(
+          z.object({
+            startMs: z.number().int().nonnegative(),
+            endMs: z.number().int().positive(),
+          }),
+        )
+        .max(12)
+        .optional(),
+    })
+    .optional(),
+});
+
 const cutPlanSchema = z.object({
   candidateIds: z.array(z.string()).optional(),
   mode: z.enum(['cut', 'speed-up', 'review-only']).optional(),
@@ -449,6 +548,7 @@ const agentTurnSchema = z.object({
             .optional(),
         })
         .optional(),
+      referenceId: z.string().min(1).max(120).optional(),
       pluginId: z.string().min(1).max(160).optional(),
       pluginInputs: z.record(z.string(), z.unknown()).optional(),
       approvedPluginCapabilities: z.array(z.string().min(1)).max(50).optional(),
@@ -945,7 +1045,7 @@ const linkedFolderChildrenSchema = z.object({
 });
 
 function errorResponse(error: unknown): {
-  body: { error: string; detail?: unknown };
+  body: { error: string; detail?: unknown; code?: string };
   status: ContentfulStatusCode;
 } {
   const message = error instanceof Error ? error.message : String(error);
@@ -953,6 +1053,71 @@ function errorResponse(error: unknown): {
     error: message,
     detail: error instanceof AssetsError ? error.detail : undefined,
   });
+  if (error instanceof ReferenceAcquireError) {
+    const status =
+      error.code === 'not-found' || error.code === 'flag-disabled'
+        ? 404
+        : error.code === 'study-required' ||
+            error.code === 'reuse-required' ||
+            error.code === 'youtube-capability'
+          ? 403
+          : error.code === 'duration' ||
+              error.code === 'live' ||
+              error.code === 'playlist'
+            ? 422
+            : 400;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof ReferenceAnalysisRangeError) {
+    const status = error.code === 'busy' ? 409 : 422;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof ReferenceRunError) {
+    const status =
+      error.code === 'not-found' || error.code === 'disabled'
+        ? 404
+        : error.code === 'busy'
+          ? 409
+          : error.code === 'cancelled'
+            ? 409
+            : 400;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof ReferenceReadingValidationError) {
+    return {
+      body: { error: message, code: error.code, detail: error.anchor },
+      status: 422,
+    };
+  }
+  if (error instanceof FrameworkApplyError) {
+    const status =
+      error.code === 'missing-framework'
+        ? 404
+        : error.code === 'revision-conflict'
+          ? 409
+          : 422;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof VideoCostApprovalError) {
+    return {
+      body: {
+        error: message,
+        code: error.code,
+        detail: error.decision,
+      },
+      status: 402,
+    };
+  }
+  if (error instanceof FrameworkExtractError) {
+    const status = error.code === 'missing-reading' ? 404 : 422;
+    return { body: { error: message, code: error.code }, status };
+  }
+  if (error instanceof FrameworkLintError) {
+    return {
+      body: { error: message, code: error.code, detail: error.field },
+      status: 422,
+    };
+  }
   if (error instanceof AssetsError) {
     return {
       body: { error: message, detail: error.detail },
@@ -2300,6 +2465,521 @@ function multicamUnavailable(c: Context) {
     404,
   );
 }
+
+function referenceUnavailable(c: Context) {
+  return c.json(
+    {
+      error: 'Reference analysis is not enabled for this workspace',
+      reason: 'feature-disabled' as const,
+      flag: 'video.referenceAnalysis' as const,
+    },
+    404,
+  );
+}
+
+videoRoutes.post('/projects/:id/references', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const projectId = c.req.param('id');
+    const contentType = c.req.header('content-type') ?? '';
+    if (contentType.includes('multipart/form-data')) {
+      const form = await c.req.parseBody();
+      const file = form.file;
+      if (!file || typeof file === 'string') {
+        return c.json({ error: 'file part required' }, 400);
+      }
+      if (form.studyAcknowledged !== 'true') {
+        throw new ReferenceAcquireError(
+          'Studying a reference requires an explicit study acknowledgement.',
+          'study-required',
+        );
+      }
+      const result = await acquireReference(projectId, {
+        origin: 'upload',
+        studyAcknowledged: true,
+        fileBytes: Buffer.from(await file.arrayBuffer()),
+        fileName: file.name,
+        ...(typeof form.label === 'string' ? { label: form.label } : {}),
+        allowLonger: form.allowLonger === 'true',
+      });
+      return c.json(result, 201);
+    }
+    const parsed = referenceCreateSchema.parse(await c.req.json());
+    const result = await acquireReference(projectId, {
+      origin: parsed.origin,
+      studyAcknowledged: parsed.studyAcknowledged,
+      ...(parsed.url ? { url: parsed.url } : {}),
+      ...(parsed.path ? { filePath: parsed.path } : {}),
+      ...(parsed.label ? { label: parsed.label } : {}),
+      ...(parsed.notes ? { notes: parsed.notes } : {}),
+      allowLonger: parsed.allowLonger,
+    });
+    return c.json(result, 201);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const references = await listReferences(c.req.param('id'));
+    return c.json({ references });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const reference = await getReference(
+      c.req.param('id'),
+      c.req.param('refId'),
+    );
+    return c.json({ reference });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.delete('/projects/:id/references/:refId', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const project = await deleteReference(
+      c.req.param('id'),
+      c.req.param('refId'),
+    );
+    return c.json({ project });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/promote', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const parsed = referencePromoteSchema.parse(await c.req.json());
+    const result = await promoteReference(
+      c.req.param('id'),
+      c.req.param('refId'),
+      parsed.reuseAcknowledged,
+    );
+    return c.json(result);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/boundaries', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const boundaries = await detectReferenceBoundaries(
+      c.req.param('id'),
+      c.req.param('refId'),
+    );
+    return c.json({ boundaries, caveat: boundaries.caveat });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/evidence', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const parsed = referenceEvidenceSchema.parse(
+      await c.req.json().catch(() => ({})),
+    );
+    const result = await buildEvidence(
+      c.req.param('id'),
+      c.req.param('refId'),
+      parsed,
+    );
+    return c.json({
+      item: result.item,
+      sampledAtMs: result.sampledAtMs,
+      cacheHit: result.cacheHit,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/evidence', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const envelope = await readReferenceEnvelope(
+      c.req.param('id'),
+      c.req.param('refId'),
+      'evidence',
+    );
+    return c.json({ items: envelope?.data ?? [] });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/analyze', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const parsed = referenceAnalyzeSchema.parse(
+      await c.req.json().catch(() => ({})),
+    );
+    const projectId = c.req.param('id');
+    const referenceId = c.req.param('refId');
+    const run = await startReferenceRun(projectId, referenceId, parsed);
+    const job = await enqueueReferenceAnalysisJob(projectId, {
+      referenceId,
+      runId: run.id,
+    });
+    return c.json({
+      run: await attachReferenceRunJobId(projectId, referenceId, job.id),
+      job,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/run', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const run = await readReferenceRun(c.req.param('id'), c.req.param('refId'));
+    if (!run) return c.json({ error: 'Reference run not found' }, 404);
+    return c.json({ run });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/run/stream', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const run = await readReferenceRun(c.req.param('id'), c.req.param('refId'));
+    if (!run) return c.json({ error: 'Reference run not found' }, 404);
+    const lastEventId = parseSSECursor(
+      c.req.query('from') ?? c.req.header('Last-Event-ID'),
+    );
+    const seqBounds = getReferenceRunStreamSeqBounds(run.id);
+    const canReplayFromCursor =
+      lastEventId !== null &&
+      seqBounds.minSeq !== null &&
+      lastEventId >= seqBounds.minSeq - 1;
+    c.header('X-Accel-Buffering', 'no');
+    return streamSSE(c, async (stream) => {
+      let resolveDone: () => void = () => {};
+      const done = new Promise<void>((resolve) => {
+        resolveDone = resolve;
+      });
+      let replaying = true;
+      let sawTerminal = false;
+      const unsubscribe = subscribeReferenceRunStream(
+        run.id,
+        (message, event) => {
+          void stream
+            .writeSSE({ id: String(event.seq), data: JSON.stringify(message) })
+            .catch(() => resolveDone());
+          if (message.type === 'done' || message.type === 'error') {
+            sawTerminal = true;
+            if (!replaying) resolveDone();
+          }
+        },
+        canReplayFromCursor ? { afterSeq: lastEventId } : undefined,
+      );
+      replaying = false;
+      if (!isReferenceRunStreamActive(run.id) || sawTerminal) {
+        if (!sawTerminal && getReferenceRunStreamBufferSize(run.id) === 0) {
+          await stream.writeSSE({ data: JSON.stringify({ type: 'idle' }) });
+        }
+        unsubscribe();
+        return;
+      }
+      stream.onAbort(() => {
+        unsubscribe();
+        resolveDone();
+      });
+      await done;
+      unsubscribe();
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/run/cancel', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const run = await cancelReferenceRun(
+      c.req.param('id'),
+      c.req.param('refId'),
+    );
+    if (run.jobId) {
+      try {
+        cancelVideoJob(run.jobId);
+      } catch {
+        // Job may already be terminal.
+      }
+    }
+    return c.json({ run });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/run/resume', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const projectId = c.req.param('id');
+    const referenceId = c.req.param('refId');
+    const run = await resetReferenceRunForResume(projectId, referenceId);
+    const job = await enqueueReferenceAnalysisJob(projectId, {
+      referenceId,
+      runId: run.id,
+    });
+    return c.json({
+      run: await attachReferenceRunJobId(projectId, referenceId, job.id),
+      job,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/reading', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    return c.json(
+      await getReferenceReading(c.req.param('id'), c.req.param('refId')),
+    );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/references/:refId/framework', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const framework = await extractReferenceFramework(
+      c.req.param('id'),
+      c.req.param('refId'),
+      body.framework,
+    );
+    return c.json({ framework });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/framework', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    return c.json(
+      (await getReferenceFramework(
+        c.req.param('id'),
+        c.req.param('refId'),
+      )) ?? {
+        framework: null,
+        stale: false,
+      },
+    );
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.patch('/projects/:id/references/:refId/framework', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const body = await c.req.json();
+    const framework = await reviseReferenceFramework(
+      c.req.param('id'),
+      c.req.param('refId'),
+      body.framework,
+    );
+    return c.json({ framework });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post(
+  '/projects/:id/references/:refId/framework/template',
+  async (c) => {
+    if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+      return referenceUnavailable(c);
+    }
+    try {
+      const body = await c.req.json().catch(() => ({}));
+      const template = await materializeFrameworkTemplate(
+        c.req.param('id'),
+        c.req.param('refId'),
+        {
+          targetMs:
+            typeof body.targetMs === 'number' ? body.targetMs : undefined,
+        },
+      );
+      return c.json({ template });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
+
+videoRoutes.post('/projects/:id/frameworks/:fid/bind', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const project = await getProject(c.req.param('id'));
+    const loaded = await findProjectFramework(
+      c.req.param('id'),
+      c.req.param('fid'),
+    );
+    const bindings = bindFrameworkSlots(project, loaded.framework);
+    return c.json({
+      bindings,
+      gaps: reportFrameworkGaps(bindings),
+      stale: loaded.stale,
+      referenceId: loaded.referenceId,
+    });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/frameworks/:fid/preview', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const preview = await previewFrameworkApply(
+      c.req.param('id'),
+      c.req.param('fid'),
+      {
+        targetMs: typeof body.targetMs === 'number' ? body.targetMs : undefined,
+        waivedSlotIds: Array.isArray(body.waivedSlotIds)
+          ? body.waivedSlotIds.filter((id: unknown) => typeof id === 'string')
+          : undefined,
+      },
+    );
+    return c.json(preview);
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/frameworks/:fid/apply', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const project = await applyFrameworkToProject(
+      c.req.param('id'),
+      c.req.param('fid'),
+      {
+        targetMs: typeof body.targetMs === 'number' ? body.targetMs : undefined,
+        expectedProjectRevision:
+          typeof body.expectedProjectRevision === 'number'
+            ? body.expectedProjectRevision
+            : undefined,
+        waivedSlotIds: Array.isArray(body.waivedSlotIds)
+          ? body.waivedSlotIds.filter((id: unknown) => typeof id === 'string')
+          : undefined,
+        costApproval: readVideoCostApproval(body.costApproval),
+      },
+    );
+    return c.json({ project });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/projects/:id/references/:refId/media', async (c) => {
+  if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+    return referenceUnavailable(c);
+  }
+  try {
+    const project = await getProject(c.req.param('id'));
+    const reference = project.videoReferences?.find(
+      (item) => item.id === c.req.param('refId'),
+    );
+    if (!reference) return c.json({ error: 'Reference not found' }, 404);
+    // `?variant=source` serves the full, untrimmed download — used by the
+    // analysis-range picker to scrub the whole video, not just the clip the
+    // pipeline currently analyzes.
+    const relativePath =
+      c.req.query('variant') === 'source' && reference.sourceMediaPath
+        ? reference.sourceMediaPath
+        : reference.mediaPath;
+    const filePath = await resolveReferenceArchiveFile(
+      project.id,
+      reference.id,
+      relativePath,
+    );
+    return streamLocalMediaFile(filePath, c.req.header('Range'));
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.patch(
+  '/projects/:id/references/:refId/analysis-range',
+  async (c) => {
+    if (!getVideoFeatureFlag('video.referenceAnalysis')) {
+      return referenceUnavailable(c);
+    }
+    try {
+      const body = await c.req.json().catch(() => ({}));
+      const startMs = typeof body.startMs === 'number' ? body.startMs : NaN;
+      const endMs = typeof body.endMs === 'number' ? body.endMs : NaN;
+      const { project, reference } = await setReferenceAnalysisRange(
+        c.req.param('id'),
+        c.req.param('refId'),
+        { startMs, endMs },
+      );
+      return c.json({ project, reference });
+    } catch (error) {
+      return jsonError(c, error);
+    }
+  },
+);
 
 videoRoutes.get('/projects/:id/multicam', async (c) => {
   if (!getVideoFeatureFlag('video.multicam')) return multicamUnavailable(c);

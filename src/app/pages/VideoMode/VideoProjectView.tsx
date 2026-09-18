@@ -83,6 +83,15 @@ export function VideoProjectRoute() {
     queueEditorHandoff,
     getEditorHandoffJob,
     cancelRender,
+    addVideoReference,
+    listVideoReferences,
+    deleteVideoReference,
+    promoteVideoReference,
+    setVideoReferenceAnalysisRange,
+    analyzeVideoReference,
+    getVideoReferenceRun,
+    cancelVideoReferenceRun,
+    resumeVideoReferenceRun,
     setProject,
   } = useVideoProject(projectId);
   const modeSettings = {
@@ -197,6 +206,15 @@ export function VideoProjectRoute() {
                       queueEditorHandoff,
                       getEditorHandoffJob,
                       cancelRender,
+                      addVideoReference,
+                      listVideoReferences,
+                      deleteVideoReference,
+                      promoteVideoReference,
+                      setVideoReferenceAnalysisRange,
+                      analyzeVideoReference,
+                      getVideoReferenceRun,
+                      cancelVideoReferenceRun,
+                      resumeVideoReferenceRun,
                     }}
                   />
                   <ProviderPanel />
@@ -287,6 +305,15 @@ export function VideoProjectRoute() {
                   queueEditorHandoff,
                   getEditorHandoffJob,
                   cancelRender,
+                  addVideoReference,
+                  listVideoReferences,
+                  deleteVideoReference,
+                  promoteVideoReference,
+                  setVideoReferenceAnalysisRange,
+                  analyzeVideoReference,
+                  getVideoReferenceRun,
+                  cancelVideoReferenceRun,
+                  resumeVideoReferenceRun,
                 }}
               />
             )}

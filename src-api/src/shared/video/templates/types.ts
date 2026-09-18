@@ -97,6 +97,8 @@ export interface VideoTemplateSceneSeed {
   caption?: { text: string; style?: SubtitleStyle };
   transition?: TimelineTransition;
   reframe?: ReframeOverride;
+  slotId?: string;
+  role?: string;
 }
 
 export interface VideoTemplateMusicSeed {
@@ -159,6 +161,12 @@ export interface VideoTemplate {
   authorHandle?: string;
   license: 'CC0' | 'CC-BY' | 'proprietary';
   projectTemplateId?: TemplateId;
+  frameworkProvenance?: {
+    referenceId: string;
+    referenceUrl?: string;
+    extractedAt: string;
+    extractedBy: string;
+  };
 }
 
 export interface TemplateExpansionInput {

@@ -171,6 +171,8 @@ export interface InspectSourceRangeInput {
   startMs: number;
   endMs: number;
   frameCount?: number;
+  maxFrameCount?: number;
+  frameWidth?: number;
   waveformBins?: number;
 }
 
@@ -513,6 +515,16 @@ export function getVideoAssetsDir(projectId: string): string {
 
 export function getVideoSourcesDir(projectId: string): string {
   return path.join(getVideoProjectDir(projectId), 'sources');
+}
+
+export function getVideoReferenceDir(
+  projectId: string,
+  referenceId: string,
+): string {
+  if (!/^[a-z0-9][a-z0-9-]{2,100}$/.test(referenceId)) {
+    throw new Error(`Invalid video reference id "${referenceId}"`);
+  }
+  return path.join(getVideoProjectDir(projectId), 'references', referenceId);
 }
 
 /**
@@ -1630,6 +1642,8 @@ export async function inspectSourceRange(
     startMs: input.startMs,
     endMs: input.endMs,
     frameCount: input.frameCount,
+    maxFrameCount: input.maxFrameCount ?? input.frameCount,
+    frameWidth: input.frameWidth,
     waveformBins: input.waveformBins,
     dependencies,
   });
@@ -2368,34 +2382,11 @@ function buildDeterministicAnalysis(
     contentHash: source.contentHash,
     durationMs,
     streams: metadata,
-    scenes: [
-      {
-        id: randomUUID(),
-        startMs: 0,
-        endMs: sceneMidpoint,
-        confidence: 0.6,
-        method: 'ffmpeg-scdet',
-      },
-      {
-        id: randomUUID(),
-        startMs: sceneMidpoint,
-        endMs: durationMs,
-        confidence: 0.6,
-        method: 'ffmpeg-scdet',
-      },
-    ],
+    scenes: [],
     speechRanges: metadata.audioTrackCount
       ? [{ startMs: 0, endMs: durationMs, source: 'vad' }]
       : [],
-    visualBeats: [
-      {
-        startMs: 0,
-        endMs: durationMs,
-        caption: 'Imported source material',
-        tags: ['source'],
-        source: 'scene-detector',
-      },
-    ],
+    visualBeats: [],
     qualitySignals: metadata.audioTrackCount
       ? []
       : [

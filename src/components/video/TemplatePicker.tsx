@@ -151,6 +151,11 @@ function TemplateCard({
         <span className="bg-background/85 text-muted-foreground absolute top-2 left-2 rounded px-1.5 py-0.5 text-[10px] font-medium backdrop-blur">
           {sourceLabel}
         </span>
+        {metadata.tags.includes('framework') ? (
+          <span className="bg-primary/90 text-primary-foreground absolute top-2 right-2 rounded px-1.5 py-0.5 text-[10px] font-medium">
+            {labels.frameworkBadge}
+          </span>
+        ) : null}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
         <div>

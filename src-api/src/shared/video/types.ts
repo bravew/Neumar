@@ -187,6 +187,371 @@ export type LipsyncProvider =
   | 'omnihuman'
   | 'pika';
 
+export type ReferenceArtifactKind =
+  | 'probe'
+  | 'transcript'
+  | 'packed-transcript'
+  | 'boundaries'
+  | 'evidence'
+  | 'analysis'
+  | 'timeline'
+  | 'framework';
+
+export interface ReferenceArtifactEnvelope<T> {
+  kind: ReferenceArtifactKind;
+  referenceId: string;
+  sourceFingerprint: string;
+  derivedFrom: Partial<Record<ReferenceArtifactKind, string>>;
+  generatedAt: string;
+  producer: string;
+  stale?: boolean;
+  data: T;
+}
+
+export interface ReferenceProbe {
+  durationMs: number;
+  width: number;
+  height: number;
+  frameRate: FrameRate;
+  hasAudio: boolean;
+  audioTrackCount: number;
+  containerFormat: string;
+  videoCodec?: string;
+  audioCodec?: string;
+}
+
+export interface VideoReferenceRights {
+  studyAcknowledged: boolean;
+  reuseAcknowledged: boolean;
+  studyAcknowledgedAt?: string;
+  studyPolicyVersion?: string;
+  studyAckOrigin?: 'explicit' | 'project-preference';
+  notes?: string;
+}
+
+export interface VideoReference {
+  id: string;
+  label: string;
+  origin: 'link' | 'upload' | 'workspace-path';
+  sourceUrl?: string;
+  extractor?: string;
+  /** The media the pipeline actually analyzes — trimmed to analysisRange
+   * once the source exceeds the analysis cap, otherwise equal to
+   * sourceMediaPath. */
+  mediaPath: string;
+  contentHash: string;
+  durationMs: number;
+  rights: VideoReferenceRights;
+  runId?: string;
+  artifactIds: string[];
+  createdAt: string;
+  /** The full, untrimmed media as downloaded/imported. Absent means it is
+   * the same file as mediaPath (never needed trimming). */
+  sourceMediaPath?: string;
+  sourceDurationMs?: number;
+  /** The [startMs, endMs) window of the source that mediaPath/durationMs
+   * represent. Absent on references created before this field existed —
+   * treat as {startMs: 0, endMs: durationMs} in that case. */
+  analysisRange?: { startMs: number; endMs: number };
+}
+
+export const REFERENCE_BOUNDARY_CAVEAT =
+  'Mechanical adjacent-frame change candidates. Not shot labels.' as const;
+
+export interface BoundaryCandidate {
+  atMs: number;
+  /** 0..1 adjacent-frame change score for select; scdet uses its own scale. */
+  score: number;
+  method?: 'select' | 'scdet';
+}
+
+export interface ReferenceBoundaries {
+  sampleRate: number;
+  threshold: number;
+  maxCandidates: number;
+  candidates: BoundaryCandidate[];
+  capped: boolean;
+  caveat: typeof REFERENCE_BOUNDARY_CAVEAT;
+}
+
+export type EvidenceKind = 'grid' | 'frames' | 'clip';
+
+export interface EvidenceSample {
+  id: string;
+  atMs: number;
+  page: number;
+  cell: number;
+  gridPath: string;
+}
+
+export interface EvidenceItem {
+  id: string;
+  kind: EvidenceKind;
+  name: string;
+  range: { startMs: number; endMs: number };
+  sampledAtMs: number[];
+  paths: string[];
+  samples?: EvidenceSample[];
+  labels: { time: boolean; words: boolean };
+  grid?: { columns: number; rows: number; cellWidth: number; pages: number };
+  question?: string;
+}
+
+export type ReferenceRunStepId =
+  | 'fetch'
+  | 'probe'
+  | 'transcribe'
+  | 'pack'
+  | 'boundaries'
+  | 'sample'
+  | 'read'
+  | 'extract';
+
+export type ReferenceRunStepStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'error'
+  | 'cancelled'
+  /** Not applicable at all — a disabled feature. Never retried. */
+  | 'skipped'
+  /**
+   * Blocked on an input the run cannot produce itself: an agent-owned write, or
+   * evidence too thin to extract from. Re-evaluated on resume, so the work the
+   * agent does afterwards is never orphaned.
+   */
+  | 'waiting';
+
+export type ReferenceRunStatus =
+  | 'queued'
+  | 'running'
+  | 'done'
+  | 'error'
+  | 'cancelled'
+  /** Parked on a `waiting` step. Resumable, unlike `done`. */
+  | 'waiting';
+
+export interface ReferenceRunStep {
+  id: ReferenceRunStepId;
+  owner: 'system' | 'agent';
+  status: ReferenceRunStepStatus;
+  startedAt?: string;
+  endedAt?: string;
+  producedArtifactIds: string[];
+  costEstimate?: number;
+  costActual?: number;
+  error?: { code: string; message: string };
+  note?: string;
+}
+
+export interface ReferenceRunFocus {
+  text?: string;
+  ranges?: Array<{ startMs: number; endMs: number }>;
+  revision: number;
+}
+
+export interface ReferenceRun {
+  id: string;
+  referenceId: string;
+  jobId?: string;
+  status: ReferenceRunStatus;
+  revision: number;
+  sequence: number;
+  steps: ReferenceRunStep[];
+  focus?: ReferenceRunFocus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReferenceRunStreamEvent {
+  type: 'progress' | 'done' | 'error';
+  run: ReferenceRun;
+  revision: number;
+  updatedAt: string;
+}
+
+export interface ReferenceMoment {
+  id: string;
+  atMs: number;
+  startMs?: number;
+  endMs?: number;
+  description: string;
+  kind: 'observed' | 'inferred';
+  producer?: string;
+  evidenceIds: string[];
+  sampleIds: string[];
+  sectionIds?: string[];
+  systemIds?: string[];
+  confidence?: number;
+}
+
+export interface ReferenceTag {
+  id: string;
+  label: string;
+  origin: 'user' | 'model';
+  momentIds: string[];
+  systemIds: string[];
+  revision: number;
+}
+
+export const REFERENCE_READING_PROMPT_VERSION = 'reference-reading.v1';
+
+export interface ReferenceSystem {
+  id: string;
+  role: string;
+  content: string;
+  appearance: string;
+  spatial: string;
+  entry: string;
+  behavior: string;
+  persistence: string;
+  exit: string;
+  function: string;
+  occurrences: Array<{ startMs: number; endMs: number; variation?: string }>;
+  evidenceIds: string[];
+  confidence: number;
+}
+
+export interface ReferenceAnalysis {
+  intent: string;
+  arc: string;
+  thesis: string;
+  systems: ReferenceSystem[];
+  openQuestions: Array<{ question: string; atMs?: number; note?: string }>;
+  observed: string[];
+  inferred: string[];
+  promptVersion: string;
+}
+
+export interface ReferenceTimelineSection {
+  id: string;
+  startMs: number;
+  endMs: number;
+  phase: string;
+  anchor?: string;
+  activeSystems: Array<{ systemId: string; note: string }>;
+  effect: string;
+  evidenceIds: string[];
+  confidence: number;
+  overlapsWith?: string[];
+}
+
+export interface ReferenceCoverage {
+  totalMs: number;
+  sampleCount: number;
+  maxGapMs: number;
+  thinRanges: Array<{ startMs: number; endMs: number }>;
+  transcriptCoveredMs?: number;
+}
+
+export interface ReferenceTimelineArtifact {
+  sections: ReferenceTimelineSection[];
+  coverage: ReferenceCoverage;
+  promptVersion: string;
+}
+
+export const FRAMEWORK_SECTION_ROLES = [
+  'hook',
+  'premise',
+  'context',
+  'proof',
+  'escalation',
+  'turn',
+  'demonstration',
+  'payoff',
+  'cta',
+  'outro',
+] as const;
+
+export type FrameworkSectionRole = (typeof FRAMEWORK_SECTION_ROLES)[number];
+
+export type FrameworkSlotFallback =
+  | { kind: 'ai-image'; promptTemplate: string }
+  | { kind: 'ai-clip'; promptTemplate: string }
+  | { kind: 'broll-search'; queryTemplate: string }
+  | { kind: 'tts-narration'; textTemplate: string }
+  | { kind: 'ask-user' };
+
+export interface FrameworkSlot {
+  id: string;
+  kind: string;
+  constraints: {
+    minDurationMs?: number;
+    aspect?: AspectRatio[];
+    requiresSpeech?: boolean;
+    requiresMotion?: boolean;
+    subject?: string;
+  };
+  fallback: FrameworkSlotFallback;
+  required: boolean;
+}
+
+export interface FrameworkSection {
+  id: string;
+  role: FrameworkSectionRole;
+  purpose: string;
+  timing: {
+    proportion: number;
+    minMs: number;
+    maxMs: number;
+    observedMs: number;
+  };
+  slots: FrameworkSlot[];
+  systemIds: string[];
+  pacing: {
+    cutsPerMinute: number;
+    shortestHoldMs: number;
+    longestHoldMs: number;
+  };
+  confidence: number;
+  derivedFromSectionIds: string[];
+}
+
+export interface FrameworkSystem {
+  id: string;
+  role: string;
+  behavior: { entry: string; active: string; exit: string };
+  style?: { fontFamily?: string; palette?: string[] };
+  spans: string[];
+}
+
+export interface VideoFramework {
+  id: string;
+  version: 1;
+  displayName: string;
+  category:
+    | 'shorts'
+    | 'explainer'
+    | 'ad'
+    | 'tutorial'
+    | 'product'
+    | 'podcast'
+    | 'testimonial'
+    | 'recap'
+    | 'announcement'
+    | 'other'
+    | 'custom';
+  hook: 'punch-in' | 'question' | 'reveal' | 'pattern-interrupt' | 'cold-open';
+  pace: 'slow' | 'medium' | 'fast' | 'extreme';
+  aspectRatios: AspectRatio[];
+  totalDuration: { typicalMs: number; minMs: number; maxMs: number };
+  sections: FrameworkSection[];
+  systems: FrameworkSystem[];
+  audio?: {
+    bedCharacter: string;
+    duckingUnderSpeech: boolean;
+    tempoBpm?: number;
+  };
+  provenance: {
+    referenceId: string;
+    referenceUrl?: string;
+    derivedFromArtifacts: string[];
+    extractedBy: string;
+    extractedAt: string;
+  };
+  confidence: number;
+}
+
 export interface VideoProject {
   /** Project document schema version; absent means v1 and is migrated on load. */
   schemaVersion?: 2;
@@ -225,6 +590,11 @@ export interface VideoProject {
    * the render's audio mix; the MiniMax provider adapters are still to come.
    */
   soundtrack?: ProjectSoundtrack;
+  /**
+   * Analyzed reference videos. Distinct from `MediaProvenance.references`,
+   * `LinkedSourceRole = 'reference'`, and generation `uploadReferenceImages`.
+   */
+  videoReferences?: VideoReference[];
   createdAt: string;
   updatedAt: string;
 }
@@ -2034,7 +2404,8 @@ export interface VideoJob {
     | 'reframe'
     | 'broll'
     | 'music'
-    | 'eval';
+    | 'eval'
+    | 'reference-analysis';
   status: 'queued' | 'running' | 'done' | 'error' | 'cancelled';
   payload: Record<string, unknown>;
   result?: Record<string, unknown>;

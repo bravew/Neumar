@@ -20,7 +20,6 @@ import { z } from 'zod';
 import type { RunMode } from '@/core/agent/runtime-state';
 
 import {
-  APP_DIR_NAME,
   getAllSkillsDirs,
   getBundledSkillsDir,
   getClaudeSkillsDir,
@@ -39,6 +38,7 @@ import {
   safeFetch,
   validateBaseUrlForFetch,
 } from '@/shared/utils/url-validator';
+import { VIDEO_PROJECTS_DIRNAME } from '@/shared/video/store';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -91,6 +91,35 @@ function isAllowedPath(resolvedPath: string): boolean {
     process.platform === 'win32' ? p.toLowerCase() : p;
   const normalized = norm(resolvedPath);
   return getAllowedRoots().some((root) => normalized.startsWith(root));
+}
+
+/**
+ * Roots a recursive session-folder delete may target.
+ *
+ * Reads may trust `/tmp` and `/Volumes/` because the desktop app browses
+ * those trees. Deletes do not: a `sessions/<name>` directory is only
+ * removable when it sits directly under the app data dir or the configured
+ * workDir (which may itself live on an external volume or in temp).
+ */
+function getDeletableSessionRoots(): string[] {
+  const norm = (p: string) =>
+    process.platform === 'win32' ? p.toLowerCase() : p;
+  const roots = new Set<string>();
+  roots.add(norm(path.resolve(getAppDir())));
+  const workDir = getSetting('workDir');
+  if (workDir) roots.add(norm(path.resolve(expandPath(workDir))));
+  return [...roots];
+}
+
+function isDeletableSessionDir(resolvedPath: string): boolean {
+  const norm = (p: string) =>
+    process.platform === 'win32' ? p.toLowerCase() : p;
+  const normalized = norm(resolvedPath);
+  if (path.basename(path.dirname(normalized)) !== 'sessions') {
+    return false;
+  }
+  const workspaceRoot = path.dirname(path.dirname(normalized));
+  return getDeletableSessionRoots().some((root) => workspaceRoot === root);
 }
 
 /**
@@ -1164,23 +1193,22 @@ files.delete('/delete-dir', async (c) => {
       return c.json({ success: false, error: 'Path is required' }, 400);
     }
 
-    // Security: Only allow deleting within app data directory sessions
-    const homeDir = getHomeDir();
-    const sessionsDir = path.join(homeDir, APP_DIR_NAME, 'sessions');
-    const normalizedPath = path.normalize(dirPath);
-    const normalizedSessionsDir = path.normalize(sessionsDir);
-
-    // Check if the path is within the sessions directory
-    if (!normalizedPath.startsWith(normalizedSessionsDir)) {
+    // Security: only allow deleting a `sessions/<name>` folder that sits
+    // directly under the app data dir or the configured workDir. Reads may
+    // also trust `/tmp` and `/Volumes/`, but a recursive delete must not
+    // follow those broader roots — unless they *are* the workDir, which is
+    // how a custom workspace on an external volume gets cleaned up.
+    const normalizedPath = path.resolve(dirPath);
+    if (!isDeletableSessionDir(normalizedPath)) {
       logger.error(
-        'Security: Attempt to delete outside sessions directory:',
+        'Security: Attempt to delete a non-session or untrusted directory:',
         dirPath,
       );
       return c.json(
         {
           success: false,
           error:
-            'Can only delete directories within app data directory sessions',
+            'Can only delete a session folder within a trusted workspace directory',
         },
         403,
       );
@@ -2543,13 +2571,20 @@ files.get('/session-stats', async (c) => {
 });
 
 /** Folders to migrate when changing workspace. Ordered by priority. */
-const MIGRATABLE_FOLDERS = ['sessions', 'channels', 'logs', 'cache', 'skills'];
+const MIGRATABLE_FOLDERS = [
+  'sessions',
+  'channels',
+  'logs',
+  'cache',
+  'skills',
+  VIDEO_PROJECTS_DIRNAME,
+];
 
 /**
  * POST /files/migrate-sessions-stream
  *
  * SSE-streaming workspace data migration. Copies all data folders (sessions,
- * channels, logs, cache, skills) from oldWorkDir to newWorkDir, then updates
+ * channels, logs, cache, skills, videos) from oldWorkDir to newWorkDir, then updates
  * task.work_dir records in the DB.
  *
  * Events:

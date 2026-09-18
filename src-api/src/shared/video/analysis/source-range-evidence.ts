@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { runFFmpeg, validateInputFile } from '@/shared/services/ffmpeg';
+import { runFFmpeg } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 
 import { resolveProjectAssetPath } from '../asset-files';
@@ -18,9 +18,9 @@ import type {
 
 const logger = createLogger('SourceRangeEvidence');
 
-const FILMSTRIP_FRAME_WIDTH = 160;
+const DEFAULT_FILMSTRIP_FRAME_WIDTH = 160;
 const MIN_FRAME_COUNT = 1;
-const MAX_FRAME_COUNT = 8;
+const DEFAULT_MAX_FRAME_COUNT = 8;
 const MIN_WAVEFORM_BINS = 32;
 const MAX_WAVEFORM_BINS = 512;
 
@@ -66,6 +66,7 @@ export interface BuildFilmstripInput {
   startMs: number;
   durationMs: number;
   frameCount: number;
+  frameWidth?: number;
 }
 
 export interface SourceRangeEvidenceDependencies {
@@ -84,6 +85,8 @@ export async function buildSourceRangeEvidenceArtifact(input: {
   startMs: number;
   endMs: number;
   frameCount?: number;
+  maxFrameCount?: number;
+  frameWidth?: number;
   waveformBins?: number;
   dependencies?: SourceRangeEvidenceDependencies;
   now?: string;
@@ -96,7 +99,7 @@ export async function buildSourceRangeEvidenceArtifact(input: {
   const frameCount = clampInt(
     input.frameCount ?? 5,
     MIN_FRAME_COUNT,
-    MAX_FRAME_COUNT,
+    input.maxFrameCount ?? DEFAULT_MAX_FRAME_COUNT,
   );
   const waveformBins = clampInt(
     input.waveformBins ?? 128,
@@ -118,6 +121,7 @@ export async function buildSourceRangeEvidenceArtifact(input: {
         startMs: range.startMs,
         durationMs: range.durationMs,
         frameCount,
+        frameWidth: input.frameWidth,
       });
     }
   } catch (error) {
@@ -227,10 +231,11 @@ export async function buildSourceRangeFilmstrip(
   input: BuildFilmstripInput,
 ): Promise<SourceRangeFilmstrip> {
   const absPath = resolveProjectAssetPath(input.asset, input.workspaceRoot);
-  const frameHeight = filmstripFrameHeight(input.asset);
+  const frameWidth = input.frameWidth ?? DEFAULT_FILMSTRIP_FRAME_WIDTH;
+  const frameHeight = filmstripFrameHeight(input.asset, frameWidth);
   const cachePath = path.join(
     input.cacheDir,
-    `source-range-filmstrip-${rangeCacheSegment(input.startMs)}-${rangeCacheSegment(input.durationMs)}-${input.frameCount}.png`,
+    `source-range-filmstrip-${rangeCacheSegment(input.startMs)}-${rangeCacheSegment(input.durationMs)}-${input.frameCount}-${frameWidth}.png`,
   );
   await fs.mkdir(input.cacheDir, { recursive: true });
   if (!existsSync(cachePath)) {
@@ -245,7 +250,7 @@ export async function buildSourceRangeFilmstrip(
             '-frames:v',
             '1',
             '-vf',
-            `scale=${FILMSTRIP_FRAME_WIDTH}:${frameHeight}:force_original_aspect_ratio=disable`,
+            `scale=${frameWidth}:${frameHeight}:force_original_aspect_ratio=disable`,
             '-an',
             cachePath,
           ]
@@ -257,7 +262,7 @@ export async function buildSourceRangeFilmstrip(
             '-i',
             absPath,
             '-vf',
-            `fps=${input.frameCount}/${durationSec},scale=${FILMSTRIP_FRAME_WIDTH}:${frameHeight}:force_original_aspect_ratio=disable,tile=${input.frameCount}x1`,
+            `fps=${input.frameCount}/${durationSec},scale=${frameWidth}:${frameHeight}:force_original_aspect_ratio=disable,tile=${input.frameCount}x1`,
             '-frames:v',
             '1',
             '-an',
@@ -270,7 +275,7 @@ export async function buildSourceRangeFilmstrip(
   }
   return {
     path: cachePath,
-    frameWidth: FILMSTRIP_FRAME_WIDTH,
+    frameWidth,
     frameHeight,
     frameCount: input.frameCount,
   };
@@ -319,11 +324,11 @@ function wordLabelsForRange(
     }));
 }
 
-function filmstripFrameHeight(asset: MediaItem): number {
+function filmstripFrameHeight(asset: MediaItem, frameWidth: number): number {
   const width = asset.metadata.width ?? 16;
   const height = asset.metadata.height ?? 9;
   const aspect = width / Math.max(1, height);
-  return Math.max(2, Math.round(FILMSTRIP_FRAME_WIDTH / aspect));
+  return Math.max(2, Math.round(frameWidth / aspect));
 }
 
 function clampInt(value: number, min: number, max: number): number {

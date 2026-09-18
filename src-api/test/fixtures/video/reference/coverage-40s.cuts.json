@@ -1,0 +1,10 @@
+{
+  "clip": "coverage-40s.mp4",
+  "durationMs": 40000,
+  "hardCutsMs": [
+    10000,
+    20000,
+    30000
+  ],
+  "notes": "Four 10s holds with captions at 1\u20136s, 14\u201322s, 32\u201340s. Used by S3."
+}

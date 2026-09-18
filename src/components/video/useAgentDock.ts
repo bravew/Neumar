@@ -83,6 +83,8 @@ export interface AgentDockContext {
   transcriptSelection?: VideoTranscriptSelectionContext;
   editorSelection?: VideoEditorSelectionContext;
   projectAssetIds?: string[];
+  /** Reference open in the Analyze video panel, so the agent can speak to it. */
+  referenceId?: string;
   pluginId?: string;
   pluginInputs?: Record<string, unknown>;
   approvedPluginCapabilities?: string[];

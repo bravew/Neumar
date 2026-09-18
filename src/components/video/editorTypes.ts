@@ -20,6 +20,8 @@ import type {
   VideoLoudnessTargetLufs,
   VideoJob,
   VideoProject,
+  VideoReference,
+  VideoReferenceRun,
   VideoRenderPlan,
   VideoSourceMedia,
   VideoStoryboard,
@@ -107,6 +109,35 @@ export interface VideoProjectEditorActions {
     url: string,
     userConfirmedRights: boolean,
   ) => Promise<{ job: { id: string; status: string } } | null>;
+  addVideoReference: (input: {
+    origin: 'link' | 'upload' | 'workspace-path';
+    url?: string;
+    path?: string;
+    file?: File;
+    label?: string;
+    studyAcknowledged: true;
+    allowLonger?: boolean;
+  }) => Promise<VideoProject | null>;
+  listVideoReferences: () => Promise<VideoReference[]>;
+  deleteVideoReference: (referenceId: string) => Promise<VideoProject | null>;
+  promoteVideoReference: (referenceId: string) => Promise<VideoProject | null>;
+  setVideoReferenceAnalysisRange: (
+    referenceId: string,
+    range: { startMs: number; endMs: number },
+  ) => Promise<VideoReference | null>;
+  analyzeVideoReference: (
+    referenceId: string,
+    focusText?: string,
+  ) => Promise<VideoReferenceRun | null>;
+  getVideoReferenceRun: (
+    referenceId: string,
+  ) => Promise<VideoReferenceRun | null>;
+  cancelVideoReferenceRun: (
+    referenceId: string,
+  ) => Promise<VideoReferenceRun | null>;
+  resumeVideoReferenceRun: (
+    referenceId: string,
+  ) => Promise<VideoReferenceRun | null>;
   analyzeSource: (sourceId: string) => Promise<VideoProject | null>;
   createCutPlan: (
     sourceId: string,
