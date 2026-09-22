@@ -56,6 +56,7 @@ describe('database migration registry', () => {
     expect(registeredVersions).toContain(103);
     expect(registeredVersions).toContain(104);
     expect(registeredVersions).toContain(106);
+    expect(registeredVersions).toContain(108);
   });
 
   it('creates the task agent session column after migrations run', () => {
@@ -74,6 +75,19 @@ describe('database migration registry', () => {
     }>;
 
     expect(columns.map((column) => column.name)).toContain('is_error');
+  });
+
+  it('creates the video intent log columns after migrations run', () => {
+    const db = getDatabase();
+    const columns = (
+      db.prepare('PRAGMA table_info(video_intent_log)').all() as Array<{
+        name: string;
+      }>
+    ).map((column) => column.name);
+
+    expect(columns).toContain('applied_plugin_json');
+    expect(columns).toContain('plan_id');
+    expect(columns).toContain('plan_revision');
   });
 
   it('persists the tool-result error flag', () => {

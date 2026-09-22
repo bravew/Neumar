@@ -74,6 +74,7 @@ import { migration as migration052 } from './migrations/052_reconcile_legacy_run
 import { migration as migration053 } from './migrations/053_video_intent_plan_identity';
 import { migration as migration054 } from './migrations/054_messages_is_error';
 import { migration as migration055 } from './migrations/055_external_mcp';
+import { migration as migration056 } from './migrations/056_reconcile_video_conversation_schema';
 import { runMigrations } from './migrations/runner';
 
 const logger = createLogger('Database');
@@ -138,10 +139,17 @@ export const DATABASE_MIGRATIONS = [
   migration053,
   migration054,
   migration055,
+  migration056,
 ];
 
+// Columns the hot request path hard-depends on, checked after migrations so a
+// broken chain fails at startup rather than as a 500 mid-request. `mode` (108)
+// and `is_error` (106) are here because a chain that aborted before them once
+// shipped a database that looked healthy until the first agent run.
 const REQUIRED_SCHEMA_COLUMNS = {
   tasks: ['agent_session_id'],
+  agent_runs: ['mode', 'owner_key', 'client_request_id'],
+  messages: ['is_error'],
 } as const;
 
 // Database instance (singleton)
@@ -182,32 +190,51 @@ export function getDatabase(): Database.Database {
     logger.info(`Created database directory: ${appDir}`);
   }
 
-  // Create database connection
-  db = new Database(dbPath);
+  // Create database connection. Held in a local until the schema is known
+  // good: publishing a half-migrated connection to `db` would let every later
+  // getDatabase() call short-circuit on the liveness check above and hand back
+  // a stale schema, turning a failed migration into "no such column" errors at
+  // request time instead of a startup failure. Closing it on failure means the
+  // next call retries the migrations.
+  const connection = new Database(dbPath);
 
   // Enable WAL mode for better concurrency
-  db.pragma('journal_mode = WAL');
+  connection.pragma('journal_mode = WAL');
   // Auto-checkpoint after every 100 pages (ensures cross-process visibility)
-  db.pragma('wal_autocheckpoint = 100');
+  connection.pragma('wal_autocheckpoint = 100');
 
-  // Run migrations
-  runMigrations(db, DATABASE_MIGRATIONS);
-  const reconciledRuns = db
-    .prepare(
-      `UPDATE agent_runs
-       SET status = 'failed', finished_at = datetime('now'),
-           completeness = 'unfinished', retry = 'user_action',
-           failure_cause = 'process_restarted',
-           error = COALESCE(error, 'Run interrupted by application restart')
-       WHERE status = 'running'`,
-    )
-    .run().changes;
-  if (reconciledRuns > 0) {
-    logger.warn('Reconciled orphaned agent runs after restart', {
-      count: reconciledRuns,
+  try {
+    // Run migrations
+    runMigrations(connection, DATABASE_MIGRATIONS);
+    const reconciledRuns = connection
+      .prepare(
+        `UPDATE agent_runs
+         SET status = 'failed', finished_at = datetime('now'),
+             completeness = 'unfinished', retry = 'user_action',
+             failure_cause = 'process_restarted',
+             error = COALESCE(error, 'Run interrupted by application restart')
+         WHERE status = 'running'`,
+      )
+      .run().changes;
+    if (reconciledRuns > 0) {
+      logger.warn('Reconciled orphaned agent runs after restart', {
+        count: reconciledRuns,
+      });
+    }
+    assertRequiredSchema(connection);
+  } catch (error) {
+    try {
+      connection.close();
+    } catch {
+      // Closing a connection we are already abandoning; ignore.
+    }
+    logger.error('Database schema initialization failed', {
+      error: error instanceof Error ? error.message : String(error),
     });
+    throw error;
   }
-  assertRequiredSchema(db);
+
+  db = connection;
 
   // Seed default model pricing
   seedDefaultPricing();
