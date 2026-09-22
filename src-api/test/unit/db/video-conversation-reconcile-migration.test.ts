@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 
+import { DATABASE_MIGRATIONS } from '@/shared/db';
 import { migration as videoModeFoundation } from '@/shared/db/migrations/027_video_mode_foundation';
 import { migration as videoIntentPluginSnapshot } from '@/shared/db/migrations/039_video_intent_plugin_snapshot';
 import { migration as videoIntentPlanIdentity } from '@/shared/db/migrations/053_video_intent_plan_identity';
@@ -140,5 +141,47 @@ describe('video conversation schema reconciliation', () => {
       .get() as { count: number };
     expect(after.count).toBe(before.count);
     expect(columnNames(db, 'video_intent_log')).toContain('plan_id');
+  });
+});
+
+describe('full migration registry against a drifted database', () => {
+  /**
+   * Mirrors the real failure more closely than `driftedDatabase()` can: build a
+   * correct database with the whole registry, then reshape it into the install
+   * that broke — versions up to 95 recorded, the 032 tables absent, everything
+   * from 96 on still pending. Every prerequisite the unrelated migrations need
+   * is present, so this exercises the real chain rather than a hand-picked slice.
+   */
+  function realisticDriftedDatabase(): Database.Database {
+    const db = new Database(':memory:');
+    db.pragma('journal_mode = WAL');
+    runMigrations(db, DATABASE_MIGRATIONS);
+
+    db.exec(`
+      DROP TABLE IF EXISTS video_intent_log;
+      DROP TABLE IF EXISTS video_recipes;
+      DROP TABLE IF EXISTS video_host_capabilities;
+      DROP TABLE IF EXISTS video_recipe_style_presets;
+    `);
+    db.prepare('DELETE FROM _migrations WHERE version >= 96').run();
+    return db;
+  }
+
+  it('runs to completion and restores the columns the request path needs', () => {
+    const db = realisticDriftedDatabase();
+
+    expect(() => runMigrations(db, DATABASE_MIGRATIONS)).not.toThrow();
+
+    // The two columns whose absence surfaced as request-time 500s.
+    expect(columnNames(db, 'agent_runs')).toContain('mode');
+    expect(columnNames(db, 'messages')).toContain('is_error');
+    expect(columnNames(db, 'video_intent_log')).toContain(
+      'applied_plugin_json',
+    );
+
+    const applied = appliedVersions(db);
+    for (const migration of DATABASE_MIGRATIONS) {
+      expect(applied).toContain(migration.version);
+    }
   });
 });
