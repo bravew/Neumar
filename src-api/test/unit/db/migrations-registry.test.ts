@@ -3,9 +3,14 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { closeDatabase, DATABASE_MIGRATIONS, getDatabase } from '@/shared/db';
+import {
+  closeDatabase,
+  Database,
+  DATABASE_MIGRATIONS,
+  getDatabase,
+} from '@/shared/db';
 import type { Migration } from '@/shared/db/migrations/runner';
 import {
   createMessage,
@@ -111,5 +116,33 @@ describe('database migration registry', () => {
 
     expect(message.is_error).toBe(1);
     getDatabase().prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+  });
+});
+
+describe('database startup', () => {
+  afterEach(() => {
+    closeDatabase();
+  });
+
+  it('closes the connection when WAL setup fails', () => {
+    closeDatabase();
+    const originalPragma = Database.prototype.pragma;
+    const close = vi.spyOn(Database.prototype, 'close');
+    const pragma = vi
+      .spyOn(Database.prototype, 'pragma')
+      .mockImplementation(function (this: Database.Database, source: string) {
+        if (source === 'journal_mode = WAL') {
+          throw new Error('wal setup failed');
+        }
+        return originalPragma.call(this, source);
+      });
+
+    try {
+      expect(() => getDatabase()).toThrow(/wal setup failed/);
+      expect(close).toHaveBeenCalledOnce();
+    } finally {
+      pragma.mockRestore();
+      close.mockRestore();
+    }
   });
 });

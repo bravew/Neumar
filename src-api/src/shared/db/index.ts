@@ -198,12 +198,13 @@ export function getDatabase(): Database.Database {
   // next call retries the migrations.
   const connection = new Database(dbPath);
 
-  // Enable WAL mode for better concurrency
-  connection.pragma('journal_mode = WAL');
-  // Auto-checkpoint after every 100 pages (ensures cross-process visibility)
-  connection.pragma('wal_autocheckpoint = 100');
-
   try {
+    // WAL setup is inside this block so a pragma failure closes the
+    // connection instead of leaking the native handle on the next retry.
+    connection.pragma('journal_mode = WAL');
+    // Auto-checkpoint after every 100 pages (ensures cross-process visibility)
+    connection.pragma('wal_autocheckpoint = 100');
+
     // Run migrations
     runMigrations(connection, DATABASE_MIGRATIONS);
     const reconciledRuns = connection
