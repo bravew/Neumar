@@ -27,3 +27,19 @@ export function addColumnIfMissing(
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 }
+
+/**
+ * Check whether a table exists.
+ *
+ * Migrations that alter a table created by an earlier migration need this
+ * guard: version numbers are global to the database, so an install whose
+ * version slot was consumed by a different release line can reach a later
+ * migration without the earlier one's table. `PRAGMA table_info` returns an
+ * empty list for a missing table, so `hasColumn` cannot distinguish the two.
+ */
+export function hasTable(db: Database.Database, table: string): boolean {
+  const row = db
+    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
+    .get(table);
+  return Boolean(row);
+}

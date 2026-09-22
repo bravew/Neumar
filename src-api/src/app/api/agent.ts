@@ -354,8 +354,11 @@ try {
     );
   }
 } catch (err) {
-  // Non-fatal: table might not have heartbeat_at column yet on first run
-  zombieLogger.debug('Zombie recovery skipped:', errorMessage(err));
+  // Non-fatal for this module, but this is the first getDatabase() call in the
+  // process, so a schema or migration failure surfaces here. Warn rather than
+  // debug — logging it at debug once hid a broken migration chain that only
+  // reappeared as "no such column" errors on later requests.
+  zombieLogger.warn('Zombie recovery skipped:', errorMessage(err));
 }
 
 /**
