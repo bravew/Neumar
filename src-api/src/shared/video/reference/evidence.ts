@@ -42,6 +42,56 @@ export interface BuildEvidenceInput {
   maxCells?: number;
 }
 
+/**
+ * Decide which timestamps to sample for one evidence grid.
+ *
+ * `maxCells` is a ceiling on total cells, not a promise of coverage: a long
+ * reference at a fine step needs more cells than the ceiling allows. When the
+ * ceiling stops sampling early, the returned `range` is narrowed to the
+ * coverage actually achieved. That matters because the structured reading, the
+ * timeline and the thin-gap check all read `range` — leaving it at the
+ * requested end let a grid covering only the opening stretch of a reference
+ * claim the whole runtime, so extraction kept reporting gaps that the evidence
+ * metadata insisted were covered.
+ */
+export function planEvidenceSampling(input: {
+  range: { startMs: number; endMs: number };
+  everyMs: number;
+  maxCells: number;
+}): {
+  sampledAtMs: number[];
+  range: { startMs: number; endMs: number };
+  truncated: boolean;
+} {
+  const { everyMs, maxCells } = input;
+  const requested = input.range;
+  const lastSeekableMs = Math.max(requested.startMs, requested.endMs - 500);
+  const sampledAtMs: number[] = [];
+  for (
+    let at = requested.startMs;
+    at <= lastSeekableMs && sampledAtMs.length < maxCells;
+    at += everyMs
+  ) {
+    sampledAtMs.push(Math.round(at));
+  }
+  const last = sampledAtMs[sampledAtMs.length - 1];
+  if (last !== lastSeekableMs && sampledAtMs.length < maxCells) {
+    sampledAtMs.push(lastSeekableMs);
+  }
+
+  const covered = sampledAtMs[sampledAtMs.length - 1] ?? requested.startMs;
+  // One step of slack: sampling stops at `endMs - 500`, so a full sweep lands
+  // short of `endMs` by design and must not count as truncated.
+  const truncated = covered < lastSeekableMs - everyMs;
+  return {
+    sampledAtMs,
+    range: truncated
+      ? { startMs: requested.startMs, endMs: covered }
+      : requested,
+    truncated,
+  };
+}
+
 export interface BuildEvidenceResult {
   item: EvidenceItem;
   sampledAtMs: number[];
@@ -235,19 +285,9 @@ export async function buildEvidence(
   const maxCells = Math.max(1, input.maxCells ?? 48);
   const columns = Math.max(1, input.columns ?? 4);
   const cellWidth = Math.max(32, input.cellWidth ?? 320);
-  const lastSeekableMs = Math.max(range.startMs, range.endMs - 500);
-  const sampledAtMs: number[] = [];
-  for (
-    let at = range.startMs;
-    at <= lastSeekableMs && sampledAtMs.length < maxCells;
-    at += everyMs
-  ) {
-    sampledAtMs.push(Math.round(at));
-  }
-  const last = sampledAtMs[sampledAtMs.length - 1];
-  if (last !== lastSeekableMs && sampledAtMs.length < maxCells) {
-    sampledAtMs.push(lastSeekableMs);
-  }
+  const plan = planEvidenceSampling({ range, everyMs, maxCells });
+  const sampledAtMs = plan.sampledAtMs;
+  range = plan.range;
 
   const fingerprint = referenceFingerprint({
     contentHash: reference.contentHash,

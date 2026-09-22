@@ -10,6 +10,7 @@ import { acquireReference } from '@/shared/video/reference/acquire';
 import {
   buildEvidence,
   loadPackedTranscriptForReference,
+  planEvidenceSampling,
   writePackedTranscriptForReference,
 } from '@/shared/video/reference/evidence';
 import { createProject } from '@/shared/video/store';
@@ -100,5 +101,65 @@ describe('buildEvidence', () => {
       reference.id,
     );
     expect(loaded).toEqual(packed);
+  });
+});
+
+describe('planEvidenceSampling', () => {
+  const CEILING = 240;
+
+  it('covers a full reference when the ceiling can hold the cells', () => {
+    // The reported case: 186.6s at the 2s step needs 94 cells. One 48-cell
+    // page cannot hold that; the ceiling spread across pages can.
+    const plan = planEvidenceSampling({
+      range: { startMs: 0, endMs: 186_642 },
+      everyMs: 2000,
+      maxCells: CEILING,
+    });
+
+    expect(plan.truncated).toBe(false);
+    expect(plan.range).toEqual({ startMs: 0, endMs: 186_642 });
+    expect(plan.sampledAtMs.length).toBeGreaterThan(48);
+    expect(plan.sampledAtMs.at(-1)).toBe(186_142);
+  });
+
+  it('narrows the range to real coverage when the ceiling truncates', () => {
+    // This is the bug: 48 cells at 2s reach 94s of a 186.6s reference, but the
+    // range used to keep claiming 186_642 — so the reading, the timeline and
+    // the thin-gap check all believed the back half had been looked at.
+    const plan = planEvidenceSampling({
+      range: { startMs: 0, endMs: 186_642 },
+      everyMs: 2000,
+      maxCells: 48,
+    });
+
+    expect(plan.truncated).toBe(true);
+    expect(plan.sampledAtMs).toHaveLength(48);
+    expect(plan.sampledAtMs.at(-1)).toBe(94_000);
+    expect(plan.range).toEqual({ startMs: 0, endMs: 94_000 });
+  });
+
+  it('does not call a complete sweep truncated', () => {
+    // Sampling stops at endMs - 500 by design, which must not read as a gap.
+    const plan = planEvidenceSampling({
+      range: { startMs: 0, endMs: 8000 },
+      everyMs: 1000,
+      maxCells: CEILING,
+    });
+
+    expect(plan.truncated).toBe(false);
+    expect(plan.range).toEqual({ startMs: 0, endMs: 8000 });
+    expect(plan.sampledAtMs.at(-1)).toBe(7500);
+  });
+
+  it('keeps a non-zero start when sampling a phrase window', () => {
+    const plan = planEvidenceSampling({
+      range: { startMs: 30_000, endMs: 40_000 },
+      everyMs: 1000,
+      maxCells: CEILING,
+    });
+
+    expect(plan.truncated).toBe(false);
+    expect(plan.sampledAtMs[0]).toBe(30_000);
+    expect(plan.range).toEqual({ startMs: 30_000, endMs: 40_000 });
   });
 });
