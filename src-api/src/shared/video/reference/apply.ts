@@ -273,9 +273,15 @@ export async function applyFrameworkToProject(
   });
 }
 
-function slotTrack(
-  slotKind: string,
-): 'video' | 'broll' | 'audio-vo' | 'audio-music' {
+/**
+ * The tracks a framework slot can land on. `ensureTracks` returns an entry for
+ * every one of these, so indexing its result with a `slotTrack` return is
+ * total — typing it as a full record is what keeps the clip's `trackId` a
+ * `string` instead of widening to `string | undefined`.
+ */
+type SlotTrackKey = 'video' | 'broll' | 'audio-vo' | 'audio-music';
+
+function slotTrack(slotKind: string): SlotTrackKey {
   const kind = slotKind.toLowerCase();
   if (/music/.test(kind)) return 'audio-music';
   if (/(audio|narration|voice|sfx)/.test(kind)) return 'audio-vo';
@@ -287,45 +293,45 @@ function ensureTracks(
   timeline: Timeline,
   framework: VideoFramework,
   ops: TimelineOp[],
-): Record<string, string> {
-  const ids: Record<string, string> = {
+): Record<SlotTrackKey, string> {
+  const ids: Record<SlotTrackKey, string> = {
     video: findTrack(timeline, 'video') ?? 'track-video-main',
     broll: findTrack(timeline, 'broll') ?? 'track-broll',
     'audio-vo': findTrack(timeline, 'audio-vo') ?? 'track-audio-vo',
     'audio-music': findTrack(timeline, 'audio-music') ?? 'track-audio-music',
   };
-  const needed = new Set(
+  const needed = new Set<SlotTrackKey>(
     framework.sections.flatMap((section) =>
       section.slots.map((slot) => slotTrack(slot.kind)),
     ),
   );
   needed.add('video');
   const specs: Array<{
-    key: string;
+    key: SlotTrackKey;
     id: string;
     kind: TimelineTrack['kind'];
     name: string;
     order: number;
   }> = [
-    { key: 'video', id: ids.video!, kind: 'video', name: 'Video 1', order: 0 },
-    { key: 'broll', id: ids.broll!, kind: 'broll', name: 'B-roll', order: 5 },
+    { key: 'video', id: ids.video, kind: 'video', name: 'Video 1', order: 0 },
+    { key: 'broll', id: ids.broll, kind: 'broll', name: 'B-roll', order: 5 },
     {
       key: 'audio-vo',
-      id: ids['audio-vo']!,
+      id: ids['audio-vo'],
       kind: 'audio-vo',
       name: 'Voiceover',
       order: 10,
     },
     {
       key: 'audio-music',
-      id: ids['audio-music']!,
+      id: ids['audio-music'],
       kind: 'audio-music',
       name: 'Music',
       order: 20,
     },
   ];
   for (const spec of specs) {
-    if (!needed.has(spec.key as 'video')) continue;
+    if (!needed.has(spec.key)) continue;
     if (timeline.tracks.some((track) => track.id === spec.id)) continue;
     ops.push({
       kind: 'track.insert',

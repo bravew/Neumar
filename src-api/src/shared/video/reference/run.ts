@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { createLogger } from '@/shared/utils/logger';
+import type { PackedTranscriptPayload } from '@/shared/video/analysis/pack-transcript';
 import { getVideoFeatureFlag } from '@/shared/video/flags';
 import { publishReferenceRunStatus } from '@/shared/video/job-events';
 import { renderReferenceProgressMarkdown } from '@/shared/video/reference/progress-markdown';
@@ -20,7 +21,6 @@ import {
   updateProjectDocument,
 } from '@/shared/video/store';
 import type {
-  PackedTranscriptPayload,
   ReferenceProbe,
   ReferenceRun,
   ReferenceRunFocus,
@@ -44,14 +44,28 @@ import { getReferenceReading } from './reading';
 import { DEFAULT_THIN_GAP_MS } from './reading-validate';
 
 /**
- * The system's automatic 'sample' step spends a fixed cell budget on a
- * reference of unknown length. A fixed 1s step only reaches the first
- * `maxCells` seconds before the cap truncates it, so anything past ~48s of
- * runtime got zero evidence — framework extraction then refused every such
- * reference as "too thin" no matter what the agent tried afterwards.
- * Stretch the step (bounded by the thin-gap threshold, past which a gap
- * counts as thin regardless of spacing) so the same budget spans as much of
- * the reference as it can without giving up full coverage.
+ * Cells that hold the target sampling density on a single grid page.
+ * Also the divisor for the step: 48 cells is what one 4x12 page fits.
+ */
+const SAMPLE_DENSITY_CELLS = 48;
+
+/**
+ * Ceiling on total sampled cells for the automatic 'sample' step, spread
+ * across as many grid pages as it takes. This is deliberately far above
+ * SAMPLE_DENSITY_CELLS: the step is chosen for density, so a long reference
+ * needs more than one page to reach its end. Holding the budget at one page
+ * while clamping the step to the thin-gap threshold limited every reference
+ * over SAMPLE_DENSITY_CELLS * DEFAULT_THIN_GAP_MS (96s) to its opening
+ * stretch, and the evidence range still claimed the full runtime — so the
+ * reading described half a video as if it were the whole thing.
+ */
+export const SAMPLE_CELL_CEILING = 240;
+
+/**
+ * Target step for the automatic 'sample' step: fine enough that no gap
+ * between neighbouring cells counts as thin, widened for long references so
+ * a single page's worth of cells still spans as much as spacing allows.
+ * Coverage past that comes from extra pages, not a coarser step.
  */
 export function sampleStepEveryMs(
   durationMs: number,
@@ -555,20 +569,23 @@ const defaultHandlers: Record<
       return { artifactIds: ['evidence'], note: 'Coarse evidence reused.' };
     }
     const durationMs = ctx.reference.durationMs;
-    const maxCells = 48;
-    const everyMs = sampleStepEveryMs(durationMs, maxCells);
+    const everyMs = sampleStepEveryMs(durationMs, SAMPLE_DENSITY_CELLS);
     const columns = 4;
     const result = await buildEvidence(ctx.projectId, ctx.reference.id, {
       everyMs,
       columns,
-      maxCells,
+      maxCells: SAMPLE_CELL_CEILING,
     });
     const endSec = (durationMs / 1000).toFixed(0);
+    const coveredSec = (result.item.range.endMs / 1000).toFixed(0);
     const stepSec = (everyMs / 1000).toFixed(1);
     const pages = result.item.grid?.pages ?? 1;
+    const rows = result.item.grid?.rows ?? 3;
+    // Report coverage achieved, not requested: the note is what the agent
+    // reads to decide whether it needs denser evidence.
     return {
       artifactIds: [result.item.id],
-      note: `sampling 0–${endSec} s at ${stepSec} s into a ${columns}×${result.item.grid?.rows ?? 3} grid (page 1 of ${pages}, ${result.sampledAtMs.length}/${maxCells} cell cap)`,
+      note: `sampled 0–${coveredSec} s of ${endSec} s at ${stepSec} s into ${columns}×${rows} grids (${pages} page${pages === 1 ? '' : 's'}, ${result.sampledAtMs.length}/${SAMPLE_CELL_CEILING} cells)`,
     };
   },
   async read(ctx) {

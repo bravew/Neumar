@@ -14,6 +14,7 @@ import {
   executeReferenceRun,
   readReferenceRun,
   resumeReferenceRun,
+  SAMPLE_CELL_CEILING,
   sampleStepEveryMs,
   startReferenceRun,
   type ReferenceRunStepHandlers,
@@ -272,6 +273,31 @@ describe('sampleStepEveryMs', () => {
     // cells regardless of spacing — clamping to 2000ms still maximizes what
     // this budget can cover instead of spreading out into an all-thin grid.
     expect(sampleStepEveryMs(600_000, 48)).toBe(2000);
+  });
+});
+
+describe('sample cell ceiling', () => {
+  it('can hold a full sweep of the reference the step produces', () => {
+    // The regression: the budget was one page (48 cells) while the step was
+    // clamped to the thin-gap threshold, so any reference over
+    // 48 * 2000ms = 96s was sampled only to 96s. The ceiling has to cover the
+    // cells the chosen step actually needs.
+    for (const durationMs of [186_642, 112_600, 300_000]) {
+      const everyMs = sampleStepEveryMs(durationMs, 48);
+      const cellsNeeded = Math.ceil(durationMs / everyMs) + 1;
+      expect(SAMPLE_CELL_CEILING).toBeGreaterThanOrEqual(cellsNeeded);
+    }
+  });
+
+  it('leaves the truncation honest past what it can cover', () => {
+    // A 30-minute reference still exceeds the ceiling. That is allowed — what
+    // must not happen is the evidence range claiming coverage it lacks, which
+    // planEvidenceSampling now narrows.
+    const durationMs = 1_800_000;
+    const everyMs = sampleStepEveryMs(durationMs, 48);
+    expect(Math.ceil(durationMs / everyMs) + 1).toBeGreaterThan(
+      SAMPLE_CELL_CEILING,
+    );
   });
 });
 
