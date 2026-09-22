@@ -138,6 +138,21 @@ describe('planEvidenceSampling', () => {
     expect(plan.range).toEqual({ startMs: 0, endMs: 94_000 });
   });
 
+  it('marks a ceiling that stops one step short of the last seekable frame as truncated', () => {
+    // 0–10500 at a 2s step with five cells lands on 8000. lastSeekableMs is
+    // 10000, exactly one step past the cap, so slack of one step used to
+    // report the requested 10500.
+    const plan = planEvidenceSampling({
+      range: { startMs: 0, endMs: 10_500 },
+      everyMs: 2000,
+      maxCells: 5,
+    });
+
+    expect(plan.sampledAtMs).toEqual([0, 2000, 4000, 6000, 8000]);
+    expect(plan.truncated).toBe(true);
+    expect(plan.range).toEqual({ startMs: 0, endMs: 8000 });
+  });
+
   it('does not call a complete sweep truncated', () => {
     // Sampling stops at endMs - 500 by design, which must not read as a gap.
     const plan = planEvidenceSampling({

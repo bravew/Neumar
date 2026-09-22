@@ -80,9 +80,10 @@ export function planEvidenceSampling(input: {
   }
 
   const covered = sampledAtMs[sampledAtMs.length - 1] ?? requested.startMs;
-  // One step of slack: sampling stops at `endMs - 500`, so a full sweep lands
-  // short of `endMs` by design and must not count as truncated.
-  const truncated = covered < lastSeekableMs - everyMs;
+  // A sweep with cells left always appends lastSeekableMs, so landing short
+  // of it means the ceiling stopped the loop. The 500ms inset is already
+  // inside lastSeekableMs and must not be treated as a gap.
+  const truncated = covered < lastSeekableMs;
   return {
     sampledAtMs,
     range: truncated
