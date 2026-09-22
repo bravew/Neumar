@@ -76,9 +76,12 @@ overrides:
   # vulnerable range. Vertex is transitive-only (unused by this app), so the
   # major bump to 6.28.0 has no reachable code path to regress.
   'undici@<6.28.0': '6.28.0'
-  # GHSA-xcpc-8h2w-3j85 — adm-zip 4GB zip-bomb memory allocation, bundled by
-  # onnxruntime-node (unpacks native binaries at install time).
-  adm-zip: '^0.6.0'
+  # GHSA-xcpc-8h2w-3j85 and GHSA-7q85-xj36-vmfc — adm-zip allocates from the
+  # declared uncompressed size before validating it. Bundled by onnxruntime-node
+  # (unpacks native binaries at install time) and hyperframes. Raised the floor
+  # to 0.6.1 on 2026-09-22: 0.6.0 still matches GHSA-7q85-xj36-vmfc, and pnpm
+  # does not re-resolve inside an already-satisfied range.
+  adm-zip: '^0.6.1'
   # GHSA-rgj7-g3m4-5g8c — sharp <0.35.4 includes vulnerable libheif builds.
   # Keep direct and transitive copies on the patched release.
   sharp: '^0.35.4'
