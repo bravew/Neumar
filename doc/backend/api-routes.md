@@ -947,6 +947,37 @@ Dynamic MCP server management for active sessions. All routes require an active 
 | `POST` | `/mcp/runtime/reconnect` | Reconnect a failed MCP server                  |
 | `GET`  | `/mcp/runtime/status`    | Get all MCP server statuses for active session |
 
+## Inbound MCP Server
+
+The local stdio MCP adapter calls this daemon surface on loopback. `status` and
+`install-info` are safe for the Settings UI; every `/mcp/server/*` command route
+requires the bridge bearer secret and is additionally controlled by the inbound
+MCP feature flags.
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/mcp/server/status` | Return daemon reachability, API version, and inbound-MCP flag state. |
+| `GET` | `/mcp/server/install-info` | Return generated Codex and Claude Code launch/install commands without a secret. |
+| `GET` | `/mcp/server/projects` | List library projects. |
+| `GET` | `/mcp/server/projects/:id` | Get one project by UUID or a unique name. |
+| `POST` | `/mcp/server/projects` | Create a project when inbound writes are enabled. |
+| `GET` | `/mcp/server/tasks` | List tasks with supported filters. |
+| `GET` | `/mcp/server/tasks/search` | Search task titles and prompts. |
+| `GET` | `/mcp/server/tasks/:id` | Get a task, with bounded optional messages and files. |
+| `GET` | `/mcp/server/tasks/:id/run-tree` | Return the durable agent-run tree for a task. |
+| `POST` | `/mcp/server/tasks` | Create a task when inbound writes are enabled. |
+| `PATCH` | `/mcp/server/tasks/:id` | Update a task when inbound writes are enabled. |
+| `POST` | `/mcp/server/tasks/:id/comments` | Add a task comment when inbound writes are enabled. |
+| `POST` | `/mcp/server/runs` | Start a durable agent run when inbound agent runs are enabled. |
+| `GET` | `/mcp/server/runs/:id` | Get a durable agent-run status when inbound agent runs are enabled. |
+| `POST` | `/mcp/server/runs/:id/cancel` | Request cooperative cancellation when inbound agent runs are enabled. |
+
+Write calls require caller-supplied idempotency request IDs. The route layer
+rejects credential-shaped input, validates every request against the public MCP
+schemas, limits paginated data, and records allow/block audit events. The
+adapter’s public tool names and JSON schemas are defined in
+`shared/mcp/public-server/catalog.ts` and `schemas.ts`.
+
 ## Health
 
 | Method | Path                                        | Description                      |
