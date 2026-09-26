@@ -7,8 +7,11 @@ import { promisify } from 'node:util';
 
 import { buildPiRpcArgs } from '@/extensions/agent/pi-local/rpc';
 
+import { fetchClaudeSupportedModels } from './claude-model-probe.js';
 import {
   DEFAULT_MODEL_OPTION,
+  parseClaudeSupportedModels,
+  parseCodexModelCatalog,
   parseCursorAgentModels,
   parseLineSeparatedModels,
   parsePiModels,
@@ -383,6 +386,10 @@ export const AGENT_DEFS: AgentRuntimeDef[] = [
       '--include-partial-messages': 'partialMessages',
       '--add-dir': 'addDir',
     },
+    // Live catalog from the CLI itself (SDK `supportedModels()`), so new
+    // Claude models appear without a code change; fallbackModels only apply
+    // when the probe fails (old CLI, offline, timeout).
+    fetchModels: fetchClaudeSupportedModels,
     fallbackModels: [
       DEFAULT_MODEL_OPTION,
       { id: 'best', label: 'Best (alias)' },
@@ -449,6 +456,13 @@ export const AGENT_DEFS: AgentRuntimeDef[] = [
     name: 'Codex CLI',
     bin: 'codex',
     versionArgs: ['--version'],
+    // `codex debug models` renders the CLI's own (remotely refreshed) model
+    // catalog as JSON; CLIs without the subcommand fall back below.
+    listModels: {
+      args: ['debug', 'models'],
+      parse: parseCodexModelCatalog,
+      timeoutMs: 10_000,
+    },
     fallbackModels: [
       DEFAULT_MODEL_OPTION,
       { id: 'gpt-5.5', label: 'gpt-5.5' },
@@ -918,6 +932,8 @@ export function getAgentDef(id: string): AgentRuntimeDef | null {
 // Re-export utilities so consumers can hit a single import point.
 export {
   clampCodexReasoning,
+  parseClaudeSupportedModels,
+  parseCodexModelCatalog,
   parseCursorAgentModels,
   parseLineSeparatedModels,
   parsePiModels,

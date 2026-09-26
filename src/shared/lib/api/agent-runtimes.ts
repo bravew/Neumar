@@ -17,6 +17,8 @@ export type StreamFormat =
 export interface ModelOption {
   id: string;
   label: string;
+  /** Runtime-provided one-line summary (discovered models only). */
+  description?: string;
   source?: 'fallback' | 'discovered' | 'configured';
   availability?: 'available' | 'unavailable' | 'unknown';
   unavailableReason?: string;

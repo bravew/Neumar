@@ -82,6 +82,9 @@ function runtimeModelToProviderOption(
   return {
     ...runtimeModelToModelOption(runtime, model, undefined, unavailableLabel),
     id: runtime.id === 'codex' ? `codex:${model.id}` : model.id,
+    // Claude/Codex rows sit under their own group header, so the runtime's
+    // summary replaces the runtime name as the row subtitle when it has one.
+    description: model.description ?? runtime.name,
     provider: runtime.id as ModelOption['provider'],
   };
 }
