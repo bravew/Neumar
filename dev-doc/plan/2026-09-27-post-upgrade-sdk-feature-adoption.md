@@ -37,7 +37,13 @@ Decisions confirmed with the user on 2026-09-27:
 3. The GitHub issues are created only after the user approves this plan.
    Approved; created as epic #78 and issues #62–#77.
 4. C1: runs without an approver deny by default (`permissionPrompts: 'none'`).
-   C4 (fork UX) and C6 (Stop semantics) are still open (`needs-decision`).
+5. C4: follow Pi, Claude Code and Codex. Keep Neumar's existing in-place
+   branch UI (edit, regenerate, fork from here). Give each Claude branch its
+   own SDK session via `forkSession({ upToMessageId })`, persisted with a DB
+   migration, with text history as the fallback for other runtimes. File
+   restore (`rewindFiles`) is a separate, explicit action.
+6. C6: Stop stops background agents too. `perTaskStopAffordance` stays off,
+   and a regression test covers it.
 
 ## Sources
 
@@ -291,17 +297,25 @@ within a checkpoint run in parallel.
 - Verify: mapper unit tests using recorded SDK messages for each signal;
   frontend tests for the notice and rate-limit rendering.
 
-**C4 (#74) · `feat(chat): fork a conversation from a message`**
-- Use `forkSession` / `forkSession({ upToMessageId })` and
-  `getSessionMessages()` (fixed in 0.3.275 and 0.3.283) to offer "branch from
-  here". Check whether `src/shared/lib/message-tree.ts` branching already
-  models this before adding UI. Pair it with the existing `rewindFiles` for
-  file state, since a fork does not branch the filesystem (see the sessions
-  docs).
-- Needs a UX confirmation in the issue: where the entry point lives, and how
-  a fork appears in the thread list.
-- Verify: an API test forking a recorded session, and frontend tests for the
-  thread tree.
+**C4 (#74) · `feat(chat): back conversation branches with forked SDK sessions`**
+- Finding: branching UI already exists (`useBranchActions.ts`,
+  `message-tree.ts`, `app/api/branches.ts`), but a branch run rebuilds context
+  as plain text (`app/api/ag-ui.ts:996-1019`). It loses tool history and
+  prompt-cache reuse.
+- Practice researched: Pi `/tree` (an in-place tree with optional
+  `branch_summary`), Claude Code `/rewind` (Restore code and conversation /
+  conversation / code) and `/branch`, and Codex `Esc Esc` backtrack plus
+  `/fork` (files stay as they are). What they share: branch in place from
+  an edited user message, always keep the original, make file restore an
+  explicit choice.
+- Scope: one forked SDK session per branch (`forkSession({ upToMessageId })`
+  then `resume`, mapping persisted by migration). Text-history fallback for
+  Codex and other runtimes. An optional "Fork and restore files" action
+  using `rewindFiles`. Composer refill. Six locales.
+- Out of scope: branch summaries, "open branch as a new task", and non-Claude
+  forks.
+- Verify: API tests for fork, resume, and fallback; a migration test; frontend
+  tests.
 
 **C5 (#75) · `perf(agent): measure and cut Claude first-turn latency`**
 - Measure first with `CLAUDE_CODE_EMIT_STARTUP_TIMING=1` (0.3.274, the
@@ -320,10 +334,10 @@ within a checkpoint run in parallel.
 - Set `createSdkMcpServer({ timeout })` (0.3.248) for long-running in-process
   servers (`video-edit`, `ffmpeg`, `media`, `speech`) instead of relying on
   the global `MCP_TOOL_TIMEOUT`.
-- Evaluate `perTaskStopAffordance` (0.3.246): Stop aborts the current turn but
-  keeps background agents running. Decide with the user whether that matches
-  the Stop button's meaning. Filter `ambient` tasks out of activity
-  indicators (0.3.247).
+- Stop must stop background agents too (decision recorded). Leave
+  `perTaskStopAffordance` off. Add a regression test showing that Stop ends
+  background sub-agents and Bash tasks and clears the indicator. Filter
+  `ambient` tasks out of activity indicators (0.3.247).
 - Add `omitClaudeMd` (0.3.271) to agent-profile sub-agents that should not
   inherit the user's CLAUDE.md.
 - Files: `src-api/src/shared/mcp/*-server.ts` factories, and the agent-profile
@@ -377,8 +391,7 @@ Wave 2: X2, X3, X4 after X1 merges; C1–C7 after WS0 merges.
 - Hotspot rules from the throughput checkpoint are binding. An agent that
   needs more than wiring in `claude/index.ts` or `codex/index.ts` outside its
   ownership stops and comments on the issue instead of widening scope.
-- Issues marked **needs decision** (C1 headless policy, C4 UX, C6 Stop
-  semantics) get the decision recorded on the issue before an agent starts.
+- Decisions for C1, C4 and C6 are recorded on their issues (2026-09-27).
 - No agent bumps dependencies except WS0. Lockfile changes outside WS0 are a
   review failure.
 - Before a PR is opened, the coordinator reviews the diff. Merge order within
