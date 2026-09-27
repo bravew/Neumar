@@ -127,12 +127,12 @@
     "video:sidecar-probe": "node scripts/video-sidecar-probe.mjs"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.58",
-    "@ag-ui/core": "^0.0.58",
-    "@assistant-ui/react": "^0.15.16",
-    "@assistant-ui/react-markdown": "^0.14.12",
-    "@copilotkit/react-core": "^1.69.0",
-    "@copilotkit/shared": "^1.69.0",
+    "@ag-ui/client": "^0.0.59",
+    "@ag-ui/core": "^0.0.59",
+    "@assistant-ui/react": "^0.15.22",
+    "@assistant-ui/react-markdown": "^0.14.17",
+    "@copilotkit/react-core": "^1.74.0",
+    "@copilotkit/shared": "^1.74.0",
     "@neumar/video-ir": "workspace:*",
     "@openai/codex-sdk": "0.149.0",
     "@phosphor-icons/react": "^2.1.10",
