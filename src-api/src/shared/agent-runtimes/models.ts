@@ -113,11 +113,19 @@ export function parseCodexModelCatalog(stdout: string): ModelOption[] | null {
     if (typeof model.context_window === 'number' && model.context_window > 0) {
       option.contextWindowTokens = model.context_window;
     }
-    if (model.input_modalities?.includes('image')) {
+    if (
+      Array.isArray(model.input_modalities) &&
+      model.input_modalities.includes('image')
+    ) {
       option.capabilityTags = ['chat', 'vision'];
     }
-    const efforts = (model.supported_reasoning_levels ?? [])
-      .map((level) => level.effort)
+    const levels = Array.isArray(model.supported_reasoning_levels)
+      ? model.supported_reasoning_levels
+      : [];
+    const efforts = levels
+      .map((level) =>
+        level && typeof level === 'object' ? level.effort : undefined,
+      )
       .filter((effort): effort is string => typeof effort === 'string');
     if (efforts.length > 0) option.compatibleReasoningTiers = efforts;
     out.push(option);

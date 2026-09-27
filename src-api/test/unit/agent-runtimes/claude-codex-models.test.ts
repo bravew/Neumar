@@ -155,6 +155,41 @@ describe('parseCodexModelCatalog', () => {
     expect(parseCodexModelCatalog('{"models":[]}')).toBeNull();
     expect(parseCodexModelCatalog('null')).toBeNull();
   });
+
+  it('keeps otherwise-valid rows when a row has malformed capability fields', () => {
+    const catalog = JSON.stringify({
+      models: [
+        {
+          slug: 'gpt-5.5',
+          display_name: 'GPT-5.5',
+          visibility: 'list',
+          priority: 1,
+          input_modalities: ['text', 'image'],
+          supported_reasoning_levels: [{ effort: 'high' }],
+        },
+        {
+          slug: 'malformed-model',
+          display_name: 'Malformed',
+          visibility: 'list',
+          priority: 2,
+          // Not the declared shape: a live CLI catalog is untrusted input.
+          input_modalities: 'text',
+          supported_reasoning_levels: [null, 'high', { effort: 'medium' }],
+        },
+      ],
+    });
+    const models = parseCodexModelCatalog(catalog);
+    expect(models?.map((m) => m.id)).toEqual([
+      'default',
+      'gpt-5.5',
+      'malformed-model',
+    ]);
+    expect(models?.find((m) => m.id === 'malformed-model')).toEqual({
+      id: 'malformed-model',
+      label: 'Malformed',
+      compatibleReasoningTiers: ['medium'],
+    });
+  });
 });
 
 describe('runtime defs discover live models', () => {
