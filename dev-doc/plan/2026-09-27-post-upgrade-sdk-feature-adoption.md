@@ -35,6 +35,9 @@ Decisions confirmed with the user on 2026-09-27:
    track covers key app libraries (React 19.3, CopilotKit/AG-UI, Tauri 2.12).
    Remotion, HyperFrames, and react-pdf are out of scope.
 3. The GitHub issues are created only after the user approves this plan.
+   Approved; created as epic #78 and issues #62–#77.
+4. C1: runs without an approver deny by default (`permissionPrompts: 'none'`).
+   C4 (fork UX) and C6 (Stop semantics) are still open (`needs-decision`).
 
 ## Sources
 
@@ -122,7 +125,7 @@ within a checkpoint run in parallel.
 
 ### CP1 — Unblock Claude agent SDK 0.3.283 (blocking, serial)
 
-**WS0 · `fix(deps): upgrade claude-agent-sdk to 0.3.283 with Zod-safe MCP tool schemas`**
+**WS0 (#62) · `fix(deps): upgrade claude-agent-sdk to 0.3.283 with Zod-safe MCP tool schemas`**
 
 - **Why:** everything in CP4–CP5 needs it. The #61 PR body describes the break:
   0.3.283's `createSdkMcpServer` walks `Object.values(inputSchema)` as a raw
@@ -156,7 +159,7 @@ within a checkpoint run in parallel.
 
 ### CP2 — Codex track (parallel with CP1)
 
-**X1 · `feat(codex): stream item.started/item.updated and render todo_list`** (F4)
+**X1 (#63) · `feat(codex): stream item.started/item.updated and render todo_list`** (F4)
 - Handle `item.started` and `item.updated` for `command_execution` (live
   aggregated output), `reasoning`, `mcp_tool_call`, and `web_search`. Map
   `todo_list` onto the same AG-UI shape the Claude `TodoWrite` path renders,
@@ -168,21 +171,21 @@ within a checkpoint run in parallel.
   mapper, including interrupted and failed turns;
   `pnpm test:api test/unit/agent/`.
 
-**X2 · `feat(codex): honor outputFormat via TurnOptions.outputSchema`** (F5)
+**X2 (#68) · `feat(codex): honor outputFormat via TurnOptions.outputSchema`** (F5)
 - Pass `options.outputFormat.schema` as `outputSchema` on `runStreamed`.
   Where callers hold Zod schemas, derive JSON Schema with Zod 4's
   `z.toJSONSchema()`. Do not add `zod-to-json-schema`.
 - Verify: a unit test asserting that `outputSchema` reaches the turn options,
   and a structured-output caller test that parses the final agent message.
 
-**X3 · `feat(codex): forward user images as local_image input`** (F6)
+**X3 (#69) · `feat(codex): forward user images as local_image input`** (F6)
 - Reuse the Claude adapter's `saveImagesToDisk` session-dir flow and build
   `UserInput[]` (`text` + `local_image`). Keep path validation through
   `path-validator.ts`.
 - Verify: a unit test for the input builder; a manual smoke test attaching an
   image to a Codex task.
 
-**X4 · `feat(agent-runtimes): Codex GPT-6 models, persistent effort, cache-write usage`** (F7, F8)
+**X4 (#70) · `feat(agent-runtimes): Codex GPT-6 models, persistent effort, cache-write usage`** (F7, F8)
 - Add GPT-6 Sol/Luna/Astra to `fallbackModels`. Make sure
   `parseCodexModelCatalog` handles their entries from `codex debug models`.
   Extend `reasoningOptions` and `clampCodexReasoning` for `max`/`ultra`/
@@ -194,7 +197,7 @@ within a checkpoint run in parallel.
   `codex/index.ts` usage mapper, and the model picker locales if labels change.
 - Verify: `pnpm test:api test/unit/agent-runtimes/`.
 
-**X5 · `feat(codex): per-tool output limits for bridged MCP servers`**
+**X5 (#64) · `feat(codex): per-tool output limits for bridged MCP servers`**
 - The CLI (0.152) supports a per-tool `output_token_limit`, and (0.151) an
   optional-MCP discovery grace period. Set limits for the heavy
   `video-edit`/`assets` bridge tools in the subprocess-bridge `codexConfig`.
@@ -206,7 +209,7 @@ within a checkpoint run in parallel.
 
 ### CP3 — Anthropic direct-API and app libraries (parallel with CP1)
 
-**A1 · `chore(api): adopt @anthropic-ai/sdk 0.128 for direct Messages callers`**
+**A1 (#65) · `chore(api): adopt @anthropic-ai/sdk 0.128 for direct Messages callers`**
 - Callers: `title-generator`, `auto-classifier`, `skill-extractor`,
   `dispatch-summary`, `video/image-analysis`, `automation/engine`, and `ptc`.
   Audit model IDs against the provider registry, including `claude-opus-5-5`.
@@ -216,7 +219,7 @@ within a checkpoint run in parallel.
   unless a caller has a concrete bug.
 - Verify: the existing unit tests for each caller, plus `pnpm test:api`.
 
-**R1 · `feat(ui): use React 19.3 <ViewTransition> for route and panel transitions`**
+**R1 (#66) · `feat(ui): use React 19.3 <ViewTransition> for route and panel transitions`**
 - `<ViewTransition>` and `addTransitionType` are now stable. Apply them to
   route changes and the task/right-sidebar panel swaps, and respect
   `prefers-reduced-motion`. No `unstable_` imports exist today, so nothing
@@ -224,7 +227,7 @@ within a checkpoint run in parallel.
 - Verify: `pnpm test` for the touched components, `pnpm validate`
   (component-size check), and a manual pass in `pnpm dev:both-web`.
 
-**R2 · `spike: CopilotKit 1.74 / AG-UI 0.0.59 and Tauri 2.12 adoption review`**
+**R2 (#67) · `spike: CopilotKit 1.74 / AG-UI 0.0.59 and Tauri 2.12 adoption review`**
 - Timeboxed, research only. Read the CopilotKit 1.70–1.74 notes against
   `src/shared/providers/agui-provider.tsx`. 1.74's "stop per-message state
   cloning and the virtual-scroll tug of war" may let us remove local
@@ -234,7 +237,7 @@ within a checkpoint run in parallel.
 
 ### CP4 — Claude: safety and permissions (after CP1; C1 and C3 in parallel)
 
-**C1 · `fix(agent): stop headless auto-approval and shadowed canUseTool`** (F1, F2)
+**C1 (#71) · `fix(agent): stop headless auto-approval and shadowed canUseTool`** (F1, F2)
 - **Needs a product decision in the issue before coding:** what a run with no
   approver should do. Recommended default: pass
   `permissionPrompts: 'none'` (0.3.259) for runs without a `taskId`, so
@@ -256,7 +259,7 @@ within a checkpoint run in parallel.
 - Verify: unit tests for headless deny, scoped allow, and shadow-warning
   absence; `pnpm test src/__tests__/…permission…`; `pnpm validate`.
 
-**C3 · `feat(channels): send channel and automation prompts verbatim`**
+**C3 (#73) · `feat(channels): send channel and automation prompts verbatim`**
 - Set `verbatimPrompts: true` (0.3.280) for prompts that come from channels
   (Slack, Discord, Telegram, Lark, and the gateway channels) and from
   schedules. This stops remote users from triggering `@path` file expansion
@@ -269,7 +272,7 @@ within a checkpoint run in parallel.
 
 ### CP5 — Claude: streaming, sessions, runtime (after CP1; C2, C4, C5, C6 in parallel)
 
-**C2 · `feat(agent): surface new Claude SDK stream signals`** (F9; the only issue that edits the message switch)
+**C2 (#72) · `feat(agent): surface new Claude SDK stream signals`** (F9; the only issue that edits the message switch)
 - User-visible: `system/informational` warnings → notice rows. `api_retry`
   and `rate_limit_event` `rejected`/`resetsAt` → `useRateLimit` /
   `RateLimitIndicator`. `startup_failure_reason` → an actionable error.
@@ -288,7 +291,7 @@ within a checkpoint run in parallel.
 - Verify: mapper unit tests using recorded SDK messages for each signal;
   frontend tests for the notice and rate-limit rendering.
 
-**C4 · `feat(chat): fork a conversation from a message`**
+**C4 (#74) · `feat(chat): fork a conversation from a message`**
 - Use `forkSession` / `forkSession({ upToMessageId })` and
   `getSessionMessages()` (fixed in 0.3.275 and 0.3.283) to offer "branch from
   here". Check whether `src/shared/lib/message-tree.ts` branching already
@@ -300,7 +303,7 @@ within a checkpoint run in parallel.
 - Verify: an API test forking a recorded session, and frontend tests for the
   thread tree.
 
-**C5 · `perf(agent): measure and cut Claude first-turn latency`**
+**C5 (#75) · `perf(agent): measure and cut Claude first-turn latency`**
 - Measure first with `CLAUDE_CODE_EMIT_STARTUP_TIMING=1` (0.3.274, the
   per-phase `startup_timing`). Then evaluate, in order:
   `CLAUDE_CODE_MCP_STARTUP_WAIT_MS` for first-turn MCP waits; the in-process
@@ -313,7 +316,7 @@ within a checkpoint run in parallel.
 - Verify: before/after timing numbers in the PR, and `pnpm build:api` size
   delta.
 
-**C6 · `feat(mcp): per-server timeouts and interrupt semantics`**
+**C6 (#76) · `feat(mcp): per-server timeouts and interrupt semantics`**
 - Set `createSdkMcpServer({ timeout })` (0.3.248) for long-running in-process
   servers (`video-edit`, `ffmpeg`, `media`, `speech`) instead of relying on
   the global `MCP_TOOL_TIMEOUT`.
@@ -329,7 +332,7 @@ within a checkpoint run in parallel.
 
 ### CP6 — Claude: MCP Apps spike (after CP1, optional)
 
-**C7 · `spike: render MCP Apps ui:// resources in generative UI`**
+**C7 (#77) · `spike: render MCP Apps ui:// resources in generative UI`**
 - Explore whether 0.3.280 `mcpServerStatus()` tool `_meta` and alpha
   `readMcpResource()` can feed the existing generative-UI/artifact surface.
   This is research only; it produces a go/no-go and a follow-up issue.
@@ -381,7 +384,7 @@ Wave 2: X2, X3, X4 after X1 merges; C1–C7 after WS0 merges.
 - Before a PR is opened, the coordinator reviews the diff. Merge order within
   a file hotspot follows the dependency graph.
 
-## GitHub issue layout (created after approval)
+## GitHub issue layout (created 2026-09-27: epic #78, issues #62–#77)
 
 - One tracking epic: "Adopt features from the 2026-09 dependency upgrade",
   with a task list linking every issue and the dependency graph above.
