@@ -25,10 +25,11 @@ overrides:
   # Transitive consistency — keep markdown ecosystem on a single major.
   unified: '^11.0.5'
   # Hold AG-UI runtime to the version our app integrates against.
-  # Raised to 0.0.58 2026-08-21 (G7) alongside the direct-dep bump.
-  '@ag-ui/client': '^0.0.58'
-  '@ag-ui/core': '^0.0.58'
-  '@ag-ui/encoder': '^0.0.58'
+  # Raised to 0.0.59 2026-09-27 (G7) to match @copilotkit/* 1.74's exact pin.
+  # @ag-ui 1.0 is held: CopilotKit still depends on 0.0.59.
+  '@ag-ui/client': '^0.0.59'
+  '@ag-ui/core': '^0.0.59'
+  '@ag-ui/encoder': '^0.0.59'
   # Force-bump Slack Web API to keep transitive Bolt deps on the same minor.
   # Raised to 8.x 2026-08-08 alongside the @slack/bolt 5.x major (G10).
   '@slack/web-api': '^8.0.0'
@@ -103,7 +104,6 @@ overrides:
   # GHSA-2883-xcg3-v3hh — transitive via cosmiconfig under @remotion/cli's
   # @svgr/core and @remotion/tailwind.
   js-yaml: '^4.3.2'
-
 peerDependencyRules:
   allowedVersions:
     # tailwindcss-animate has not widened its peer range text for Tailwind 4,
@@ -169,3 +169,4 @@ minimumReleaseAgeExclude:
   - '@remotion/media@4.0.515'
   - '@remotion/effects@4.0.515'
   - ws@8.22.0
+  - react-resizable-panels@4.14.1

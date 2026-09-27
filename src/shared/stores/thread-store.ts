@@ -82,6 +82,12 @@ export const THREAD_STORE_IGNORED_EVENT_TYPES = new Set<string>([
   EventType.REASONING_START,
   EventType.REASONING_END,
   EventType.REASONING_ENCRYPTED_VALUE,
+  // First-class in AG-UI 0.0.59. Previously shipped as EventType.CUSTOM
+  // (neuma.subagent_*). Thread store still ignores them; reducing them into
+  // the message tree is a follow-up, not this sweep.
+  EventType.SUBAGENT_STARTED,
+  EventType.SUBAGENT_FINISHED,
+  EventType.SUBAGENT_ERROR,
 ]);
 
 export interface TaskFile {
