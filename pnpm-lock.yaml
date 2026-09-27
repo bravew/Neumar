@@ -9,7 +9,7 @@ overrides:
   '@ag-ui/client': ^0.0.58
   '@ag-ui/core': ^0.0.58
   '@ag-ui/encoder': ^0.0.58
-  '@slack/web-api': ^8.0.0
+  '@slack/web-api': ^8.1.1
   lodash: ^4.18.1
   lodash-es: ^4.18.1
   path-to-regexp@<0.1.13: 0.1.13
@@ -106,11 +106,11 @@ importers:
         specifier: ^0.0.30
         version: 0.0.30
       '@slack/bolt':
-        specifier: ^5.0.0
-        version: 5.0.0(@types/express@5.0.6)(supports-color@10.2.2)(undici@7.29.0)
+        specifier: ^5.1.0
+        version: 5.1.0(@types/express@5.0.6)(supports-color@10.2.2)(undici@7.29.0)
       '@slack/web-api':
-        specifier: ^8.0.0
-        version: 8.0.0
+        specifier: ^8.1.1
+        version: 8.1.1
       '@streamdown/cjk':
         specifier: ^1.0.3
         version: 1.0.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2(supports-color@10.2.2))(react@19.2.8)(unified@11.0.5)
@@ -403,13 +403,13 @@ importers:
         version: 1.69.0(@anthropic-ai/sdk@0.120.0(zod@4.5.4))(@cfworker/json-schema@4.1.1)(@langchain/core@1.2.8(@opentelemetry/api@1.9.1)(openai@7.5.0(ws@8.21.3)(zod@4.5.4))(ws@8.21.3))(@langchain/langgraph-sdk@1.9.29(@langchain/core@1.2.8(@opentelemetry/api@1.9.1)(openai@7.5.0(ws@8.21.3)(zod@4.5.4))(ws@8.21.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@opentelemetry/api@1.9.1)(@types/express@5.0.6)(debug@4.4.3(supports-color@10.2.2))(langchain@1.5.9(@langchain/core@1.2.8(@opentelemetry/api@1.9.1)(openai@7.5.0(ws@8.21.3)(zod@4.5.4))(ws@8.21.3))(@opentelemetry/api@1.9.1)(openai@7.5.0(ws@8.21.3)(zod@4.5.4))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(ws@8.21.3))(openai@7.5.0(ws@8.21.3)(zod@4.5.4))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@10.2.2)(vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(jsdom@30.0.1)(vite@8.2.2(@types/node@25.9.3)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0)))
       '@grammyjs/auto-retry':
         specifier: ^2.0.2
-        version: 2.0.2(grammy@1.45.1(supports-color@10.2.2))(supports-color@10.2.2)
+        version: 2.0.2(grammy@1.46.0(supports-color@10.2.2))(supports-color@10.2.2)
       '@grammyjs/runner':
         specifier: ^2.0.3
-        version: 2.0.3(grammy@1.45.1(supports-color@10.2.2))
+        version: 2.0.3(grammy@1.46.0(supports-color@10.2.2))
       '@grammyjs/transformer-throttler':
         specifier: ^1.2.1
-        version: 1.2.1(grammy@1.45.1(supports-color@10.2.2))
+        version: 1.2.1(grammy@1.46.0(supports-color@10.2.2))
       '@hono/node-server':
         specifier: ^1.19.15
         version: 1.19.17(hono@4.13.3)
@@ -423,11 +423,11 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0(@types/node@25.9.3)
       '@larksuiteoapi/node-sdk':
-        specifier: ^1.73.0
-        version: 1.73.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
+        specifier: ^1.74.0
+        version: 1.74.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       '@linear/sdk':
-        specifier: ^91.0.0
-        version: 91.0.0(graphql@16.14.2)
+        specifier: ^96.0.0
+        version: 96.0.0(graphql@16.14.2)
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(@cfworker/json-schema@4.1.1)(supports-color@10.2.2)(zod@4.5.4)
@@ -453,8 +453,8 @@ importers:
         specifier: 4.0.522
         version: 4.0.522(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@slack/bolt':
-        specifier: ^5.0.0
-        version: 5.0.0(@types/express@5.0.6)(supports-color@10.2.2)(undici@7.29.0)
+        specifier: ^5.1.0
+        version: 5.1.0(@types/express@5.0.6)(supports-color@10.2.2)(undici@7.29.0)
       '@zed-industries/agent-client-protocol':
         specifier: ^0.4.5
         version: 0.4.5
@@ -474,8 +474,8 @@ importers:
         specifier: ^14.27.0
         version: 14.27.0
       grammy:
-        specifier: ^1.45.1
-        version: 1.45.1(supports-color@10.2.2)
+        specifier: ^1.46.0
+        version: 1.46.0(supports-color@10.2.2)
       hono:
         specifier: ^4.13.3
         version: 4.13.3
@@ -538,8 +538,8 @@ importers:
         specifier: 0.9.1
         version: 0.9.1(supports-color@10.2.2)
       '@slack/types':
-        specifier: ^3.0.0
-        version: 3.0.0
+        specifier: ^3.1.0
+        version: 3.1.0
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
@@ -1842,9 +1842,6 @@ packages:
   '@emnapi/core@1.11.1':
     resolution: {integrity: sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ==}
 
-  '@emnapi/runtime@1.11.1':
-    resolution: {integrity: sha512-vgj7R3y3Wgx24IQaGPA/R6YFXLHVMOZ0uVEyIQPaWs+rd1AzfEMXlAC22FYwO1XkKR6NPsq7mUandH8oIRdZFw==}
-
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
 
@@ -2385,8 +2382,8 @@ packages:
     peerDependencies:
       grammy: ^1.0.0
 
-  '@grammyjs/types@4.0.0':
-    resolution: {integrity: sha512-Z8lDLTvOlo12e5Vnly/vQh3JC9ppaitS1dGZ3w068gNitOd/y8tTSiib+Xm38aBGbtYGmUZwOc6afYrLs2CSTg==}
+  '@grammyjs/types@5.0.0':
+    resolution: {integrity: sha512-iq1Qrq1iPKkB8yAa0qSuIURMZOCuqTY5pWy5gHpCeL1oQ+GPadGhw/cDTVE8waJwuCzacUzuIjRv1sESvk7u7A==}
 
   '@graphql-tools/executor@1.5.7':
     resolution: {integrity: sha512-UcXVClkBml+qyGEsQxfEaAkboqySVGFUd9ivn7pDc9jZSckgF6zL21cNxuRH5ZA2exneV3PTtcc0I0rDOdE0Tg==}
@@ -2719,11 +2716,11 @@ packages:
   '@langchain/protocol@0.0.18':
     resolution: {integrity: sha512-XW1egQtPfsGI41w2AMZNFZrUIwFSQHTjVMZs0OaTpCAvht/QLoaPN8FQcsysMVypOhupG28J29yOorrc70otBQ==}
 
-  '@larksuiteoapi/node-sdk@1.73.0':
-    resolution: {integrity: sha512-gs4EiupJ6RdYAEJGtuYrCVsB7wSMBwtUDK+ilpmOHD6RTvbtciW6AWciQO9coOQVuBZfh7hvAi25dPfCsny/nA==}
+  '@larksuiteoapi/node-sdk@1.74.0':
+    resolution: {integrity: sha512-K2WoGy6x97u2kPPSFsu0v9X8CY+0q4OwO3rhXiOSRXYjGS7ovydFpEH07AS5VYcBnbQCoc5sGezo0IEGVViuoA==}
 
-  '@linear/sdk@91.0.0':
-    resolution: {integrity: sha512-H0pa8J6D4OSL89wZK7xtM7g/JcOjGWfZgeLyvl0RcUfY+arvWVimjMz+XVRxmu2yMLov0eeuRB1z0qIWIrCd9w==}
+  '@linear/sdk@96.0.0':
+    resolution: {integrity: sha512-fkap/239ynKpOat9tzZyOQHBdQbupMCZuqXaCsx747JbBv6duwp4UxZ+p/+Qxr89FTj+xnjocDAv3yHmzsFgfg==}
     engines: {node: '>=18.x'}
 
   '@lit-labs/react@2.1.3':
@@ -4625,8 +4622,8 @@ packages:
     peerDependencies:
       '@types/express': ^5.0.0
 
-  '@slack/bolt@5.0.0':
-    resolution: {integrity: sha512-L0FTzidrDKTu4Ph8sdv0bB3acafBTAC02TBcD+hojPTTNSMX3hSK+rkpkUKkqbbc0vGpSjd6A/g71Rjy7EbBhw==}
+  '@slack/bolt@5.1.0':
+    resolution: {integrity: sha512-lSQzEs/OMDVIbTVb+ZXZa7zsYGvnB1d58CnK55vdYdVeSmHMON1RjSgPf3lGUE9lYhNTUIjbFCrCrsJ1j5SAUA==}
     engines: {node: '>=20', npm: '>=9.6.4'}
     peerDependencies:
       '@types/express': ^5.0.0
@@ -4651,8 +4648,8 @@ packages:
     resolution: {integrity: sha512-qYy07je71WnEHgRwmw12DlAnZLi5HXmdlI2WUzUK2LH/rYXQpP6uEg462S5CwfE8FoCKUdIigHtYnOOfzZH1lQ==}
     engines: {node: '>= 18', npm: '>= 8.6.0'}
 
-  '@slack/socket-mode@3.0.0':
-    resolution: {integrity: sha512-QShO60SB0E+HH+TbcKj3CBEQbodToRyiXnxuSB4t1kvUlqEmuGA1nOOjrRDkDJbOECAZ13PLe4ek9SrntpfoYg==}
+  '@slack/socket-mode@3.0.1':
+    resolution: {integrity: sha512-7L4adgnJtQvQgo5cfIwqHG1QuR8mdZQ/WdMScNDp6uK644ZqnHDAa4rR+vZYfZFdJ5+obCqZQ66Dad8kcwJ4Jg==}
     engines: {node: '>=20', npm: '>=9.6.4'}
     peerDependencies:
       undici: ^7.0.0
@@ -4661,12 +4658,12 @@ packages:
     resolution: {integrity: sha512-sZ9lIgJhPX2qft/tKWiklFlc0o1FWeI7QtciZJfW1+ErH1eGGHvOZ8e73sleTCFEFJp1q/R0WeS8Oa7AsiDprg==}
     engines: {node: '>= 12.13.0', npm: '>= 6.12.0'}
 
-  '@slack/types@3.0.0':
-    resolution: {integrity: sha512-KNOqpnNAlsFt5Jk9XBclslQ0lobRIg/0tnhpmvZJAglHJx9E8oceN8hC3gaBzkR6UzQ9Wzq4rLsJ98wUcxWPfw==}
+  '@slack/types@3.1.0':
+    resolution: {integrity: sha512-bTzqrO3lxJ5iWedo1eJKNAs1koyEhaTwKLJUkD3KETnPeQvD978AAE4jvWstUws8Gbbc4JR6iYE6F7XjE8UGmw==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
-  '@slack/web-api@8.0.0':
-    resolution: {integrity: sha512-ORx3XQryQPq2Jnxv5giSKXVoQRUeylrrymIR2S9fPzLjPcCts8RayMeBSZMcpfpAqp6fnBRuPW2UB6dUPUTEZA==}
+  '@slack/web-api@8.1.1':
+    resolution: {integrity: sha512-am/z/LLbEC7gNQp6FpaGT0l4XnWqcXetpwdgZHzS7Nbb96q9R9QwWA3lo0ZXGuAHDkct0MvFnouzuc2Y4XNmow==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
   '@stablelib/base64@1.0.1':
@@ -5269,6 +5266,9 @@ packages:
 
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
+
+  '@types/retry@0.12.5':
+    resolution: {integrity: sha512-3xSjTp3v03X/lSQLkczaN9UIEwJMoMCA1+Nb5HfbJEQWogdeQIyVtTvxPXDQjZ5zws8rFQfVfRdz03ARihPJgw==}
 
   '@types/semver@7.8.0':
     resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
@@ -6978,8 +6978,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  grammy@1.45.1:
-    resolution: {integrity: sha512-Y4VL/hqJMZZxwlUr5ZgM68CFu2iIeEkNLR1cY3+Ww68CIvWARDsoXFix7+31rmyC0+7L85ZI+Pq3E5JSG5+nLQ==}
+  grammy@1.46.0:
+    resolution: {integrity: sha512-/8Qw+iisrUdOMk+p2mjEHouMm/BBdBEN1DHh16wiTpRUZkxDG3PxexdjCvR+wvK3LWPdrEvnQbdrwpU954sPhg==}
     engines: {node: ^12.20.0 || >=14.13.1}
 
   graphql-query-complexity@0.12.0:
@@ -11952,7 +11952,7 @@ snapshots:
       '@copilotkit/shared': 1.69.0(@ag-ui/core@0.0.58)
       '@slack/bolt': 4.7.3(@types/express@5.0.6)(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       '@slack/types': 2.22.0
-      '@slack/web-api': 8.0.0
+      '@slack/web-api': 8.1.1
       rxjs: 7.8.2
       zod: 3.25.76
       zod-to-json-schema: 3.25.2(zod@3.25.76)
@@ -12431,11 +12431,6 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@emnapi/runtime@1.11.1':
-    dependencies:
-      tslib: 2.8.1
-    optional: true
-
   '@emnapi/runtime@1.11.3':
     dependencies:
       tslib: 2.8.1
@@ -12732,24 +12727,24 @@ snapshots:
       - utf-8-validate
     optional: true
 
-  '@grammyjs/auto-retry@2.0.2(grammy@1.45.1(supports-color@10.2.2))(supports-color@10.2.2)':
+  '@grammyjs/auto-retry@2.0.2(grammy@1.46.0(supports-color@10.2.2))(supports-color@10.2.2)':
     dependencies:
       debug: 4.4.3(supports-color@10.2.2)
-      grammy: 1.45.1(supports-color@10.2.2)
+      grammy: 1.46.0(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
-  '@grammyjs/runner@2.0.3(grammy@1.45.1(supports-color@10.2.2))':
+  '@grammyjs/runner@2.0.3(grammy@1.46.0(supports-color@10.2.2))':
     dependencies:
       abort-controller: 3.0.0
-      grammy: 1.45.1(supports-color@10.2.2)
+      grammy: 1.46.0(supports-color@10.2.2)
 
-  '@grammyjs/transformer-throttler@1.2.1(grammy@1.45.1(supports-color@10.2.2))':
+  '@grammyjs/transformer-throttler@1.2.1(grammy@1.46.0(supports-color@10.2.2))':
     dependencies:
       bottleneck: 2.19.5
-      grammy: 1.45.1(supports-color@10.2.2)
+      grammy: 1.46.0(supports-color@10.2.2)
 
-  '@grammyjs/types@4.0.0': {}
+  '@grammyjs/types@5.0.0': {}
 
   '@graphql-tools/executor@1.5.7(graphql@16.14.2)':
     dependencies:
@@ -13053,7 +13048,7 @@ snapshots:
 
   '@langchain/protocol@0.0.18': {}
 
-  '@larksuiteoapi/node-sdk@1.73.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)':
+  '@larksuiteoapi/node-sdk@1.74.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)':
     dependencies:
       axios: 1.19.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       lodash.identity: 3.0.0
@@ -13068,7 +13063,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@linear/sdk@91.0.0(graphql@16.14.2)':
+  '@linear/sdk@96.0.0(graphql@16.14.2)':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.14.2)
     transitivePeerDependencies:
@@ -13315,7 +13310,7 @@ snapshots:
   '@napi-rs/wasm-runtime@1.0.7':
     dependencies:
       '@emnapi/core': 1.11.1
-      '@emnapi/runtime': 1.11.1
+      '@emnapi/runtime': 1.11.3
       '@tybys/wasm-util': 0.10.2
     optional: true
 
@@ -14946,7 +14941,7 @@ snapshots:
       '@slack/oauth': 3.0.5
       '@slack/socket-mode': 2.0.7
       '@slack/types': 2.22.0
-      '@slack/web-api': 8.0.0
+      '@slack/web-api': 8.1.1
       '@types/express': 5.0.6
       axios: 1.19.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       express: 5.2.1(supports-color@10.2.2)
@@ -14959,13 +14954,13 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@slack/bolt@5.0.0(@types/express@5.0.6)(supports-color@10.2.2)(undici@7.29.0)':
+  '@slack/bolt@5.1.0(@types/express@5.0.6)(supports-color@10.2.2)(undici@7.29.0)':
     dependencies:
       '@slack/logger': 5.0.0
       '@slack/oauth': 4.0.0
-      '@slack/socket-mode': 3.0.0(undici@7.29.0)
-      '@slack/types': 3.0.0
-      '@slack/web-api': 8.0.0
+      '@slack/socket-mode': 3.0.1(undici@7.29.0)
+      '@slack/types': 3.1.0
+      '@slack/web-api': 8.1.1
       '@types/express': 5.0.6
       express: 5.2.1(supports-color@10.2.2)
       path-to-regexp: 8.4.2
@@ -14986,7 +14981,7 @@ snapshots:
   '@slack/oauth@3.0.5':
     dependencies:
       '@slack/logger': 4.0.1
-      '@slack/web-api': 8.0.0
+      '@slack/web-api': 8.1.1
       '@types/jsonwebtoken': 9.0.10
       '@types/node': 25.9.3
       jsonwebtoken: 9.0.3
@@ -14994,7 +14989,7 @@ snapshots:
   '@slack/oauth@4.0.0':
     dependencies:
       '@slack/logger': 5.0.0
-      '@slack/web-api': 8.0.0
+      '@slack/web-api': 8.1.1
       '@types/jsonwebtoken': 9.0.10
       '@types/node': 25.9.3
       jsonwebtoken: 9.0.3
@@ -15002,7 +14997,7 @@ snapshots:
   '@slack/socket-mode@2.0.7':
     dependencies:
       '@slack/logger': 4.0.1
-      '@slack/web-api': 8.0.0
+      '@slack/web-api': 8.1.1
       '@types/node': 25.9.3
       '@types/ws': 8.18.1
       eventemitter3: 5.0.4
@@ -15011,24 +15006,24 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@slack/socket-mode@3.0.0(undici@7.29.0)':
+  '@slack/socket-mode@3.0.1(undici@7.29.0)':
     dependencies:
       '@slack/logger': 5.0.0
-      '@slack/web-api': 8.0.0
+      '@slack/web-api': 8.1.1
       '@types/node': 25.9.3
       eventemitter3: 5.0.4
       undici: 7.29.0
 
   '@slack/types@2.22.0': {}
 
-  '@slack/types@3.0.0': {}
+  '@slack/types@3.1.0': {}
 
-  '@slack/web-api@8.0.0':
+  '@slack/web-api@8.1.1':
     dependencies:
       '@slack/logger': 5.0.0
-      '@slack/types': 3.0.0
+      '@slack/types': 3.1.0
       '@types/node': 25.9.3
-      '@types/retry': 0.12.0
+      '@types/retry': 0.12.5
       eventemitter3: 5.0.4
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -15650,6 +15645,8 @@ snapshots:
   '@types/resolve@1.20.2': {}
 
   '@types/retry@0.12.0': {}
+
+  '@types/retry@0.12.5': {}
 
   '@types/semver@7.8.0': {}
 
@@ -17614,9 +17611,9 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  grammy@1.45.1(supports-color@10.2.2):
+  grammy@1.46.0(supports-color@10.2.2):
     dependencies:
-      '@grammyjs/types': 4.0.0
+      '@grammyjs/types': 5.0.0
       abort-controller: 3.0.0
       debug: 4.4.3(supports-color@10.2.2)
       node-fetch: 2.7.0

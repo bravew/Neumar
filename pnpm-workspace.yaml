@@ -30,8 +30,8 @@ overrides:
   '@ag-ui/core': '^0.0.58'
   '@ag-ui/encoder': '^0.0.58'
   # Force-bump Slack Web API to keep transitive Bolt deps on the same minor.
-  # Raised to 8.x 2026-08-08 alongside the @slack/bolt 5.x major (G10).
-  '@slack/web-api': '^8.0.0'
+  # Raised to 8.1.x 2026-09-27 (G10) alongside @slack/bolt 5.1 / web-api 8.1.1.
+  '@slack/web-api': '^8.1.1'
   # CVE / supply-chain pins for lodash family.
   lodash: '^4.18.1'
   lodash-es: '^4.18.1'
