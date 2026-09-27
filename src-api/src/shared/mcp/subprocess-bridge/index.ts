@@ -47,6 +47,9 @@ type SubprocessMcpServers = Record<
     url: string;
     bearer_token_env_var: string;
     default_tools_approval_mode: 'approve' | 'prompt' | 'never';
+    /** Per-tool overrides, keyed by tool name. Only `output_token_limit` is
+     * used today — see `HEAVY_TOOL_OUTPUT_LIMITS` below. */
+    tools?: Record<string, { output_token_limit: number }>;
   }
 >;
 
@@ -133,6 +136,39 @@ const TOKEN_ENV_VAR: Record<BridgeConnector, string> = {
   assets: 'NEUMA_MCP_BRIDGE_TOKEN_ASSETS',
 };
 
+/**
+ * Per-tool `output_token_limit` overrides for MCP servers bridged to Codex,
+ * keyed by `mcp_servers.<name>.tools.<tool>.output_token_limit` (Codex CLI
+ * 0.152, verified against `codex-rs/config/src/mcp_types.rs`'s
+ * `McpServerToolConfig` and `codex-rs/core/config.schema.json` at the
+ * `@openai/codex-sdk@0.157.1` pin — `output_token_limit` is a positive
+ * integer token budget "before the standard 20% serialization allowance").
+ *
+ * Scoped to the video-edit/assets tools that return the largest payloads:
+ * rendered frame grids, filmstrip/waveform inspection, evidence grids,
+ * packed transcripts, per-asset analysis, the narrative content graph, and
+ * asset search/similar/recent listings (which can include many preview
+ * URLs). Everything else on these servers returns small, bounded
+ * acknowledgements or metadata and is left uncapped.
+ */
+const HEAVY_TOOL_OUTPUT_LIMITS: Record<string, Record<string, number>> = {
+  'video-edit': {
+    // Renders/returns composited image or filmstrip/waveform data.
+    video_inspect_timeline_frames: 4_000,
+    video_inspect_source_range: 4_000,
+    video_reference_build_evidence: 4_000,
+    // Large text/JSON bodies that scale with source/project size.
+    video_get_packed_transcript: 8_000,
+    video_get_content_graph: 8_000,
+    video_analyze_assets: 8_000,
+  },
+  assets: {
+    assets_search: 6_000,
+    assets_similar: 6_000,
+    assets_recent: 6_000,
+  },
+};
+
 // Once-considered: disable Codex's bundled `openai-curated` plugins
 // (gmail, github, …) so their SKILL.md prose doesn't bias the model toward
 // hosted-connector tool names. Empirically the override
@@ -187,10 +223,12 @@ export async function buildSubprocessMcpConfig(
       sessionId: input.sessionId,
     });
     env[envVar] = bridgeToken;
+    const toolLimits = HEAVY_TOOL_OUTPUT_LIMITS[connector];
     mcpServers[connector] = {
       url: `${apiBase}/mcp/bridge/${connector}`,
       bearer_token_env_var: envVar,
       default_tools_approval_mode: 'approve',
+      ...(toolLimits ? { tools: buildToolLimitConfig(toolLimits) } : {}),
     };
   }
 
@@ -209,10 +247,12 @@ export async function buildSubprocessMcpConfig(
     });
     inProcTokens.push(token);
     env[envVar] = token;
+    const toolLimits = HEAVY_TOOL_OUTPUT_LIMITS[server.name];
     mcpServers[server.name] = {
       url: `${apiBase}/mcp/bridge/inproc/${server.name}`,
       bearer_token_env_var: envVar,
       default_tools_approval_mode: 'approve',
+      ...(toolLimits ? { tools: buildToolLimitConfig(toolLimits) } : {}),
     };
   }
 
@@ -234,4 +274,17 @@ export async function buildSubprocessMcpConfig(
  * `NEUMA_MCP_BRIDGE_TOKEN_INPROC_VIDEO_EDIT`. */
 function inProcTokenEnvVar(name: string): string {
   return `NEUMA_MCP_BRIDGE_TOKEN_INPROC_${name.replace(/-/g, '_').toUpperCase()}`;
+}
+
+/** Build the `tools.<tool>.output_token_limit` map for a server entry from
+ * a plain `{ toolName: limit }` record. */
+function buildToolLimitConfig(
+  limits: Record<string, number>,
+): Record<string, { output_token_limit: number }> {
+  return Object.fromEntries(
+    Object.entries(limits).map(([tool, output_token_limit]) => [
+      tool,
+      { output_token_limit },
+    ]),
+  );
 }

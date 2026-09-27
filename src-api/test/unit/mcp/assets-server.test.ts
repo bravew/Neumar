@@ -256,6 +256,29 @@ describe('assets MCP server', () => {
     enabled.revoke();
   });
 
+  it('caps output_token_limit on the assets bridge for its heavy tools only', async () => {
+    setSetting('assets.catalog_enabled', 'true');
+    const cfg = await buildSubprocessMcpConfig({
+      sessionId: 'session-assets-limits',
+      channelContext: undefined,
+      connectors: ['assets'],
+    });
+    const assets = cfg.codexConfig.mcp_servers?.assets;
+
+    // Search/similar/recent return listings with many preview URLs — capped
+    // (Codex CLI 0.152 `mcp_servers.assets.tools.<tool>.output_token_limit`).
+    expect(assets?.tools?.assets_search).toEqual({ output_token_limit: 6_000 });
+    expect(assets?.tools?.assets_similar).toEqual({
+      output_token_limit: 6_000,
+    });
+    expect(assets?.tools?.assets_recent).toEqual({ output_token_limit: 6_000 });
+
+    // A single-record read is left uncapped.
+    expect(assets?.tools?.assets_get).toBeUndefined();
+
+    cfg.revoke();
+  });
+
   it('requests materialization budget increases through settings', async () => {
     const first = await requestBudgetIncrease({
       budget: 'session',
