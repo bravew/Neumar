@@ -43,7 +43,7 @@ Apply the first matching route:
 | Explicit Remotion port | Update and enter `/remotion-to-hyperframes`. |
 | Specific operation on an existing project | Perform only that operation with `/hyperframes-cli` and required domains. |
 | Specific edit to an existing project | Make only the requested edit; skip intent routing. |
-| `BRIEF.md` exists | Resume its recorded workflow and flow. |
+| `BRIEF.md` exists | Read `workflow` and `flow`. Execute that workflow; `flow: companion` always executes in `/general-video`. Ask no brief questions. |
 | Existing `hyperframes.json` or `STORYBOARD.md` | Resume project state; ask one routing question only if ownership is ambiguous. |
 | Fresh creation | Update `hyperframes`, run its intent interview, then route once. |
 
