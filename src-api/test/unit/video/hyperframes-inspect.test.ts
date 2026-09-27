@@ -14,10 +14,10 @@ import {
   summarizeHyperframesCheck,
 } from '@/shared/video/hyperframes-inspect';
 
-const VERSION_STDOUT = '0.8.31\n';
+const VERSION_STDOUT = '0.8.80\n';
 const DOCTOR_STDOUT = JSON.stringify({
   checks: [{ name: 'Chrome', ok: true, detail: '140.0.0' }],
-  _meta: { version: '0.8.31' },
+  _meta: { version: '0.8.80' },
 });
 
 interface Recorded {

@@ -23,7 +23,7 @@ import type {
   VideoEngineCapabilities,
 } from './types';
 
-export const HYPERFRAMES_REQUIRED_VERSION = '0.8.31';
+export const HYPERFRAMES_REQUIRED_VERSION = '0.8.80';
 
 const HYPERFRAMES_CAPABILITIES: VideoEngineCapabilities = {
   paradigms: ['html-css-gsap'],
