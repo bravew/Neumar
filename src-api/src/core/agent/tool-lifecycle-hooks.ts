@@ -42,8 +42,9 @@ interface SdkHookJSONOutput {
   suppressOutput?: boolean;
   systemMessage?: string;
   reason?: string;
+  // Only PreToolUse emits hook-specific output (deny / modified input).
   hookSpecificOutput?: {
-    hookEventName: 'PreToolUse' | 'PostToolUse';
+    hookEventName: 'PreToolUse';
     permissionDecision?: 'allow' | 'deny' | 'ask';
     permissionDecisionReason?: string;
     updatedInput?: Record<string, unknown>;

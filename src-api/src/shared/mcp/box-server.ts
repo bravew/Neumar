@@ -19,7 +19,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk/core';
 import { z } from 'zod';
 
 import { getConnectionBroker } from '@/shared/auth/connection-broker';

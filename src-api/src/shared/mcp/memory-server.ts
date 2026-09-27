@@ -7,7 +7,7 @@
  * Uses the tool() helper from claude-agent-sdk (same pattern as media-server.ts).
  */
 
-import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk/core';
 import { z } from 'zod';
 
 import {

@@ -1616,7 +1616,7 @@ agentRoutes.post(
     // Post-execution: resume session with empty prompt, then rewind
     try {
       const { query: sdkQuery } =
-        await import('@anthropic-ai/claude-agent-sdk');
+        await import('@anthropic-ai/claude-agent-sdk/core');
       const { getSetting } = await import('@/shared/db/operations');
       const workDir = getSetting('workDir');
       if (!workDir) {

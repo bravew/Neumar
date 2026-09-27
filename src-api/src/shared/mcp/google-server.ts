@@ -6,7 +6,7 @@
  * Sheets, Slides, and Docs integrations.
  * Only registers tools for services whose scopes are actually granted.
  */
-import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk/core';
 import { z } from 'zod';
 
 import {

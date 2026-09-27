@@ -5,7 +5,10 @@
 
 import os from 'node:os';
 
-import { query, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import {
+  query,
+  type SDKUserMessage,
+} from '@anthropic-ai/claude-agent-sdk/core';
 
 import { parseClaudeSupportedModels } from './models.js';
 import type { ModelOption } from './types.js';

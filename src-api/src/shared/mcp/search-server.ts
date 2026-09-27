@@ -16,7 +16,7 @@
 
 import { createHash } from 'node:crypto';
 
-import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk/core';
 import { z } from 'zod';
 
 import { listProviders, search } from '@/shared/services/search';

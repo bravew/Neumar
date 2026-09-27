@@ -345,7 +345,7 @@ async function runClaudeVideoPlanner(
   context: VideoAgentContext | undefined,
   options: PlanVideoAgentTurnOptions,
 ): Promise<SdkPlan> {
-  const { query } = await import('@anthropic-ai/claude-agent-sdk');
+  const { query } = await import('@anthropic-ai/claude-agent-sdk/core');
   const abortController = new AbortController();
   const cleanup = linkAbortSignals(
     options.signal,
