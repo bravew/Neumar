@@ -25,13 +25,14 @@ overrides:
   # Transitive consistency — keep markdown ecosystem on a single major.
   unified: '^11.0.5'
   # Hold AG-UI runtime to the version our app integrates against.
-  # Raised to 0.0.58 2026-08-21 (G7) alongside the direct-dep bump.
-  '@ag-ui/client': '^0.0.58'
-  '@ag-ui/core': '^0.0.58'
-  '@ag-ui/encoder': '^0.0.58'
+  # Raised to 0.0.59 2026-09-27 (G7) to match @copilotkit/* 1.74's exact pin.
+  # @ag-ui 1.0 is held: CopilotKit still depends on 0.0.59.
+  '@ag-ui/client': '^0.0.59'
+  '@ag-ui/core': '^0.0.59'
+  '@ag-ui/encoder': '^0.0.59'
   # Force-bump Slack Web API to keep transitive Bolt deps on the same minor.
-  # Raised to 8.x 2026-08-08 alongside the @slack/bolt 5.x major (G10).
-  '@slack/web-api': '^8.0.0'
+  # Raised to 8.1.x 2026-09-27 (G10) alongside @slack/bolt 5.1 / web-api 8.1.1.
+  '@slack/web-api': '^8.1.1'
   # CVE / supply-chain pins for lodash family.
   lodash: '^4.18.1'
   lodash-es: '^4.18.1'
@@ -64,8 +65,8 @@ overrides:
   'brace-expansion@>=2.0.0 <2.1.4': '2.1.4'
   'brace-expansion@>=4.0.0 <5.0.9': '5.0.9'
   # GHSA-96hv-2xvq-fx4p — force Remotion transitives onto patched ws.
-  # Raised to 8.21.3 2026-08-21 (G8) to track the current patch.
-  ws: '8.21.3'
+  # Raised to 8.22.0 2026-09-27 (G8) to track the current patch.
+  ws: '8.22.0'
   # GHSA-vxpw-j846-p89q — discord.js pins undici 6.24.1; force patched 6.x.
   # Raised 2026-08-08: 6.27.0 itself gained 3 moderate advisories (response
   # desync, CRLF injection, cookie injection) fixed at 6.28.0.
@@ -103,7 +104,6 @@ overrides:
   # GHSA-2883-xcg3-v3hh — transitive via cosmiconfig under @remotion/cli's
   # @svgr/core and @remotion/tailwind.
   js-yaml: '^4.3.2'
-
 peerDependencyRules:
   allowedVersions:
     # tailwindcss-animate has not widened its peer range text for Tailwind 4,
@@ -168,3 +168,29 @@ minimumReleaseAgeExclude:
   - remotion@4.0.515
   - '@remotion/media@4.0.515'
   - '@remotion/effects@4.0.515'
+  - '@tauri-apps/api@2.12.0'
+  - '@tauri-apps/cli-darwin-arm64@2.12.0'
+  - '@tauri-apps/cli-darwin-x64@2.12.0'
+  - '@tauri-apps/cli-linux-arm-gnueabihf@2.12.0'
+  - '@tauri-apps/cli-linux-arm64-gnu@2.12.0'
+  - '@tauri-apps/cli-linux-arm64-musl@2.12.0'
+  - '@tauri-apps/cli-linux-riscv64-gnu@2.12.0'
+  - '@tauri-apps/cli-linux-x64-gnu@2.12.0'
+  - '@tauri-apps/cli-linux-x64-musl@2.12.0'
+  - '@tauri-apps/cli-win32-arm64-msvc@2.12.0'
+  - '@tauri-apps/cli-win32-ia32-msvc@2.12.0'
+  - '@tauri-apps/cli-win32-x64-msvc@2.12.0'
+  - '@tauri-apps/cli@2.12.0'
+  - '@tauri-apps/plugin-autostart@2.6.0'
+  - '@tauri-apps/plugin-dialog@2.8.0'
+  - '@tauri-apps/plugin-fs@2.6.0'
+  - '@tauri-apps/plugin-notification@2.5.0'
+  - '@tauri-apps/plugin-opener@2.6.0'
+  - '@tauri-apps/plugin-process@2.4.0'
+  - '@tauri-apps/plugin-shell@2.4.0'
+  - '@tauri-apps/plugin-sql@2.5.0'
+  - '@tauri-apps/plugin-stronghold@2.4.0'
+  - '@tauri-apps/plugin-updater@2.13.0'
+  - ws@8.22.0
+  - react-resizable-panels@4.14.1
+  - hyperframes@0.8.80

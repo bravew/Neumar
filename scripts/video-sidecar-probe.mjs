@@ -103,7 +103,7 @@ function directorySize(dir) {
   return total;
 }
 
-// The heavy transitive dependencies HyperFrames 0.8.31 introduces. They belong
+// The heavy transitive dependencies HyperFrames 0.8.80 introduces. They belong
 // to `src-video`'s devDependencies; none of them may reach the API sidecar.
 const FORBIDDEN_IN_BUNDLE = [
   'puppeteer-core',
@@ -215,9 +215,9 @@ function writeBrowserlessStub(dir) {
   fs.writeFileSync(
     stub,
     `#!/bin/sh
-if [ "$1" = "--version" ]; then echo "0.8.31"; exit 0; fi
+if [ "$1" = "--version" ]; then echo "0.8.80"; exit 0; fi
 if [ "$1" = "doctor" ]; then
-  echo '{"checks":[{"name":"Chrome","ok":false,"detail":"Not found"}],"_meta":{"version":"0.8.31"}}'
+  echo '{"checks":[{"name":"Chrome","ok":false,"detail":"Not found"}],"_meta":{"version":"0.8.80"}}'
   exit 0
 fi
 exit 1

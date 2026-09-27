@@ -31,15 +31,15 @@ describe('HyperFrames adapter', () => {
       installed: false,
       reason: 'version-too-old',
       version: '0.8.6',
-      requiredVersion: '0.8.31',
+      requiredVersion: '0.8.80',
     });
 
     const responses = [
-      { stdout: '0.8.31\n', stderr: '' },
+      { stdout: '0.8.80\n', stderr: '' },
       {
         stdout: JSON.stringify({
           checks: [{ name: 'Chrome', ok: false, detail: 'Not found' }],
-          _meta: { version: '0.8.31' },
+          _meta: { version: '0.8.80' },
         }),
         stderr: '',
       },
@@ -50,7 +50,7 @@ describe('HyperFrames adapter', () => {
     expect(missing).toMatchObject({
       installed: false,
       reason: 'browser-missing',
-      version: '0.8.31',
+      version: '0.8.80',
     });
   });
 
@@ -99,7 +99,7 @@ describe('HyperFrames adapter', () => {
     await fs.writeFile(sourcePath, '<html></html>');
     const runCommand = vi.fn(async (input: StreamingCommandInput) => {
       if (input.args[0] === '--version') {
-        return { stdout: '0.8.31\n', stderr: '' };
+        return { stdout: '0.8.80\n', stderr: '' };
       }
       if (input.args[0] === 'doctor') {
         return {
@@ -107,7 +107,7 @@ describe('HyperFrames adapter', () => {
             checks: [
               { name: 'Chrome', ok: true, detail: 'Chrome 140 at /chrome' },
             ],
-            _meta: { version: '0.8.31' },
+            _meta: { version: '0.8.80' },
           }),
           stderr: '',
         };
@@ -141,10 +141,10 @@ describe('HyperFrames adapter', () => {
     expect(result.meta).toMatchObject({
       fps: 30,
       renderedFrames: 30,
-      engineVersion: '0.8.31',
+      engineVersion: '0.8.80',
     });
     expect(result.diagnostics[0]?.data).toMatchObject({
-      cliVersion: '0.8.31',
+      cliVersion: '0.8.80',
       browserVersion: 'Chrome 140 at /chrome',
     });
     expect(progress).toContain(50);

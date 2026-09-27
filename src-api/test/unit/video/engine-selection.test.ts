@@ -57,7 +57,7 @@ describe('runtime-selection contract', () => {
       stubAdapter('hyperframes', {
         installed: false,
         reason: 'browser-missing',
-        version: '0.8.31',
+        version: '0.8.80',
         detail: 'Chrome not found',
       }),
     );
@@ -75,7 +75,7 @@ describe('runtime-selection contract', () => {
     expect(options[1]).toMatchObject({
       installed: false,
       unavailableReason: 'browser-missing',
-      detectedVersion: '0.8.31',
+      detectedVersion: '0.8.80',
       detail: 'Chrome not found',
     });
   });
@@ -163,7 +163,7 @@ describe('runtime-selection contract', () => {
       installed: false,
       reason: 'version-too-old',
       version: '0.1.0',
-      requiredVersion: '0.8.31',
+      requiredVersion: '0.8.80',
     });
     await expect(assertEngineAdapterAvailable(missing)).rejects.toMatchObject({
       code: 'engine-unavailable',
