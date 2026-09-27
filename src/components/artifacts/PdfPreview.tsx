@@ -159,6 +159,7 @@ export function PdfPreview({ artifact }: PreviewComponentProps) {
             setError(err.message);
           }}
           loading={null}
+          suspense={false}
         >
           {Array.from({ length: numPages }, (_, i) => (
             <LazyPage
