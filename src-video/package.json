@@ -46,11 +46,11 @@
     "@remotion/renderer": "4.0.522",
     "@types/node": "^25.9.3",
     "hyperframes": "0.8.31",
-    "oxfmt": "^0.64.0",
-    "oxlint": "^1.79.0",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
     "playwright": "^1.62.1",
     "sharp": "0.35.4",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }
 }
