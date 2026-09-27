@@ -33,6 +33,8 @@ export type ModelTier = 'low' | 'medium' | 'high';
 export interface ModelOption {
   id: string;
   label: string;
+  /** Runtime-provided one-line summary (discovered models only). */
+  description?: string;
   source?: ModelSource;
   availability?: ModelAvailability;
   unavailableReason?: string;

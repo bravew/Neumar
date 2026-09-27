@@ -6,6 +6,8 @@ export {
   stripFns,
   fallbackModelsFor,
   clampCodexReasoning,
+  parseClaudeSupportedModels,
+  parseCodexModelCatalog,
   parseCursorAgentModels,
   parseLineSeparatedModels,
   parsePiModels,

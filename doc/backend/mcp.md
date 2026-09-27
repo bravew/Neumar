@@ -1,5 +1,5 @@
 ---
-summary: "Model Context Protocol integration — config sources, transports, built-in MCP servers (Sandbox, Linear, Media, Cloud Storage Media, Memory, Search, Schedule), runtime management, and Slack per-user overlays"
+summary: "Model Context Protocol integration — outbound server configuration, built-in servers, inbound access for Codex and Claude Code, runtime management, and Slack per-user overlays"
 read_when:
   - Adding or configuring MCP servers
   - Understanding how tools are made available to agents
@@ -284,6 +284,38 @@ External server management routes:
 The external proxy bounds JSON-RPC payloads to 8 MB, applies a 10-second timeout, validates
 remote URLs through the network policy layer, and accepts JSON responses or the first SSE
 `data:` frame.
+
+## Inbound MCP Server
+
+Neumar can also expose selected library-project and task operations to an MCP host
+such as Codex or Claude Code. This is separate from the outbound servers configured
+in `mcp.json`: the host starts `neumar mcp server` over stdio, and that adapter
+forwards authenticated commands to the running local daemon. The adapter never
+opens the application SQLite database directly.
+
+The Settings → Extensions → MCP panel provides host-specific add and remove
+commands. It reads `GET /mcp/server/install-info` to construct them and keeps the
+application data directory in `NEUMAR_APP_DATA_DIR`, so the child can find its
+secret and daemon record regardless of the host working directory.
+
+All three settings default to off:
+
+| Setting | Effect |
+| --- | --- |
+| `externalMcpEnabled` | Allows the read-only inbound tool catalog. |
+| `externalMcpWritesEnabled` | Also exposes project/task create, update, and comment tools. |
+| `externalMcpAgentRunsEnabled` | Also exposes start, inspect, and cancel operations for durable agent runs. |
+
+The fixed catalog is defined in `shared/mcp/public-server/catalog.ts`. With all
+flags enabled, it exposes 14 `neumar_*` tools: health; project and task reads;
+project/task writes and comments; and durable agent-run controls. `tools/list`
+omits write and run tools until their respective flags are enabled.
+
+The daemon endpoints use a loopback-only daemon URL and bearer secret from the
+application data directory. Public `status` and `install-info` endpoints do not
+return that secret; all command endpoints authenticate first, reject
+credential-shaped input, validate schemas, and emit audit events. See
+`dev-doc/runbooks/external-mcp-server.md` for host setup and troubleshooting.
 
 ## Runtime MCP Management
 

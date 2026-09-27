@@ -301,6 +301,7 @@ describe('runtime model catalog', () => {
         {
           id: 'claude-future-live',
           label: 'Claude Future Live',
+          description: 'Best for everyday, complex tasks',
           source: 'discovered',
           availability: 'available',
           contextWindowTokens: 2_000_000,
@@ -317,6 +318,7 @@ describe('runtime model catalog', () => {
     expect(options.filter((option) => option.provider === 'claude')).toEqual([
       expect.objectContaining({
         id: 'claude-future-live',
+        description: 'Best for everyday, complex tasks',
         source: 'discovered',
         contextWindowTokens: 2_000_000,
       }),
