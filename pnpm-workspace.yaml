@@ -64,8 +64,8 @@ overrides:
   'brace-expansion@>=2.0.0 <2.1.4': '2.1.4'
   'brace-expansion@>=4.0.0 <5.0.9': '5.0.9'
   # GHSA-96hv-2xvq-fx4p — force Remotion transitives onto patched ws.
-  # Raised to 8.21.3 2026-08-21 (G8) to track the current patch.
-  ws: '8.21.3'
+  # Raised to 8.22.0 2026-09-27 (G8) to track the current patch.
+  ws: '8.22.0'
   # GHSA-vxpw-j846-p89q — discord.js pins undici 6.24.1; force patched 6.x.
   # Raised 2026-08-08: 6.27.0 itself gained 3 moderate advisories (response
   # desync, CRLF injection, cookie injection) fixed at 6.28.0.
@@ -168,3 +168,4 @@ minimumReleaseAgeExclude:
   - remotion@4.0.515
   - '@remotion/media@4.0.515'
   - '@remotion/effects@4.0.515'
+  - ws@8.22.0
