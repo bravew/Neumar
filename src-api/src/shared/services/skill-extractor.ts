@@ -162,12 +162,21 @@ async function callAnthropicSDK(
   apiKey: string,
   userContent: string,
   baseUrl?: string,
+  signal?: AbortSignal,
 ): Promise<string | null> {
   try {
     const client = new Anthropic({
       apiKey,
       ...(baseUrl ? { baseURL: baseUrl } : {}),
     });
+
+    // Combine the caller's abort signal (e.g. the HTTP request disconnecting)
+    // with our own timeout, so a client cancel is noticed immediately instead
+    // of waiting out the internal timeout — and, per SDK 0.126, cancels any
+    // in-progress retry wait right away instead of blocking it out.
+    const effectiveSignal = signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(EXTRACTION_TIMEOUT_MS)])
+      : AbortSignal.timeout(EXTRACTION_TIMEOUT_MS);
 
     const start = Date.now();
     const response = await client.messages.create(
@@ -184,7 +193,7 @@ async function callAnthropicSDK(
         ],
         messages: [{ role: 'user', content: userContent }],
       },
-      { signal: AbortSignal.timeout(EXTRACTION_TIMEOUT_MS) },
+      { signal: effectiveSignal },
     );
 
     const usageAny = response.usage as unknown as Record<string, number>;
@@ -354,6 +363,7 @@ export async function extractSkillContent(
   messages: Message[],
   skillName: string,
   skillDescription?: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   logger.info(
     `extractSkillContent: name="${skillName}", messageCount=${messages.length}`,
@@ -375,7 +385,12 @@ ${transcript}`;
   if (apiKey && isAnthropicNative(baseUrl)) {
     try {
       logger.info('[Strategy 1] Anthropic SDK: Haiku via messages.create()');
-      const result = await callAnthropicSDK(apiKey, userContent, baseUrl);
+      const result = await callAnthropicSDK(
+        apiKey,
+        userContent,
+        baseUrl,
+        signal,
+      );
       if (result && result.length > 50) {
         logger.info('Anthropic SDK skill extraction succeeded');
         return result;

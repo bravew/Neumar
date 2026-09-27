@@ -1802,6 +1802,7 @@ agentRoutes.post(
           | { apiKey?: string; baseUrl?: string; model?: string }
           | undefined,
         body.language,
+        c.req.raw.signal,
       );
 
       // If a taskId is provided, update the task title in the database

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { Message } from '@/shared/db/types';
+
 vi.mock('@/shared/services/usage-logger', () => ({
   logUsage: vi.fn(),
 }));
@@ -25,44 +27,35 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }));
 
-import { generateTitle } from '@/shared/services/title-generator';
+import { extractSkillContent } from '@/shared/services/skill-extractor';
 
-describe('generateTitle fallback', () => {
-  it('uses AI context when no title model key is configured', async () => {
-    const title = await generateTitle(
-      'In one or two sentences, what kinds of visual directions should we explore?',
-      'Goal: build a launch promo for Stillwater Labs\nSteps:\n- Draft storyboard',
-      undefined,
-      'en-US',
-    );
+function makeMessage(overrides: Partial<Message>): Message {
+  return {
+    id: 1,
+    task_id: 'task-1',
+    type: 'user',
+    content: null,
+    tool_name: null,
+    tool_input: null,
+    tool_output: null,
+    tool_use_id: null,
+    subtype: null,
+    error_message: null,
+    attachments: null,
+    is_error: 0,
+    message_id: null,
+    cost: null,
+    usage_input: null,
+    usage_output: null,
+    usage_cache_read: null,
+    usage_cache_creation: null,
+    model: null,
+    created_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
 
-    expect(title).toBe('Build a Launch Promo for Stillwater Labs');
-  });
-
-  it('turns prompt-only instruction text into a sentence-case topic', async () => {
-    const title = await generateTitle(
-      'In one or two sentences, what kinds of visual directions should we explore?',
-      undefined,
-      undefined,
-      'en-US',
-    );
-
-    expect(title).toBe('Visual directions to explore');
-  });
-
-  it('falls back to a default title when prompt cleanup removes all content', async () => {
-    const title = await generateTitle(
-      'In one sentence',
-      undefined,
-      undefined,
-      'en-US',
-    );
-
-    expect(title).toBe('New Conversation');
-  });
-});
-
-describe('generateTitle abort signal', () => {
+describe('extractSkillContent abort signal', () => {
   it('forwards an already-aborted caller signal to the Anthropic SDK call', async () => {
     resolveApiCredentialsMock.mockReturnValueOnce({ apiKey: 'test-key' });
     anthropicCreateMock.mockReset();
@@ -72,7 +65,7 @@ describe('generateTitle abort signal', () => {
           return Promise.reject(new Error('The operation was aborted'));
         }
         return Promise.resolve({
-          content: [{ type: 'text', text: 'Ignored title' }],
+          content: [{ type: 'text', text: 'Ignored skill content' }],
           usage: {},
         });
       },
@@ -81,11 +74,15 @@ describe('generateTitle abort signal', () => {
     const controller = new AbortController();
     controller.abort();
 
-    const title = await generateTitle(
-      'hello',
+    const messages: Message[] = [
+      makeMessage({ type: 'user', content: 'Build a todo app' }),
+    ];
+
+    const content = await extractSkillContent(
+      'Build a todo app',
+      messages,
+      'todo-app-builder',
       undefined,
-      { apiKey: 'test-key' },
-      'en-US',
       controller.signal,
     );
 
@@ -97,8 +94,10 @@ describe('generateTitle abort signal', () => {
     // The combined signal (caller signal `AbortSignal.any`-ed with the
     // internal timeout) must reflect the already-aborted caller signal.
     expect(opts.signal.aborted).toBe(true);
-    // The call was aborted, so generateTitle falls through to the
-    // no-LLM smart fallback for a plain greeting.
-    expect(title).toBe('New Conversation');
+    // The aborted Anthropic call falls through to the template fallback.
+    expect(content).toContain('name: todo-app-builder');
+    expect(content).toContain(
+      'This skill was auto-extracted from a task session without AI refinement',
+    );
   });
 });

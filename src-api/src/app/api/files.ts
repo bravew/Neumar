@@ -1856,6 +1856,7 @@ files.post(
         messages,
         name,
         description,
+        c.req.raw.signal,
       );
 
       // Write to disk (recursive: true creates parent dirs too)
