@@ -39,18 +39,18 @@
     "@remotion/tailwind": "4.0.529",
     "@remotion/transitions": "4.0.529",
     "remotion": "4.0.529",
-    "zod": "^4.5.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@remotion/bundler": "4.0.529",
     "@remotion/renderer": "4.0.529",
     "@types/node": "^25.9.3",
     "hyperframes": "0.8.80",
-    "oxfmt": "^0.64.0",
-    "oxlint": "^1.79.0",
-    "playwright": "^1.62.1",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
+    "playwright": "^1.63.0",
     "sharp": "0.35.4",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }
 }
