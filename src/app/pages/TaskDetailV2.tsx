@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useLocation, useParams } from 'react-router-dom';
 
@@ -16,6 +23,7 @@ import type {
   ProfileDisplayInfo,
 } from '@/components/task/InitialMessageSender';
 import { RightSidebar } from '@/components/task/RightSidebar';
+import { RightSidebarPanelTransition } from '@/components/task/RightSidebarPanelTransition';
 import { TaskV2Header } from '@/components/task/TaskV2Header';
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble.types';
 import { TaskV2Thread } from '@/components/task/TaskV2Thread';
@@ -430,7 +438,9 @@ export function TaskDetailV2Page() {
               title={displayTitle}
               isRunning={isTaskRunning}
               isRightSidebarVisible={isRightSidebarVisible}
-              onToggleRightSidebar={() => setIsRightSidebarVisible((v) => !v)}
+              onToggleRightSidebar={() =>
+                startTransition(() => setIsRightSidebarVisible((v) => !v))
+              }
               profileInfo={profileInfo}
             />
 
@@ -523,18 +533,20 @@ export function TaskDetailV2Page() {
 
               {/* ── Right sidebar: fixed-width, show/hide ── */}
               {isRightSidebarVisible && (
-                <div className="border-border/40 flex h-full w-72 shrink-0 flex-col overflow-hidden border-l">
-                  <RightSidebar
-                    messages={v1Messages}
-                    artifacts={artifacts}
-                    selectedArtifact={selectedArtifact}
-                    onSelectArtifact={handleSelectArtifact}
-                    workingDir={taskWorkDir}
-                    taskId={taskId}
-                    filesVersion={artifacts.length}
-                    isRunning={isTaskRunning}
-                  />
-                </div>
+                <RightSidebarPanelTransition>
+                  <div className="border-border/40 flex h-full w-72 shrink-0 flex-col overflow-hidden border-l">
+                    <RightSidebar
+                      messages={v1Messages}
+                      artifacts={artifacts}
+                      selectedArtifact={selectedArtifact}
+                      onSelectArtifact={handleSelectArtifact}
+                      workingDir={taskWorkDir}
+                      taskId={taskId}
+                      filesVersion={artifacts.length}
+                      isRunning={isTaskRunning}
+                    />
+                  </div>
+                </RightSidebarPanelTransition>
               )}
             </div>
           </div>

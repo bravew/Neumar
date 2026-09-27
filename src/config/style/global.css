@@ -372,6 +372,62 @@ pre {
   animation: none;
 }
 
+/*
+ * React 19.3 <ViewTransition> route cross-fade (RouteViewTransition).
+ * Unnamed <ViewTransition> instances get a unique auto-generated
+ * view-transition-name, so they can't be targeted via the `root` name
+ * above — React sets `view-transition-class` instead, matched here via
+ * the `.page-fade` class selector.
+ */
+::view-transition-old(.page-fade),
+::view-transition-new(.page-fade) {
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(.page-fade) {
+  animation: vt-fade-out 180ms ease-in forwards;
+}
+
+::view-transition-new(.page-fade) {
+  animation: vt-fade-in 180ms ease-out forwards;
+}
+
+/* Right-sidebar panel show/hide (RightSidebarPanelTransition) */
+::view-transition-new(.sidebar-panel-enter),
+::view-transition-old(.sidebar-panel-exit) {
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(.sidebar-panel-enter) {
+  animation: vt-sidebar-panel-in 180ms ease-out forwards;
+}
+
+::view-transition-old(.sidebar-panel-exit) {
+  animation: vt-sidebar-panel-out 180ms ease-in forwards;
+}
+
+@keyframes vt-sidebar-panel-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes vt-sidebar-panel-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),

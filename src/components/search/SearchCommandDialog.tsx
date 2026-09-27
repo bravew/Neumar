@@ -178,10 +178,10 @@ export function SearchCommandDialog() {
 
   const handleSelect = useCallback((taskId: string) => {
     setOpen(false);
-    router.navigate(`/task-v2/${taskId}`, {
-      viewTransition: true,
-      state: null,
-    });
+    // The route-level `<ViewTransition>` in AppRouteProviders already
+    // cross-fades every navigation (React 19.3); don't also opt into
+    // React Router's own `viewTransition` option for this one.
+    router.navigate(`/task-v2/${taskId}`, { state: null });
   }, []);
 
   // Cleanup debounce timer and abort controller on unmount
