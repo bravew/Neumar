@@ -64,7 +64,7 @@
     "jszip": "^3.10.1",
     "lru-cache": "^11.5.2",
     "nanoid": "^6.0.1",
-    "onnxruntime-node": "^1.27.0",
+    "onnxruntime-node": "^1.30.0",
     "openai": "^7.5.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.2.108",
@@ -73,7 +73,7 @@
     "react-dom": "19.2.8",
     "remotion": "4.0.522",
     "sharp": "^0.35.4",
-    "sherpa-onnx-node": "1.13.6",
+    "sherpa-onnx-node": "1.13.8",
     "sqlite-vec": "0.1.9",
     "undici": "^7.29.0",
     "ws": "^8.21.3",
@@ -81,7 +81,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@contentauth/c2pa-node": "0.9.1",
+    "@contentauth/c2pa-node": "0.9.8",
     "@slack/types": "^3.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.3",

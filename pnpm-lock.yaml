@@ -103,8 +103,8 @@ importers:
         specifier: 4.0.522
         version: 4.0.522(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@ricky0123/vad-web':
-        specifier: ^0.0.30
-        version: 0.0.30
+        specifier: ^0.0.31
+        version: 0.0.31
       '@slack/bolt':
         specifier: ^5.0.0
         version: 5.0.0(@types/express@5.0.6)(supports-color@10.2.2)(undici@7.29.0)
@@ -223,8 +223,8 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
       onnxruntime-web:
-        specifier: ^1.27.0
-        version: 1.27.0
+        specifier: ^1.30.0
+        version: 1.30.0
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -489,8 +489,8 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
       onnxruntime-node:
-        specifier: ^1.27.0
-        version: 1.27.0
+        specifier: ^1.30.0
+        version: 1.30.0
       openai:
         specifier: ^7.5.0
         version: 7.5.0(ws@8.21.3)(zod@4.5.4)
@@ -516,8 +516,8 @@ importers:
         specifier: ^0.35.4
         version: 0.35.4(@types/node@25.9.3)
       sherpa-onnx-node:
-        specifier: 1.13.6
-        version: 1.13.6
+        specifier: 1.13.8
+        version: 1.13.8
       sqlite-vec:
         specifier: 0.1.9
         version: 0.1.9
@@ -535,8 +535,8 @@ importers:
         version: 4.5.4
     devDependencies:
       '@contentauth/c2pa-node':
-        specifier: 0.9.1
-        version: 0.9.1(supports-color@10.2.2)
+        specifier: 0.9.8
+        version: 0.9.8(supports-color@10.2.2)
       '@slack/types':
         specifier: ^3.0.0
         version: 3.0.0
@@ -1477,15 +1477,15 @@ packages:
     resolution: {integrity: sha512-DD9snx7YUk1a3snQ+7UqNolHZzxf8/WJ4mAEXBIFdeOddwLdoIyw3tWXhhsQrhQIZ+OTAulYnjom4+GdQKaSoA==}
     engines: {node: '>=18.0.0'}
 
-  '@contentauth/c2pa-node@0.9.1':
-    resolution: {integrity: sha512-YswlLS5KlfenAzNnqFbAT2WLyxaUe8psUTbs8ieHpFvD/LoPunaH5qgx4KLX5HkjBKEsrtqruoo9B7VhipQzLA==}
+  '@contentauth/c2pa-node@0.9.8':
+    resolution: {integrity: sha512-S909fQu1L32Ye57CFkA/QY8TNwXbyTSJgzThpqhq1gNW9sdeAp1/lY5IKolN4ZBrqOvPnbdmc37aWVaaIc31kQ==}
     engines: {node: '>=22'}
 
-  '@contentauth/c2pa-types@0.7.3':
-    resolution: {integrity: sha512-R1F0R13/m8W7c4OJQw2jilnYcQEHItaRgQEnUt2KpcPFLl4VG1Bblg1UVMQG8oFH3hG2mXf19eBHeMzxGdKWEQ==}
+  '@contentauth/c2pa-types@0.7.5':
+    resolution: {integrity: sha512-5sK1GvBjC2YPpnbWrpC3RCSrbImgYWjlk9IIv7G7TYmrxt2o21X5jw/z7BrNZUuQDhS+G9LJ+9fTPN/mQQ2/rA==}
 
-  '@contentauth/c2pa-utilities@0.2.1':
-    resolution: {integrity: sha512-9pFE528LJKvksGcSQrMbQhJWEPPN/5GMcSSkaJAJ1NQZ3oknmpVkLRjWkYBTlSjBBWQ5zbQCtgjlO+4ox9EJCw==}
+  '@contentauth/c2pa-utilities@0.3.1':
+    resolution: {integrity: sha512-vNYXiKdHGLXTjKTGuXisG1DE9s3oXQ2Qwm/teGQ5zMuRMEEqQPUrQ0rYvB0+Po7eAoAxms/ZgX3oXmgp9jiBVg==}
 
   '@copilotkit/a2ui-renderer@1.69.0':
     resolution: {integrity: sha512-bMa4wqO2LyyeT8vEEyig0TlXpvZyNVkoZGIip783jBc4/xOPVzJRRPNE5iwCOg47sI8UcrqGz3EGrjg/OSGGww==}
@@ -1841,9 +1841,6 @@ packages:
 
   '@emnapi/core@1.11.1':
     resolution: {integrity: sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ==}
-
-  '@emnapi/runtime@1.11.1':
-    resolution: {integrity: sha512-vgj7R3y3Wgx24IQaGPA/R6YFXLHVMOZ0uVEyIQPaWs+rd1AzfEMXlAC22FYwO1XkKR6NPsq7mUandH8oIRdZFw==}
 
   '@emnapi/runtime@1.11.3':
     resolution: {integrity: sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==}
@@ -4203,8 +4200,8 @@ packages:
   '@repeaterjs/repeater@3.1.0':
     resolution: {integrity: sha512-TaoVksZRSx2KWYYpyLQtMQXXeS98VsgZImzW65xmiVgbYhXLk+aEsmzPLirqVuE4/XuUapH2iMtxUzaBNDzdSQ==}
 
-  '@ricky0123/vad-web@0.0.30':
-    resolution: {integrity: sha512-cJyYrh4YeeUBJcbR9Bic/bFDyB9qBkAepvpuWM3vLxnAi7bC3VHzf51UeNdT+OtY4D7MLAgV8iJMc4z41ZnaWg==}
+  '@ricky0123/vad-web@0.0.31':
+    resolution: {integrity: sha512-ePVq8TvB21sdHSxVMZOEIf9JVa7MAYpaIaNXeGgsPOiMCN8xbPCdF2LS5aYj7VRR3ZxzutedgV9ZplV65IA1Fg==}
 
   '@roberts_lando/vfs@0.3.3':
     resolution: {integrity: sha512-YjkxVSLw5WMZQoARaryRAjcxA+GbBzWMJdwYZX5oLUt9cC/gew9as4Dn7tcLzPp7BPoR221VpTZ+78TRPawnjg==}
@@ -8484,6 +8481,9 @@ packages:
   onnxruntime-common@1.27.0:
     resolution: {integrity: sha512-3KxL5wIVqa8Ex08jxSzncm9CMgw8CjOFyOQ7SxvG9o0cVLlhTNKXyIQuTbtX4tGPJEf73OER2xrjt4HJSBL4ow==}
 
+  onnxruntime-common@1.30.0:
+    resolution: {integrity: sha512-7fdVWjAID1dVhH/G8qK3APARunV4VkBFoCQAP7qp4Wkab0mrorvmc+sqiT+mKXOzDqdjN5j+/Z9nb4gzNPWcyA==}
+
   onnxruntime-node@1.21.1:
     resolution: {integrity: sha512-YThL/YYeGAeytecOvRcTKUORTIE2f8/iSo/JZgHFawWrV4zOY7fWLEaNuscgjmY5C5/VE/Wr7tm+ucSsc/AysQ==}
     os: [win32, darwin, linux]
@@ -8492,8 +8492,8 @@ packages:
     resolution: {integrity: sha512-JH7+czbc8ALA819vlTgcV+Q214/+VjGeBHDjX81+ZCD0PCVCIFGFNtT0V4sXG/1JXypKPgScQcB3ij/hk3YnTg==}
     os: [win32, darwin, linux]
 
-  onnxruntime-node@1.27.0:
-    resolution: {integrity: sha512-QEzGwrvNBgv4uPVdnbHsOGG4G6T96mdlcFI8aAKPjMU8wOPpVocPXb6k3QGkaZagVTv2G9Bnnbo6Z3JdXr1fQw==}
+  onnxruntime-node@1.30.0:
+    resolution: {integrity: sha512-twhs1C2C/BFkz1yc5OY0KIU2GUq6DURO7hD4bx5Q2Qy3nAMJwRXW8xU3NVczE29VA9lolLOYepoD8fjTGOfIqw==}
     os: [win32, darwin, linux]
 
   onnxruntime-web@1.26.0-dev.20260416-b7804b056c:
@@ -8501,6 +8501,9 @@ packages:
 
   onnxruntime-web@1.27.0:
     resolution: {integrity: sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==}
+
+  onnxruntime-web@1.30.0:
+    resolution: {integrity: sha512-q0y+JrrtukXSzsBWEMccVfqX25LRmosXHF+CaRJmg8pZClzcV7svNc4rKY3jL02Vb7QmRMDs1SigqR4CXAfKYQ==}
 
   open@10.2.0:
     resolution: {integrity: sha512-YgBpdJHPyQ2UE5x+hlSXcnejzAvD0b22U2OuAP+8OnlJT+PjWPxtgmGqKKc+RgTM63U9gN0YzrYc71R2WT/hTA==}
@@ -9655,36 +9658,36 @@ packages:
     resolution: {integrity: sha512-Iov+JwFv/2HcTpcwNMKd8+IWNb8tboQJNQTkAY/LLVK7gGH9jy+LGkVqPxfekHl+yMmiqXszdGWXgkfml7hjqA==}
     engines: {node: '>= 0.4'}
 
-  sherpa-onnx-darwin-arm64@1.13.6:
-    resolution: {integrity: sha512-m3QMOGUHVPUl7bAOPc7oJtmzOVdzQVQPsCuTjNuQ2N6zlYuXDZu9NdUR3Er3rxbhHa6SmWa94flUwmUsO1atow==}
+  sherpa-onnx-darwin-arm64@1.13.8:
+    resolution: {integrity: sha512-FPNgJMgnWVl/KhRTIhG3KL3A4Om63Rn4YKXc9/uHY7SzLcvqLJLc/h7UBWJwduXvv7K18t5NpxHR6XgXn4sjWw==}
     cpu: [arm64]
     os: [darwin]
 
-  sherpa-onnx-darwin-x64@1.13.6:
-    resolution: {integrity: sha512-3X5FQ9PpwlBmxLqtb2/uvl7/W2HXXzXHT0MLmB9c0TRMANLujzvIF7YbT6VW3k92ClL/1q9sbIOul0rHgxCTmw==}
+  sherpa-onnx-darwin-x64@1.13.8:
+    resolution: {integrity: sha512-7BLRpjM6w4f9W46/nmkmq8lEKUayhebvcpslCVQ+6QN2uReYlZEMDZlSpXMjme+hUFrPfRz8P3UNq8ep/4d19g==}
     cpu: [x64]
     os: [darwin]
 
-  sherpa-onnx-linux-arm64@1.13.6:
-    resolution: {integrity: sha512-xSzhqrGFbBrykpbEFt5dLXB3Sp3a8idNzjhf92uylDgUhupBSRHj3ISeYaL9ZZWTNSzszNXBKlM+xH36dHQjPg==}
+  sherpa-onnx-linux-arm64@1.13.8:
+    resolution: {integrity: sha512-Tlg7a70b/Wge3OF8IgTHF9jhSVCsLyKQKhwc4BsJ5A+dL/SrFtGBjzuHp4XeLhiiOT7afCxX5PdSn/D4c8Lnuw==}
     cpu: [arm64]
     os: [linux]
 
-  sherpa-onnx-linux-x64@1.13.6:
-    resolution: {integrity: sha512-HiR3yolQDl3WoU1zSXn8L0MSXzF9PXLQpMv+Ptozg1y/DJU8HuvoXBasOarX4cer5d9kGimnOUGm0dl47PCN1A==}
+  sherpa-onnx-linux-x64@1.13.8:
+    resolution: {integrity: sha512-6plnhjagsSeTntCgnlag86hWbs/uZE9Crms1LgOb68/1nKsIQjMd+WG519m+aPwT6TrsBOiEMzrx41t8sL5L5g==}
     cpu: [x64]
     os: [linux]
 
-  sherpa-onnx-node@1.13.6:
-    resolution: {integrity: sha512-FjUSQSStTi/wcLqlScGFmNA7ySjW3QwquJcMRJ1yDkDpBp0BmWXkXoirDuEj8/v2/Cs4wLYJp2BKaMD9+1lDGA==}
+  sherpa-onnx-node@1.13.8:
+    resolution: {integrity: sha512-MsDMBdhLFTZ1GwvcGSSQhnS7g/EA8OMH6IYysCVUOM7j8Icty9KRc0E6YT1A5fWBsZwRfKOeh88QC95aRvS8ag==}
 
-  sherpa-onnx-win-ia32@1.13.6:
-    resolution: {integrity: sha512-CN6rNQqn0wzdSp3XRHxdmNaLUMhP+BgsWVbaASU+V9CYBdx74uutoA/43ThUfh3S3CiArpp8OJtn8dJrPeGHnw==}
+  sherpa-onnx-win-ia32@1.13.8:
+    resolution: {integrity: sha512-H0Ojln9hfvM+pxWqW0cnjB/XK8/JPq4/k0IWu2JpY5Z458M3zv+XC3Hu+wmot3AoH/K1Bgt23n/tTKtPV9x8qg==}
     cpu: [ia32]
     os: [win32]
 
-  sherpa-onnx-win-x64@1.13.6:
-    resolution: {integrity: sha512-bPMdURD1XCu1Zr3eYYlYx2obc5CMSQhEnd1GQuv7FXjdyOeMJ8jNbQEKFEIAyQdC481FgZvPBb2oSJXaLOOeVw==}
+  sherpa-onnx-win-x64@1.13.8:
+    resolution: {integrity: sha512-oZF1c9VPOKtMwn83Bboc5XSWL+76BRoyB3eUuVnCknBKxwSULZU2Foia9VHWzU+n4I12rPsP6z6H9Rp1hD9o8g==}
     cpu: [x64]
     os: [win32]
 
@@ -11873,10 +11876,10 @@ snapshots:
       - '@cfworker/json-schema'
       - supports-color
 
-  '@contentauth/c2pa-node@0.9.1(supports-color@10.2.2)':
+  '@contentauth/c2pa-node@0.9.8(supports-color@10.2.2)':
     dependencies:
-      '@contentauth/c2pa-types': 0.7.3
-      '@contentauth/c2pa-utilities': 0.2.1
+      '@contentauth/c2pa-types': 0.7.5
+      '@contentauth/c2pa-utilities': 0.3.1
       cargo-cp-artifact: 0.1.9
       cli-progress: 3.12.0
       debug: 4.4.3(supports-color@10.2.2)
@@ -11889,11 +11892,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@contentauth/c2pa-types@0.7.3': {}
+  '@contentauth/c2pa-types@0.7.5': {}
 
-  '@contentauth/c2pa-utilities@0.2.1':
+  '@contentauth/c2pa-utilities@0.3.1':
     dependencies:
-      '@contentauth/c2pa-types': 0.7.3
+      '@contentauth/c2pa-types': 0.7.5
       ts-deepmerge: 8.0.0
 
   '@copilotkit/a2ui-renderer@1.69.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
@@ -12428,11 +12431,6 @@ snapshots:
   '@emnapi/core@1.11.1':
     dependencies:
       '@emnapi/wasi-threads': 1.2.2
-      tslib: 2.8.1
-    optional: true
-
-  '@emnapi/runtime@1.11.1':
-    dependencies:
       tslib: 2.8.1
     optional: true
 
@@ -13315,7 +13313,7 @@ snapshots:
   '@napi-rs/wasm-runtime@1.0.7':
     dependencies:
       '@emnapi/core': 1.11.1
-      '@emnapi/runtime': 1.11.1
+      '@emnapi/runtime': 1.11.3
       '@tybys/wasm-util': 0.10.2
     optional: true
 
@@ -14640,7 +14638,7 @@ snapshots:
 
   '@repeaterjs/repeater@3.1.0': {}
 
-  '@ricky0123/vad-web@0.0.30':
+  '@ricky0123/vad-web@0.0.31':
     dependencies:
       onnxruntime-web: 1.27.0
 
@@ -19405,6 +19403,8 @@ snapshots:
 
   onnxruntime-common@1.27.0: {}
 
+  onnxruntime-common@1.30.0: {}
+
   onnxruntime-node@1.21.1:
     dependencies:
       global-agent: 3.0.0
@@ -19417,11 +19417,11 @@ snapshots:
       global-agent: 3.0.0
       onnxruntime-common: 1.24.3
 
-  onnxruntime-node@1.27.0:
+  onnxruntime-node@1.30.0:
     dependencies:
       adm-zip: 0.6.1
       global-agent: 4.1.3
-      onnxruntime-common: 1.27.0
+      onnxruntime-common: 1.30.0
 
   onnxruntime-web@1.26.0-dev.20260416-b7804b056c:
     dependencies:
@@ -19438,6 +19438,15 @@ snapshots:
       guid-typescript: 1.0.9
       long: 5.3.2
       onnxruntime-common: 1.27.0
+      platform: 1.3.6
+      protobufjs: 7.6.5
+
+  onnxruntime-web@1.30.0:
+    dependencies:
+      flatbuffers: 25.9.23
+      guid-typescript: 1.0.9
+      long: 5.3.2
+      onnxruntime-common: 1.30.0
       platform: 1.3.6
       protobufjs: 7.6.5
 
@@ -20925,31 +20934,31 @@ snapshots:
 
   shell-quote@1.9.0: {}
 
-  sherpa-onnx-darwin-arm64@1.13.6:
+  sherpa-onnx-darwin-arm64@1.13.8:
     optional: true
 
-  sherpa-onnx-darwin-x64@1.13.6:
+  sherpa-onnx-darwin-x64@1.13.8:
     optional: true
 
-  sherpa-onnx-linux-arm64@1.13.6:
+  sherpa-onnx-linux-arm64@1.13.8:
     optional: true
 
-  sherpa-onnx-linux-x64@1.13.6:
+  sherpa-onnx-linux-x64@1.13.8:
     optional: true
 
-  sherpa-onnx-node@1.13.6:
+  sherpa-onnx-node@1.13.8:
     optionalDependencies:
-      sherpa-onnx-darwin-arm64: 1.13.6
-      sherpa-onnx-darwin-x64: 1.13.6
-      sherpa-onnx-linux-arm64: 1.13.6
-      sherpa-onnx-linux-x64: 1.13.6
-      sherpa-onnx-win-ia32: 1.13.6
-      sherpa-onnx-win-x64: 1.13.6
+      sherpa-onnx-darwin-arm64: 1.13.8
+      sherpa-onnx-darwin-x64: 1.13.8
+      sherpa-onnx-linux-arm64: 1.13.8
+      sherpa-onnx-linux-x64: 1.13.8
+      sherpa-onnx-win-ia32: 1.13.8
+      sherpa-onnx-win-x64: 1.13.8
 
-  sherpa-onnx-win-ia32@1.13.6:
+  sherpa-onnx-win-ia32@1.13.8:
     optional: true
 
-  sherpa-onnx-win-x64@1.13.6:
+  sherpa-onnx-win-x64@1.13.8:
     optional: true
 
   shiki@3.23.0:
