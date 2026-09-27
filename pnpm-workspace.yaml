@@ -168,3 +168,4 @@ minimumReleaseAgeExclude:
   - remotion@4.0.515
   - '@remotion/media@4.0.515'
   - '@remotion/effects@4.0.515'
+  - react-resizable-panels@4.14.1
