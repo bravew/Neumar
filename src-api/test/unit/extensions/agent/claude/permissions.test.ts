@@ -181,7 +181,7 @@ describe('Claude permission policy', () => {
       await expect(
         call('Bash', { command: 'rm -rf /' }),
       ).resolves.toMatchObject({
-        continue: false,
+        continue: true,
         hookSpecificOutput: { permissionDecision: 'deny' },
       });
       await expect(
@@ -195,6 +195,47 @@ describe('Claude permission policy', () => {
       await expect(
         call('mcp__schedule__create', { name: 'x' }),
       ).resolves.toEqual({ continue: true });
+    });
+
+    it('denies an alwaysAsk tool when the headless run cannot prompt', async () => {
+      const registry = new ToolPermissionRegistry({
+        alwaysAllow: [],
+        alwaysDeny: [],
+        alwaysAsk: ['WebFetch'],
+      });
+      const options = applyPermissionPolicy(baseOptions(registry, undefined), {
+        registry,
+        taskId: undefined,
+        autoApprove: undefined,
+      });
+      const hook = options.hooks?.PreToolUse?.[0]?.hooks[0];
+      const signal = new AbortController().signal;
+      const call = (toolName: string, toolInput: unknown) =>
+        hook!(
+          {
+            hook_event_name: 'PreToolUse',
+            session_id: 'session-1',
+            transcript_path: '/tmp/transcript',
+            cwd: '/work/session-1',
+            tool_name: toolName,
+            tool_input: toolInput,
+            tool_use_id: 'tool-1',
+          },
+          'tool-1',
+          { signal },
+        );
+
+      await expect(
+        call('WebFetch', { url: 'https://example.com' }),
+      ).resolves.toMatchObject({
+        continue: true,
+        hookSpecificOutput: { permissionDecision: 'deny' },
+      });
+      // Bash is classified as execute, which asks in the interactive path.
+      // A bare headless allow-list is that approval, so a safe command stays.
+      await expect(call('Bash', { command: 'ls' })).resolves.toEqual({
+        continue: true,
+      });
     });
 
     it('denies an ask from the callback when no approver exists', async () => {

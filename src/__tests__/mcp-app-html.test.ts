@@ -27,6 +27,17 @@ describe('MCP App documents', () => {
     ).toContain(`data:image/png;base64,${png}`);
   });
 
+  it('accepts the MCP App HTML profile', () => {
+    expect(
+      mcpAppDocument([
+        {
+          mimeType: 'text/html;profile=mcp-app',
+          text: '<script>app()</script>',
+        },
+      ])?.html,
+    ).toBe('<script>app()</script>');
+  });
+
   it('rejects a blob that is not base64', () => {
     expect(
       mcpAppDocument([{ mimeType: 'image/png', blob: 'not base64!!!' }]),

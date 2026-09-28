@@ -936,7 +936,7 @@ export class AGUIEventPersister {
           type: 'result',
           subtype,
           content: summary,
-          messageId: `${taskId}_${subtype}`,
+          messageId: `${taskId}_${this.branchId}_${subtype}`,
         });
         if (updateTitleIfEmpty && !task.title) {
           updateTask(taskId, { title: summary.slice(0, 120) });

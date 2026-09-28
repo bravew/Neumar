@@ -64,11 +64,14 @@ function McpAppFrame({
   if (!html) return null;
   return (
     <div className="border-border/50 my-2 overflow-hidden rounded-lg border">
+      {/* App scripts stay in the document. The null-origin frame and the
+          intersected CSP are the isolation boundary. */}
       <HtmlSandbox
         html={html}
         identity={`${toolCallId}:${toolName}`}
         title={toolName}
         resourceCsp={resourceCsp}
+        renderFullDocument
       />
     </div>
   );

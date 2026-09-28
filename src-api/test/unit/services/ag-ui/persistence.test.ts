@@ -28,6 +28,7 @@ import {
   replayAGUIEvents,
 } from '@/shared/services/ag-ui/journal';
 import { AGUIEventPersister } from '@/shared/services/ag-ui/persistence';
+import * as dispatchSummary from '@/shared/services/dispatch-summary';
 
 let tempHome = '';
 
@@ -406,5 +407,42 @@ describe('AGUIEventPersister persistence', () => {
     expect(
       getMessagesByBranch(taskId, branchId).map((row) => row.content),
     ).toEqual(['first']);
+  });
+
+  it('stores a summary for each branch of the same task', async () => {
+    const summary = vi
+      .spyOn(dispatchSummary, 'generateDispatchSummary')
+      .mockResolvedValue('done');
+    const { sessionCwd, taskId, workspaceRoot } = createTaskFixture();
+    const branchA = '11111111-1111-4111-8111-111111111111';
+    const branchB = '22222222-2222-4222-8222-222222222222';
+    const finish = (branchId: string) => {
+      const persister = new AGUIEventPersister(
+        taskId,
+        `run-${branchId}`,
+        workspaceRoot,
+        sessionCwd,
+        'claude',
+        {},
+        'task',
+        branchId,
+      );
+      persister.handleEvent({ type: EventType.RUN_FINISHED } as never);
+    };
+    finish(branchA);
+    finish(branchB);
+
+    await vi.waitFor(() => {
+      const summaries = (branchId: string) =>
+        getMessagesByBranch(taskId, branchId).filter(
+          (row) => row.subtype === 'dispatch_summary',
+        );
+      expect(summaries(branchA)).toHaveLength(1);
+      expect(summaries(branchB)).toHaveLength(1);
+      expect(summaries(branchA)[0]?.message_id).not.toBe(
+        summaries(branchB)[0]?.message_id,
+      );
+    });
+    summary.mockRestore();
   });
 });

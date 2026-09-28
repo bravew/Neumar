@@ -5,12 +5,16 @@
  * `default-src` when the host omits the directive).
  */
 
+const CSP_DIRECTIVE_NAME = /^[a-z0-9-]+$/;
+
 function parseCsp(csp: string): Map<string, string[]> {
   const directives = new Map<string, string[]>();
   for (const part of csp.split(';')) {
     const tokens = part.trim().split(/\s+/).filter(Boolean);
     const name = tokens[0]?.toLowerCase();
-    if (!name) continue;
+    // Directive names are copied into an HTML attribute. Reject anything
+    // that is not a CSP token so a server cannot break out of that attribute.
+    if (!name || !CSP_DIRECTIVE_NAME.test(name)) continue;
     directives.set(name, tokens.slice(1));
   }
   return directives;
@@ -31,6 +35,7 @@ export function intersectCsp(
   if (!resourceCsp?.trim()) return hostCsp;
   const host = parseCsp(hostCsp);
   const resource = parseCsp(resourceCsp);
+  if (resource.size === 0) return hostCsp;
   const result = new Map(host);
 
   for (const [directive, sources] of resource) {

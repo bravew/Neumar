@@ -11,6 +11,7 @@ import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 
+import { getDatabase } from '@/shared/db';
 import { advertisedUiResourceUri } from '@/shared/mcp/ui-resource-gate';
 import { activeQueryStore } from '@/shared/services/active-query-store';
 import { errorMessage } from '@/shared/utils/errors';
@@ -183,11 +184,26 @@ mcpRuntimeRoutes.get(
   },
 );
 
+function taskInvokedMcpTool(
+  taskId: string,
+  serverName: string,
+  toolName: string,
+): boolean {
+  const row = getDatabase()
+    .prepare(
+      `SELECT 1 AS ok FROM messages
+       WHERE task_id = ? AND type = 'tool_use' AND tool_name = ?
+       LIMIT 1`,
+    )
+    .get(taskId, `mcp__${serverName}__${toolName}`);
+  return row !== undefined;
+}
+
 /**
  * POST /mcp/runtime/ui-resource — Read the ui:// resource a connected server
  * advertised on a tool the host invoked. The URI comes from that advertisement,
- * not from the caller. The contents are untrusted HTML; the client renders
- * them in the artifact sandbox.
+ * not from the caller, and the tool must already be stored as a tool_use row.
+ * The contents are untrusted HTML; the client renders them in the artifact sandbox.
  */
 mcpRuntimeRoutes.post(
   '/ui-resource',
@@ -198,6 +214,12 @@ mcpRuntimeRoutes.post(
     if (error) return c.json({ error: error.message }, error.status);
 
     try {
+      if (!taskInvokedMcpTool(taskId, serverName, toolName)) {
+        return c.json(
+          { error: 'This tool has not been invoked' },
+          404 as ContentfulStatusCode,
+        );
+      }
       const servers = await query!.mcpServerStatus();
       const uri = advertisedUiResourceUri(servers, serverName, toolName);
       if (!uri) {

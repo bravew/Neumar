@@ -36,6 +36,14 @@ export const SANDBOX_CSP =
   "form-action 'none'; " +
   "base-uri 'none';";
 
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
 export type FrameMessage =
   | { nonce: string; type: 'ready' }
   | {
@@ -465,7 +473,7 @@ export function wrapHtmlSrcdoc(
   const annotatedBody = annotateMissingNeumaIds(body);
   return (
     '<!doctype html><html><head>' +
-    `<meta http-equiv="Content-Security-Policy" content="${csp}">` +
+    `<meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(csp)}">` +
     '<meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
     paletteScript +
@@ -513,7 +521,7 @@ export function wrapFullDocumentSrcdoc(
     : '';
   const bridgeCss = inspectBridgeCss(mode);
   const headInject =
-    `<meta http-equiv="Content-Security-Policy" content="${csp}">` +
+    `<meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(csp)}">` +
     paletteScript +
     (bridgeCss ? `<style>${bridgeCss}</style>` : '');
   // Bootstrap goes last in <body> so its load/resize hooks fire after the

@@ -346,16 +346,28 @@ interface StepUsage {
 /** Keyed by the adapter's run session id; released when its result settles. */
 const stepUsageBySession = new Map<string, StepUsage>();
 
-/** Last cumulative SDK cost seen per SDK session id (bounded, LRU-ish). */
-const cumulativeCostBySdkSession = new Map<string, number>();
-const MAX_TRACKED_SDK_SESSIONS = 500;
+/** Last cumulative SDK cost, scoped by task and SDK session (bounded, LRU-ish). */
+const cumulativeCostByTaskAndSdkSession = new Map<string, number>();
+const MAX_TRACKED_COST_BASELINES = 500;
 
-function rememberCumulativeCost(sdkSessionId: string, cost: number): void {
-  cumulativeCostBySdkSession.delete(sdkSessionId);
-  cumulativeCostBySdkSession.set(sdkSessionId, cost);
-  if (cumulativeCostBySdkSession.size > MAX_TRACKED_SDK_SESSIONS) {
-    const oldest = cumulativeCostBySdkSession.keys().next().value;
-    if (oldest !== undefined) cumulativeCostBySdkSession.delete(oldest);
+function cumulativeCostKey(
+  taskId: string | undefined,
+  sdkSessionId: string,
+): string {
+  return JSON.stringify([taskId ?? '', sdkSessionId]);
+}
+
+function rememberCumulativeCost(
+  taskId: string | undefined,
+  sdkSessionId: string,
+  cost: number,
+): void {
+  const key = cumulativeCostKey(taskId, sdkSessionId);
+  cumulativeCostByTaskAndSdkSession.delete(key);
+  cumulativeCostByTaskAndSdkSession.set(key, cost);
+  if (cumulativeCostByTaskAndSdkSession.size > MAX_TRACKED_COST_BASELINES) {
+    const oldest = cumulativeCostByTaskAndSdkSession.keys().next().value;
+    if (oldest !== undefined) cumulativeCostByTaskAndSdkSession.delete(oldest);
   }
 }
 
@@ -502,7 +514,9 @@ export function settleClaudeResultUsage(
   let billable = cumulative;
   if (cumulative !== undefined && sdkSessionId) {
     const baseline =
-      cumulativeCostBySdkSession.get(sdkSessionId) ??
+      cumulativeCostByTaskAndSdkSession.get(
+        cumulativeCostKey(taskId, sdkSessionId),
+      ) ??
       lookupPersisted(sdkSessionId, taskId) ??
       0;
     // A total below the baseline means the SDK started over (no transcript
@@ -510,7 +524,7 @@ export function settleClaudeResultUsage(
     billable = cumulative >= baseline ? cumulative - baseline : cumulative;
     // A zeroed crash result must not reset the baseline, or the next resume
     // (which restores the transcript total) would be logged twice.
-    if (!zeroedError) rememberCumulativeCost(sdkSessionId, cumulative);
+    if (!zeroedError) rememberCumulativeCost(taskId, sdkSessionId, cumulative);
   }
 
   const { models, thinkingTokens } = summarizeModelUsage(msg.modelUsage);
@@ -555,5 +569,5 @@ export function settleClaudeResultUsage(
 /** Test hook: clear module state between cases. */
 export function resetClaudeStreamSignalState(): void {
   stepUsageBySession.clear();
-  cumulativeCostBySdkSession.clear();
+  cumulativeCostByTaskAndSdkSession.clear();
 }

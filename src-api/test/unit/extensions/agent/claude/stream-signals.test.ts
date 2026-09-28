@@ -384,6 +384,22 @@ describe('settleClaudeResultUsage', () => {
     expect(resumed.cumulativeCostUsd).toBe(0.8);
   });
 
+  it('does not reuse another task in-memory cost baseline', () => {
+    settleClaudeResultUsage(
+      'run-a',
+      result({ total_cost_usd: 1 }),
+      noPersisted,
+      'task-a',
+    );
+    const other = settleClaudeResultUsage(
+      'run-b',
+      result({ total_cost_usd: 1 }),
+      noPersisted,
+      'task-b',
+    );
+    expect(other.billableCostUsd).toBe(1);
+  });
+
   it('uses the persisted cumulative cost after an app restart', () => {
     const lookup = vi.fn(() => 0.5);
     const t = settleClaudeResultUsage(

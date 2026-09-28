@@ -1,7 +1,12 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { mcpRuntimeRoutes } from '@/app/api/mcp-runtime';
 
+import { closeDatabase, getDatabase } from '@/shared/db';
 import { activeQueryStore } from '@/shared/services/active-query-store';
 
 describe('mcp runtime routes', () => {
@@ -76,6 +81,9 @@ describe('mcp runtime routes', () => {
   });
 
   it('reads only a UI resource the invoked tool advertised', async () => {
+    const tempHome = mkdtempSync(path.join(tmpdir(), 'neuma-mcp-ui-'));
+    vi.stubEnv('HOME', tempHome);
+    closeDatabase();
     const query = {
       mcpServerStatus: vi.fn(async () => [
         {
@@ -100,6 +108,14 @@ describe('mcp runtime routes', () => {
       })),
     };
     activeQueryStore.register('task_mcp', query as never, 'session_mcp');
+    const db = getDatabase();
+    db.prepare('INSERT INTO tasks (id, prompt) VALUES (?, ?)').run(
+      'task_mcp',
+      'prompt',
+    );
+    db.prepare(
+      `INSERT INTO messages (task_id, type, tool_name) VALUES (?, 'tool_use', ?)`,
+    ).run('task_mcp', 'mcp__widgets__chart');
 
     const missing = await mcpRuntimeRoutes.request('/ui-resource', {
       method: 'POST',
@@ -132,5 +148,8 @@ describe('mcp runtime routes', () => {
       uri: 'ui://widgets/chart',
       contents: [{ text: '<p>chart</p>' }],
     });
+    closeDatabase();
+    vi.unstubAllEnvs();
+    rmSync(tempHome, { recursive: true, force: true });
   });
 });

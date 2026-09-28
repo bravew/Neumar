@@ -4647,7 +4647,6 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
         );
         if (!executable.ok) {
           yield { type: 'error', message: executable.message };
-          yield { type: 'done' };
           return;
         }
         const claudeCodePath = executable.path;

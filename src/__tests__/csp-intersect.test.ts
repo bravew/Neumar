@@ -23,6 +23,15 @@ describe('intersectCsp', () => {
     expect(result).not.toContain('img-src data: blob:');
   });
 
+  it('drops a directive name that is not a CSP token', () => {
+    const result = intersectCsp(
+      SANDBOX_CSP,
+      'x"><script>alert(1)</script><meta connect-src https://evil.example',
+    );
+    expect(result).toBe(SANDBOX_CSP);
+    expect(result).not.toContain('<script>');
+  });
+
   it('does not let a domain list open the network', () => {
     const resource = resourceCspFromMeta({
       ui: { csp: { connectDomains: ['https://cdn.example'] } },

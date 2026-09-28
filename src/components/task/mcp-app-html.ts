@@ -27,6 +27,13 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;');
 }
 
+function isAppHtml(mime: string): boolean {
+  const normalized = mime.trim().toLowerCase().replaceAll(/\s+/g, '');
+  return (
+    normalized === 'text/html' || normalized === 'text/html;profile=mcp-app'
+  );
+}
+
 function isBase64(value: string): boolean {
   return /^[A-Za-z0-9+/]+={0,2}$/.test(value) && value.length % 4 === 0;
 }
@@ -40,16 +47,15 @@ export function mcpAppDocument(contents: readonly McpResourceContent[]): {
     const mime = item.mimeType ?? 'text/html';
     const resourceCsp = resourceCspFromMeta(item._meta);
     if (
-      (mime === 'text/html' || mime === 'text/plain') &&
+      (isAppHtml(mime) || mime === 'text/plain') &&
       typeof item.text === 'string' &&
       item.text.length > 0 &&
       item.text.length <= MAX_HTML_CHARS
     ) {
       return {
-        html:
-          mime === 'text/html'
-            ? item.text
-            : `<pre>${escapeHtml(item.text)}</pre>`,
+        html: isAppHtml(mime)
+          ? item.text
+          : `<pre>${escapeHtml(item.text)}</pre>`,
         resourceCsp,
       };
     }

@@ -262,9 +262,9 @@ export function applyPermissionPolicy(
 }
 
 function denyPreToolUse(message: string) {
+  // `continue: false` stops the whole agent. Deny only this call.
   return {
-    continue: false as const,
-    reason: message,
+    continue: true as const,
     hookSpecificOutput: {
       hookEventName: 'PreToolUse' as const,
       permissionDecision: 'deny' as const,
@@ -277,6 +277,7 @@ function denyPreToolUse(message: string) {
  * Safety net for headless runs. Bare `Bash`, `Task`, `WebFetch`, and
  * `mcp__*` allow rules are approved by the SDK without calling `canUseTool`,
  * so this hook applies the same Bash block-list and registry deny rules.
+ * An `alwaysAsk` rule is also a deny: this path has no approval prompt.
  * A hook failure denies the call: a missed check must not fail open.
  */
 function headlessSafetyHook(registry: ToolPermissionRegistry): {
@@ -297,7 +298,10 @@ function headlessSafetyHook(registry: ToolPermissionRegistry): {
           }
         }
       }
-      if (registry.evaluate(toolName, toolInput) === 'deny') {
+      if (
+        registry.evaluate(toolName, toolInput) === 'deny' ||
+        registry.hasAlwaysAskRule(toolName, toolInput)
+      ) {
         logger.warn(`Headless ${toolName} blocked by permission rules`);
         return denyPreToolUse('Blocked by permission rules');
       }
