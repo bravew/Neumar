@@ -2265,6 +2265,7 @@ export default {
       broll: 'B-roll',
       music: 'संगीत',
       eval: 'मूल्यांकन',
+      'reference-analysis': 'संदर्भ विश्लेषण',
       unknown: 'जॉब',
     },
     caller: {

@@ -74,4 +74,63 @@ describe('mcp runtime routes', () => {
       },
     });
   });
+
+  it('reads only a UI resource the invoked tool advertised', async () => {
+    const query = {
+      mcpServerStatus: vi.fn(async () => [
+        {
+          name: 'widgets',
+          tools: [
+            {
+              name: 'chart',
+              _meta: { ui: { resourceUri: 'ui://widgets/chart' } },
+            },
+            { name: 'plain' },
+          ],
+        },
+      ]),
+      readMcpResource: vi.fn(async () => ({
+        contents: [
+          {
+            uri: 'ui://widgets/chart',
+            mimeType: 'text/html',
+            text: '<p>chart</p>',
+          },
+        ],
+      })),
+    };
+    activeQueryStore.register('task_mcp', query as never, 'session_mcp');
+
+    const missing = await mcpRuntimeRoutes.request('/ui-resource', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        taskId: 'task_mcp',
+        serverName: 'widgets',
+        toolName: 'plain',
+      }),
+    });
+    expect(missing.status).toBe(404);
+    expect(query.readMcpResource).not.toHaveBeenCalled();
+
+    const found = await mcpRuntimeRoutes.request('/ui-resource', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        taskId: 'task_mcp',
+        serverName: 'widgets',
+        toolName: 'chart',
+      }),
+    });
+    expect(found.status).toBe(200);
+    expect(query.readMcpResource).toHaveBeenCalledWith(
+      'widgets',
+      'ui://widgets/chart',
+    );
+    await expect(found.json()).resolves.toMatchObject({
+      ok: true,
+      uri: 'ui://widgets/chart',
+      contents: [{ text: '<p>chart</p>' }],
+    });
+  });
 });

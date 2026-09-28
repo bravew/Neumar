@@ -2292,6 +2292,7 @@ export default {
       broll: 'B-roll',
       music: 'Music',
       eval: 'Evaluation',
+      'reference-analysis': 'Reference analysis',
       unknown: 'Job',
     },
     caller: {

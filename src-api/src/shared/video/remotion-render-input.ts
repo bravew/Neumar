@@ -12,8 +12,6 @@ import {
   type VividOverlayRenderEntry,
 } from '@neumar/video-ir';
 
-import { validateInputFile } from '@/shared/services/ffmpeg';
-
 import {
   assetCanProvideAudio,
   isExternalAsset,

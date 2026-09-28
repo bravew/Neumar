@@ -48,7 +48,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { getProviderConfig } from '@/shared/utils/provider-resolution';
 import {
   writeVideoAgentPlan,
-  readVideoAgentPlan,
+  type readVideoAgentPlan,
 } from '@/shared/video/agent-plan';
 import { getVideoFeatureFlag } from '@/shared/video/flags';
 import { getLatestVideoResearchBrief } from '@/shared/video/plugins/atoms/research';

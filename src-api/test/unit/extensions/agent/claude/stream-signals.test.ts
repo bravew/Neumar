@@ -391,7 +391,7 @@ describe('settleClaudeResultUsage', () => {
       result({ total_cost_usd: 0.75 }),
       lookup,
     );
-    expect(lookup).toHaveBeenCalledWith(SESSION);
+    expect(lookup).toHaveBeenCalledWith(SESSION, undefined);
     expect(t.billableCostUsd).toBeCloseTo(0.25);
   });
 
@@ -434,6 +434,8 @@ describe('settleClaudeResultUsage', () => {
       api_steps: 2,
       usage_source: 'deduped_steps',
     });
+    expect(t.metadata.sdk_session_id).toBeUndefined();
+    expect(t.metadata.sdk_cumulative_cost_usd).toBeUndefined();
   });
 
   it('keeps the baseline across a zeroed crash result', () => {

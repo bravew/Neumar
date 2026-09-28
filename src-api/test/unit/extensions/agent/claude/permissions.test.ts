@@ -148,6 +148,55 @@ describe('Claude permission policy', () => {
       expect(options.allowedTools).not.toContain('Write');
     });
 
+    it('checks Bash danger and registry deny rules in a PreToolUse hook', async () => {
+      const registry = new ToolPermissionRegistry({
+        alwaysAllow: [],
+        alwaysDeny: ['WebFetch'],
+        alwaysAsk: [],
+      });
+      const options = applyPermissionPolicy(baseOptions(registry, undefined), {
+        registry,
+        taskId: undefined,
+        autoApprove: undefined,
+      });
+      const hook = options.hooks?.PreToolUse?.[0]?.hooks[0];
+      expect(hook).toBeTypeOf('function');
+
+      const signal = new AbortController().signal;
+      const call = (toolName: string, toolInput: unknown) =>
+        hook!(
+          {
+            hook_event_name: 'PreToolUse',
+            session_id: 'session-1',
+            transcript_path: '/tmp/transcript',
+            cwd: '/work/session-1',
+            tool_name: toolName,
+            tool_input: toolInput,
+            tool_use_id: 'tool-1',
+          },
+          'tool-1',
+          { signal },
+        );
+
+      await expect(
+        call('Bash', { command: 'rm -rf /' }),
+      ).resolves.toMatchObject({
+        continue: false,
+        hookSpecificOutput: { permissionDecision: 'deny' },
+      });
+      await expect(
+        call('WebFetch', { url: 'https://example.com' }),
+      ).resolves.toMatchObject({
+        hookSpecificOutput: { permissionDecision: 'deny' },
+      });
+      await expect(call('Bash', { command: 'ls' })).resolves.toEqual({
+        continue: true,
+      });
+      await expect(
+        call('mcp__schedule__create', { name: 'x' }),
+      ).resolves.toEqual({ continue: true });
+    });
+
     it('denies an ask from the callback when no approver exists', async () => {
       // The PTC loop calls the callback directly, without SDK rules.
       const registry = new ToolPermissionRegistry();

@@ -398,18 +398,29 @@ export function observeClaudeStepUsage(
  */
 export function lookupPersistedCumulativeCost(
   sdkSessionId: string,
+  taskId?: string,
 ): number | undefined {
   try {
+    // `created_at` is second-resolution, so several results in one run can
+    // tie. `rowid` is the insert order. A zero cumulative is never a usable
+    // baseline (including a crashed turn that persisted 0), so those rows
+    // are skipped and the previous positive total is used instead.
+    // `task_id` is indexed and narrows the JSON scan when the run has one.
+    const scoped = taskId != null && taskId !== '';
     const row = getDatabase()
       .prepare(
         `SELECT json_extract(metadata, '$.sdk_cumulative_cost_usd') AS cost
            FROM usage_logs
           WHERE call_type = 'agent'
+            ${scoped ? 'AND task_id = ?' : ''}
             AND json_extract(metadata, '$.sdk_session_id') = ?
-          ORDER BY created_at DESC
+            AND CAST(json_extract(metadata, '$.sdk_cumulative_cost_usd') AS REAL) > 0
+          ORDER BY rowid DESC
           LIMIT 1`,
       )
-      .get(sdkSessionId) as { cost?: unknown } | undefined;
+      .get(...(scoped ? [taskId, sdkSessionId] : [sdkSessionId])) as
+      | { cost?: unknown }
+      | undefined;
     return num(row?.cost);
   } catch (err) {
     logger.debug('Cumulative cost lookup failed', err);
@@ -473,7 +484,9 @@ export function settleClaudeResultUsage(
   message: unknown,
   lookupPersisted: (
     sdkSessionId: string,
+    taskId?: string,
   ) => number | undefined = lookupPersistedCumulativeCost,
+  taskId?: string,
 ): ClaudeResultTelemetry {
   const steps = stepUsageBySession.get(sessionId);
   stepUsageBySession.delete(sessionId);
@@ -490,7 +503,7 @@ export function settleClaudeResultUsage(
   if (cumulative !== undefined && sdkSessionId) {
     const baseline =
       cumulativeCostBySdkSession.get(sdkSessionId) ??
-      lookupPersisted(sdkSessionId) ??
+      lookupPersisted(sdkSessionId, taskId) ??
       0;
     // A total below the baseline means the SDK started over (no transcript
     // totals restored) — the whole total is this call's own spend.
@@ -518,8 +531,11 @@ export function settleClaudeResultUsage(
     resultIndex,
     queuedTurnCount,
     metadata: {
-      ...(sdkSessionId ? { sdk_session_id: sdkSessionId } : {}),
-      ...(cumulative !== undefined
+      // A zeroed crash result must not become the persisted baseline. After a
+      // restart the lookup reads the newest row; a stored 0 would re-bill the
+      // restored transcript on the next resume.
+      ...(sdkSessionId && !zeroedError ? { sdk_session_id: sdkSessionId } : {}),
+      ...(cumulative !== undefined && !zeroedError
         ? { sdk_cumulative_cost_usd: cumulative }
         : {}),
       ...(steps ? { api_steps: steps.seenMessageIds.size } : {}),

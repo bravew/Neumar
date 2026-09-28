@@ -230,12 +230,12 @@ export function resolveForkParent(
     .get(taskId, forkPoint.keptUpToId, taskId) as
     | { id: number; run_id: string | null }
     | undefined;
-  // Branch runs currently persist their output with branch_id 'main' (#94),
-  // so a "fork from here" point can be another branch's reply. Skipping those
-  // rows above would then seed the fork from main's older turn, so a fork
-  // must end on the chosen main row itself. An edit replaces a genuine main
-  // user message (branch prompts carry their own branch_id), so branch rows
-  // stored before it are not part of its history and are rightly skipped.
+  // Rows written before branch output carried its own branch_id (#94) can
+  // still sit on 'main'. Skipping those rows above would then seed the fork
+  // from main's older turn, so a fork must end on the chosen main row itself.
+  // An edit replaces a genuine main user message (branch prompts carry their
+  // own branch_id), so branch rows stored before it are not part of its
+  // history and are rightly skipped.
   if (forkPoint.kind === 'fork') {
     const lastAny = db
       .prepare(

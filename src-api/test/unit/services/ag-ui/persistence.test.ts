@@ -12,10 +12,12 @@ import { closeDatabase } from '@/shared/db';
 import {
   createSession,
   createTask,
+  deleteBranchMessagesAfter,
   getAgentRun,
   getAgentRunEventsAfter,
   getAgentRunsByTaskId,
   getFilesByTaskId,
+  getMessagesByBranch,
   getTask,
   updateTask,
 } from '@/shared/db/operations';
@@ -360,5 +362,49 @@ describe('AGUIEventPersister persistence', () => {
     expect(replayed.artifactDelivery.verdict).toEqual(
       live.artifactDelivery.verdict,
     );
+  });
+
+  it('writes branch output on that branch so regenerate can delete it', () => {
+    const { sessionCwd, taskId, workspaceRoot } = createTaskFixture();
+    const branchId = '11111111-1111-4111-8111-111111111111';
+    const persister = new AGUIEventPersister(
+      taskId,
+      'run-branch',
+      workspaceRoot,
+      sessionCwd,
+      'claude',
+      {},
+      'task',
+      branchId,
+    );
+
+    const emit = (messageId: string, delta: string) => {
+      persister.handleEvent({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId,
+      } as never);
+      persister.handleEvent({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId,
+        delta,
+      } as never);
+      persister.handleEvent({
+        type: EventType.TEXT_MESSAGE_END,
+        messageId,
+      } as never);
+    };
+    emit('msg-1', 'first');
+    emit('msg-2', 'second');
+
+    const rows = getMessagesByBranch(taskId, branchId);
+    expect(rows.map((row) => row.content)).toEqual(['first', 'second']);
+    expect(rows.every((row) => row.branch_id === branchId)).toBe(true);
+    expect(getMessagesByBranch(taskId, 'main')).toEqual([]);
+
+    const deleted = deleteBranchMessagesAfter(taskId, branchId, rows[0]!.id);
+    expect(deleted).toBe(1);
+    expect(
+      getMessagesByBranch(taskId, branchId).map((row) => row.content),
+    ).toEqual(['first']);
   });
 });
