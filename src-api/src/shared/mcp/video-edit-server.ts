@@ -657,6 +657,16 @@ const VIDEO_TEMPLATE_CATEGORY_SCHEMA = z.enum([
 ]);
 const VIDEO_TEMPLATE_LICENSE_SCHEMA = z.enum(['CC0', 'CC-BY', 'proprietary']);
 const VIDEO_TOOL_TIMEOUT_MS = 45_000;
+/**
+ * Hard per-call ceiling for this SDK-managed MCP server, passed to
+ * `createSdkMcpServer({ timeout })`. Most tools are wrapped with
+ * `withToolTimeout` (default `VIDEO_TOOL_TIMEOUT_MS`), but the majority of
+ * tools registered here are not, so without this the SDK falls back to
+ * `MCP_TOOL_TIMEOUT` (effectively unbounded when unset). 5 minutes gives
+ * generous headroom over the wrapped default for heavier IR/render work
+ * while still bounding calls that would otherwise hang indefinitely.
+ */
+const VIDEO_EDIT_SERVER_TIMEOUT_MS = 5 * 60_000;
 const VIDEO_AGENT_PLAN_STEP_SCHEMA = z
   .object({
     id: z.string().min(1),
@@ -6991,5 +7001,6 @@ export function createVideoEditServer(options: VideoEditServerOptions = {}) {
       ...options,
       clientKind: options.clientKind ?? 'external-mcp',
     }),
+    timeout: VIDEO_EDIT_SERVER_TIMEOUT_MS,
   });
 }

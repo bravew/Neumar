@@ -1762,11 +1762,23 @@ Use this to check which providers are configured before generating media.
 /** All media tool names for allowedTools registration */
 export const MEDIA_TOOL_NAMES = mediaTools.map((t) => t.name);
 
+/**
+ * Hard per-call ceiling for this SDK-managed MCP server, passed to
+ * `createSdkMcpServer({ timeout })`. `neuma_media_wait` long-polls for at
+ * most ~25s and image downloads cap at 60-180s (see `downloadToDisk` above),
+ * but image/video generation calls that hit a provider directly have no
+ * internal cap. 5 minutes covers slow providers and multi-image batches
+ * without falling back to `MCP_TOOL_TIMEOUT` (effectively unbounded when
+ * unset).
+ */
+const MEDIA_SERVER_TIMEOUT_MS = 5 * 60_000;
+
 /** Create the Media Generation MCP server instance */
 export function createMediaMcpServer() {
   return createSdkMcpServer({
     name: 'media-generation',
     version: '1.0.0',
     tools: mediaTools,
+    timeout: MEDIA_SERVER_TIMEOUT_MS,
   });
 }

@@ -50,7 +50,7 @@ const logger = createLogger('FFmpeg');
 // ============================================================================
 
 /** Maximum execution time for a single FFmpeg operation (30 minutes) */
-const MAX_EXECUTION_MS = 30 * 60 * 1_000;
+export const MAX_EXECUTION_MS = 30 * 60 * 1_000;
 
 // ============================================================================
 // Binary Detection
