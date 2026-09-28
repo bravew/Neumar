@@ -1690,6 +1690,14 @@ export default {
   modelDescBalanced: 'Équilibré (par défaut)',
   modelDescMostCapable: 'Plus performant',
   modelDescFastLightweight: 'Rapide et léger',
+  modelDescCodexFlagshipFrontier:
+    'Notre modèle le plus performant pour les tâches complexes et exigeantes',
+  modelDescCodexAgenticWorkhorse:
+    'Modèle agentique fiable pour les tâches quotidiennes',
+  modelDescCodexBalancedAgentic:
+    'Modèle de programmation agentique équilibré pour le travail quotidien',
+  modelDescCodexFastAffordable:
+    'Modèle de programmation agentique rapide et économique',
   modelDescCodexLatestFrontierCoding:
     'Dernier modèle de programmation agentique de pointe',
   modelDescCodexLatestFrontier: 'Usage général + utilisation ordinateur',

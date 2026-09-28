@@ -465,6 +465,13 @@ export const AGENT_DEFS: AgentRuntimeDef[] = [
     },
     fallbackModels: [
       DEFAULT_MODEL_OPTION,
+      // GPT-6 / GPT-5.6, confirmed live against `codex debug models` on
+      // codex-cli 0.157.1 (2026-09-27); ids and priority order match the
+      // real catalog exactly.
+      { id: 'gpt-6-astra', label: 'gpt-6-astra' },
+      { id: 'gpt-5.6-sol', label: 'gpt-5.6-sol' },
+      { id: 'gpt-5.6-terra', label: 'gpt-5.6-terra' },
+      { id: 'gpt-5.6-luna', label: 'gpt-5.6-luna' },
       { id: 'gpt-5.5', label: 'gpt-5.5' },
       { id: 'gpt-5.4', label: 'gpt-5.4' },
       { id: 'gpt-5.4-mini', label: 'gpt-5.4-mini' },
@@ -481,6 +488,10 @@ export const AGENT_DEFS: AgentRuntimeDef[] = [
       { id: 'low', label: 'Low' },
       { id: 'medium', label: 'Medium' },
       { id: 'high', label: 'High' },
+      { id: 'xhigh', label: 'XHigh' },
+      { id: 'max', label: 'Max' },
+      { id: 'ultra', label: 'Ultra' },
+      { id: 'persistent', label: 'Persistent' },
     ],
     promptDelivery: 'stdin',
     promptViaStdin: true,

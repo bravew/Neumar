@@ -337,6 +337,8 @@ function* mapSdkEvent(
             input_tokens: event.usage.input_tokens,
             output_tokens: event.usage.output_tokens,
             reasoning_output_tokens: event.usage.reasoning_output_tokens,
+            cache_creation_input_tokens:
+              event.usage.cache_write_input_tokens || undefined,
           },
         };
       }
@@ -669,6 +671,8 @@ export class CodexAgent extends BaseAgent {
             outputTokens: event.usage.output_tokens,
             reasoningOutputTokens: event.usage.reasoning_output_tokens,
             cacheReadTokens: event.usage.cached_input_tokens || undefined,
+            cacheCreationTokens:
+              event.usage.cache_write_input_tokens || undefined,
             latencyMs: turnStartMs ? Date.now() - turnStartMs : undefined,
           });
         }
@@ -773,6 +777,8 @@ export class CodexAgent extends BaseAgent {
               outputTokens: event.usage.output_tokens,
               reasoningOutputTokens: event.usage.reasoning_output_tokens,
               cacheReadTokens: event.usage.cached_input_tokens || undefined,
+              cacheCreationTokens:
+                event.usage.cache_write_input_tokens || undefined,
               latencyMs: turnStartMs ? Date.now() - turnStartMs : undefined,
               metadata: { phase: 'conversational' },
             });
@@ -941,6 +947,8 @@ export class CodexAgent extends BaseAgent {
             outputTokens: event.usage.output_tokens,
             reasoningOutputTokens: event.usage.reasoning_output_tokens,
             cacheReadTokens: event.usage.cached_input_tokens || undefined,
+            cacheCreationTokens:
+              event.usage.cache_write_input_tokens || undefined,
             latencyMs: turnStartMs ? Date.now() - turnStartMs : undefined,
             metadata: { phase: 'execution' },
           });

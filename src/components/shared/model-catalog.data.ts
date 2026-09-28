@@ -92,6 +92,34 @@ export const CLAUDE_MODELS: ModelOption[] = [
  *  underlying model name (e.g. `codex:o3` → Codex CLI running with o3). */
 export const CODEX_MODELS: ModelOption[] = [
   {
+    id: 'codex:gpt-6-astra',
+    label: 'gpt-6-astra',
+    description: '',
+    descKey: 'modelDescCodexFlagshipFrontier',
+    provider: 'codex',
+  },
+  {
+    id: 'codex:gpt-5.6-sol',
+    label: 'gpt-5.6-sol',
+    description: '',
+    descKey: 'modelDescCodexAgenticWorkhorse',
+    provider: 'codex',
+  },
+  {
+    id: 'codex:gpt-5.6-terra',
+    label: 'gpt-5.6-terra',
+    description: '',
+    descKey: 'modelDescCodexBalancedAgentic',
+    provider: 'codex',
+  },
+  {
+    id: 'codex:gpt-5.6-luna',
+    label: 'gpt-5.6-luna',
+    description: '',
+    descKey: 'modelDescCodexFastAffordable',
+    provider: 'codex',
+  },
+  {
     id: 'codex:gpt-5.5',
     label: 'gpt-5.5',
     description: '',
