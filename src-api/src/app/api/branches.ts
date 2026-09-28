@@ -207,7 +207,10 @@ branchesRoutes.post(
     } catch (err) {
       logger.error('Failed to restore files:', err);
       if (err instanceof RestoreFilesError) {
-        return c.json({ error: err.message }, 409 as ContentfulStatusCode);
+        return c.json(
+          { error: err.message, filesChanged: err.filesChanged },
+          409 as ContentfulStatusCode,
+        );
       }
       return c.json(
         { error: 'Failed to restore files' },

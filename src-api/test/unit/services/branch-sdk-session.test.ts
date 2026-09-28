@@ -47,11 +47,12 @@ function insertMessage(row: {
   messageId?: string;
   subtype?: string;
   branchId?: string;
+  toolName?: string;
 }): number {
   const result = getDatabase()
     .prepare(
-      `INSERT INTO messages (task_id, type, content, message_id, run_id, subtype, branch_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO messages (task_id, type, content, message_id, run_id, subtype, branch_id, tool_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       taskId,
@@ -61,6 +62,7 @@ function insertMessage(row: {
       row.runId ?? null,
       row.subtype ?? null,
       row.branchId ?? 'main',
+      row.toolName ?? null,
     );
   return Number(result.lastInsertRowid);
 }
@@ -311,6 +313,39 @@ describe('branch SDK session resolution', () => {
     ).toMatchObject({ branchSession: { parentSessionId: 'sdk-main-2' } });
   });
 
+  it('does not fork main when the fork point is another branch reply stored on main', async () => {
+    // Main: u1 a1 u2 a2 (run-2 recorded). Branch B edits u2; its reply is
+    // persisted with branch_id 'main' (issue #94) and B's run is recorded.
+    const { u2 } = await seedMainConversation();
+    const { branchId: branchB } = createBranchWithEditedMessage(
+      taskId,
+      u2,
+      'edited u2',
+    );
+    const bReply = insertMessage({ type: 'text', runId: 'branch-b-run' });
+    await recordRun({
+      branchId: branchB,
+      runId: 'branch-b-run',
+      plan: {
+        path: 'sdk',
+        mode: 'fork',
+        branchSession: { kind: 'fork', parentSessionId: 'sdk-main-1' },
+      },
+      sdkSessionId: 'sdk-branch-b',
+    });
+
+    // Forking from B's reply must not seed branch C from main's u2/a2.
+    const branchC = createBranch(taskId, bReply);
+    expect(
+      resolveBranchContextPlan({
+        taskId,
+        branchId: branchC,
+        provider: 'claude',
+        sessionExists: allSessionsExist,
+      }),
+    ).toEqual({ path: 'text', reason: 'fork-point-after-branch-output' });
+  });
+
   it('falls back to text history for a fork point inside a run', async () => {
     insertMessage({ type: 'user', runId: 'run-1' });
     const mid = insertMessage({ type: 'text', runId: 'run-1' });
@@ -454,49 +489,129 @@ describe('restore files to a fork point', () => {
   beforeEach(createTaskRow);
   afterEach(cleanup);
 
-  it('rewinds every later run newest first and leaves earlier runs alone', async () => {
-    const { a1 } = await seedMainConversation();
+  type Rewind = Parameters<typeof restoreFilesToForkPoint>[2];
+
+  /** Main runs 2 and 3 edited files after a1; run 1 ends at a1. */
+  async function seedEdits() {
+    const seeded = await seedMainConversation();
+    insertMessage({ type: 'tool_use', runId: 'run-2', toolName: 'Edit' });
     insertMessage({ type: 'user', runId: 'run-3', messageId: 'u3' });
-    insertMessage({ type: 'tool_use', runId: 'run-3' });
+    insertMessage({ type: 'tool_use', runId: 'run-3', toolName: 'Write' });
+    insertMessage({ type: 'tool_use', runId: 'run-3', toolName: 'Bash' });
     await recordRun({
       branchId: 'main',
       runId: 'run-3',
       plan: { path: 'main' },
       sdkSessionId: 'sdk-main-3',
     });
+    return seeded;
+  }
 
-    const rewind = vi.fn(async (run: { sdkSessionId: string | null }) => ({
-      canRewind: run.sdkSessionId !== 'sdk-main-2',
-      filesChanged: [`${run.sdkSessionId}.txt`],
-    }));
+  function recordingRewind(
+    impl: (
+      session: string | null,
+      dryRun: boolean,
+    ) => {
+      canRewind: boolean;
+      error?: string;
+    } = () => ({ canRewind: true }),
+  ) {
+    const calls: string[] = [];
+    const rewind: Rewind = vi.fn(async (run, { dryRun }) => {
+      calls.push(`${dryRun ? 'dry' : 'real'}:${run.sdkSessionId}`);
+      return {
+        ...impl(run.sdkSessionId, dryRun),
+        filesChanged: [`${run.sdkSessionId}.txt`],
+      };
+    });
+    return { rewind, calls };
+  }
+
+  it('checks every run first, then rewinds newest first', async () => {
+    const { a1 } = await seedEdits();
+    const { rewind, calls } = recordingRewind();
+
     const result = await restoreFilesToForkPoint(taskId, a1, rewind);
 
-    expect(rewind.mock.calls.map(([run]) => run.sdkSessionId)).toEqual([
-      'sdk-main-3',
-      'sdk-main-2',
+    expect(calls).toEqual([
+      'dry:sdk-main-3',
+      'dry:sdk-main-2',
+      'real:sdk-main-3',
+      'real:sdk-main-2',
     ]);
-    expect(rewind.mock.calls[0]?.[0]).toMatchObject({
+    expect(vi.mocked(rewind).mock.calls[0]?.[0]).toMatchObject({
       promptSdkUuid: 'prompt-run-3',
       cwd: '/work/session-1',
     });
     expect(result).toEqual({
-      rewoundRuns: 1,
-      skippedRuns: 1,
+      rewoundRuns: 2,
+      filesChanged: ['sdk-main-3.txt', 'sdk-main-2.txt'],
+    });
+  });
+
+  it('changes no files when any run fails the dry run', async () => {
+    const { a1 } = await seedEdits();
+    const { rewind, calls } = recordingRewind((session, dryRun) =>
+      dryRun && session === 'sdk-main-2'
+        ? { canRewind: false, error: 'checkpoint missing' }
+        : { canRewind: true },
+    );
+
+    await expect(
+      restoreFilesToForkPoint(taskId, a1, rewind),
+    ).rejects.toMatchObject({
+      message: 'checkpoint missing',
+      filesChanged: [],
+    });
+    expect(calls.filter((call) => call.startsWith('real'))).toEqual([]);
+  });
+
+  it('reports the files already restored when a rewind fails partway', async () => {
+    const { a1 } = await seedEdits();
+    const { rewind } = recordingRewind((session, dryRun) =>
+      !dryRun && session === 'sdk-main-2'
+        ? { canRewind: false, error: 'timed out' }
+        : { canRewind: true },
+    );
+
+    await expect(
+      restoreFilesToForkPoint(taskId, a1, rewind),
+    ).rejects.toMatchObject({
+      message: 'timed out',
       filesChanged: ['sdk-main-3.txt'],
     });
   });
 
+  it('refuses when an edit after the fork point has no recorded checkpoint', async () => {
+    const { a1 } = await seedEdits();
+    // A failed run is never recorded, but its edits still changed files.
+    insertMessage({ type: 'tool_use', runId: 'failed-run', toolName: 'Edit' });
+    const { rewind, calls } = recordingRewind();
+
+    await expect(restoreFilesToForkPoint(taskId, a1, rewind)).rejects.toThrow(
+      /no Claude file checkpoint/,
+    );
+    expect(calls).toEqual([]);
+  });
+
+  it('refuses when there is nothing to restore', async () => {
+    const { a2 } = await seedMainConversation();
+    const { rewind } = recordingRewind();
+
+    await expect(restoreFilesToForkPoint(taskId, a2, rewind)).rejects.toThrow(
+      /No file edits/,
+    );
+  });
+
   it('rewinds the edited message run itself when restoring before a user message', async () => {
-    const { u2 } = await seedMainConversation();
-    const rewind = vi.fn(async (_run: { sdkSessionId: string | null }) => ({
-      canRewind: true,
-      filesChanged: [],
-    }));
+    const { u2 } = await seedEdits();
+    const { rewind, calls } = recordingRewind();
 
     await restoreFilesToForkPoint(taskId, u2, rewind);
 
-    expect(rewind.mock.calls.map(([run]) => run.sdkSessionId)).toEqual([
-      'sdk-main-2',
+    expect(calls.filter((call) => call.startsWith('real'))).toEqual([
+      'real:sdk-main-3',
+      'real:sdk-main-2',
     ]);
   });
 });

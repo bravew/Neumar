@@ -118,6 +118,7 @@ export default {
   forkRestoreFilesConfirm:
     '从此处分支并恢复此后编辑过的文件？只会恢复通过 Claude 文件工具所做的编辑；Shell（Bash）命令造成的更改不会恢复。',
   forkRestoreFilesFailed: '无法恢复文件，未创建分支。',
+  forkRestoreFilesPartial: '文件仅部分恢复，未创建分支。已恢复：{files}',
   branchNavLabel: '{current} / {total}',
   branchNavPrevious: '上一个分支',
   branchNavNext: '下一个分支',

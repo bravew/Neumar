@@ -23,6 +23,7 @@ import {
   getBranchForkPoint,
   getForkPointForMessage,
   getLatestBranchSdkSession,
+  listEditRunIdsAfterForkPoint,
   listRunsAfterForkPoint,
   recordBranchSdkSession,
   resolveForkParent,
@@ -40,6 +41,7 @@ export type TextHistoryReason =
   | 'no-fork-point'
   | 'no-recorded-session'
   | 'fork-point-mid-run'
+  | 'fork-point-after-branch-output'
   | 'parent-session-missing'
   | 'branch-on-text-history'
   | 'branch-session-missing';
@@ -246,21 +248,33 @@ export function invalidateBranchSdkSession(
 export interface RestoreFilesResult {
   /** Runs whose tracked file edits were rewound. */
   rewoundRuns: number;
-  /** Runs the SDK could not rewind (for example, no tracked edits). */
-  skippedRuns: number;
   filesChanged: string[];
 }
 
 export type RewindRunFiles = (
   record: BranchSdkSessionRecord,
+  options: { dryRun: boolean },
 ) => Promise<{ canRewind: boolean; error?: string; filesChanged?: string[] }>;
 
-export class RestoreFilesError extends Error {}
+export class RestoreFilesError extends Error {
+  constructor(
+    message: string,
+    /** Files already rewound before the failure; empty when nothing changed. */
+    readonly filesChanged: string[] = [],
+  ) {
+    super(message);
+  }
+}
 
 /**
  * Restore files edited through Claude's file checkpoints to their state at a
- * fork point by rewinding every later run, newest first. Bash and other shell
- * side effects are not tracked by checkpoints and stay as they are.
+ * fork point by rewinding every later run that edited files, newest first.
+ * Bash and other shell side effects are not tracked and stay as they are.
+ *
+ * All or nothing where it can be checked up front: every edit after the fork
+ * point must belong to a recorded Claude run, and every run must pass a
+ * dry-run rewind, before any file changes. A failure during the real rewind
+ * reports the files already restored.
  */
 export async function restoreFilesToForkPoint(
   taskId: string,
@@ -271,20 +285,58 @@ export async function restoreFilesToForkPoint(
   if (!forkPoint) {
     throw new RestoreFilesError('Fork point is not on the main branch');
   }
-  const runs = listRunsAfterForkPoint(taskId, forkPoint);
+  const editRunIds = new Set(listEditRunIdsAfterForkPoint(taskId, forkPoint));
+  const runs = listRunsAfterForkPoint(taskId, forkPoint).filter(
+    (run) => run.runId !== null && editRunIds.has(run.runId),
+  );
+  if (editRunIds.size === 0) {
+    throw new RestoreFilesError('No file edits to restore after this point');
+  }
+  const unrestorable = [...editRunIds].filter(
+    (runId) => !runs.some((run) => run.runId === runId),
+  );
+  if (unrestorable.length > 0) {
+    logger.warn('File edits without a restorable checkpoint', {
+      taskId,
+      messageId,
+      runIds: unrestorable,
+    });
+    throw new RestoreFilesError(
+      'Some file edits after this point have no Claude file checkpoint',
+    );
+  }
+
+  for (const run of runs) {
+    const check = await rewind(run, { dryRun: true });
+    if (!check.canRewind) {
+      throw new RestoreFilesError(
+        check.error ?? 'A file checkpoint after this point cannot be restored',
+      );
+    }
+  }
+
   const filesChanged = new Set<string>();
   let rewoundRuns = 0;
-  let skippedRuns = 0;
   for (const run of runs) {
-    const result = await rewind(run);
+    let result: Awaited<ReturnType<RewindRunFiles>>;
+    try {
+      result = await rewind(run, { dryRun: false });
+    } catch (err) {
+      result = {
+        canRewind: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
     if (!result.canRewind) {
-      skippedRuns++;
-      logger.warn('Run files not rewound', {
+      logger.error('File restore failed partway', {
         taskId,
         runId: run.runId,
         error: result.error,
+        filesChanged: filesChanged.size,
       });
-      continue;
+      throw new RestoreFilesError(result.error ?? 'File restore failed', [
+        ...filesChanged,
+      ]);
     }
     rewoundRuns++;
     for (const file of result.filesChanged ?? []) filesChanged.add(file);
@@ -292,12 +344,10 @@ export async function restoreFilesToForkPoint(
   logger.info('Restored files to fork point', {
     taskId,
     messageId,
-    candidateRuns: runs.length,
     rewoundRuns,
-    skippedRuns,
     filesChanged: filesChanged.size,
   });
-  return { rewoundRuns, skippedRuns, filesChanged: [...filesChanged] };
+  return { rewoundRuns, filesChanged: [...filesChanged] };
 }
 
 const REWIND_TIMEOUT_MS = 30_000;
@@ -309,6 +359,7 @@ const REWIND_TIMEOUT_MS = 30_000;
  */
 async function rewindClaudeRunFiles(
   record: BranchSdkSessionRecord,
+  { dryRun }: { dryRun: boolean },
 ): ReturnType<RewindRunFiles> {
   if (!record.sdkSessionId || !record.promptSdkUuid) {
     return { canRewind: false };
@@ -354,7 +405,7 @@ async function rewindClaudeRunFiles(
   });
   try {
     return await Promise.race([
-      rewindQuery.rewindFiles(record.promptSdkUuid),
+      rewindQuery.rewindFiles(record.promptSdkUuid, { dryRun }),
       timeout,
     ]);
   } finally {

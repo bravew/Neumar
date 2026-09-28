@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import type { ForkFromHereResult } from '@/shared/hooks/useBranchActions';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -38,9 +39,9 @@ interface MessageToolbarProps {
   onFork?: () => void;
   /**
    * Fork after restoring checkpointed file edits; shown only when some exist.
-   * Resolves false when the restore failed and no fork was made.
+   * Reports a failed restore (no fork made, files possibly partly restored).
    */
-  onForkRestoreFiles?: () => void | Promise<boolean>;
+  onForkRestoreFiles?: () => void | Promise<ForkFromHereResult>;
 }
 
 type FeedbackState = 'none' | 'up' | 'down';
@@ -184,10 +185,16 @@ export function MessageToolbar({
               <button
                 onClick={() => {
                   if (!window.confirm(t.task.forkRestoreFilesConfirm)) return;
-                  void Promise.resolve(onForkRestoreFiles()).then((ok) => {
-                    if (ok === false) {
-                      toast.error(t.task.forkRestoreFilesFailed);
-                    }
+                  void Promise.resolve(onForkRestoreFiles()).then((result) => {
+                    if (!result || result.ok) return;
+                    toast.error(
+                      result.filesChanged.length > 0
+                        ? t.task.forkRestoreFilesPartial.replace(
+                            '{files}',
+                            result.filesChanged.join(', '),
+                          )
+                        : t.task.forkRestoreFilesFailed,
+                    );
                   });
                 }}
                 className="hover:text-foreground cursor-pointer rounded-md p-1.5 font-medium transition-colors"

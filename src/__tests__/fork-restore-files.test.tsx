@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageToolbar } from '@/components/task/MessageToolbar';
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble.types';
 import { UserMessageBubble } from '@/components/task/UserMessageBubble';
-import { createBranch, restoreFilesToForkPoint } from '@/shared/db/database';
+import {
+  createBranch,
+  RestoreFilesError,
+  restoreFilesToForkPoint,
+} from '@/shared/db/database';
 import { useBranchActions } from '@/shared/hooks/useBranchActions';
 import { hasCheckpointedFileEditsAfter } from '@/shared/lib/message-tree';
 
@@ -16,6 +20,14 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('@/shared/db/database', () => ({
+  RestoreFilesError: class RestoreFilesError extends Error {
+    constructor(
+      message: string,
+      readonly filesChanged: string[],
+    ) {
+      super(message);
+    }
+  },
   createBranch: vi.fn().mockResolvedValue('branch-1'),
   createEditBranch: vi.fn(),
   getMessagesByTaskId: vi.fn().mockResolvedValue([]),
@@ -90,23 +102,34 @@ describe('Fork and restore files visibility', () => {
     confirm.mockRestore();
   });
 
-  it('tells the user when the restore failed', async () => {
-    const onForkRestoreFiles = vi.fn().mockResolvedValue(false);
-    renderWithProviders(
-      <MessageToolbar content="Plan" onForkRestoreFiles={onForkRestoreFiles} />,
-    );
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', { name: /fork and restore files/i }),
+  it.each([
+    [[], /not forked/i],
+    [['a.ts', 'b.ts'], /partly restored.*a\.ts, b\.ts/i],
+  ])(
+    'tells the user when the restore failed (already restored: %j)',
+    async (filesChanged, message) => {
+      const onForkRestoreFiles = vi
+        .fn()
+        .mockResolvedValue({ ok: false, filesChanged });
+      renderWithProviders(
+        <MessageToolbar
+          content="Plan"
+          onForkRestoreFiles={onForkRestoreFiles}
+        />,
       );
-    });
+      vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
 
-    expect(toast.error).toHaveBeenCalledWith(
-      expect.stringMatching(/not forked/i),
-    );
-  });
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', { name: /fork and restore files/i }),
+        );
+      });
+
+      expect(toast.error).toHaveBeenLastCalledWith(
+        expect.stringMatching(message),
+      );
+    },
+  );
 });
 
 describe('useBranchActions fork with file restore', () => {
@@ -126,7 +149,9 @@ describe('useBranchActions fork with file restore', () => {
   it('plain fork leaves files alone', async () => {
     const { result } = renderHook(() => useBranchActions(...refs()));
     await act(async () => {
-      await expect(result.current.handleForkFromHere('a1')).resolves.toBe(true);
+      await expect(result.current.handleForkFromHere('a1')).resolves.toEqual({
+        ok: true,
+      });
     });
 
     expect(restoreFilesToForkPoint).not.toHaveBeenCalled();
@@ -136,7 +161,6 @@ describe('useBranchActions fork with file restore', () => {
   it('restores files before forking', async () => {
     vi.mocked(restoreFilesToForkPoint).mockResolvedValueOnce({
       rewoundRuns: 1,
-      skippedRuns: 0,
       filesChanged: ['a.ts'],
     });
     const { result } = renderHook(() => useBranchActions(...refs()));
@@ -151,16 +175,16 @@ describe('useBranchActions fork with file restore', () => {
     ).toBeLessThan(vi.mocked(createBranch).mock.invocationCallOrder[0]!);
   });
 
-  it('does not fork when the restore fails', async () => {
+  it('does not fork when the restore fails, and reports files already restored', async () => {
     vi.mocked(restoreFilesToForkPoint).mockRejectedValueOnce(
-      new Error('rewind failed'),
+      new RestoreFilesError('timed out', ['newer.ts']),
     );
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { result } = renderHook(() => useBranchActions(...refs()));
     await act(async () => {
       await expect(
         result.current.handleForkFromHere('a1', { restoreFiles: true }),
-      ).resolves.toBe(false);
+      ).resolves.toEqual({ ok: false, filesChanged: ['newer.ts'] });
     });
 
     expect(createBranch).not.toHaveBeenCalled();

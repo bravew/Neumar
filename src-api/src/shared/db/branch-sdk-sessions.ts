@@ -134,6 +134,8 @@ export interface BranchForkPoint {
    * the edited user message; a fork keeps the fork-point message itself.
    */
   keptUpToId: number;
+  /** `edit` replaces a user message on main; `fork` keeps the message. */
+  kind: 'edit' | 'fork';
 }
 
 /**
@@ -172,9 +174,11 @@ export function getBranchForkPoint(
  * the message itself.
  */
 function forkPointFor(parent: { id: number; type: string }): BranchForkPoint {
+  const kind = parent.type === 'user' ? 'edit' : 'fork';
   return {
     parentMessageId: parent.id,
-    keptUpToId: parent.type === 'user' ? parent.id - 1 : parent.id,
+    keptUpToId: kind === 'edit' ? parent.id - 1 : parent.id,
+    kind,
   };
 }
 
@@ -196,7 +200,10 @@ export type ForkParentResolution =
   | { kind: 'session'; record: BranchSdkSessionRecord }
   | {
       kind: 'unavailable';
-      reason: 'no-recorded-session' | 'fork-point-mid-run';
+      reason:
+        | 'no-recorded-session'
+        | 'fork-point-mid-run'
+        | 'fork-point-after-branch-output';
     };
 
 /**
@@ -223,6 +230,25 @@ export function resolveForkParent(
     .get(taskId, forkPoint.keptUpToId, taskId) as
     | { id: number; run_id: string | null }
     | undefined;
+  // Branch runs currently persist their output with branch_id 'main' (#94),
+  // so a "fork from here" point can be another branch's reply. Skipping those
+  // rows above would then seed the fork from main's older turn, so a fork
+  // must end on the chosen main row itself. An edit replaces a genuine main
+  // user message (branch prompts carry their own branch_id), so branch rows
+  // stored before it are not part of its history and are rightly skipped.
+  if (forkPoint.kind === 'fork') {
+    const lastAny = db
+      .prepare(
+        `SELECT id FROM messages
+         WHERE task_id = ? AND COALESCE(branch_id, 'main') = 'main' AND id <= ?
+           AND ${CONVERSATION_ROW_FILTER}
+         ORDER BY id DESC LIMIT 1`,
+      )
+      .get(taskId, forkPoint.keptUpToId) as { id: number } | undefined;
+    if (lastAny && lastAny.id !== last?.id) {
+      return { kind: 'unavailable', reason: 'fork-point-after-branch-output' };
+    }
+  }
   if (!last) return { kind: 'empty' };
   if (!last.run_id) {
     return { kind: 'unavailable', reason: 'no-recorded-session' };
@@ -248,6 +274,35 @@ export function resolveForkParent(
   if (later) return { kind: 'unavailable', reason: 'fork-point-mid-run' };
 
   return { kind: 'session', record: rowToRecord(row) };
+}
+
+/** Claude file tools whose edits are covered by SDK file checkpoints. */
+export const CHECKPOINTED_FILE_TOOLS = [
+  'Write',
+  'Edit',
+  'MultiEdit',
+  'NotebookEdit',
+] as const;
+
+/**
+ * Runs that made a checkpointed file edit after the fork point — the edits a
+ * restore must undo. Branch copies carry no run_id and are not counted.
+ */
+export function listEditRunIdsAfterForkPoint(
+  taskId: string,
+  forkPoint: BranchForkPoint,
+): string[] {
+  const placeholders = CHECKPOINTED_FILE_TOOLS.map(() => '?').join(', ');
+  const rows = getDatabase()
+    .prepare(
+      `SELECT DISTINCT run_id FROM messages
+       WHERE task_id = ? AND id > ? AND run_id IS NOT NULL
+         AND type = 'tool_use' AND tool_name IN (${placeholders})`,
+    )
+    .all(taskId, forkPoint.keptUpToId, ...CHECKPOINTED_FILE_TOOLS) as Array<{
+    run_id: string;
+  }>;
+  return rows.map((row) => row.run_id);
 }
 
 /**

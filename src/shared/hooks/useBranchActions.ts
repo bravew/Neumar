@@ -8,6 +8,7 @@ import {
   createEditBranch,
   getMessagesByTaskId,
   regenerateResponse,
+  RestoreFilesError,
   restoreFilesToForkPoint,
 } from '@/shared/db/database';
 import { stopAgentRun } from '@/shared/hooks/useAgentActions';
@@ -17,6 +18,11 @@ import {
   type BranchSelections,
 } from '@/shared/lib/message-tree';
 import { useBranchStore } from '@/shared/stores/branch-store';
+
+/** Outcome of "Fork from here"; only a failed file restore reports `ok: false`. */
+export type ForkFromHereResult =
+  | { ok: true }
+  | { ok: false; filesChanged: string[] };
 
 /**
  * Encapsulates branch operations for TaskV2Thread:
@@ -169,15 +175,16 @@ export function useBranchActions(
    * Creates a new branch and switches to it — user can then type a new prompt.
    * Files stay as they are unless `restoreFiles` is set: then files edited
    * through Claude's file tools since this message are restored first, and
-   * the fork is skipped if that fails. Resolves false when the restore failed.
+   * the fork is skipped if that fails. A failed restore resolves with the
+   * files it had already restored, since a partial restore is not undone.
    */
   const handleForkFromHere = useCallback(
     async (
       messageId: string,
       options?: { restoreFiles?: boolean },
-    ): Promise<boolean> => {
+    ): Promise<ForkFromHereResult> => {
       const tid = taskIdRef.current;
-      if (!tid || busyRef.current) return true;
+      if (!tid || busyRef.current) return { ok: true };
       busyRef.current = true;
 
       try {
@@ -186,7 +193,11 @@ export function useBranchActions(
             await restoreFilesToForkPoint(tid, messageId);
           } catch (err) {
             console.error('[useBranchActions] restoreFiles failed:', err);
-            return false;
+            return {
+              ok: false,
+              filesChanged:
+                err instanceof RestoreFilesError ? err.filesChanged : [],
+            };
           }
         }
         const branchId = await createBranch(tid, messageId);
@@ -203,7 +214,7 @@ export function useBranchActions(
       } finally {
         busyRef.current = false;
       }
-      return true;
+      return { ok: true };
     },
     [taskIdRef, addBranch, setActiveBranch, selectBranchAtFork],
   );

@@ -25,6 +25,7 @@ import { UserMessageBubble } from '@/components/task/UserMessageBubble';
 import { getSettings } from '@/shared/db/settings';
 import type { TaskPlan } from '@/shared/hooks/agent-types';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
+import type { ForkFromHereResult } from '@/shared/hooks/useBranchActions';
 import { hasCheckpointedFileEditsAfter } from '@/shared/lib/message-tree';
 
 export {
@@ -90,11 +91,11 @@ export interface GroupedItemRenderContext {
   onCancelTool?: (toolUseId: string) => void;
   onEditMessage?: (messageId: string, newContent: string) => void;
   onRegenerate?: (messageId: string) => void;
-  /** Resolves false when a requested file restore failed (no fork made). */
+  /** Reports a failed file restore (no fork made) through its result. */
   onForkFromHere?: (
     messageId: string,
     options?: { restoreFiles?: boolean },
-  ) => void | Promise<boolean>;
+  ) => void | Promise<ForkFromHereResult>;
   onBranchNavigate?: (
     forkPointId: string | number,
     direction: 'prev' | 'next',

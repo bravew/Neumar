@@ -110,6 +110,8 @@ export default {
     '¿Bifurcar desde aquí y restaurar los archivos editados desde este punto? Solo se restauran las ediciones hechas con las herramientas de archivos de Claude; los cambios hechos con comandos de shell (Bash) no se restauran.',
   forkRestoreFilesFailed:
     'No se pudieron restaurar los archivos. La conversación no se bifurcó.',
+  forkRestoreFilesPartial:
+    'Los archivos solo se restauraron en parte y la conversación no se bifurcó. Ya restaurados: {files}',
   branchNavLabel: '{current} / {total}',
   branchNavPrevious: 'Rama anterior',
   branchNavNext: 'Rama siguiente',
