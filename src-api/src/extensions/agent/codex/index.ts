@@ -11,12 +11,17 @@
  */
 
 import { existsSync } from 'fs';
-import { copyFile as copyFileFn, mkdir } from 'fs/promises';
+import { copyFile as copyFileFn, mkdir, writeFile } from 'fs/promises';
 import { homedir } from 'os';
 import { basename, join, resolve as resolvePath, sep } from 'path';
 
 import { Codex } from '@openai/codex-sdk';
-import type { ModelReasoningEffort, ThreadEvent } from '@openai/codex-sdk';
+import type {
+  Input as CodexInput,
+  ModelReasoningEffort,
+  ThreadEvent,
+  UserInput as CodexUserInput,
+} from '@openai/codex-sdk';
 
 import { ASK_USER_QUESTION_INSTRUCTION } from '@/core/agent/ask-user-question';
 import {
@@ -35,6 +40,7 @@ import type {
   AgentProvider,
   ConversationMessage,
   ExecuteOptions,
+  ImageAttachment,
   PlanOptions,
   TaskPlan,
 } from '@/core/agent/types';
@@ -45,6 +51,7 @@ import {
   DEFAULT_WORK_DIR,
 } from '@/config/constants';
 
+import { INBOUND_ATTACHMENTS_DIR } from '@/shared/channels/workspace';
 import {
   type SubprocessMcpConfig,
   buildSubprocessMcpConfig,
@@ -55,6 +62,7 @@ import {
   resolveCodexBinaryPath,
 } from '@/shared/utils/codex-binary';
 import { createLogger } from '@/shared/utils/logger';
+import { checkPermission } from '@/shared/utils/path-validator';
 import { expandPath } from '@/shared/utils/paths';
 
 import { resolveCodexApiKey, resolveCodexOpenAiBaseUrl } from './auth';
@@ -426,6 +434,102 @@ async function relocateAttachmentsIntoWorkDir(
   return prompt.replace(blockMatch[0], newBlock);
 }
 
+/**
+ * Save user-attached images to `sessionCwd/attachments` and return their
+ * absolute paths, for use as Codex `local_image` inputs.
+ *
+ * Mirrors the Claude adapter's `saveImagesToDisk` session-dir flow
+ * (`extensions/agent/claude/index.ts`) — same `INBOUND_ATTACHMENTS_DIR`
+ * convention and base64-decode-and-write behaviour — but returns plain
+ * file paths instead of a text instruction, since the Codex SDK accepts
+ * images as structured `{type: 'local_image', path}` input items rather
+ * than requiring the model to invoke a Read tool.
+ *
+ * Filenames are always generated (`crypto.randomUUID()`); only the
+ * extension is derived from the caller-supplied `mimeType`, and that is
+ * restricted to `[a-z0-9]+` so a malformed mimeType can't inject path
+ * separators. The attachments directory is confirmed to resolve inside
+ * `sessionCwd` via path-validator's `checkPermission()` — symlink-resolved
+ * directory containment, not a raw string-prefix comparison — once it
+ * exists on disk, before any file is written; every per-image path is then
+ * a `join()` of that verified directory with a generated leaf name, so it
+ * can't itself escape the checked boundary. (Checking the not-yet-created
+ * per-file path directly would be unsound: `checkPermission` resolves
+ * symlinks for existing paths only, so an as-yet-missing file under a
+ * symlinked temp root — e.g. macOS's `/tmp` → `/private/tmp` — would fail
+ * to match its already-resolved, already-existing parent.
+ * `validateWorkDir()`'s blocked-system-path list is also the wrong fit
+ * here: it exists to stop a *user* from pointing a whole workspace at
+ * `/etc`, `/tmp`, etc., and would misfire on legitimate app-owned session
+ * dirs that happen to live under an OS temp root.)
+ */
+async function saveImagesToDisk(
+  images: ImageAttachment[],
+  sessionCwd: string,
+): Promise<string[]> {
+  const savedPaths: string[] = [];
+  if (images.length === 0) return savedPaths;
+
+  const inboundDir = join(sessionCwd, INBOUND_ATTACHMENTS_DIR);
+  await mkdir(inboundDir, { recursive: true });
+
+  const permCheck = checkPermission(inboundDir, 'write', [
+    {
+      path: sessionCwd,
+      permissions: { read: true, write: true, delete: false },
+    },
+  ]);
+  if (!permCheck.allowed) {
+    logger.warn(
+      `Refusing to save attached images — attachments dir outside session: ${permCheck.reason}`,
+    );
+    return savedPaths;
+  }
+
+  for (let i = 0; i < images.length; i++) {
+    const image = images[i]!;
+    const rawExt = image.mimeType.split('/')[1] || 'png';
+    const ext = /^[a-z0-9]+$/i.test(rawExt) ? rawExt : 'png';
+    const filename = `image_${crypto.randomUUID()}_${i}.${ext}`;
+    const filePath = join(inboundDir, filename);
+
+    try {
+      // Remove data URL prefix if present (e.g., "data:image/png;base64,")
+      let base64Data = image.data;
+      if (base64Data.includes(',')) {
+        base64Data = base64Data.split(',')[1] ?? base64Data;
+      }
+      const buffer = Buffer.from(base64Data, 'base64');
+      await writeFile(filePath, buffer);
+      savedPaths.push(filePath);
+      logger.debug(`Saved image to: ${filePath}`);
+    } catch (error) {
+      logger.warn(`Failed to save image: ${error}`);
+    }
+  }
+
+  return savedPaths;
+}
+
+/**
+ * Build the `Input` passed to `thread.runStreamed()`. When no images are
+ * attached, keeps the plain-string form (unchanged behaviour). Otherwise
+ * emits the SDK's structured `UserInput[]` — one `local_image` item per
+ * saved attachment, followed by the prompt as a `text` item — mirroring
+ * the ordering already used for reference images in the media-generation
+ * Codex adapter (`shared/services/media-generation/adapters/codex.ts`).
+ */
+function buildCodexInput(prompt: string, imagePaths: string[]): CodexInput {
+  if (imagePaths.length === 0) return prompt;
+  return [
+    ...imagePaths.map((path): CodexUserInput => ({
+      type: 'local_image',
+      path,
+    })),
+    { type: 'text', text: prompt } satisfies CodexUserInput,
+  ];
+}
+
 // ============================================================================
 // CodexAgent
 // ============================================================================
@@ -511,15 +615,27 @@ export class CodexAgent extends BaseAgent {
         options?.resumeSessionId,
       );
 
+      const imagePaths = options?.images?.length
+        ? await saveImagesToDisk(options.images, sessionCwd)
+        : [];
+      if (imagePaths.length > 0) {
+        logger.debug(
+          `[${session.id}] Attached ${imagePaths.length} image(s) as local_image input`,
+        );
+      }
+
       logger.debug(
         `[${session.id}] Starting Codex runStreamed with prompt length: ${fullPrompt.length}`,
       );
-      const { events } = await thread.runStreamed(fullPrompt, {
-        signal: abortSignal,
-        ...(options?.outputFormat
-          ? { outputSchema: options.outputFormat.schema }
-          : {}),
-      });
+      const { events } = await thread.runStreamed(
+        buildCodexInput(fullPrompt, imagePaths),
+        {
+          signal: abortSignal,
+          ...(options?.outputFormat
+            ? { outputSchema: options.outputFormat.schema }
+            : {}),
+        },
+      );
       logger.debug(
         `[${session.id}] Codex runStreamed returned, iterating events...`,
       );
@@ -625,12 +741,18 @@ export class CodexAgent extends BaseAgent {
           ),
           bridge.denialHints,
         );
-        const { events } = await thread.runStreamed(conversationalPrompt, {
-          signal: abortSignal,
-          ...(options?.outputFormat
-            ? { outputSchema: options.outputFormat.schema }
-            : {}),
-        });
+        const conversationalImagePaths = options?.images?.length
+          ? await saveImagesToDisk(options.images, sessionCwd)
+          : [];
+        const { events } = await thread.runStreamed(
+          buildCodexInput(conversationalPrompt, conversationalImagePaths),
+          {
+            signal: abortSignal,
+            ...(options?.outputFormat
+              ? { outputSchema: options.outputFormat.schema }
+              : {}),
+          },
+        );
         mapper = new CodexStreamMapper(sessionCwd);
         let turnStartMs = 0;
         for await (const event of events) {
@@ -785,12 +907,19 @@ export class CodexAgent extends BaseAgent {
         options.resumeSessionId,
       );
 
-      const { events } = await thread.runStreamed(executionPrompt, {
-        signal: abortSignal,
-        ...(options.outputFormat
-          ? { outputSchema: options.outputFormat.schema }
-          : {}),
-      });
+      const executionImagePaths = options.images?.length
+        ? await saveImagesToDisk(options.images, sessionCwd)
+        : [];
+
+      const { events } = await thread.runStreamed(
+        buildCodexInput(executionPrompt, executionImagePaths),
+        {
+          signal: abortSignal,
+          ...(options.outputFormat
+            ? { outputSchema: options.outputFormat.schema }
+            : {}),
+        },
+      );
 
       mapper = new CodexStreamMapper(sessionCwd);
       let turnStartMs = 0;
