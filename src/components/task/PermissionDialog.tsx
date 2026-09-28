@@ -24,6 +24,8 @@ export function PermissionDialog({
 }: Props) {
   const { t } = useLanguage();
   const risk = permission.risk_level ?? 'medium';
+  const defaultToNo = permission.default_to_no === true;
+  const offerAlwaysAllow = permission.suppress_always_allow_rule !== true;
   const riskLabel =
     risk === 'low'
       ? (t.task.riskLow ?? 'Low Risk')
@@ -58,6 +60,12 @@ export function PermissionDialog({
         <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
           {permission.tool}
         </span>
+        {permission.mcp_server && (
+          <span className="text-muted-foreground truncate text-xs">
+            {t.task.permissionMcpServer ?? 'MCP server'}:{' '}
+            {permission.mcp_server.name}
+          </span>
+        )}
       </div>
 
       {permission.command && (
@@ -66,6 +74,13 @@ export function PermissionDialog({
             ? permission.command.slice(0, 150) + '...'
             : permission.command}
         </div>
+      )}
+
+      {defaultToNo && !isResolved && (
+        <p className="text-muted-foreground mb-2 text-xs">
+          {t.task.permissionDefaultToNoHint ??
+            'Review carefully: this request defaults to Deny.'}
+        </p>
       )}
 
       {isResolved ? (
@@ -86,24 +101,32 @@ export function PermissionDialog({
           <button
             type="button"
             className="border-destructive/30 text-destructive hover:bg-destructive/10 flex-1 rounded border px-3 py-1.5 text-xs font-medium transition"
+            autoFocus={defaultToNo}
             onClick={() => onRespond(permission.id, 'deny')}
           >
             {t.task.permissionDeny ?? 'Deny'}
           </button>
           <button
             type="button"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded px-3 py-1.5 text-xs font-medium transition"
+            className={cn(
+              'flex-1 rounded px-3 py-1.5 text-xs font-medium transition',
+              defaultToNo
+                ? 'border-border hover:bg-muted border'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90',
+            )}
             onClick={() => onRespond(permission.id, 'allow')}
           >
             {t.task.permissionAllowOnce ?? 'Allow Once'}
           </button>
-          <button
-            type="button"
-            className="text-muted-foreground hover:bg-muted flex-1 rounded px-3 py-1.5 text-xs font-medium transition"
-            onClick={() => onRespond(permission.id, 'always_allow')}
-          >
-            {t.task.permissionAlwaysAllow ?? 'Always Allow'}
-          </button>
+          {offerAlwaysAllow && (
+            <button
+              type="button"
+              className="text-muted-foreground hover:bg-muted flex-1 rounded px-3 py-1.5 text-xs font-medium transition"
+              onClick={() => onRespond(permission.id, 'always_allow')}
+            >
+              {t.task.permissionAlwaysAllow ?? 'Always Allow'}
+            </button>
+          )}
         </div>
       )}
     </div>

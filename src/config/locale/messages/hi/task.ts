@@ -392,6 +392,9 @@ export default {
   permissionAllowOnce: 'एक बार अनुमति दें',
   permissionAlwaysAllow: 'हमेशा अनुमति दें',
   permissionApproved: 'स्वीकृत',
+  permissionMcpServer: 'MCP सर्वर',
+  permissionDefaultToNoHint:
+    'ध्यान से समीक्षा करें: यह अनुरोध डिफ़ॉल्ट रूप से अस्वीकार होता है।',
   permissionDeniedLabel: 'अस्वीकृत',
   riskLow: 'कम जोखिम',
   riskMedium: 'मध्यम जोखिम',
