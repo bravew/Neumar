@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildClaudeSystemPromptOption,
   claudeStreamTextDedupeKey,
   composeClaudePromptWithResumeCache,
   normalizeInheritedAnthropicEnvForClaudeLogin,
   registerInProcessMcpServers,
+  serializeClaudeToolResultContent,
 } from '@/extensions/agent/claude';
 
 describe('Claude env normalization', () => {
@@ -222,5 +224,54 @@ describe('Claude env normalization', () => {
 
     expect(result.prompt).toBe('<image>Next image turn\n\n<runtime new />');
     expect(result.skippedInstructionBlock).toBe(true);
+  });
+});
+
+describe('Claude systemPrompt option', () => {
+  it('renders the model-specific append per request instead of snapshotting it', () => {
+    // Agent SDK 0.3.267 records the first request's system prompt by default,
+    // so a resumed session would keep naming the previous turn's model.
+    const option = buildClaudeSystemPromptOption('claude-opus-5-5', true);
+
+    expect(option).toMatchObject({
+      type: 'preset',
+      preset: 'claude_code',
+      snapshot: false,
+      append: expect.stringContaining('`claude-opus-5-5`'),
+    });
+  });
+});
+
+describe('Claude tool_result serialization', () => {
+  it('keeps string content verbatim', () => {
+    expect(serializeClaudeToolResultContent('plain output')).toBe(
+      'plain output',
+    );
+  });
+
+  it('omits base64 payloads of Read PDF document blocks', () => {
+    // Agent SDK 0.3.243 moved the Read tool's PDF `document` block inside the
+    // tool_result content.
+    const data = 'JVBERi0xLjQK'.repeat(1000);
+    const output = serializeClaudeToolResultContent([
+      { type: 'text', text: 'PDF file read: report.pdf' },
+      {
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data },
+      },
+    ]);
+
+    expect(output).not.toContain(data);
+    expect(JSON.parse(output)).toEqual([
+      { type: 'text', text: 'PDF file read: report.pdf' },
+      {
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: `[base64 omitted: ${data.length} chars]`,
+        },
+      },
+    ]);
   });
 });

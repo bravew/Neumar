@@ -20,7 +20,7 @@ import {
   query,
   tool,
   type Query as QueryType,
-} from '@anthropic-ai/claude-agent-sdk';
+} from '@anthropic-ai/claude-agent-sdk/core';
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 
@@ -320,6 +320,36 @@ export function registerInProcessMcpServers(
 
 export function claudeStreamTextDedupeKey(text: string): string {
   return createHash('sha256').update(text, 'utf-8').digest('hex');
+}
+
+/**
+ * Serialize a `tool_result` block's content for display and storage. Image
+ * and (since Agent SDK 0.3.243) Read-tool PDF `document` blocks carry base64
+ * payloads inside the result; those are for the model, so their data is
+ * replaced with a size marker instead of filling the UI and SQLite.
+ */
+export function serializeClaudeToolResultContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return JSON.stringify(content);
+  return JSON.stringify(
+    content.map((block: unknown) => {
+      if (!block || typeof block !== 'object') return block;
+      const { source } = block as { source?: unknown };
+      if (
+        !source ||
+        typeof source !== 'object' ||
+        (source as { type?: unknown }).type !== 'base64'
+      ) {
+        return block;
+      }
+      const { data } = source as { data?: unknown };
+      if (typeof data !== 'string') return block;
+      return {
+        ...block,
+        source: { ...source, data: `[base64 omitted: ${data.length} chars]` },
+      };
+    }),
+  );
 }
 
 const CLAUDE_RESUME_INSTRUCTION_CACHE_LIMIT = 200;
@@ -1619,6 +1649,25 @@ function buildSystemPromptAppend(
         ]
       : []),
   ].join('\n\n');
+}
+
+/**
+ * `systemPrompt` option for model-targeted runs. The append names the run's
+ * model, which can change between turns of one resumed session, so it must be
+ * rendered fresh on every request. Agent SDK 0.3.267 records (snapshots) the
+ * first turn's prompt by default and ignores later appends until compaction;
+ * `snapshot: false` keeps the per-request rendering.
+ */
+export function buildClaudeSystemPromptOption(
+  model: string,
+  skillsEnabled: boolean,
+): NonNullable<Options['systemPrompt']> {
+  return {
+    type: 'preset',
+    preset: 'claude_code',
+    append: buildSystemPromptAppend(model, skillsEnabled),
+    snapshot: false,
+  };
 }
 
 /**
@@ -3024,14 +3073,10 @@ User's request (answer this AFTER reading the images):
       model: effectiveModel,
       ...(effectiveModel
         ? {
-            systemPrompt: {
-              type: 'preset' as const,
-              preset: 'claude_code' as const,
-              append: buildSystemPromptAppend(
-                effectiveModel,
-                options?.skillsConfig?.enabled !== false,
-              ),
-            },
+            systemPrompt: buildClaudeSystemPromptOption(
+              effectiveModel,
+              options?.skillsConfig?.enabled !== false,
+            ),
           }
         : {}),
       pathToClaudeCodeExecutable: claudeCodePath,
@@ -5221,14 +5266,10 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       model: effectiveModel,
       ...(effectiveModel
         ? {
-            systemPrompt: {
-              type: 'preset' as const,
-              preset: 'claude_code' as const,
-              append: buildSystemPromptAppend(
-                effectiveModel,
-                options.skillsConfig?.enabled !== false,
-              ),
-            },
+            systemPrompt: buildClaudeSystemPromptOption(
+              effectiveModel,
+              options.skillsConfig?.enabled !== false,
+            ),
           }
         : {}),
       pathToClaudeCodeExecutable: claudeCodePath,
@@ -6385,10 +6426,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
           const rawIsError = isErrorSnake ?? isErrorCamel;
           const isError = typeof rawIsError === 'boolean' ? rawIsError : false;
 
-          const rawOutput =
-            typeof block.content === 'string'
-              ? block.content
-              : JSON.stringify(block.content);
+          const rawOutput = serializeClaudeToolResultContent(block.content);
           // Apply display-side truncation (SDK handles model-side internally)
           const resolvedToolName =
             toolNames?.get(String(toolUseId)) ?? 'default';

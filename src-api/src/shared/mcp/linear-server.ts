@@ -5,7 +5,7 @@
  * Uses the existing @linear/sdk integration from linear.ts
  * and config from linear-config.ts (AES-256-GCM encrypted PAT).
  */
-import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk/core';
 import { z } from 'zod';
 
 import {

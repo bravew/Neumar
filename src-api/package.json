@@ -30,7 +30,7 @@
     "@ag-ui/client": "^0.0.59",
     "@ag-ui/core": "^0.0.59",
     "@ag-ui/encoder": "^0.0.59",
-    "@anthropic-ai/claude-agent-sdk": "0.3.239",
+    "@anthropic-ai/claude-agent-sdk": "0.3.283",
     "@anthropic-ai/sandbox-runtime": "^0.0.77",
     "@anthropic-ai/sdk": "^0.128.0",
     "@codeany/open-agent-sdk": "^0.2.4",
