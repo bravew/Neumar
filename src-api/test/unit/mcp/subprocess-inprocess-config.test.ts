@@ -75,4 +75,31 @@ describe('buildSubprocessMcpConfig — in-process servers', () => {
     cfg.revoke();
     expect(lookupInProcessBridge(token, 'video-edit')).toBeUndefined();
   });
+
+  it('caps output_token_limit on the video-edit server for its heavy tools only', async () => {
+    const cfg = await buildSubprocessMcpConfig({
+      sessionId: 'run-3',
+      channelContext: { platform: 'desktop', permissionTier: 'admin' },
+      connectors: [],
+      inProcessServers: [probe('video-edit'), probe('media')],
+    });
+    const servers = cfg.codexConfig.mcp_servers ?? {};
+
+    // Heavy, payload-scaling video tools get a positive-integer token cap
+    // (Codex CLI 0.152 `mcp_servers.<name>.tools.<tool>.output_token_limit`).
+    expect(servers['video-edit']?.tools?.video_inspect_timeline_frames).toEqual(
+      { output_token_limit: 4_000 },
+    );
+    expect(servers['video-edit']?.tools?.video_get_packed_transcript).toEqual({
+      output_token_limit: 8_000,
+    });
+
+    // A small-payload tool on the same server is left uncapped.
+    expect(
+      servers['video-edit']?.tools?.video_get_project_summary,
+    ).toBeUndefined();
+
+    // A server with no configured heavy tools gets no `tools` entry at all.
+    expect(servers['media']?.tools).toBeUndefined();
+  });
 });
