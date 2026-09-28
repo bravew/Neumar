@@ -1206,6 +1206,10 @@ export class ChannelManager {
           // produce 5-minute "Permission request expired" hangs because
           // there's no convenient approval UI inline.
           autoApprove: true,
+          // Message text comes from a remote channel user — deliver it to
+          // the SDK verbatim so `@~/.ssh/...` etc. can't trigger @path
+          // expansion or slash-command dispatch.
+          verbatimPrompt: true,
           channelContext: buildAgentChannelContext({
             platform: msg.platform,
             conversationId: msg.conversationId,

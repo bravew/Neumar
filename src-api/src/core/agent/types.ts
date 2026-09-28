@@ -604,6 +604,20 @@ export interface AgentOptions {
    */
   autoApprove?: boolean;
 
+  /**
+   * Deliver the prompt to the CLI exactly as written — no `@path` file
+   * expansion, no slash-command dispatch, no `@server:resource` MCP mention
+   * expansion. Maps to the Claude SDK's `verbatimPrompts` option.
+   *
+   * Set this for any run whose prompt text originates from a remote/
+   * untrusted sender (channel messages, gateway channel messages, scheduled
+   * automation prompts and trigger payloads) so a message like
+   * `@~/.ssh/id_rsa` cannot trigger local file expansion. Interactive
+   * desktop chat must NOT set this — a user typing `@` to attach a file or
+   * `/` to run a slash command in their own session expects it to work.
+   */
+  verbatimPrompt?: boolean;
+
   /** Thinking configuration for the SDK query */
   thinkingConfig?: {
     type: 'adaptive' | 'enabled' | 'disabled';

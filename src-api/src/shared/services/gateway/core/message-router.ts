@@ -755,6 +755,10 @@ export class MessageRouter {
           ? { model: profileRoute.modelOverride }
           : undefined,
         pinnedSkills: profilePinnedSkills,
+        // Message text comes from a remote gateway channel user (WhatsApp,
+        // iMessage, etc.) — deliver it to the SDK verbatim so `@~/.ssh/...`
+        // etc. can't trigger @path expansion or slash-command dispatch.
+        verbatimPrompt: true,
         // Phase A connector-tier isolation: every channel-routed run must
         // carry the caller's identity + tier so the agent's MCP mounts
         // can fail closed for non-admin Slack/Discord/etc. messages.

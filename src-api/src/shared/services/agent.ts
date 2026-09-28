@@ -410,6 +410,12 @@ export async function* runPlanningPhase(
    * even for admin-tier automations.
    */
   channelContext?: PlanOptions['channelContext'],
+  /**
+   * Set by schedule callers so remote trigger-payload text can't reach the
+   * SDK with `@path` expansion or slash-command dispatch. See
+   * `AgentOptions.verbatimPrompt`.
+   */
+  verbatimPrompt?: boolean,
 ): AsyncGenerator<AgentMessage> {
   const agent = getAgent(modelConfig);
   const { systemContext, resolvedContext } = await buildRunContext(
@@ -445,6 +451,7 @@ export async function* runPlanningPhase(
       resolvedContext,
       thinkingConfig: effectiveThinking,
       channelContext,
+      verbatimPrompt,
     }),
   );
 
@@ -485,6 +492,8 @@ export async function* runExecutionPhase(
   pluginInputs?: Record<string, unknown>,
   /** Phase A connector-tier isolation — see runPlanningPhase. */
   channelContext?: PlanOptions['channelContext'],
+  /** Set by schedule callers — see runPlanningPhase. */
+  verbatimPrompt?: boolean,
 ): AsyncGenerator<AgentMessage> {
   const agent = getAgent(modelConfig);
 
@@ -552,6 +561,7 @@ export async function* runExecutionPhase(
       autoApprove,
       thinkingConfig: effectiveThinking,
       channelContext,
+      verbatimPrompt,
     }),
   );
 
@@ -619,6 +629,12 @@ export interface RunAgentOptions {
   pluginInputs?: Record<string, unknown>;
   /** Max agentic turns before the SDK stops. Overrides the default (200). */
   maxTurns?: number;
+  /**
+   * Set by channel, gateway-channel, and schedule callers so remote message
+   * text is delivered to the SDK verbatim — no `@path` expansion, no
+   * slash-command dispatch. See `AgentOptions.verbatimPrompt`.
+   */
+  verbatimPrompt?: boolean;
 }
 
 /**
@@ -657,6 +673,7 @@ export async function* runAgent(
     pluginId,
     pluginInputs,
     maxTurns,
+    verbatimPrompt,
   } = opts;
 
   const agent = getAgent(modelConfig);
@@ -771,6 +788,7 @@ export async function* runAgent(
     autoApprove,
     thinkingConfig: effectiveThinking,
     maxTurns,
+    verbatimPrompt,
   } satisfies AgentOptions;
 
   for await (const message of withSafeRunRetry(

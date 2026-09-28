@@ -1126,6 +1126,7 @@ async function executeRun(
         undefined, // pluginId
         undefined, // pluginInputs
         channelContext, // Phase A — propagate caller tier into planning
+        true, // verbatimPrompt — schedule prompt/trigger payload text is untrusted
       )) {
         if (abortController.signal.aborted) throw new Error('Aborted');
         if (msg.type === 'plan' && msg.plan?.id) {
@@ -1180,6 +1181,7 @@ async function executeRun(
         undefined, // pluginId
         undefined, // pluginInputs
         channelContext, // Phase A — propagate caller tier into execution
+        true, // verbatimPrompt — schedule prompt/trigger payload text is untrusted
       )) {
         if (abortController.signal.aborted) throw new Error('Aborted');
         if (msg.type === 'text' && msg.content) execTextParts.push(msg.content);
@@ -1206,6 +1208,10 @@ async function executeRun(
         workDir: automation.agent.workDir,
         modelConfig,
         channelContext,
+        // Schedule prompt / trigger payload text is untrusted — deliver it
+        // to the SDK verbatim so it can't trigger @path expansion or
+        // slash-command dispatch.
+        verbatimPrompt: true,
       })) {
         if (abortController.signal.aborted) throw new Error('Aborted');
         if (msg.type === 'text' && msg.content) textParts.push(msg.content);

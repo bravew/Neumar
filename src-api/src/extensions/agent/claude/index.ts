@@ -3047,6 +3047,9 @@ User's request (answer this AFTER reading the images):
       ],
       ...(useSettingSources ? { settingSources } : {}),
       permissionMode: 'default',
+      // Channel/schedule callers set AgentOptions.verbatimPrompt so remote
+      // message text can't trigger @path expansion or slash-command dispatch.
+      verbatimPrompts: options?.verbatimPrompt,
       canUseTool: buildCanUseTool(
         denialTracker,
         permissionRegistry,
@@ -4777,6 +4780,9 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
           tools: [],
           permissionMode: 'bypassPermissions',
           allowDangerouslySkipPermissions: true,
+          // Channel/schedule callers set AgentOptions.verbatimPrompt so remote
+          // message text can't trigger @path expansion or slash-command dispatch.
+          verbatimPrompts: options?.verbatimPrompt,
           abortController: options?.abortController || session.abortController,
           env: this.buildEnvConfig({
             userCredentials: options?.userCredentials,
@@ -5244,6 +5250,9 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       ],
       ...(useExecSettingSources ? { settingSources: execSettingSources } : {}),
       permissionMode: 'default',
+      // Channel/schedule callers set AgentOptions.verbatimPrompt so remote
+      // message text can't trigger @path expansion or slash-command dispatch.
+      verbatimPrompts: options.verbatimPrompt,
       canUseTool: buildCanUseTool(
         execDenialTracker,
         execPermissionRegistry,
