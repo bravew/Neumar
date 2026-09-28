@@ -1246,6 +1246,7 @@ describe('video agent tools', () => {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Launch cutdown',
     template: 'product-reel',

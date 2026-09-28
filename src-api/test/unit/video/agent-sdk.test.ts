@@ -279,6 +279,7 @@ describe('video agent SDK planner normalization', () => {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Agent SDK test',
     template: 'explainer',

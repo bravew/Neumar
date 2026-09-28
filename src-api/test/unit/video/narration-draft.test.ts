@@ -14,6 +14,8 @@ import {
 import { getProject, writeProject } from '@/shared/video/store';
 import type { VideoProject } from '@/shared/video/types';
 
+import { toolResultText } from '../../helpers/tool-result-text';
+
 // Phase 5 M3 — narration drafter. The agent (LLM) writes the lines; this layer
 // reads the content-graph to expose frames and persists lines keyed by node id.
 
@@ -167,7 +169,7 @@ describe('video_draft_narration MCP tool', () => {
   it('returns the frames + an instruction when called with no lines', async () => {
     await writeContentGraph(projectId, graph());
     const result = await tool().handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.frames).toHaveLength(2);
     expect(payload.instruction).toContain('ONE short spoken sentence');
     expect(result.isError).toBeUndefined();
@@ -182,7 +184,7 @@ describe('video_draft_narration MCP tool', () => {
       { linesByFrame: { intro: 'Hello.', point: 'Done.' } },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.narrationByFrame).toEqual({
       intro: 'Hello.',
       point: 'Done.',
@@ -193,6 +195,6 @@ describe('video_draft_narration MCP tool', () => {
     await writeContentGraph(projectId, graph());
     const result = await tool().handler({ linesByFrame: { nope: 'x' } }, {});
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('unknown-node-id');
+    expect(toolResultText(result)).toContain('unknown-node-id');
   });
 });

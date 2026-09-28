@@ -61,6 +61,7 @@ const FRAMEWORK: VideoFramework = {
 describe('reportFrameworkGaps', () => {
   it('lists unfilled slots with fallback cost', () => {
     const project: VideoProject = {
+      revision: 1,
       id: 'project-gap',
       name: 'Gap',
       template: 'explainer',

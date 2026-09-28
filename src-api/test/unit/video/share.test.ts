@@ -130,6 +130,7 @@ function channelInput(input: Partial<VideoShareInput> = {}): VideoShareInput {
 function projectFixture(): VideoProject {
   const now = new Date().toISOString();
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Launch video',
     template: 'slideshow',

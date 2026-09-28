@@ -198,6 +198,7 @@ function mediaAsset(
 function projectFixture(asset: MediaItem): VideoProject {
   const now = '2026-05-25T00:00:00.000Z';
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Proxy project',
     template: 'custom',

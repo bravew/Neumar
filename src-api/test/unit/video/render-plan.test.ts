@@ -107,6 +107,7 @@ describe('video render plan', () => {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Render plan',
     template: 'explainer',

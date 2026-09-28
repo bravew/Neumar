@@ -302,6 +302,7 @@ describe('video session prompt', () => {
 function projectWithTimeline(): VideoProject {
   const now = '2026-06-14T00:00:00.000Z';
   return {
+    revision: 1,
     schemaVersion: 2,
     id: 'project-1',
     name: 'Timeline context',

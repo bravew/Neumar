@@ -117,6 +117,7 @@ describe('video frame search index', () => {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Frame search',
     template: 'explainer',

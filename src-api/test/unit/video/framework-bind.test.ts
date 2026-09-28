@@ -84,6 +84,7 @@ function asset(
 
 function project(assets: MediaItem[]): VideoProject {
   return {
+    revision: 1,
     id: 'project-bind',
     name: 'Bind',
     template: 'explainer',

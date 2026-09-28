@@ -144,6 +144,7 @@ function audioProject(): VideoProject {
   ] satisfies MediaItem[];
 
   return {
+    revision: 1,
     id: 'eval-audio-handoff',
     name: 'Audio handoff eval',
     template: 'custom',

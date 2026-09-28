@@ -10,6 +10,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk/core';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import {
   ContentGraphSchema,
   CLIP_EFFECT_CATALOG,
@@ -2558,17 +2559,30 @@ export function createVideoEditTools(options: VideoEditServerOptions = {}) {
  */
 const SELF_RESOLVING_TOOLS = new Set(['video_apply_timeline_ops']);
 
+type CallableVideoToolHandler = (
+  args: Record<string, unknown>,
+  extra: unknown,
+) => Promise<CallToolResult>;
+
+type ResolvedVideoTool<Tool extends { name: string }> = Omit<
+  Tool,
+  'handler'
+> & { handler: CallableVideoToolHandler };
+
 function withVideoRefResolution<
-  Tools extends ReadonlyArray<{
+  Tool extends {
     name: string;
-    handler: (args: never, extra: unknown) => Promise<unknown>;
-  }>,
->(tools: Tools, options: VideoEditServerOptions): Tools {
+    handler: (args: never, extra: unknown) => Promise<CallToolResult>;
+  },
+>(
+  tools: readonly Tool[],
+  options: VideoEditServerOptions,
+): Array<ResolvedVideoTool<Tool>> {
   return tools.map((definition) => {
     const inner = definition.handler;
     return {
       ...definition,
-      handler: async (args: never, extra: unknown) => {
+      handler: async (args: never, extra: unknown): Promise<CallToolResult> => {
         const input = args as unknown as { projectId?: string };
         const execute = async () => {
           if (
@@ -2606,7 +2620,7 @@ function withVideoRefResolution<
         });
       },
     };
-  }) as unknown as Tools;
+  }) as unknown as Array<ResolvedVideoTool<Tool>>;
 }
 
 function buildVideoEditTools(options: VideoEditServerOptions) {

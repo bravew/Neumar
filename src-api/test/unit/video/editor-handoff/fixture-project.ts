@@ -33,6 +33,7 @@ export async function createEditorHandoffFixtureProject(
   ];
 
   return {
+    revision: 1,
     schemaVersion: 2,
     id: PROJECT_ID,
     name: 'Editor handoff & "XML" <fixture>',

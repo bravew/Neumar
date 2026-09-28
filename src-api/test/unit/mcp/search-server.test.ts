@@ -4,6 +4,8 @@ import { SEARCH_TOOL_NAMES, searchTools } from '@/shared/mcp/search-server';
 import { search } from '@/shared/services/search';
 import { RESEARCH_TOOL_FLAG } from '@/shared/services/search/feature-flags';
 
+import { toolResultText } from '../../helpers/tool-result-text';
+
 vi.mock('@/shared/db/operations', () => ({
   getSetting: vi.fn(() => undefined),
 }));
@@ -61,9 +63,9 @@ describe('search MCP server', () => {
       includeDomains: ['vite.dev', 'docs.example.com'],
     });
     expect(result.content[0]?.type).toBe('text');
-    expect(result.content[0]?.text).toContain('Research results');
-    expect(result.content[0]?.text).toContain('https://vite.dev/');
-    expect(result.content[0]?.text).toContain('excerptSha256=sha256:');
+    expect(toolResultText(result)).toContain('Research results');
+    expect(toolResultText(result)).toContain('https://vite.dev/');
+    expect(toolResultText(result)).toContain('excerptSha256=sha256:');
   });
 
   it('maps thorough research to a 10 result search', async () => {
@@ -96,6 +98,6 @@ describe('search MCP server', () => {
 
     expect(search).not.toHaveBeenCalled();
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Research is disabled');
+    expect(toolResultText(result)).toContain('Research is disabled');
   });
 });

@@ -64,6 +64,7 @@ describe('video cost approval', () => {
 
 function projectFixture(settings: VideoProject['settings'] = {}): VideoProject {
   return {
+    revision: 1,
     schemaVersion: 2,
     id: 'project-cost',
     name: 'Cost gate',

@@ -138,6 +138,7 @@ describe('video audio generation', () => {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Audio generation',
     template: 'explainer',
