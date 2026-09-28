@@ -76,6 +76,53 @@ export interface MessageAttachment {
   sourceContext?: AttachmentSourceContext;
 }
 
+/** A file an MCP tool returned by reference (MCP `resource_link`). */
+export interface ResourceLink {
+  uri: string;
+  name: string;
+  title?: string;
+  description?: string;
+  mimeType?: string;
+  size?: number;
+}
+
+/**
+ * Structured runtime signal from the agent stream (`AgentMessage.streamSignal`,
+ * AG-UI CUSTOM `neuma.stream_signal`). Mirrors `AgentStreamSignal` in
+ * `src-api/src/core/agent/types.ts`.
+ */
+export type StreamSignal =
+  | {
+      kind: 'notice';
+      level: 'info' | 'notice' | 'suggestion' | 'warning';
+      content: string;
+      preventContinuation?: boolean;
+    }
+  | {
+      kind: 'rate_limit';
+      status: 'allowed' | 'allowed_warning' | 'rejected';
+      /** Unix ms when the limit resets, when known. */
+      resetsAt?: number;
+      /** 0..1 fraction of the window used, when known. */
+      utilization?: number;
+      rateLimitType?: string;
+    }
+  | {
+      kind: 'api_retry';
+      attempt: number;
+      maxRetries: number;
+      retryDelayMs: number;
+      errorStatus: number | null;
+      error: string;
+    }
+  | {
+      kind: 'plugin_errors';
+      errors: { plugin: string; type: string; message: string }[];
+    }
+  | { kind: 'conversation_reset'; newConversationId: string; trigger?: string }
+  | { kind: 'session_state'; state: 'idle' | 'running' | 'requires_action' }
+  | { kind: 'resource_links'; toolUseId?: string; links: ResourceLink[] };
+
 export interface AgentMessage {
   type:
     | 'text'
@@ -129,6 +176,12 @@ export interface AgentMessage {
   startedAt?: string;
   /** Links tool_result back to the originating tool_use message ID */
   parentId?: string;
+  /** Structured runtime signal on `system` messages. */
+  streamSignal?: StreamSignal;
+  /** Result delivery sequence within the run. */
+  resultIndex?: number;
+  /** Queued user sends when the result was produced; >0 means more follow. */
+  queuedTurnCount?: number;
 }
 
 export interface PlanStep {

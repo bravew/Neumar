@@ -449,4 +449,14 @@ export default {
   memoryLoadedCount: '已注入 {count} 条记忆',
   memoryLoadedNone: '此会话尚未注入任何记忆。',
   memoryLoadedTooltip: '点击查看每轮记忆来源',
+  streamSignalRateLimitResetsAt: '已触发速率限制 — 将于 {time} 重置',
+  streamSignalRateLimitRetryingIn: '已触发速率限制 — {seconds} 秒后重试',
+  streamSignalApiRetry:
+    '请求失败 — {seconds} 秒后进行第 {attempt}/{max} 次重试',
+  streamSignalRateLimitWarning: '即将达到用量上限（已使用 {percent}%）',
+  streamSignalRateLimitWarningNoPercent: '即将达到用量上限',
+  streamSignalPluginErrors:
+    '{count} 个 Claude 插件加载失败 — 请查看 设置 → 插件',
+  streamSignalConversationReset: '对话已清空 — 智能体将从这里重新开始',
+  streamSignalRequiresAction: '等待你的输入',
 };

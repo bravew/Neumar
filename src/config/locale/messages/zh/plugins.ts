@@ -143,4 +143,9 @@ export default {
     required: '必填',
     currentValue: '已设置',
   },
+  claudeHealth: {
+    title: 'Claude Code 插件健康状态',
+    healthy: '上次会话启动时所有 Claude Code 插件均已加载。',
+    errorsSummary: '上次会话启动时有 {count} 个插件加载失败',
+  },
 };

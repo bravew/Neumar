@@ -210,6 +210,16 @@ export interface AgentMessage {
   /** Configured turn ceiling for this run, when the caller set one. */
   maxTurns?: number;
   /**
+   * Structured runtime signal carried on `system` messages (notices, rate
+   * limits, retries, session state, returned files). Renderers read this
+   * instead of parsing `content`.
+   */
+  streamSignal?: AgentStreamSignal;
+  /** Delivery sequence of this result within the run (0-based). */
+  resultIndex?: number;
+  /** User sends still queued when this result was produced; >0 means another result follows. */
+  queuedTurnCount?: number;
+  /**
    * Phase 7: tool-output defense verdict + audit metadata. Adapters set this
    * on tool_result messages so AG-UI / persistence can attach a security
    * chip and redact persisted content according to the verdict.
@@ -224,6 +234,63 @@ export interface AgentMessage {
     scores?: Record<string, number>;
   };
 }
+
+/** A file an MCP tool returned by reference (MCP `resource_link` block). */
+export interface AgentResourceLink {
+  uri: string;
+  name: string;
+  title?: string;
+  description?: string;
+  mimeType?: string;
+  size?: number;
+}
+
+/**
+ * Provider-neutral runtime signals surfaced to the UI. Keep in sync with
+ * `StreamSignal` in `src/shared/hooks/agent-types.ts`.
+ */
+export type AgentStreamSignal =
+  | {
+      kind: 'notice';
+      level: 'info' | 'notice' | 'suggestion' | 'warning';
+      content: string;
+      preventContinuation?: boolean;
+    }
+  | {
+      kind: 'rate_limit';
+      status: 'allowed' | 'allowed_warning' | 'rejected';
+      /** Unix ms when the limit resets, when known. */
+      resetsAt?: number;
+      /** 0..1 fraction of the window used, when known. */
+      utilization?: number;
+      rateLimitType?: string;
+    }
+  | {
+      kind: 'api_retry';
+      attempt: number;
+      maxRetries: number;
+      retryDelayMs: number;
+      errorStatus: number | null;
+      error: string;
+    }
+  | {
+      kind: 'plugin_errors';
+      errors: { plugin: string; type: string; message: string }[];
+    }
+  | {
+      kind: 'conversation_reset';
+      newConversationId: string;
+      trigger?: string;
+    }
+  | {
+      kind: 'session_state';
+      state: 'idle' | 'running' | 'requires_action';
+    }
+  | {
+      kind: 'resource_links';
+      toolUseId?: string;
+      links: AgentResourceLink[];
+    };
 
 export interface ConversationMessage {
   role: 'user' | 'assistant';

@@ -14,9 +14,9 @@ import {
 } from '@/components/task/GroupedMessageList';
 import { appendOutputArtifactsItem } from '@/components/task/outputArtifactItems';
 import { PermissionDialog } from '@/components/task/PermissionDialog';
-import { RateLimitIndicator } from '@/components/task/RateLimitIndicator';
 import { RunErrorBubble } from '@/components/task/RunErrorBubble';
 import { RunTreeView } from '@/components/task/RunTreeView';
+import { StreamSignalBanner } from '@/components/task/StreamSignalBanner';
 import { SubAgentPanel } from '@/components/task/SubAgentPanel';
 import {
   buildAgentPrompt,
@@ -34,7 +34,6 @@ import { useBranchActions } from '@/shared/hooks/useBranchActions';
 import { usePermissionRequests } from '@/shared/hooks/usePermissionRequests';
 import { usePlanInterrupt } from '@/shared/hooks/usePlanInterrupt';
 import { usePostRunEffects } from '@/shared/hooks/usePostRunEffects';
-import { useRateLimit } from '@/shared/hooks/useRateLimit';
 import { useRunError } from '@/shared/hooks/useRunError';
 import { useSubAgents } from '@/shared/hooks/useSubAgents';
 import { useThreadSync } from '@/shared/hooks/useThreadSync';
@@ -346,12 +345,6 @@ export function TaskV2Thread({
   // Sub-agent supervision — track lifecycle from SSE events
   const subAgents = useSubAgents(taskId, effectiveIsRunning);
 
-  // Rate limit tracking — shows countdown when API returns 429
-  const { rateLimitActive, retryAfterMs, dismissRateLimit } = useRateLimit(
-    taskId,
-    effectiveIsRunning,
-  );
-
   const isCancelledPlan =
     pendingPlan?.steps.every((s) => s.status === 'cancelled') ?? false;
   const isWaitingApproval =
@@ -468,14 +461,7 @@ export function TaskV2Thread({
       )}
 
       <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-        {rateLimitActive && (
-          <div className="mb-2">
-            <RateLimitIndicator
-              retryAfterMs={retryAfterMs}
-              onDismiss={dismissRateLimit}
-            />
-          </div>
-        )}
+        <StreamSignalBanner key={taskId} agent={agent} taskId={taskId} />
         <ChatInput
           variant="reply"
           isRunning={effectiveIsRunning}

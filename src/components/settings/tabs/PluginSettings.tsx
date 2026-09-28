@@ -1,6 +1,7 @@
 import * as Tabs from '@radix-ui/react-tabs';
 
 import { InstalledPluginsTab, MarketplaceTab } from '@/components/library';
+import { ClaudePluginHealth } from '@/components/settings/components/ClaudePluginHealth';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 export function PluginSettings() {
@@ -8,6 +9,7 @@ export function PluginSettings() {
 
   return (
     <Tabs.Root defaultValue="installed" className="flex flex-col gap-4">
+      <ClaudePluginHealth />
       <Tabs.List className="border-border flex gap-1 border-b">
         <PluginTabTrigger value="installed" label={t.plugins.tabs.installed} />
         <PluginTabTrigger

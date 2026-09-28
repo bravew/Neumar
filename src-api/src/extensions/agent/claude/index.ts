@@ -235,6 +235,12 @@ import { ContainerManager, executePTC } from './ptc';
 import { adaptMcpTools } from './ptc-adapter';
 import type { ToolHandler } from './ptc-types';
 import { hasClaudeSdkStalled } from './stall-policy';
+import {
+  CLAUDE_STREAM_SIGNAL_ENV,
+  mapClaudeStreamSignals,
+  observeClaudeStepUsage,
+  settleClaudeResultUsage,
+} from './stream-signals';
 
 /**
  * Whether built-in MCP servers should be registered for this profile.
@@ -2572,6 +2578,9 @@ export class ClaudeAgent extends BaseAgent {
         '[ClaudeAgent] Custom API mode: disabled non-essential traffic, set timeout to 600s',
       );
     }
+
+    // Opt-in SDK stream signals consumed by ./stream-signals.ts
+    Object.assign(env, CLAUDE_STREAM_SIGNAL_ENV);
 
     // Inject connector credentials so the agent can access external services
     try {
@@ -6335,33 +6344,10 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       structured_output?: unknown;
     };
 
-    // Handle SDK rate limit events — pass to frontend for countdown UI
-    if (msg.type === 'rate_limit_event') {
-      const rlMsg = message as {
-        type: string;
-        rate_limit_info?: {
-          status?: 'allowed' | 'allowed_warning' | 'rejected';
-          resetsAt?: number;
-          utilization?: number;
-          rateLimitType?: string;
-        };
-      };
-      const info = rlMsg.rate_limit_info;
-      if (
-        info &&
-        (info.status === 'rejected' || info.status === 'allowed_warning')
-      ) {
-        yield {
-          type: 'system',
-          subtype: 'rate_limit',
-          content:
-            info.status === 'rejected'
-              ? `Rate limited — resets at ${info.resetsAt ? new Date(info.resetsAt * 1000).toLocaleTimeString() : 'unknown'}`
-              : `Approaching rate limit (${Math.round((info.utilization ?? 0) * 100)}% used)`,
-          isProgress: true,
-        };
-      }
-    }
+    // New SDK stream signals (notices, rate limits/retries, session state,
+    // plugin health, returned files, startup failures) — see stream-signals.ts
+    observeClaudeStepUsage(sessionId, message);
+    yield* mapClaudeStreamSignals(message);
 
     if (msg.type === 'assistant' && msg.message?.content) {
       for (const block of msg.message.content as Record<string, unknown>[]) {
@@ -6521,24 +6507,28 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
             }
           | undefined
       )?.output_tokens_details;
+      // Log only this call's spend: a resumed session's total_cost_usd
+      // includes spend restored from its transcript (SDK 0.3.277).
+      const telemetry = settleClaudeResultUsage(sessionId, message);
       logUsage({
         sessionId,
         taskId,
         callType: 'agent',
         provider: 'anthropic',
         model: this.config.model ?? DEFAULT_CLAUDE_MODEL,
-        totalCostUsd: msg.total_cost_usd,
-        inputTokens: msg.usage?.input_tokens,
+        totalCostUsd: telemetry.billableCostUsd,
+        inputTokens: telemetry.inputTokens,
         outputTokens: msg.usage?.output_tokens,
         reasoningOutputTokens: resultUsageDetails?.thinking_tokens,
         outputTokensDetails: resultUsageDetails,
-        cacheReadTokens: msg.usage?.cache_read_input_tokens,
-        cacheCreationTokens: msg.usage?.cache_creation_input_tokens,
+        cacheReadTokens: telemetry.cacheReadTokens,
+        cacheCreationTokens: telemetry.cacheCreationTokens,
         latencyMs: msg.duration_ms,
         metadata: {
           phase: 'execution',
           subtype: msg.subtype,
           ...(terminalReason ? { terminal_reason: terminalReason } : {}),
+          ...telemetry.metadata,
         },
       });
 
@@ -6552,6 +6542,12 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         duration: msg.duration_ms,
         terminalReason,
         ...(maxTurns !== undefined ? { maxTurns } : {}),
+        ...(telemetry.resultIndex !== undefined
+          ? { resultIndex: telemetry.resultIndex }
+          : {}),
+        ...(telemetry.queuedTurnCount !== undefined
+          ? { queuedTurnCount: telemetry.queuedTurnCount }
+          : {}),
         turnBudget: normalizeStopReason({
           subtype: msg.subtype,
           terminalReason,

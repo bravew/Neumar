@@ -15,6 +15,8 @@ export const CustomEventName = {
   ArtifactUpdate: 'neuma.artifact_update',
   SubagentStarted: 'neuma.subagent_started',
   SubagentFinished: 'neuma.subagent_finished',
+  /** Structured runtime signal (`AgentMessage.streamSignal`). */
+  StreamSignal: 'neuma.stream_signal',
   LegacyOnInterrupt: 'on_interrupt',
 } as const;
 

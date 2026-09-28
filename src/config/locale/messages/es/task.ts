@@ -443,4 +443,17 @@ export default {
   memoryLoadedCount: '{count} memorias inyectadas',
   memoryLoadedNone: 'Aún no se han inyectado memorias en esta sesión.',
   memoryLoadedTooltip: 'Haz clic para ver la procedencia por turno',
+  streamSignalRateLimitResetsAt:
+    'Límite de uso alcanzado — se restablece a las {time}',
+  streamSignalRateLimitRetryingIn:
+    'Límite de uso alcanzado — reintentando en {seconds} s',
+  streamSignalApiRetry:
+    'La solicitud falló — reintento {attempt} de {max} en {seconds} s',
+  streamSignalRateLimitWarning: 'Cerca del límite de uso ({percent}% usado)',
+  streamSignalRateLimitWarningNoPercent: 'Cerca del límite de uso',
+  streamSignalPluginErrors:
+    '{count} plugin(s) de Claude no se cargaron — consulta Ajustes → Plugins',
+  streamSignalConversationReset:
+    'Conversación borrada — el agente empieza de cero a partir de aquí',
+  streamSignalRequiresAction: 'Esperando tu respuesta',
 };

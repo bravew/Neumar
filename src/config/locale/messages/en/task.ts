@@ -460,4 +460,15 @@ export default {
   memoryLoadedCount: '{count} memories injected',
   memoryLoadedNone: 'No memories injected yet for this session.',
   memoryLoadedTooltip: 'Click to view per-turn memory provenance',
+  streamSignalRateLimitResetsAt: 'Rate limited — resets at {time}',
+  streamSignalRateLimitRetryingIn: 'Rate limited — retrying in {seconds}s',
+  streamSignalApiRetry:
+    'Request failed — retry {attempt} of {max} in {seconds}s',
+  streamSignalRateLimitWarning: 'Approaching usage limit ({percent}% used)',
+  streamSignalRateLimitWarningNoPercent: 'Approaching usage limit',
+  streamSignalPluginErrors:
+    '{count} Claude plugin(s) failed to load — see Settings → Plugins',
+  streamSignalConversationReset:
+    'Conversation cleared — the agent starts fresh from here',
+  streamSignalRequiresAction: 'Waiting for your input',
 };

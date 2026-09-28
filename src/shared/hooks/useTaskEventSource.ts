@@ -2,7 +2,7 @@
  * useTaskEventSource — Shared SSE connection for task event bus.
  *
  * Manages a single EventSource per (taskId) so that multiple consumers
- * (usePermissionRequests, useSubAgents, useRateLimit, etc.) share one
+ * (usePermissionRequests, useSubAgents, useLiveArtifacts, etc.) share one
  * connection instead of each opening their own.
  *
  * Uses a module-level registry to ref-count connections. The EventSource

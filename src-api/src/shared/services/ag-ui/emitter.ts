@@ -461,7 +461,12 @@ export class AGUIEmitter {
         break;
 
       case 'system':
-        if (msg.subtype === 'auto_retry') {
+        if (msg.streamSignal) {
+          yield this.event<CustomEvent>(EventType.CUSTOM, {
+            name: CustomEventName.StreamSignal,
+            value: msg.streamSignal,
+          });
+        } else if (msg.subtype === 'auto_retry') {
           yield this.event<CustomEvent>(EventType.CUSTOM, {
             name: 'auto_retry',
             value: { attempt: msg.attempt ?? 1 },
