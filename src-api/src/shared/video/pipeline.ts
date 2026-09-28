@@ -886,7 +886,14 @@ export async function getRenderStatus(
 }
 
 const AI_CLIP_POLL_INTERVAL_MS = 5000;
-const AI_CLIP_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+/**
+ * Per-scene ceiling for a single ai-clip/lipsync scene's async-provider poll
+ * loop inside `materializeSceneAssets`, which `renderProject` awaits
+ * synchronously before rendering even starts. Exported so the video-edit MCP
+ * server's `timeout` (`createSdkMcpServer({ timeout })`) can be sized
+ * against it — see `VIDEO_EDIT_SERVER_TIMEOUT_MS` in `video-edit-server.ts`.
+ */
+export const AI_CLIP_POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 function aiClipPollIntervalMs(): number {
   const override = Number(process.env.NEUMA_VIDEO_AI_CLIP_POLL_INTERVAL_MS);

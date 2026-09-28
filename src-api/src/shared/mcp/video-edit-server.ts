@@ -163,7 +163,11 @@ import {
   saveUserOverlayStyle,
   UserOverlayStyleError,
 } from '@/shared/video/overlays/user-styles';
-import { cancelRender, renderProject } from '@/shared/video/pipeline';
+import {
+  AI_CLIP_POLL_TIMEOUT_MS,
+  cancelRender,
+  renderProject,
+} from '@/shared/video/pipeline';
 import { getVideoPlanResumeState } from '@/shared/video/plan-runner';
 import { importYoutubeBroll } from '@/shared/video/plugins/atoms/broll/youtube';
 import { recordVideoResearchBrief } from '@/shared/video/plugins/atoms/research';
@@ -657,6 +661,39 @@ const VIDEO_TEMPLATE_CATEGORY_SCHEMA = z.enum([
 ]);
 const VIDEO_TEMPLATE_LICENSE_SCHEMA = z.enum(['CC0', 'CC-BY', 'proprietary']);
 const VIDEO_TOOL_TIMEOUT_MS = 45_000;
+/**
+ * Hard per-call ceiling for this SDK-managed MCP server, passed to
+ * `createSdkMcpServer({ timeout })`. Most tools are wrapped with
+ * `withToolTimeout` (default `VIDEO_TOOL_TIMEOUT_MS`), but the majority of
+ * tools registered here are not, so without this the SDK falls back to
+ * `MCP_TOOL_TIMEOUT` (effectively unbounded when unset).
+ *
+ * `video_render` is NOT wrapped by `withToolTimeout` — it awaits
+ * `renderProject()` synchronously, which runs `materializeSceneAssets`
+ * *before* rendering even starts. That sequentially polls each pending
+ * ai-clip/lipsync scene up to `AI_CLIP_POLL_TIMEOUT_MS` (10 min) each. A
+ * single such scene alone already needs longer than a flat 5-minute ceiling
+ * would allow, and the SDK's per-call timeout is a hard wall-clock cutoff
+ * that progress notifications do not extend — worse, it only kills the
+ * tool-call response; `renderProject`'s own `renderControllers` entry (and
+ * the render it guards) keeps running server-side until the orphaned
+ * promise finishes on its own, so a premature timeout strands the project
+ * with no signal telling the agent to call `video_cancel_render`.
+ *
+ * `AI_SCENE_RENDER_BUDGET` sizes this for a realistic render with several
+ * ai-clip/lipsync scenes, plus an encode buffer, mirroring the ffmpeg
+ * server's `MAX_EXECUTION_MS`-derived timeout. A storyboard with
+ * materially more long-poll scenes than the budget can still legitimately
+ * exceed this and hit the same stranding bug — the durable fix is
+ * decoupling scene materialization from the render tool-call's own
+ * timeout, not a bigger constant; track that separately rather than
+ * inflating this budget without limit.
+ */
+const AI_SCENE_RENDER_BUDGET = 4;
+const VIDEO_RENDER_ENCODE_BUFFER_MS = 5 * 60_000;
+const VIDEO_EDIT_SERVER_TIMEOUT_MS =
+  AI_SCENE_RENDER_BUDGET * AI_CLIP_POLL_TIMEOUT_MS +
+  VIDEO_RENDER_ENCODE_BUFFER_MS;
 const VIDEO_AGENT_PLAN_STEP_SCHEMA = z
   .object({
     id: z.string().min(1),
@@ -6991,5 +7028,6 @@ export function createVideoEditServer(options: VideoEditServerOptions = {}) {
       ...options,
       clientKind: options.clientKind ?? 'external-mcp',
     }),
+    timeout: VIDEO_EDIT_SERVER_TIMEOUT_MS,
   });
 }

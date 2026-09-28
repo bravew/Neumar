@@ -98,6 +98,7 @@ import {
 import { INBOUND_ATTACHMENTS_DIR } from '@/shared/channels/workspace';
 import { isConnectorPlatformV2Enabled } from '@/shared/connectors/feature-flag';
 import { getAllAgentProfiles, getSetting } from '@/shared/db/operations';
+import type { AgentProfile } from '@/shared/db/types';
 import {
   ASSETS_TOOL_NAMES,
   assetsTools,
@@ -1555,6 +1556,50 @@ function mapModelToSdkFormat(
   if (lower.includes('haiku')) return 'haiku';
   if (lower.includes('sonnet')) return 'sonnet';
   return 'inherit';
+}
+
+/** SDK `AgentDefinition` shape built from a Neumar agent profile. */
+export interface SubAgentDefinition {
+  description: string;
+  prompt: string;
+  model: 'sonnet' | 'opus' | 'haiku' | 'inherit';
+  maxTurns: number;
+  /** See `buildSubAgentDefinitions` for why this is always `true` here. */
+  omitClaudeMd: boolean;
+}
+
+/**
+ * Convert every other active agent profile into an SDK `AgentDefinition` so
+ * it can be invoked as a sub-agent via the Task/Agent tool.
+ *
+ * Each profile already carries its own complete persona (`soul` /
+ * `system_prompt`, or the role-based fallback below) and takes everything it
+ * needs from that delegation prompt — an agent-profile persona (e.g. a
+ * support or sales bot) has no relationship to the user's project
+ * `CLAUDE.md`. `omitClaudeMd: true` keeps that instruction file out of the
+ * sub-agent's context (managed policy files are unaffected).
+ */
+export function buildSubAgentDefinitions(
+  profiles: AgentProfile[],
+  currentProfileId?: string,
+): Record<string, SubAgentDefinition> {
+  const otherProfiles = profiles.filter(
+    (p) => p.id !== currentProfileId && p.status === 'active',
+  );
+  const agentDefs: Record<string, SubAgentDefinition> = {};
+  for (const profile of otherProfiles) {
+    agentDefs[profile.name] = {
+      description:
+        profile.description ?? profile.role ?? `Agent: ${profile.name}`,
+      prompt:
+        profile.system_prompt ??
+        `You are ${profile.name}, a ${profile.role ?? 'helpful assistant'}`,
+      model: mapModelToSdkFormat(profile.default_model),
+      maxTurns: 20,
+      omitClaudeMd: true,
+    };
+  }
+  return agentDefs;
 }
 
 /**
@@ -3515,31 +3560,11 @@ User's request (answer this AFTER reading the images):
     // ── Sub-agent integration: convert AgentProfiles to SDK AgentDefinitions ──
     try {
       const allProfiles = getAllAgentProfiles('active');
-      const currentProfileId = options?.agentProfileId;
-      const otherProfiles = allProfiles.filter(
-        (p) => p.id !== currentProfileId && p.status === 'active',
+      const agentDefs = buildSubAgentDefinitions(
+        allProfiles,
+        options?.agentProfileId,
       );
-      if (otherProfiles.length > 0) {
-        const agentDefs: Record<
-          string,
-          {
-            description: string;
-            prompt: string;
-            model: 'sonnet' | 'opus' | 'haiku' | 'inherit';
-            maxTurns: number;
-          }
-        > = {};
-        for (const profile of otherProfiles) {
-          agentDefs[profile.name] = {
-            description:
-              profile.description ?? profile.role ?? `Agent: ${profile.name}`,
-            prompt:
-              profile.system_prompt ??
-              `You are ${profile.name}, a ${profile.role ?? 'helpful assistant'}`,
-            model: mapModelToSdkFormat(profile.default_model),
-            maxTurns: 20,
-          };
-        }
+      if (Object.keys(agentDefs).length > 0) {
         queryOptions.agents = agentDefs;
         queryOptions.allowedTools = [
           ...(queryOptions.allowedTools || ALLOWED_TOOLS),

@@ -626,11 +626,23 @@ Use this before speech_synthesize or speech_transcribe to check what is availabl
 /** All speech tool names for allowedTools registration */
 export const SPEECH_TOOL_NAMES = speechTools.map((t) => t.name);
 
+/**
+ * Hard per-call ceiling for this SDK-managed MCP server, passed to
+ * `createSdkMcpServer({ timeout })`. `speech_transcribe` and
+ * `speech_synthesize` delegate directly to a provider or a local model with
+ * no internal timeout of their own — long audio files or slow local
+ * inference could otherwise run indefinitely under the default
+ * `MCP_TOOL_TIMEOUT` (effectively unbounded when unset). 5 minutes is
+ * generous for typical clips while still bounding runaway calls.
+ */
+const SPEECH_SERVER_TIMEOUT_MS = 5 * 60_000;
+
 /** Create the Speech MCP server instance */
 export function createSpeechMcpServer() {
   return createSdkMcpServer({
     name: 'speech',
     version: '1.0.0',
     tools: speechTools,
+    timeout: SPEECH_SERVER_TIMEOUT_MS,
   });
 }

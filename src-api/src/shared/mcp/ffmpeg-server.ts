@@ -35,6 +35,7 @@ import { z } from 'zod';
 import {
   detectBinaries,
   executeFFmpegOperation,
+  MAX_EXECUTION_MS,
   probeFile,
   resolveOutputPath,
   validateInputFile,
@@ -1527,11 +1528,22 @@ Uses palette optimization for high-quality, reasonable-size GIFs.
 /** All FFmpeg tool names for allowedTools registration */
 export const FFMPEG_TOOL_NAMES = ffmpegTools.map((t) => t.name);
 
+/**
+ * Hard per-call ceiling for this SDK-managed MCP server, passed to
+ * `createSdkMcpServer({ timeout })`. A single FFmpeg operation is already
+ * bounded by the executor's own `MAX_EXECUTION_MS` kill switch, so this adds
+ * a small buffer above that instead of falling back to `MCP_TOOL_TIMEOUT`
+ * (effectively unbounded when unset) — the executor's own timeout error
+ * should fire first.
+ */
+const FFMPEG_SERVER_TIMEOUT_MS = MAX_EXECUTION_MS + 60_000;
+
 /** Create the FFmpeg MCP server instance */
 export function createFFmpegMcpServer() {
   return createSdkMcpServer({
     name: 'ffmpeg-processing',
     version: '1.0.0',
     tools: ffmpegTools,
+    timeout: FFMPEG_SERVER_TIMEOUT_MS,
   });
 }

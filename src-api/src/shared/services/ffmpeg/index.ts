@@ -25,6 +25,7 @@ export {
   clearBinaryCache,
   detectBinaries,
   executeFFmpegOperation,
+  MAX_EXECUTION_MS,
   probeFile,
   resolveOutputPath,
   runFFmpeg,
