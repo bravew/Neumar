@@ -256,6 +256,10 @@ export class SlackCoworkHandler {
         taskId: session.taskId,
         workDir: threadWorkDir,
         agentProfileId: channelProfileId,
+        // Message text comes from a remote Slack user — deliver it to the
+        // SDK verbatim so `@~/.ssh/...` etc. can't trigger @path expansion
+        // or slash-command dispatch.
+        verbatimPrompt: true,
         channelContext: {
           platform: 'slack',
           conversationId,
