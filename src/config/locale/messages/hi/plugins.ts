@@ -146,4 +146,9 @@ export default {
     required: 'आवश्यक',
     currentValue: 'सेट',
   },
+  claudeHealth: {
+    title: 'Claude Code प्लगइन स्थिति',
+    healthy: 'पिछले सत्र की शुरुआत में सभी Claude Code प्लगइन लोड हुए।',
+    errorsSummary: 'पिछले सत्र की शुरुआत में {count} प्लगइन लोड नहीं हो सके',
+  },
 };

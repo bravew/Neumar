@@ -36,6 +36,7 @@ import {
   validatePluginConfigPatch,
   type PluginManifest,
 } from '@/shared/plugins';
+import { getClaudePluginHealth } from '@/shared/plugins/claude-plugin-health';
 import { applyDesignPlugin } from '@/shared/plugins/design';
 import { inspectCatalogPlugin } from '@/shared/plugins/inspect';
 import {
@@ -233,6 +234,11 @@ pluginsRoutes.get('/discovered', async (c) => {
       })),
     })),
   });
+});
+
+// Claude Code plugin load errors from the latest SDK `system/init`.
+pluginsRoutes.get('/claude-health', (c) => {
+  return c.json(getClaudePluginHealth());
 });
 
 // --- Marketplace sources -----------------------------------------------

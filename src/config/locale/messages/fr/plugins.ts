@@ -148,4 +148,11 @@ export default {
     required: 'Obligatoire',
     currentValue: 'Défini',
   },
+  claudeHealth: {
+    title: 'État des plugins Claude Code',
+    healthy:
+      'Tous les plugins Claude Code ont été chargés au dernier démarrage de session.',
+    errorsSummary:
+      "{count} plugin(s) n'ont pas pu être chargés au dernier démarrage de session",
+  },
 };

@@ -146,4 +146,9 @@ export default {
     required: 'Required',
     currentValue: 'Set',
   },
+  claudeHealth: {
+    title: 'Claude Code plugin health',
+    healthy: 'All Claude Code plugins loaded at the last session start.',
+    errorsSummary: '{count} plugin(s) failed to load at the last session start',
+  },
 };

@@ -452,4 +452,15 @@ export default {
   memoryLoadedCount: '{count} मेमोरी इंजेक्ट की गईं',
   memoryLoadedNone: 'इस सत्र के लिए अभी कोई मेमोरी इंजेक्ट नहीं की गई।',
   memoryLoadedTooltip: 'प्रति-टर्न मेमोरी स्रोत देखने के लिए क्लिक करें',
+  streamSignalRateLimitResetsAt: 'उपयोग सीमा पूरी हुई — {time} पर रीसेट होगी',
+  streamSignalRateLimitRetryingIn:
+    'उपयोग सीमा पूरी हुई — {seconds} सेकंड में फिर से प्रयास',
+  streamSignalApiRetry: 'अनुरोध विफल — {seconds} सेकंड में प्रयास {attempt}/{max}',
+  streamSignalRateLimitWarning: 'उपयोग सीमा के करीब ({percent}% उपयोग हुआ)',
+  streamSignalRateLimitWarningNoPercent: 'उपयोग सीमा के करीब',
+  streamSignalPluginErrors:
+    '{count} Claude प्लगइन लोड नहीं हो सके — सेटिंग्स → प्लगइन देखें',
+  streamSignalConversationReset:
+    'बातचीत साफ़ की गई — एजेंट यहाँ से नए सिरे से शुरू करेगा',
+  streamSignalRequiresAction: 'आपके इनपुट की प्रतीक्षा है',
 };
