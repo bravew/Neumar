@@ -32,7 +32,10 @@ export function SidebarSections({ sections }: SidebarSectionsProps) {
             key={section.id}
             type="button"
             onClick={() =>
-              section.href && navigate(section.href, { viewTransition: true })
+              // The route-level `<ViewTransition>` in AppRouteProviders
+              // already cross-fades every navigation (React 19.3); don't
+              // also opt into React Router's own `viewTransition` option.
+              section.href && navigate(section.href)
             }
             className={cn(
               'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',

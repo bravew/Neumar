@@ -10,12 +10,16 @@ import { HotkeyProvider } from '@/shared/hotkeys/HotkeyProvider';
 import { ModeProvider } from '@/shared/modes/ModeProvider';
 import '@/shared/modes/modes.builtin';
 
+import { RouteViewTransition } from './RouteViewTransition';
+
 export function AppRouteProviders() {
   return (
     <ModeProvider>
       <HotkeyProvider>
         <BuiltinShortcuts />
-        <Outlet />
+        <RouteViewTransition>
+          <Outlet />
+        </RouteViewTransition>
         <SearchCommandDialog />
         <ShortcutOverlay />
         <AutomationNotification />

@@ -48,7 +48,11 @@ export function TasksRecents({
   const handleSelect = (taskId: string) => {
     if (taskId === currentTaskId || loadingTaskId) return;
     setLoadingTaskId(taskId);
-    navigate(`/task-v2/${taskId}`, { viewTransition: true, state: null });
+    // The route-level `<ViewTransition>` in AppRouteProviders now drives the
+    // cross-fade for every navigation (React 19.3), so this no longer opts
+    // into React Router's own `viewTransition` option — running both would
+    // fight over the same `document.startViewTransition()` call.
+    navigate(`/task-v2/${taskId}`, { state: null });
     if (settleTimerRef.current !== null) {
       window.clearTimeout(settleTimerRef.current);
     }
