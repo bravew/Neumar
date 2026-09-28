@@ -302,6 +302,24 @@ export function normalizeInheritedAnthropicEnvForClaudeLogin(
   delete env.ANTHROPIC_API_KEY;
 }
 
+/**
+ * Cap the first-turn wait for MCP servers to connect, unless the environment
+ * (or a user) already picked a value.
+ *
+ * Measured with CLAUDE_CODE_EMIT_STARTUP_TIMING=1 against a slow-starting
+ * external MCP server (issue #75): unset, the SDK's mcp_prewait_ms phase
+ * tracks the server's actual connect time (~1.4-1.5s observed for a
+ * 1.5s-starting server); at 500ms, mcp_prewait_ms drops to ~485ms and
+ * system/init lands ~800-900ms sooner. MCP tools still attach once
+ * connected — none of our servers set alwaysLoad, so nothing here blocks on
+ * a specific server being ready by turn 1.
+ */
+export function applyClaudeMcpStartupWaitDefault(
+  env: Record<string, string | undefined>,
+): void {
+  env.CLAUDE_CODE_MCP_STARTUP_WAIT_MS ??= '500';
+}
+
 export function registerInProcessMcpServers(
   mcpServers: Record<string, unknown>,
   inProcessMcpServers?: Record<string, SdkMcpServerConfig>,
@@ -1926,7 +1944,11 @@ async function logContextUsage(
   phase: string,
 ): Promise<void> {
   try {
-    const usage = await queryObj.getContextUsage();
+    // 'summary' answers from the last response's usage and local estimates;
+    // 'full' (the SDK default) issues a per-category token-count API call
+    // for every logging invocation, which costs real API requests we don't
+    // need just to log a breakdown.
+    const usage = await queryObj.getContextUsage({ detail: 'summary' });
     if (usage) {
       logger.info(`[Claude ${sessionId}] ${phase} context usage:`, usage);
     }
@@ -2654,6 +2676,8 @@ export class ClaudeAgent extends BaseAgent {
     // Enable SDK tool search for non-PTC mode — defer tool schemas when
     // tools exceed 10% of context. PTC mode already handles deferral via ptc.ts.
     env.ENABLE_TOOL_SEARCH = 'auto:10';
+
+    applyClaudeMcpStartupWaitDefault(env);
 
     // Filter out undefined values - SDK expects Record<string, string>
     const filteredEnv: Record<string, string> = {};

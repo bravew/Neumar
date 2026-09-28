@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  applyClaudeMcpStartupWaitDefault,
   buildClaudeSystemPromptOption,
   claudeStreamTextDedupeKey,
   composeClaudePromptWithResumeCache,
@@ -86,6 +87,24 @@ describe('Claude env normalization', () => {
       'media',
       'video-edit',
     ]);
+  });
+
+  it('defaults CLAUDE_CODE_MCP_STARTUP_WAIT_MS to cap first-turn MCP waits', () => {
+    const env: Record<string, string | undefined> = {};
+
+    applyClaudeMcpStartupWaitDefault(env);
+
+    expect(env.CLAUDE_CODE_MCP_STARTUP_WAIT_MS).toBe('500');
+  });
+
+  it('does not override an existing CLAUDE_CODE_MCP_STARTUP_WAIT_MS', () => {
+    const env: Record<string, string | undefined> = {
+      CLAUDE_CODE_MCP_STARTUP_WAIT_MS: '2000',
+    };
+
+    applyClaudeMcpStartupWaitDefault(env);
+
+    expect(env.CLAUDE_CODE_MCP_STARTUP_WAIT_MS).toBe('2000');
   });
 
   it('dedupes Claude text wrappers by full content hash', () => {
