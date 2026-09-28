@@ -516,6 +516,9 @@ export class CodexAgent extends BaseAgent {
       );
       const { events } = await thread.runStreamed(fullPrompt, {
         signal: abortSignal,
+        ...(options?.outputFormat
+          ? { outputSchema: options.outputFormat.schema }
+          : {}),
       });
       logger.debug(
         `[${session.id}] Codex runStreamed returned, iterating events...`,
@@ -624,6 +627,9 @@ export class CodexAgent extends BaseAgent {
         );
         const { events } = await thread.runStreamed(conversationalPrompt, {
           signal: abortSignal,
+          ...(options?.outputFormat
+            ? { outputSchema: options.outputFormat.schema }
+            : {}),
         });
         mapper = new CodexStreamMapper(sessionCwd);
         let turnStartMs = 0;
@@ -781,6 +787,9 @@ export class CodexAgent extends BaseAgent {
 
       const { events } = await thread.runStreamed(executionPrompt, {
         signal: abortSignal,
+        ...(options.outputFormat
+          ? { outputSchema: options.outputFormat.schema }
+          : {}),
       });
 
       mapper = new CodexStreamMapper(sessionCwd);
