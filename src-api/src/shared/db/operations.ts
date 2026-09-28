@@ -348,6 +348,7 @@ export function deleteTask(id: string): boolean {
     db.prepare('DELETE FROM provider_conversation_state WHERE task_id = ?').run(
       id,
     );
+    db.prepare('DELETE FROM branch_sdk_sessions WHERE task_id = ?').run(id);
     db.prepare('DELETE FROM messages WHERE task_id = ?').run(id);
     db.prepare('DELETE FROM agent_questions WHERE task_id = ?').run(id);
     db.prepare('DELETE FROM files WHERE task_id = ?').run(id);

@@ -326,6 +326,13 @@ export function getAgent(config?: Partial<AgentConfig>): IAgent {
   return globalAgent;
 }
 
+/** Provider of the runtime `getAgent(config)` would run. */
+export function resolveAgentProvider(
+  config?: Partial<AgentConfig>,
+): AgentProvider {
+  return getAgent(config).provider;
+}
+
 /**
  * Create a new agent session
  */
@@ -635,6 +642,8 @@ export interface RunAgentOptions {
    * slash-command dispatch. See `AgentOptions.verbatimPrompt`.
    */
   verbatimPrompt?: boolean;
+  /** Conversation-branch SDK session to fork or resume (Claude only). */
+  branchSession?: AgentOptions['branchSession'];
 }
 
 /**
@@ -674,6 +683,7 @@ export async function* runAgent(
     pluginInputs,
     maxTurns,
     verbatimPrompt,
+    branchSession,
   } = opts;
 
   const agent = getAgent(modelConfig);
@@ -789,6 +799,7 @@ export async function* runAgent(
     thinkingConfig: effectiveThinking,
     maxTurns,
     verbatimPrompt,
+    branchSession,
   } satisfies AgentOptions;
 
   for await (const message of withSafeRunRetry(

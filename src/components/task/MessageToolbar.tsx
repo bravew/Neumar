@@ -5,11 +5,13 @@ import {
   Copy,
   DollarSign,
   GitBranch,
+  History,
   Play,
   RefreshCw,
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import {
   Tooltip,
@@ -17,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import type { ForkFromHereResult } from '@/shared/hooks/useBranchActions';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -34,6 +37,11 @@ interface MessageToolbarProps {
   onRetry?: () => void;
   onResume?: () => void;
   onFork?: () => void;
+  /**
+   * Fork after restoring checkpointed file edits; shown only when some exist.
+   * Reports a failed restore (no fork made, files possibly partly restored).
+   */
+  onForkRestoreFiles?: () => void | Promise<ForkFromHereResult>;
 }
 
 type FeedbackState = 'none' | 'up' | 'down';
@@ -45,6 +53,7 @@ export function MessageToolbar({
   onRetry,
   onResume,
   onFork,
+  onForkRestoreFiles,
 }: MessageToolbarProps) {
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
@@ -166,6 +175,37 @@ export function MessageToolbar({
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{t.task.forkFromHere}</TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* Fork and restore files — confirm first: it overwrites files */}
+        {onForkRestoreFiles && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => {
+                  if (!window.confirm(t.task.forkRestoreFilesConfirm)) return;
+                  void Promise.resolve(onForkRestoreFiles()).then((result) => {
+                    if (!result || result.ok) return;
+                    toast.error(
+                      result.filesChanged.length > 0
+                        ? t.task.forkRestoreFilesPartial.replace(
+                            '{files}',
+                            result.filesChanged.join(', '),
+                          )
+                        : t.task.forkRestoreFilesFailed,
+                    );
+                  });
+                }}
+                className="hover:text-foreground cursor-pointer rounded-md p-1.5 font-medium transition-colors"
+                aria-label={t.task.forkRestoreFiles}
+              >
+                <History className="size-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {t.task.forkRestoreFiles}
+            </TooltipContent>
           </Tooltip>
         )}
 

@@ -285,6 +285,51 @@ export async function createBranch(
   return result.branchId;
 }
 
+/** Rewinding runs one by one can outlast the default request timeout. */
+const RESTORE_FILES_TIMEOUT_MS = 5 * 60_000;
+
+/** A failed restore; `filesChanged` lists files already restored, if any. */
+export class RestoreFilesError extends Error {
+  constructor(
+    message: string,
+    readonly filesChanged: string[],
+  ) {
+    super(message);
+    this.name = 'RestoreFilesError';
+  }
+}
+
+/**
+ * Restore files edited through Claude's file checkpoints to their state at a
+ * fork point. Shell (Bash) changes are not tracked and stay as they are.
+ * Throws RestoreFilesError when the restore failed, possibly partway.
+ */
+export async function restoreFilesToForkPoint(
+  taskId: string,
+  fromMessageId: number | string,
+): Promise<{ rewoundRuns: number; filesChanged: string[] }> {
+  const response = await fetch(
+    `${BRANCHES_API_BASE}/${taskId}/branches/restore-files`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromMessageId }),
+      signal: AbortSignal.timeout(RESTORE_FILES_TIMEOUT_MS),
+    },
+  );
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      filesChanged?: string[];
+    };
+    throw new RestoreFilesError(
+      body.error || response.statusText || 'File restore failed',
+      body.filesChanged ?? [],
+    );
+  }
+  return response.json();
+}
+
 export async function regenerateResponse(
   taskId: string,
   afterMessageId: number | string,

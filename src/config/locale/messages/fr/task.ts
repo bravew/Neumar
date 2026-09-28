@@ -105,6 +105,13 @@ export default {
   editMessageCancel: 'Annuler',
   regenerateResponse: 'Régénérer',
   forkFromHere: "Bifurquer à partir d'ici",
+  forkRestoreFiles: 'Bifurquer et restaurer les fichiers',
+  forkRestoreFilesConfirm:
+    "Bifurquer à partir d'ici et restaurer les fichiers modifiés depuis ce point ? Seules les modifications faites avec les outils de fichiers de Claude sont restaurées ; les changements faits par des commandes shell (Bash) ne le sont pas.",
+  forkRestoreFilesFailed:
+    "Impossible de restaurer les fichiers. La conversation n'a pas été bifurquée.",
+  forkRestoreFilesPartial:
+    "Les fichiers n'ont été que partiellement restaurés et la conversation n'a pas été bifurquée. Déjà restaurés : {files}",
   branchNavLabel: '{current} / {total}',
   branchNavPrevious: 'Branche précédente',
   branchNavNext: 'Branche suivante',

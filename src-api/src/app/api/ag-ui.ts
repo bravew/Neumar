@@ -64,10 +64,16 @@ import {
 import { subscribeSSEToBus } from '@/shared/services/ag-ui/transport';
 import {
   createSession,
+  resolveAgentProvider,
   runAgent,
   runExecutionPhase,
   runPlanningPhase,
 } from '@/shared/services/agent';
+import {
+  resolveBranchContextPlan,
+  withBranchSdkSessionRecording,
+  type BranchContextPlan,
+} from '@/shared/services/branch-sdk-session';
 import {
   readLiveArtifactQuietMs,
   withDesignLiveArtifactQuietClose,
@@ -763,7 +769,7 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       activeRunContextFor(runId, persister),
     );
 
-    const rawExecStream = runExecutionPhase(
+    const planExecStream = runExecutionPhase(
       executePlanId,
       execSession,
       originalPrompt,
@@ -789,6 +795,18 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       undefined, // pluginInputs
       desktopChannelContext, // Phase A connector-tier isolation — desktop = admin
     );
+    // Record the execution run's SDK session so a later branch can fork it.
+    // Planning only runs with no assistant history, so on a branch this is
+    // the branch's first, fresh session.
+    const rawExecStream = withBranchSdkSessionRecording(planExecStream, {
+      taskId: effectiveTaskId,
+      branchId: branchId ?? 'main',
+      runId,
+      provider: resolveAgentProvider(validatedModelConfig),
+      plan: branchId ? { path: 'sdk', mode: 'fresh' } : { path: 'main' },
+      sdkSessionId: execSession.id,
+      signal: execSession.abortController.signal,
+    });
     // Wrap the stream in a session context so in-process MCP tools (media
     // generation, etc.) resolve the per-session output dir instead of
     // falling back to `${workDir}/output`. Without this wrapper, approved-
@@ -1017,6 +1035,42 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       });
     }
   }
+  // Resolve before this run's user message is persisted: a branch's first run
+  // forks the SDK session at its fork point, later runs resume that session.
+  const runProvider = resolveAgentProvider(validatedModelConfig);
+  let branchPlan: BranchContextPlan;
+  try {
+    branchPlan = resolveBranchContextPlan({
+      taskId: effectiveTaskId,
+      branchId: branchId ?? 'main',
+      provider: runProvider,
+    });
+  } catch (err) {
+    logger.warn('Branch SDK session lookup failed; using text history', {
+      taskId: effectiveTaskId,
+      branchId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    branchPlan = branchId
+      ? { path: 'text', reason: 'no-recorded-session' }
+      : { path: 'main' };
+  }
+  if (branchPlan.path !== 'main') {
+    logger.info('Branch run context', {
+      taskId: effectiveTaskId,
+      branchId,
+      provider: runProvider,
+      path: branchPlan.path,
+      ...(branchPlan.path === 'sdk'
+        ? { mode: branchPlan.mode }
+        : { reason: branchPlan.reason }),
+    });
+  }
+  const branchSession =
+    branchPlan.path === 'sdk' && branchPlan.mode !== 'fresh'
+      ? branchPlan.branchSession
+      : undefined;
+
   // Resolve workspace root early — needed for task INSERT and STATE_SNAPSHOT context
   const workspaceRoot = effectiveWorkDir ?? getSetting('workDir') ?? undefined;
 
@@ -1114,23 +1168,39 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
   // Planning path: run plan phase, emit plan as interrupt, stream ends.
   // Direct path: run agent directly (conversational, images, or follow-up).
   const rawStream = skipPlanning
-    ? runAgent(prompt, {
-        session,
-        conversation: conversation.length > 0 ? conversation : undefined,
-        workDir: workspaceRoot,
-        taskId: effectiveTaskId,
-        modelConfig: validatedModelConfig,
-        images: images.length > 0 ? images : undefined,
-        language: effectiveLanguage,
-        mentionedMcpServers,
-        userWorkspaceDir: workspaceRoot,
-        allowWorkspaceWrite: !!workspaceRoot,
-        pinnedSkills,
-        agentProfileId,
-        additionalUserDirs: additionalWorkDirs,
-        autoApprove,
-        channelContext: desktopChannelContext,
-      })
+    ? withBranchSdkSessionRecording(
+        runAgent(prompt, {
+          session,
+          // A forked or resumed SDK session already holds the history.
+          conversation:
+            branchPlan.path !== 'sdk' && conversation.length > 0
+              ? conversation
+              : undefined,
+          branchSession,
+          workDir: workspaceRoot,
+          taskId: effectiveTaskId,
+          modelConfig: validatedModelConfig,
+          images: images.length > 0 ? images : undefined,
+          language: effectiveLanguage,
+          mentionedMcpServers,
+          userWorkspaceDir: workspaceRoot,
+          allowWorkspaceWrite: !!workspaceRoot,
+          pinnedSkills,
+          agentProfileId,
+          additionalUserDirs: additionalWorkDirs,
+          autoApprove,
+          channelContext: desktopChannelContext,
+        }),
+        {
+          taskId: effectiveTaskId,
+          branchId: branchId ?? 'main',
+          runId,
+          provider: runProvider,
+          plan: branchPlan,
+          sdkSessionId: session.id,
+          signal: session.abortController.signal,
+        },
+      )
     : runPlanningPhase(
         prompt,
         session,

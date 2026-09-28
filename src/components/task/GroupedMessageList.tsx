@@ -25,6 +25,8 @@ import { UserMessageBubble } from '@/components/task/UserMessageBubble';
 import { getSettings } from '@/shared/db/settings';
 import type { TaskPlan } from '@/shared/hooks/agent-types';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
+import type { ForkFromHereResult } from '@/shared/hooks/useBranchActions';
+import { hasCheckpointedFileEditsAfter } from '@/shared/lib/message-tree';
 
 export {
   groupMessages,
@@ -89,7 +91,11 @@ export interface GroupedItemRenderContext {
   onCancelTool?: (toolUseId: string) => void;
   onEditMessage?: (messageId: string, newContent: string) => void;
   onRegenerate?: (messageId: string) => void;
-  onForkFromHere?: (messageId: string) => void;
+  /** Reports a failed file restore (no fork made) through its result. */
+  onForkFromHere?: (
+    messageId: string,
+    options?: { restoreFiles?: boolean },
+  ) => void | Promise<ForkFromHereResult>;
   onBranchNavigate?: (
     forkPointId: string | number,
     direction: 'prev' | 'next',
@@ -167,6 +173,13 @@ export function renderGroupedItem(
               onFork={
                 ctx.onForkFromHere
                   ? () => ctx.onForkFromHere!(item.msg.id)
+                  : undefined
+              }
+              onForkRestoreFiles={
+                ctx.onForkFromHere &&
+                hasCheckpointedFileEditsAfter(ctx.messages, item.msg.id)
+                  ? () =>
+                      ctx.onForkFromHere!(item.msg.id, { restoreFiles: true })
                   : undefined
               }
             />
