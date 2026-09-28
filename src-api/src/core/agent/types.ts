@@ -171,6 +171,12 @@ export interface AgentMessage {
     command?: string;
     description: string;
     risk_level?: 'low' | 'medium' | 'high';
+    /** Open on the decline option; no one-click approve. */
+    default_to_no?: boolean;
+    /** Do not offer a persistent "always allow" choice. */
+    suppress_always_allow_rule?: boolean;
+    /** MCP server serving the tool; `source: 'sdk'` is an in-process server. */
+    mcp_server?: { name: string; source: string };
   };
   // AG-UI correlation fields
   /** Unique identifier for this run/execution */

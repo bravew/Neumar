@@ -392,6 +392,8 @@ export default {
   permissionAllowOnce: '允许一次',
   permissionAlwaysAllow: '始终允许',
   permissionApproved: '已批准',
+  permissionMcpServer: 'MCP 服务器',
+  permissionDefaultToNoHint: '请仔细审查：此请求默认拒绝。',
   permissionDeniedLabel: '已拒绝',
   riskLow: '低风险',
   riskMedium: '中风险',

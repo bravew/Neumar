@@ -386,6 +386,9 @@ export default {
   permissionAllowOnce: 'Autoriser une fois',
   permissionAlwaysAllow: 'Toujours autoriser',
   permissionApproved: 'Approuvé',
+  permissionMcpServer: 'Serveur MCP',
+  permissionDefaultToNoHint:
+    'Vérifiez attentivement : cette demande est refusée par défaut.',
   permissionDeniedLabel: 'Refusé',
   riskLow: 'Risque faible',
   riskMedium: 'Risque moyen',

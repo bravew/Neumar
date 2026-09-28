@@ -401,6 +401,8 @@ export default {
   permissionAllowOnce: 'Allow Once',
   permissionAlwaysAllow: 'Always Allow',
   permissionApproved: 'Approved',
+  permissionMcpServer: 'MCP server',
+  permissionDefaultToNoHint: 'Review carefully: this request defaults to Deny.',
   permissionDeniedLabel: 'Denied',
   riskLow: 'Low Risk',
   riskMedium: 'Medium Risk',

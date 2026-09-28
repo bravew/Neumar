@@ -52,11 +52,6 @@ import {
 // Import plugin definition helpers
 import { CLAUDE_METADATA, defineAgentPlugin } from '@/core/agent/plugin';
 import type { AgentPlugin } from '@/core/agent/plugin';
-import { AutoClassifier } from '@/core/agent/safety/auto-classifier';
-import {
-  assessRiskLevel,
-  checkBashCommand,
-} from '@/core/agent/safety/dangerous-patterns';
 import { pythonErrorHintHook } from '@/core/agent/safety/python-error-classifier';
 import { ToolLifecycleHookRunner } from '@/core/agent/tool-lifecycle-hooks';
 import { ToolPermissionRegistry } from '@/core/agent/tool-permission-registry';
@@ -215,7 +210,6 @@ import {
 } from '@/shared/services/publish';
 import { getSearchConfig, isSearchEnabled } from '@/shared/services/search';
 import { listCapabilities as listSpeechCapabilities } from '@/shared/services/speech';
-import { taskEventBus } from '@/shared/services/task-event-bus';
 import { logUsage, resolveBillingType } from '@/shared/services/usage-logger';
 // Skills are loaded directly by Claude SDK from ~/.claude/skills/ via settingSources: ['user']
 // Pinned skills are loaded explicitly and injected into the prompt for guaranteed availability
@@ -231,6 +225,12 @@ import { buildSandboxFilesystemConfig } from '@/shared/utils/path-validator';
 import { expandPath } from '@/shared/utils/paths';
 import { safeAsyncGenerator } from '@/shared/utils/stream-cleanup';
 
+import {
+  allowTool,
+  applyPermissionPolicy,
+  buildCanUseTool,
+  type PendingPermission,
+} from './permissions';
 import { ContainerManager, executePTC } from './ptc';
 import { adaptMcpTools } from './ptc-adapter';
 import type { ToolHandler } from './ptc-types';
@@ -498,230 +498,6 @@ function wrapPtcToolHandlersWithLifecycleHooks(
     });
   }
   return wrapped;
-}
-
-/** Truncate tool input to a short string for logging and denial tracking. */
-function summarizeInput(input: unknown, maxLen = 200): string {
-  if (typeof input === 'object' && input) {
-    return JSON.stringify(input).slice(0, maxLen);
-  }
-  return String(input ?? '');
-}
-
-// ── Auto-classifier singleton (lazy, feature-flagged) ──
-// Cache the enabled setting to avoid DB reads on every tool call.
-// Refreshed every 60s so settings changes take effect without restart.
-let autoClassifierInstance: AutoClassifier | undefined;
-let autoClassifierApiKey: string | undefined;
-let autoClassifierEnabledCache: { value: boolean; ts: number } | undefined;
-const CLASSIFIER_SETTING_TTL_MS = 60_000;
-
-function getAutoClassifier(): AutoClassifier | undefined {
-  const now = Date.now();
-  if (
-    !autoClassifierEnabledCache ||
-    now - autoClassifierEnabledCache.ts > CLASSIFIER_SETTING_TTL_MS
-  ) {
-    const enabled = getSetting('autoClassifierEnabled');
-    autoClassifierEnabledCache = {
-      value: enabled === 'true' || enabled === '1',
-      ts: now,
-    };
-  }
-  if (!autoClassifierEnabledCache.value) return undefined;
-
-  const apiKey = process.env.ANTHROPIC_API_KEY || getSetting('apiKey');
-  if (!apiKey) return undefined;
-  // Recreate if API key changed
-  if (autoClassifierInstance && autoClassifierApiKey === apiKey) {
-    return autoClassifierInstance;
-  }
-  autoClassifierApiKey = apiKey;
-  autoClassifierInstance = new AutoClassifier(apiKey);
-  return autoClassifierInstance;
-}
-
-/** Tool classifications that trigger the auto-classifier */
-const CLASSIFIER_TARGET_CLASSIFICATIONS = new Set(['execute', 'destructive']);
-
-/**
- * Build an `allow` permission result for the `canUseTool` callback.
- *
- * The Claude CLI subprocess validates the callback's return value against a Zod
- * schema whose `allow` branch REQUIRES `updatedInput` to be a record — even
- * though the SDK's TypeScript `PermissionResult` type marks it optional. A bare
- * `{ behavior: 'allow' }` therefore fails at runtime with
- * "Tool permission request failed: ZodError" and the tool call errors out
- * (observed for control tools like `Monitor`). Always echo the unmodified tool
- * input back so the allow branch validates.
- */
-function allowTool(input: unknown): {
-  behavior: 'allow';
-  updatedInput: Record<string, unknown>;
-} {
-  return {
-    behavior: 'allow',
-    updatedInput:
-      input && typeof input === 'object'
-        ? (input as Record<string, unknown>)
-        : {},
-  };
-}
-
-/**
- * Build a canUseTool callback for the Claude Agent SDK.
- *
- * Shared between runGenerator (direct run) and executeStepGenerator (plan-then-execute)
- * to avoid duplicating ~70 lines of denial tracking, danger checks, permission flow.
- */
-function buildCanUseTool(
-  denialTracker: DenialTracker,
-  permissionRegistry: ToolPermissionRegistry,
-  pendingPermissions: Map<string, PendingPermission>,
-  taskId: string | undefined,
-  sessionId: string,
-  loopGuard: LoopGuard,
-): NonNullable<Options['canUseTool']> {
-  return async (toolName, input, { signal }) => {
-    // 0a. Loop guard — stop runaway thrashing/fan-out before maxTurns (200)
-    // would, forcing the agent to report the blocker instead of looping.
-    const loopStop = loopGuard.check(toolName, summarizeInput(input));
-    if (loopStop) {
-      logger.warn(`[${sessionId}] Loop guard tripped on ${toolName}`);
-      return { behavior: 'deny', message: loopStop };
-    }
-    // 0b. Check denial tracker — stop retrying repeatedly denied tools
-    if (denialTracker.shouldFallback(toolName)) {
-      return { behavior: 'deny', message: denialTracker.getSummary() };
-    }
-    // Bash run_in_background processes are children of this turn's CLI
-    // subprocess and are killed the instant the turn ends — there is no
-    // mechanism in this app to resume or notify the user later, so a
-    // backgrounded job that outlives the turn silently dies unfinished
-    // (confirmed: output files show `[killed]` seconds after turn end).
-    // Force foreground instead, with the timeout raised to the SDK's max so
-    // multi-step batches (e.g. downloading a dozen files) still have room
-    // to actually finish before the tool call returns.
-    let effectiveInput = input;
-    if (toolName === 'Bash') {
-      const bashInput = effectiveInput as Record<string, unknown> | undefined;
-      if (bashInput?.run_in_background === true) {
-        logger.info(
-          `[${sessionId}] Forcing Bash foreground (run_in_background jobs don't survive turn end): ${summarizeInput(input)}`,
-        );
-        effectiveInput = {
-          ...bashInput,
-          run_in_background: false,
-          timeout: Math.max(
-            typeof bashInput.timeout === 'number' ? bashInput.timeout : 0,
-            600_000,
-          ),
-        };
-      }
-    }
-    // 1. Check dangerous patterns (Bash commands)
-    if (toolName === 'Bash') {
-      const command = (effectiveInput as Record<string, unknown>)?.command;
-      if (typeof command === 'string') {
-        const danger = checkBashCommand(command);
-        if (danger.isDangerous && danger.severity === 'block') {
-          denialTracker.record(toolName, summarizeInput(effectiveInput));
-          return {
-            behavior: 'deny',
-            message: danger.suggestion ?? 'Blocked: dangerous command',
-          };
-        }
-      }
-    }
-    // 2. Check registry rules (deny → ask → classification → allow)
-    const decision = permissionRegistry.evaluate(toolName, effectiveInput);
-    if (decision === 'allow') {
-      // 2b. Auto-classifier check for execute/destructive tools (feature-flagged)
-      const classifier = getAutoClassifier();
-      if (!classifier) return allowTool(effectiveInput);
-
-      const classification = permissionRegistry.classifyTool(toolName);
-      if (
-        !classification ||
-        !CLASSIFIER_TARGET_CLASSIFICATIONS.has(classification)
-      ) {
-        return allowTool(effectiveInput);
-      }
-
-      try {
-        const result = await classifier.classify(toolName, effectiveInput);
-        if (result.decision === 'allow') return allowTool(effectiveInput);
-        if (result.decision === 'deny') {
-          logger.warn(
-            `Auto-classifier denied ${toolName}: ${result.reasoning}`,
-          );
-          denialTracker.record(toolName, summarizeInput(effectiveInput));
-          return {
-            behavior: 'deny',
-            message: `Safety review: ${result.reasoning}`,
-          };
-        }
-        // 'warn' — fall through to 'ask' flow below (prompt user)
-        logger.info(
-          `Auto-classifier flagged ${toolName} for review: ${result.reasoning}`,
-        );
-      } catch {
-        // Classifier failure — never block, proceed with 'allow'
-        return allowTool(effectiveInput);
-      }
-    }
-    if (decision === 'deny') {
-      denialTracker.record(toolName, summarizeInput(effectiveInput));
-      return { behavior: 'deny', message: 'Blocked by permission rules' };
-    }
-    // 3. 'ask' → emit permission_request, wait for user response
-    // If no taskId, we can't show UI — auto-approve (sandbox still enforces OS-level safety)
-    if (!taskId) {
-      logger.warn(`Auto-approving ${toolName} (no taskId for permission UI)`);
-      return allowTool(effectiveInput);
-    }
-    const requestId = crypto.randomUUID();
-    const riskLevel = assessRiskLevel(toolName, effectiveInput);
-    const inputStr = summarizeInput(effectiveInput);
-    taskEventBus.publish(taskId, {
-      type: 'permission_request',
-      permission: {
-        id: requestId,
-        tool: toolName,
-        command: inputStr,
-        description: `Execute ${toolName}`,
-        risk_level: riskLevel,
-      },
-    });
-    // Wait for user response via /agent/permission endpoint
-    return new Promise((resolve) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const trackedResolve = (result: any) => {
-        if (result?.behavior === 'deny') {
-          denialTracker.record(toolName, inputStr);
-        }
-        resolve(result);
-      };
-      pendingPermissions.set(requestId, {
-        resolve: trackedResolve,
-        toolName,
-        toolInput: effectiveInput,
-        sessionId,
-        createdAt: Date.now(),
-        registry: permissionRegistry,
-      });
-      const onAbort = () => {
-        if (pendingPermissions.has(requestId)) {
-          pendingPermissions.delete(requestId);
-          resolve({
-            behavior: 'deny' as const,
-            message: 'Permission request timed out',
-          });
-        }
-      };
-      signal.addEventListener('abort', onAbort, { once: true });
-    });
-  };
 }
 
 /** Throttle interval for yielding thinking progress messages during planning */
@@ -1756,17 +1532,6 @@ function mapModelToSdkFormat(
   return 'inherit';
 }
 
-interface PendingPermission {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  resolve: (result: any) => void;
-  toolName: string;
-  /** Original tool input, echoed back as `updatedInput` when the user allows. */
-  toolInput: unknown;
-  sessionId: string;
-  createdAt: number;
-  registry: ToolPermissionRegistry;
-}
-
 /**
  * Per-session store for pending permission requests.
  * When canUseTool decides to ask the user, it stores a Promise resolver here.
@@ -1810,7 +1575,7 @@ export function resolvePermission(
 
   pendingPermissions.delete(requestId);
   if (approved) {
-    if (alwaysAllow) {
+    if (alwaysAllow && !pending.suppressAlwaysAllowRule) {
       pending.registry.addAllowRule(pending.toolName);
     }
     pending.resolve(allowTool(pending.toolInput));
@@ -3845,7 +3610,11 @@ User's request (answer this AFTER reading the images):
       logger.info(`[Claude ${session.id}] Starting Agent SDK query()...`);
       const queryObj: QueryType = query({
         prompt: finalPrompt,
-        options: queryOptions,
+        options: applyPermissionPolicy(queryOptions, {
+          registry: permissionRegistry,
+          taskId: options?.taskId,
+          autoApprove: options?.autoApprove,
+        }),
       });
       if (options?.taskId) {
         activeQueryStore.register(options.taskId, queryObj, session.id);
@@ -5811,7 +5580,11 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       );
       const queryObj: QueryType = query({
         prompt: executionPrompt,
-        options: queryOptions,
+        options: applyPermissionPolicy(queryOptions, {
+          registry: execPermissionRegistry,
+          taskId: options.taskId,
+          autoApprove: options.autoApprove,
+        }),
       });
       if (options.taskId) {
         activeQueryStore.register(options.taskId, queryObj, session.id);

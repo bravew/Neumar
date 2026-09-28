@@ -396,6 +396,9 @@ export default {
   permissionAllowOnce: 'Permitir uma vez',
   permissionAlwaysAllow: 'Sempre permitir',
   permissionApproved: 'Aprovado',
+  permissionMcpServer: 'Servidor MCP',
+  permissionDefaultToNoHint:
+    'Revise com atenção: esta solicitação é negada por padrão.',
   permissionDeniedLabel: 'Negado',
   riskLow: 'Risco baixo',
   riskMedium: 'Risco médio',

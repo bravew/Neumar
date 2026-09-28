@@ -83,6 +83,11 @@ export function usePermissionRequests(
       permissionId: string,
       decision: 'allow' | 'deny' | 'always_allow',
     ) => {
+      // The agent may forbid a persistent rule for this ask; never send one.
+      const request = permissionsRef.current.find((p) => p.id === permissionId);
+      const alwaysAllow =
+        decision === 'always_allow' &&
+        request?.suppress_always_allow_rule !== true;
       try {
         await fetch(`${API_BASE_URL}/agent/permission`, {
           method: 'POST',
@@ -90,7 +95,7 @@ export function usePermissionRequests(
           body: JSON.stringify({
             permissionId,
             approved: decision !== 'deny',
-            alwaysAllow: decision === 'always_allow',
+            alwaysAllow,
           }),
         });
         setPermissionRequests((prev) =>

@@ -7,6 +7,12 @@ export interface PermissionRequest {
   command?: string;
   description: string;
   risk_level?: 'low' | 'medium' | 'high';
+  /** Open on the decline option; no one-click approve. */
+  default_to_no?: boolean;
+  /** Do not offer a persistent "always allow" choice. */
+  suppress_always_allow_rule?: boolean;
+  /** MCP server serving the tool; its name is untrusted display text. */
+  mcp_server?: { name: string; source: string };
 }
 
 // Question types for AskUserQuestion tool
