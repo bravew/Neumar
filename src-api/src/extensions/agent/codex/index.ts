@@ -16,17 +16,9 @@ import { homedir } from 'os';
 import { basename, join, resolve as resolvePath, sep } from 'path';
 
 import { Codex } from '@openai/codex-sdk';
-import type {
-  ItemCompletedEvent,
-  ModelReasoningEffort,
-  ThreadEvent,
-} from '@openai/codex-sdk';
+import type { ModelReasoningEffort, ThreadEvent } from '@openai/codex-sdk';
 
-import {
-  ASK_USER_QUESTION_INSTRUCTION,
-  buildAskUserQuestionToolUse,
-  tryExtractAskUserQuestion,
-} from '@/core/agent/ask-user-question';
+import { ASK_USER_QUESTION_INSTRUCTION } from '@/core/agent/ask-user-question';
 import {
   BaseAgent,
   getWorkspaceInstruction,
@@ -57,7 +49,6 @@ import {
   type SubprocessMcpConfig,
   buildSubprocessMcpConfig,
 } from '@/shared/mcp/subprocess-bridge';
-import { defendToolOutput } from '@/shared/security/tool-output-defense';
 import { logUsage } from '@/shared/services/usage-logger';
 import {
   getExtendedPath,
@@ -67,6 +58,7 @@ import { createLogger } from '@/shared/utils/logger';
 import { expandPath } from '@/shared/utils/paths';
 
 import { resolveCodexApiKey, resolveCodexOpenAiBaseUrl } from './auth';
+import { CodexStreamMapper } from './stream-mapper';
 
 const logger = createLogger('Codex');
 
@@ -291,162 +283,6 @@ function formatConversationPrompt(
 }
 
 /**
- * Render an MCP tool call's result/error into the human-visible text shown
- * in the tool-result panel. Codex's internal context still receives the raw
- * structured payload — this is only for the UI stream.
- */
-function formatMcpToolOutput(
-  item: Extract<ItemCompletedEvent['item'], { type: 'mcp_tool_call' }>,
-): string {
-  if (item.error?.message) return `Error: ${item.error.message}`;
-  const blocks = item.result?.content ?? [];
-  if (blocks.length === 0) {
-    return item.status === 'failed'
-      ? 'Tool call failed'
-      : 'Tool call completed';
-  }
-  const parts: string[] = [];
-  for (const block of blocks as Array<Record<string, unknown>>) {
-    if (block.type === 'text' && typeof block.text === 'string') {
-      parts.push(block.text);
-    } else if (block.type === 'image' && typeof block.mimeType === 'string') {
-      parts.push(`[image: ${block.mimeType}]`);
-    } else if (block.type === 'audio' && typeof block.mimeType === 'string') {
-      parts.push(`[audio: ${block.mimeType}]`);
-    } else {
-      parts.push(JSON.stringify(block));
-    }
-  }
-  return parts.join('\n');
-}
-
-/**
- * Map a Codex SDK ItemCompletedEvent item to AgentMessages.
- * @param cwd - Working directory for resolving relative file paths
- */
-function* mapItemCompleted(
-  event: ItemCompletedEvent,
-  cwd: string,
-): Iterable<AgentMessage> {
-  const item = event.item;
-  switch (item.type) {
-    case 'agent_message': {
-      if (!item.text) break;
-      const askUser = tryExtractAskUserQuestion(item.text);
-      if (askUser) {
-        // Bridge to the existing AskUserQuestion UI: emit a synthetic tool_use
-        // event so `useAgent.ts` pauses the run and renders QuestionInput.
-        yield buildAskUserQuestionToolUse(askUser);
-        break;
-      }
-      yield { type: 'text', content: item.text };
-      break;
-    }
-    case 'reasoning':
-      if (item.text) {
-        yield { type: 'thinking', content: item.text };
-      }
-      break;
-    case 'command_execution': {
-      const toolId = crypto.randomUUID();
-      yield {
-        type: 'tool_use',
-        name: 'Bash',
-        id: toolId,
-        input: { command: item.command },
-      };
-      if (item.aggregated_output) {
-        // Phase 7: codex runs its own internal tool loop (re-entry happens
-        // inside the codex process), so this is a display-redaction layer.
-        // BLOCK still rewrites the displayed text so the user is not shown
-        // raw injected content harvested through the adapter boundary.
-        const defended = defendToolOutput({
-          source: {
-            adapter: 'codex',
-            toolName: 'Bash',
-            toolUseId: toolId,
-          },
-          content: item.aggregated_output,
-          riskHint: 'high',
-        });
-        yield {
-          type: 'tool_result',
-          toolUseId: toolId,
-          output: defended.displayContent,
-          isError:
-            (item.exit_code !== undefined && item.exit_code !== 0) ||
-            defended.verdict === 'BLOCK',
-          security: {
-            verdict: defended.verdict,
-            source: 'codex',
-            payloadHash: defended.audit.payloadHash,
-            redactedSnippet: defended.redactedSnippet,
-            scores: defended.scores as Record<string, number>,
-          },
-        };
-      }
-      break;
-    }
-    case 'file_change':
-      for (const change of item.changes) {
-        // Resolve to absolute path and use file_path (frontend expects this key)
-        const absPath = change.path.startsWith('/')
-          ? change.path
-          : resolvePath(join(cwd, change.path));
-        // Only emit if the file actually exists (avoids phantom entries)
-        if (existsSync(absPath)) {
-          const fileToolId = crypto.randomUUID();
-          yield {
-            type: 'tool_use',
-            name: change.kind === 'add' ? 'Write' : 'Edit',
-            id: fileToolId,
-            input: { file_path: absPath },
-          };
-          yield {
-            type: 'tool_result',
-            toolUseId: fileToolId,
-            output: `${change.kind === 'add' ? 'Created' : 'Modified'}: ${absPath}`,
-            isError: false,
-          };
-        }
-      }
-      break;
-    case 'web_search': {
-      const searchToolId = crypto.randomUUID();
-      yield {
-        type: 'tool_use',
-        name: 'WebSearch',
-        id: searchToolId,
-        input: { query: item.query },
-      };
-      yield {
-        type: 'tool_result',
-        toolUseId: searchToolId,
-        output: 'Search completed',
-        isError: false,
-      };
-      break;
-    }
-    case 'mcp_tool_call': {
-      const mcpToolId = crypto.randomUUID();
-      yield {
-        type: 'tool_use',
-        name: item.tool,
-        id: mcpToolId,
-        input: item.arguments as Record<string, unknown>,
-      };
-      yield {
-        type: 'tool_result',
-        toolUseId: mcpToolId,
-        output: formatMcpToolOutput(item),
-        isError: item.status === 'failed',
-      };
-      break;
-    }
-  }
-}
-
-/**
  * Wrap an event generator to filter duplicate consecutive text messages.
  * Codex SDK can emit multiple identical `agent_message` items per turn.
  */
@@ -467,10 +303,12 @@ function* deduplicateTextEvents(
 }
 
 /**
- * Map a Codex SDK ThreadEvent to AgentMessages.
+ * Map a Codex SDK ThreadEvent to AgentMessages. Item lifecycle and failure
+ * events go through the turn's stateful `CodexStreamMapper`.
  */
 function* mapSdkEvent(
   event: ThreadEvent,
+  mapper: CodexStreamMapper,
   cwd: string,
   runSessionId?: string,
 ): Iterable<AgentMessage> {
@@ -482,9 +320,6 @@ function* mapSdkEvent(
         resumeSessionId: event.thread_id,
         cwd,
       };
-      break;
-    case 'item.completed':
-      yield* mapItemCompleted(event, cwd);
       break;
     case 'turn.completed':
       if (event.usage) {
@@ -498,27 +333,8 @@ function* mapSdkEvent(
         };
       }
       break;
-    case 'error': {
-      const errEvent = event as unknown as {
-        error?: { message?: string; code?: string };
-        message?: string;
-      };
-      const errMsg =
-        errEvent.error?.message ?? errEvent.message ?? 'Codex error';
-      logger.error('Codex SDK error event', {
-        error: errEvent.error ?? errEvent.message,
-        code: errEvent.error?.code,
-      });
-      yield { type: 'error', message: errMsg };
-      break;
-    }
-    case 'turn.failed':
-      yield {
-        type: 'error',
-        message:
-          (event as unknown as { error?: { message?: string } }).error
-            ?.message ?? 'Codex turn failed',
-      };
+    default:
+      yield* mapper.map(event);
       break;
   }
 }
@@ -630,6 +446,8 @@ export class CodexAgent extends BaseAgent {
     // Mint MCP bridge tokens before any await that could throw — captured in
     // outer scope so finally{} can always revoke them.
     let bridge: SubprocessMcpConfig | undefined;
+    // Outer scope so catch{} can flush partial output from an aborted turn.
+    let mapper: CodexStreamMapper | undefined;
 
     try {
       const sessionCwd = await getSessionWorkDir(
@@ -703,6 +521,7 @@ export class CodexAgent extends BaseAgent {
         `[${session.id}] Codex runStreamed returned, iterating events...`,
       );
 
+      mapper = new CodexStreamMapper(sessionCwd);
       let turnStartMs = 0;
       let eventCount = 0;
       for await (const event of events) {
@@ -735,14 +554,16 @@ export class CodexAgent extends BaseAgent {
           });
         }
         yield* deduplicateTextEvents(
-          mapSdkEvent(event, sessionCwd, session.id),
+          mapSdkEvent(event, mapper, sessionCwd, session.id),
         );
       }
+      yield* mapper.finish();
       logger.debug(
         `[${session.id}] Codex event loop finished. Total events: ${eventCount}`,
       );
     } catch (err) {
       logger.error(`[${session.id}] Error: ${err}`);
+      if (mapper) yield* mapper.finish();
       yield {
         type: 'error',
         message: err instanceof Error ? err.message : String(err),
@@ -768,6 +589,7 @@ export class CodexAgent extends BaseAgent {
       yield { type: 'direct_answer' };
 
       let bridge: SubprocessMcpConfig | undefined;
+      let mapper: CodexStreamMapper | undefined;
       try {
         const sessionCwd = await getSessionWorkDir(
           options?.cwd ?? this.config.workDir,
@@ -803,6 +625,7 @@ export class CodexAgent extends BaseAgent {
         const { events } = await thread.runStreamed(conversationalPrompt, {
           signal: abortSignal,
         });
+        mapper = new CodexStreamMapper(sessionCwd);
         let turnStartMs = 0;
         for await (const event of events) {
           if (abortSignal?.aborted) break;
@@ -827,11 +650,13 @@ export class CodexAgent extends BaseAgent {
             });
           }
           yield* deduplicateTextEvents(
-            mapSdkEvent(event, sessionCwd, session.id),
+            mapSdkEvent(event, mapper, sessionCwd, session.id),
           );
         }
+        yield* mapper.finish();
       } catch (err) {
         logger.error(`[${session.id}] Error: ${err}`);
+        if (mapper) yield* mapper.finish();
         yield {
           type: 'error',
           message: err instanceof Error ? err.message : String(err),
@@ -886,6 +711,7 @@ export class CodexAgent extends BaseAgent {
     }
 
     let bridge: SubprocessMcpConfig | undefined;
+    let mapper: CodexStreamMapper | undefined;
 
     try {
       const sessionCwd = await getSessionWorkDir(
@@ -957,6 +783,7 @@ export class CodexAgent extends BaseAgent {
         signal: abortSignal,
       });
 
+      mapper = new CodexStreamMapper(sessionCwd);
       let turnStartMs = 0;
       for await (const event of events) {
         if (abortSignal?.aborted) break;
@@ -981,11 +808,13 @@ export class CodexAgent extends BaseAgent {
           });
         }
         yield* deduplicateTextEvents(
-          mapSdkEvent(event, sessionCwd, session.id),
+          mapSdkEvent(event, mapper, sessionCwd, session.id),
         );
       }
+      yield* mapper.finish();
     } catch (err) {
       logger.error(`[${session.id}] Execution error: ${err}`);
+      if (mapper) yield* mapper.finish();
       yield {
         type: 'error',
         message: err instanceof Error ? err.message : String(err),
