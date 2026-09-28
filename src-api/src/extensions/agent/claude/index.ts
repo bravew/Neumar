@@ -1601,17 +1601,6 @@ export function buildSubAgentDefinitions(
   return agentDefs;
 }
 
-interface PendingPermission {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  resolve: (result: any) => void;
-  toolName: string;
-  /** Original tool input, echoed back as `updatedInput` when the user allows. */
-  toolInput: unknown;
-  sessionId: string;
-  createdAt: number;
-  registry: ToolPermissionRegistry;
-}
-
 /**
  * Per-session store for pending permission requests.
  * When canUseTool decides to ask the user, it stores a Promise resolver here.

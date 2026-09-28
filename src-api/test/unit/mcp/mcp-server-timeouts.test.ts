@@ -15,11 +15,25 @@ import { createMediaMcpServer } from '@/shared/mcp/media-server';
 import { createSpeechMcpServer } from '@/shared/mcp/speech-server';
 import { createVideoEditServer } from '@/shared/mcp/video-edit-server';
 import { MAX_EXECUTION_MS } from '@/shared/services/ffmpeg';
+import { AI_CLIP_POLL_TIMEOUT_MS } from '@/shared/video/pipeline';
 
 describe('per-server MCP tool-call timeouts', () => {
-  it('video-edit: bounds calls at 5 minutes instead of MCP_TOOL_TIMEOUT', () => {
+  it('video-edit: bounds calls above a single ai-clip/lipsync scene wait', () => {
+    // video_render is not wrapped by withToolTimeout — it awaits
+    // renderProject() synchronously, which polls each pending ai-clip/
+    // lipsync scene up to AI_CLIP_POLL_TIMEOUT_MS *before* rendering starts.
+    // A single such scene alone can legitimately need that long, so the
+    // server timeout must clear it with room for the render/encode phase
+    // too — a regression here (or a change to AI_CLIP_POLL_TIMEOUT_MS
+    // without updating this) can silently re-introduce a stranded render
+    // (see PR #96 review, Finding 1).
     const server = createVideoEditServer({ projectId: 'p-timeout-test' });
-    expect(server.timeout).toBe(5 * 60_000);
+    expect(server.timeout).toBeGreaterThan(AI_CLIP_POLL_TIMEOUT_MS);
+    // At least one full poll cycle plus a real render/encode buffer beyond
+    // it, not just a hair above the floor.
+    expect(server.timeout as number).toBeGreaterThanOrEqual(
+      AI_CLIP_POLL_TIMEOUT_MS + 5 * 60_000,
+    );
   });
 
   it('ffmpeg-processing: bounds calls just above the executor kill switch', () => {

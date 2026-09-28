@@ -5,30 +5,47 @@
  * dev-doc/plan/2026-09-27-post-upgrade-sdk-feature-adoption.md, C6): Stop
  * must stop background agents too. `perTaskStopAffordance` stays off — the
  * SDK's documented default already stops background agents and workflows on
- * interrupt, and Neumar's Stop (`stopAgent`, called from `POST
- * /stop/:sessionId` via `deleteSession`) aborts the session's
- * `AbortController`, which is the exact controller passed to the Claude SDK
- * `query()` call for every message in the turn (see the
+ * interrupt, and Neumar's Stop aborts the session's `AbortController`, which
+ * is the exact controller passed to the Claude SDK `query()` call for every
+ * message in the turn (see the
  * `abortController: options?.abortController || session.abortController`
  * wiring at the SDK call sites in `extensions/agent/claude/index.ts`). That
  * ends the CLI process and, per the SDK, its child tasks with it.
  *
- * This test proves Neumar's half of that contract: `stopAgent(sessionId)`
- * aborts the SAME `AbortController` instance an `IAgent.run()` call receives
- * for the session, and once aborted, a well-behaved agent stream (modeling
- * the SDK's documented "kill the CLI process and its background tasks on
- * interrupt" behavior) stops producing `task_notification`/`task_progress`
- * for tasks that were still running in the background — the stream simply
- * ends, it does not report them completing normally. A real Claude CLI
- * subprocess cannot be exercised in this sandboxed test environment (no
- * network/API credentials), so the fake stream below stands in for it,
- * driven by the real production `createSession`/`stopAgent` functions.
+ * The production `POST /stop/:sessionId` route (`app/api/agent.ts`) calls
+ * `deleteSession(sessionId)`, which is `SessionManager.delete()` —
+ * `session.abortController.abort('Session deleted')` followed by evicting
+ * the session from the LRU cache. `stopAgent(sessionId)` is a separate,
+ * sibling export in `shared/services/agent.ts` that does the plain
+ * `abortController.abort()` half of the same thing, but as of this PR it is
+ * not called from any production route or caller (`rg -w stopAgent
+ * src-api/src` matches only its own definition) — so a regression test
+ * targeting only `stopAgent` would provide zero coverage for the code path
+ * Stop actually runs. This test drives `deleteSession`, the function the
+ * real route calls, and covers `stopAgent` separately as its own
+ * (currently unwired) unit.
+ *
+ * This test proves Neumar's half of the interrupt contract: `deleteSession`
+ * aborts the SAME `AbortController` instance an `IAgent.run()` call
+ * receives for the session, and once aborted, a well-behaved agent stream
+ * (modeling the SDK's documented "kill the CLI process and its background
+ * tasks on interrupt" behavior) stops producing
+ * `task_notification`/`task_progress` for tasks that were still running in
+ * the background — the stream simply ends, it does not report them
+ * completing normally. A real Claude CLI subprocess cannot be exercised in
+ * this sandboxed test environment (no network/API credentials), so the fake
+ * stream below stands in for it, driven by the real production
+ * `createSession`/`deleteSession` functions.
  */
 import { describe, expect, it } from 'vitest';
 
 import type { AgentMessage } from '@/core/agent';
 
-import { createSession, stopAgent } from '@/shared/services/agent';
+import {
+  createSession,
+  deleteSession,
+  stopAgent,
+} from '@/shared/services/agent';
 
 /**
  * Stands in for `ClaudeAgent.run()` on a turn that launched a background
@@ -88,7 +105,7 @@ async function* fakeBackgroundTaskRun(
   };
 }
 
-describe('stopAgent ends background sub-agents and Bash tasks', () => {
+describe('Stop (deleteSession, the real POST /stop/:sessionId path) ends background sub-agents and Bash tasks', () => {
   it('aborts the exact AbortController the stream was started with, and no further task events for the backgrounded work reach the stream', async () => {
     const session = createSession('execute');
     expect(session.abortController.signal.aborted).toBe(false);
@@ -102,8 +119,9 @@ describe('stopAgent ends background sub-agents and Bash tasks', () => {
     collected.push((await stream.next()).value as AgentMessage);
     expect(collected.map((m) => m.id)).toEqual(['bg-agent-1', 'bg-bash-1']);
 
-    // "press Stop" — the same call the POST /stop/:sessionId route makes.
-    stopAgent(session.id);
+    // "press Stop" — the exact function POST /stop/:sessionId calls.
+    const deleted = deleteSession(session.id);
+    expect(deleted).toBe(true);
 
     // Drain the rest of the stream.
     for await (const msg of stream) {
@@ -122,7 +140,31 @@ describe('stopAgent ends background sub-agents and Bash tasks', () => {
     expect(postStopSignals).toEqual([]);
   });
 
-  it('stopAgent is a no-op for an unknown session (already cleaned up)', () => {
+  it('deleteSession is a no-op (returns false) for an unknown session', () => {
+    expect(deleteSession('does-not-exist')).toBe(false);
+  });
+});
+
+describe('stopAgent (currently unwired to any production route)', () => {
+  // Kept as its own coverage since `stopAgent` is still a public export of
+  // shared/services/agent.ts, but this does NOT stand in for coverage of
+  // the real Stop route — see the file header and the deleteSession-driven
+  // suite above for that.
+  it('aborts the same AbortController the stream was started with', async () => {
+    const session = createSession('execute');
+    const stream = fakeBackgroundTaskRun(session.abortController);
+    await stream.next();
+    await stream.next();
+
+    stopAgent(session.id);
+
+    for await (const _msg of stream) {
+      // drain
+    }
+    expect(session.abortController.signal.aborted).toBe(true);
+  });
+
+  it('is a no-op for an unknown session (already cleaned up)', () => {
     expect(() => stopAgent('does-not-exist')).not.toThrow();
   });
 });
