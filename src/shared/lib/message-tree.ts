@@ -97,6 +97,36 @@ export function findForkPoints(allMessages: Message[]): ForkPoint[] {
   }));
 }
 
+/** Claude file tools whose edits are covered by SDK file checkpoints. */
+const CHECKPOINTED_FILE_TOOLS = new Set([
+  'Write',
+  'Edit',
+  'MultiEdit',
+  'NotebookEdit',
+]);
+
+/**
+ * True when a message after `messageId` edited files through a checkpointed
+ * tool — the only changes "Fork and restore files" can undo. Shell (Bash)
+ * edits are not checkpointed and do not count.
+ */
+export function hasCheckpointedFileEditsAfter(
+  messages: AGUIMessage[],
+  messageId: string,
+): boolean {
+  const index = messages.findIndex((m) => m.id === messageId);
+  if (index < 0) return false;
+  return messages
+    .slice(index + 1)
+    .some((m) =>
+      m.toolCalls?.some(
+        (tc) =>
+          tc.function !== undefined &&
+          CHECKPOINTED_FILE_TOOLS.has(tc.function.name),
+      ),
+    );
+}
+
 /**
  * Narrow rehydrated history down to what CopilotKit's `addMessage` accepts.
  *

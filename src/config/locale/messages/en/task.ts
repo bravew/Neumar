@@ -115,6 +115,11 @@ export default {
   editMessageCancel: 'Cancel',
   regenerateResponse: 'Regenerate',
   forkFromHere: 'Fork from here',
+  forkRestoreFiles: 'Fork and restore files',
+  forkRestoreFilesConfirm:
+    "Fork from here and restore files edited since this point? Only edits made through Claude's file tools are restored; changes made by shell (Bash) commands are not.",
+  forkRestoreFilesFailed:
+    'Could not restore files. The conversation was not forked.',
   branchNavLabel: '{current} / {total}',
   branchNavPrevious: 'Previous branch',
   branchNavNext: 'Next branch',

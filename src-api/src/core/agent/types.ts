@@ -664,6 +664,16 @@ export interface AgentOptions {
   /** SDK session ID to resume — passes `resume` option to SDK query() */
   resumeSessionId?: string;
 
+  /**
+   * Conversation-branch SDK session (Claude only; issue #74). `fork` resumes
+   * `parentSessionId` with `forkSession`, writing the copy under `sessionId`;
+   * `resume` continues the branch's existing session. Takes precedence over
+   * `resumeSessionId`.
+   */
+  branchSession?:
+    | { kind: 'fork'; parentSessionId: string }
+    | { kind: 'resume'; sessionId: string };
+
   /** Structured output format — requests JSON responses matching a schema */
   outputFormat?: { type: 'json_schema'; schema: Record<string, unknown> };
 

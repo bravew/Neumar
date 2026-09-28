@@ -24,6 +24,12 @@ vi.mock('@/shared/services/agent', () => ({
       yield { type: 'text', content: 'Executed' };
     })(),
   ),
+  resolveAgentProvider: vi.fn().mockReturnValue('claude'),
+}));
+
+vi.mock('@/shared/services/branch-sdk-session', () => ({
+  resolveBranchContextPlan: vi.fn().mockReturnValue({ path: 'main' }),
+  withBranchSdkSessionRecording: vi.fn((stream: AsyncGenerator) => stream),
 }));
 
 vi.mock('@/shared/services/task-event-bus', () => ({
@@ -152,6 +158,77 @@ describe('AG-UI Routes', () => {
       // SSE streaming requires a real connection (c.req.raw.signal unavailable
       // in app.request()). Full SSE testing is done via E2E tests.
       expect(res.status).not.toBe(400);
+    });
+  });
+
+  describe('POST /run on a conversation branch', () => {
+    const branchId = '0b3c6f4e-5d3a-4c1e-9f5a-2b7d8e9f0a1b';
+    const branchRequest = () =>
+      jsonReq('/run', {
+        threadId: 'thread-branch',
+        messages: [
+          { id: 'u1', role: 'user', content: 'First question' },
+          { id: 'a1', role: 'assistant', content: 'First answer' },
+          { id: 'u2', role: 'user', content: 'Edited follow-up' },
+        ],
+        forwardedProps: { taskId: 'task-branch', branchId },
+      });
+
+    it('forks the SDK session instead of sending text history', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const agent = await import('@/shared/services/agent');
+      const branchSessions =
+        await import('@/shared/services/branch-sdk-session');
+      vi.mocked(agent.runAgent).mockClear();
+      vi.mocked(branchSessions.resolveBranchContextPlan).mockReturnValueOnce({
+        path: 'sdk',
+        mode: 'fork',
+        branchSession: { kind: 'fork', parentSessionId: 'sdk-main-1' },
+      });
+
+      await aguiRoutes.request(branchRequest());
+
+      expect(branchSessions.resolveBranchContextPlan).toHaveBeenCalledWith({
+        taskId: 'task-branch',
+        branchId,
+        provider: 'claude',
+      });
+      const [, options] = vi.mocked(agent.runAgent).mock.calls.at(-1)!;
+      expect(options.branchSession).toEqual({
+        kind: 'fork',
+        parentSessionId: 'sdk-main-1',
+      });
+      expect(options.conversation).toBeUndefined();
+      expect(branchSessions.withBranchSdkSessionRecording).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          taskId: 'task-branch',
+          branchId,
+          sdkSessionId: 'session-123',
+        }),
+      );
+    });
+
+    it('keeps the text history path when the branch cannot fork', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const agent = await import('@/shared/services/agent');
+      const branchSessions =
+        await import('@/shared/services/branch-sdk-session');
+      vi.mocked(agent.runAgent).mockClear();
+      vi.mocked(agent.resolveAgentProvider).mockReturnValueOnce('codex');
+      vi.mocked(branchSessions.resolveBranchContextPlan).mockReturnValueOnce({
+        path: 'text',
+        reason: 'runtime-without-fork',
+      });
+
+      await aguiRoutes.request(branchRequest());
+
+      const [, options] = vi.mocked(agent.runAgent).mock.calls.at(-1)!;
+      expect(options.branchSession).toBeUndefined();
+      expect(options.conversation).toEqual([
+        { role: 'user', content: 'First question' },
+        { role: 'assistant', content: 'First answer' },
+      ]);
     });
   });
 

@@ -285,6 +285,25 @@ export async function createBranch(
   return result.branchId;
 }
 
+/**
+ * Restore files edited through Claude's file checkpoints to their state at a
+ * fork point. Shell (Bash) changes are not tracked and stay as they are.
+ */
+export async function restoreFilesToForkPoint(
+  taskId: string,
+  fromMessageId: number | string,
+): Promise<{
+  rewoundRuns: number;
+  skippedRuns: number;
+  filesChanged: string[];
+}> {
+  return apiCall(
+    `/${taskId}/branches/restore-files`,
+    { method: 'POST', body: JSON.stringify({ fromMessageId }) },
+    BRANCHES_API_BASE,
+  );
+}
+
 export async function regenerateResponse(
   taskId: string,
   afterMessageId: number | string,

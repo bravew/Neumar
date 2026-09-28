@@ -234,6 +234,7 @@ import {
 import { ContainerManager, executePTC } from './ptc';
 import { adaptMcpTools } from './ptc-adapter';
 import type { ToolHandler } from './ptc-types';
+import { claudeSessionOptions } from './session-options';
 import { hasClaudeSdkStalled } from './stall-policy';
 import {
   CLAUDE_STREAM_SIGNAL_ENV,
@@ -1251,7 +1252,7 @@ function resolveSupportedClaudeModel(
  * Ensure Claude Code is available, install if necessary
  * Note: If app was built with --with-claude, sidecar will be used automatically
  */
-async function ensureClaudeCode(): Promise<string | undefined> {
+export async function ensureClaudeCode(): Promise<string | undefined> {
   let path = getClaudeCodePath();
 
   if (!path) {
@@ -2885,10 +2886,8 @@ User's request (answer this AFTER reading the images):
       enableFileCheckpointing: true,
       // Provides user message UUIDs in stream (required for rewindFiles targeting)
       extraArgs: { 'replay-user-messages': null },
-      // SDK session persistence — pass session ID for resume capability
-      ...(options?.sessionId ? { sessionId: options.sessionId } : {}),
-      // Resume a previous SDK session
-      ...(options?.resumeSessionId ? { resume: options.resumeSessionId } : {}),
+      // SDK session persistence, resume, and conversation-branch forks
+      ...claudeSessionOptions(options),
       // Thinking config passthrough — SDK Options.thinking + Options.effort.
       // Sonnet 5 no longer accepts fixed thinking budgets; normalize enabled
       // profiles to adaptive before they reach Claude Code.

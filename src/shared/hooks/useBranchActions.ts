@@ -8,6 +8,7 @@ import {
   createEditBranch,
   getMessagesByTaskId,
   regenerateResponse,
+  restoreFilesToForkPoint,
 } from '@/shared/db/database';
 import { stopAgentRun } from '@/shared/hooks/useAgentActions';
 import {
@@ -166,14 +167,28 @@ export function useBranchActions(
   /**
    * Fork the conversation from a specific message.
    * Creates a new branch and switches to it — user can then type a new prompt.
+   * Files stay as they are unless `restoreFiles` is set: then files edited
+   * through Claude's file tools since this message are restored first, and
+   * the fork is skipped if that fails. Resolves false when the restore failed.
    */
   const handleForkFromHere = useCallback(
-    async (messageId: string) => {
+    async (
+      messageId: string,
+      options?: { restoreFiles?: boolean },
+    ): Promise<boolean> => {
       const tid = taskIdRef.current;
-      if (!tid || busyRef.current) return;
+      if (!tid || busyRef.current) return true;
       busyRef.current = true;
 
       try {
+        if (options?.restoreFiles) {
+          try {
+            await restoreFilesToForkPoint(tid, messageId);
+          } catch (err) {
+            console.error('[useBranchActions] restoreFiles failed:', err);
+            return false;
+          }
+        }
         const branchId = await createBranch(tid, messageId);
 
         addBranch(tid, {
@@ -188,6 +203,7 @@ export function useBranchActions(
       } finally {
         busyRef.current = false;
       }
+      return true;
     },
     [taskIdRef, addBranch, setActiveBranch, selectBranchAtFork],
   );

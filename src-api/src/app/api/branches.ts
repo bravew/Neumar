@@ -20,6 +20,11 @@ import {
   resolveMessageId,
   searchMessages,
 } from '@/shared/db/operations';
+import {
+  invalidateBranchSdkSession,
+  RestoreFilesError,
+  restoreFilesToForkPoint,
+} from '@/shared/services/branch-sdk-session';
 import { createLogger } from '@/shared/utils/logger';
 
 const logger = createLogger('BranchesAPI');
@@ -38,6 +43,10 @@ const mergeBranchSchema = z.object({
 const editBranchSchema = z.object({
   fromMessageId: z.union([z.number(), z.string()]),
   newContent: z.string().min(1),
+});
+
+const restoreFilesSchema = z.object({
+  fromMessageId: z.union([z.number(), z.string()]),
 });
 
 const regenerateSchema = z.object({
@@ -167,11 +176,41 @@ branchesRoutes.post(
       const { afterMessageId, branchId } = c.req.valid('json');
       const numericId = resolveMessageId(taskId, afterMessageId);
       const deleted = deleteBranchMessagesAfter(taskId, branchId, numericId);
+      // The branch's SDK session still holds the reply being regenerated.
+      invalidateBranchSdkSession(taskId, branchId);
       return c.json({ deleted, branchId });
     } catch (err) {
       logger.error('Failed to regenerate branch:', err);
       return c.json(
         { error: 'Failed to regenerate' },
+        500 as ContentfulStatusCode,
+      );
+    }
+  },
+);
+
+/**
+ * POST /:taskId/branches/restore-files — rewind files tracked by Claude's
+ * file checkpoints to their state at a fork point, before forking from it.
+ * Shell (Bash) changes are not tracked and are left as they are.
+ */
+branchesRoutes.post(
+  '/:taskId/branches/restore-files',
+  zValidator('json', restoreFilesSchema),
+  async (c) => {
+    const taskId = c.req.param('taskId');
+    const { fromMessageId } = c.req.valid('json');
+    try {
+      const numericId = resolveMessageId(taskId, fromMessageId);
+      const result = await restoreFilesToForkPoint(taskId, numericId);
+      return c.json(result);
+    } catch (err) {
+      logger.error('Failed to restore files:', err);
+      if (err instanceof RestoreFilesError) {
+        return c.json({ error: err.message }, 409 as ContentfulStatusCode);
+      }
+      return c.json(
+        { error: 'Failed to restore files' },
         500 as ContentfulStatusCode,
       );
     }

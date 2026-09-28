@@ -114,6 +114,11 @@ export default {
   editMessageCancel: 'रद्द करें',
   regenerateResponse: 'पुनः उत्पन्न करें',
   forkFromHere: 'यहाँ से शाखा बनाएं',
+  forkRestoreFiles: 'शाखा बनाएं और फ़ाइलें पुनर्स्थापित करें',
+  forkRestoreFilesConfirm:
+    'यहाँ से शाखा बनाएं और इस बिंदु के बाद संपादित फ़ाइलें पुनर्स्थापित करें? केवल Claude के फ़ाइल टूल से किए गए संपादन पुनर्स्थापित होते हैं; शेल (Bash) कमांड से किए गए बदलाव नहीं।',
+  forkRestoreFilesFailed:
+    'फ़ाइलें पुनर्स्थापित नहीं हो सकीं। बातचीत की शाखा नहीं बनाई गई।',
   branchNavLabel: '{current} / {total}',
   branchNavPrevious: 'पिछली शाखा',
   branchNavNext: 'अगली शाखा',
