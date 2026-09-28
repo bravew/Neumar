@@ -150,6 +150,43 @@ describe('parseCodexModelCatalog', () => {
     });
   });
 
+  it('parses max/ultra reasoning tiers for GPT-6/5.6 rows (issue #70)', () => {
+    // Real `codex debug models` shape for gpt-6-astra (codex-cli 0.157.1,
+    // checked live 2026-09-27): low/medium/high/xhigh/max/ultra, no minimal.
+    const catalog = JSON.stringify({
+      models: [
+        {
+          slug: 'gpt-6-astra',
+          display_name: 'GPT-6-Astra',
+          description: 'Our most capable model for complex, demanding work.',
+          visibility: 'list',
+          priority: 1,
+          context_window: 272000,
+          input_modalities: ['text', 'image'],
+          supported_reasoning_levels: [
+            { effort: 'low' },
+            { effort: 'medium' },
+            { effort: 'high' },
+            { effort: 'xhigh' },
+            { effort: 'max' },
+            { effort: 'ultra' },
+          ],
+        },
+      ],
+    });
+    const astra = parseCodexModelCatalog(catalog)?.find(
+      (m) => m.id === 'gpt-6-astra',
+    );
+    expect(astra?.compatibleReasoningTiers).toEqual([
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+      'max',
+      'ultra',
+    ]);
+  });
+
   it('returns null for non-catalog output so detection falls back', () => {
     expect(parseCodexModelCatalog('error: unrecognized subcommand')).toBeNull();
     expect(parseCodexModelCatalog('{"models":[]}')).toBeNull();

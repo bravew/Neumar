@@ -202,8 +202,9 @@ export function parseLineSeparatedModels(stdout: string): ModelOption[] {
 }
 
 // Map a user-picked reasoning effort to one the chosen Codex model accepts.
-// Codex CLI accepts none|minimal|low|medium|high|xhigh, but real models
-// support narrower subsets. Unknown / future ids pass through unchanged.
+// Codex CLI accepts none|minimal|low|medium|high|xhigh|max|ultra|persistent,
+// but real models support narrower subsets. Unknown / future ids pass
+// through unchanged.
 export function clampCodexReasoning(
   modelId: string | undefined,
   effort: string | undefined,
@@ -222,6 +223,25 @@ export function clampCodexReasoning(
   if (id === 'gpt-5.1' && effort === 'xhigh') return 'high';
   if (id === 'gpt-5.1-codex-mini') {
     return effort === 'high' || effort === 'xhigh' ? 'high' : 'medium';
+  }
+  // GPT-5.6 / GPT-6: `codex debug models` (codex-cli 0.157.1, checked live
+  // against the real catalog) lists low/medium/high/xhigh/max for every row
+  // in this family, plus ultra for Astra/Sol/Terra only — Luna tops out at
+  // max. None of them list "minimal", the same gap as the gpt-5.2–5.5
+  // family above.
+  const isGpt56OrNewerFamily =
+    id.startsWith('gpt-5.6') || id.startsWith('gpt-6');
+  if (isGpt56OrNewerFamily) {
+    if (effort === 'minimal') return 'low';
+    const supportsUltra =
+      id === 'gpt-6-astra' || id === 'gpt-5.6-sol' || id === 'gpt-5.6-terra';
+    if (effort === 'ultra' && !supportsUltra) return 'max';
+    // No model's `supported_reasoning_levels` lists "persistent" — the
+    // catalog carries it as a separate agent-mode flag (Astra's entry ships
+    // a distinct `persistent_instructions` template), not a reasoning depth
+    // tier, so fall back to the highest confirmed depth tier instead of
+    // sending an unconfirmed value to the CLI.
+    if (effort === 'persistent') return supportsUltra ? 'ultra' : 'max';
   }
   return effort;
 }

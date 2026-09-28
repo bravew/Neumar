@@ -148,6 +148,10 @@ describe('agent-runtimes registry', () => {
       getAgentDef('codex')?.fallbackModels.map((model) => model.id),
     ).toEqual(
       expect.arrayContaining([
+        'gpt-6-astra',
+        'gpt-5.6-sol',
+        'gpt-5.6-terra',
+        'gpt-5.6-luna',
         'gpt-5.5',
         'gpt-5.4',
         'gpt-5.4-mini',
@@ -155,6 +159,12 @@ describe('agent-runtimes registry', () => {
         'gpt-5.1-codex-mini',
       ]),
     );
+  });
+
+  it('exposes max/ultra/persistent reasoning options for Codex', () => {
+    expect(
+      getAgentDef('codex')?.reasoningOptions?.map((option) => option.id),
+    ).toEqual(expect.arrayContaining(['xhigh', 'max', 'ultra', 'persistent']));
   });
 
   it('keeps Qoder hidden unless the experimental feature flag is enabled', async () => {
@@ -471,6 +481,36 @@ describe('clampCodexReasoning', () => {
   });
   it('passes through unknown ids unchanged', () => {
     expect(clampCodexReasoning('foo-bar', 'low')).toBe('low');
+  });
+
+  // GPT-6 / GPT-5.6 (issue #70, F8): confirmed live against `codex debug
+  // models` on codex-cli 0.157.1 — Astra/Sol/Terra support up to "ultra",
+  // Luna tops out at "max", and none of the four list "minimal".
+  it('rewrites minimal → low for the gpt-5.6/gpt-6 family', () => {
+    expect(clampCodexReasoning('gpt-6-astra', 'minimal')).toBe('low');
+    expect(clampCodexReasoning('gpt-5.6-sol', 'minimal')).toBe('low');
+    expect(clampCodexReasoning('gpt-5.6-terra', 'minimal')).toBe('low');
+    expect(clampCodexReasoning('gpt-5.6-luna', 'minimal')).toBe('low');
+  });
+  it('keeps ultra for Astra/Sol/Terra but clamps Luna to max', () => {
+    expect(clampCodexReasoning('gpt-6-astra', 'ultra')).toBe('ultra');
+    expect(clampCodexReasoning('gpt-5.6-sol', 'ultra')).toBe('ultra');
+    expect(clampCodexReasoning('gpt-5.6-terra', 'ultra')).toBe('ultra');
+    expect(clampCodexReasoning('gpt-5.6-luna', 'ultra')).toBe('max');
+  });
+  it('keeps max within the gpt-5.6/gpt-6 family', () => {
+    expect(clampCodexReasoning('gpt-5.6-luna', 'max')).toBe('max');
+  });
+  it('maps persistent to the highest confirmed tier per model', () => {
+    expect(clampCodexReasoning('gpt-6-astra', 'persistent')).toBe('ultra');
+    expect(clampCodexReasoning('gpt-5.6-sol', 'persistent')).toBe('ultra');
+    expect(clampCodexReasoning('gpt-5.6-luna', 'persistent')).toBe('max');
+  });
+  it('leaves max/ultra/persistent unclamped for models outside the confirmed families', () => {
+    // No live catalog data for these older ids covers max/ultra/persistent,
+    // so the function does not guess at a clamp for them.
+    expect(clampCodexReasoning('gpt-5.5', 'max')).toBe('max');
+    expect(clampCodexReasoning('o3', 'ultra')).toBe('ultra');
   });
 });
 

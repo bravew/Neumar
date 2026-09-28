@@ -1652,6 +1652,13 @@ export default {
   modelDescBalanced: 'Balanced (default)',
   modelDescMostCapable: 'Most capable',
   modelDescFastLightweight: 'Fast & lightweight',
+  modelDescCodexFlagshipFrontier:
+    'Our most capable model for complex, demanding work',
+  modelDescCodexAgenticWorkhorse:
+    'Reliable agentic workhorse for everyday tasks',
+  modelDescCodexBalancedAgentic:
+    'Balanced agentic coding model for everyday work',
+  modelDescCodexFastAffordable: 'Fast and affordable agentic coding model',
   modelDescCodexLatestFrontierCoding: 'Latest frontier agentic coding model',
   modelDescCodexLatestFrontier: 'General-purpose + computer use',
   modelDescCodexPriorFrontier: 'Previous frontier model',
