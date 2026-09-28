@@ -11,6 +11,8 @@ import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 
+import { getDatabase } from '@/shared/db';
+import { advertisedUiResourceUri } from '@/shared/mcp/ui-resource-gate';
 import { activeQueryStore } from '@/shared/services/active-query-store';
 import { errorMessage } from '@/shared/utils/errors';
 import { createLogger } from '@/shared/utils/logger';
@@ -60,6 +62,12 @@ const ReconnectMcpSchema = z.object({
 
 const StatusMcpSchema = z.object({
   taskId: z.string().min(1),
+});
+
+const UiResourceSchema = z.object({
+  taskId: z.string().min(1),
+  serverName: z.string().min(1).max(128),
+  toolName: z.string().min(1).max(256),
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -171,6 +179,63 @@ mcpRuntimeRoutes.get(
     } catch (err) {
       const msg = errorMessage(err);
       logger.error(`Failed to get MCP server status for task ${taskId}:`, err);
+      return c.json({ error: msg }, 500 as ContentfulStatusCode);
+    }
+  },
+);
+
+function taskInvokedMcpTool(
+  taskId: string,
+  serverName: string,
+  toolName: string,
+): boolean {
+  const row = getDatabase()
+    .prepare(
+      `SELECT 1 AS ok FROM messages
+       WHERE task_id = ? AND type = 'tool_use' AND tool_name = ?
+       LIMIT 1`,
+    )
+    .get(taskId, `mcp__${serverName}__${toolName}`);
+  return row !== undefined;
+}
+
+/**
+ * POST /mcp/runtime/ui-resource — Read the ui:// resource a connected server
+ * advertised on a tool the host invoked. The URI comes from that advertisement,
+ * not from the caller, and the tool must already be stored as a tool_use row.
+ * The contents are untrusted HTML; the client renders them in the artifact sandbox.
+ */
+mcpRuntimeRoutes.post(
+  '/ui-resource',
+  zValidator('json', UiResourceSchema),
+  async (c) => {
+    const { taskId, serverName, toolName } = c.req.valid('json');
+    const { query, error } = getQueryOrFail(taskId);
+    if (error) return c.json({ error: error.message }, error.status);
+
+    try {
+      if (!taskInvokedMcpTool(taskId, serverName, toolName)) {
+        return c.json(
+          { error: 'This tool has not been invoked' },
+          404 as ContentfulStatusCode,
+        );
+      }
+      const servers = await query!.mcpServerStatus();
+      const uri = advertisedUiResourceUri(servers, serverName, toolName);
+      if (!uri) {
+        return c.json(
+          { error: 'This tool does not advertise a UI resource' },
+          404 as ContentfulStatusCode,
+        );
+      }
+      const resource = await query!.readMcpResource(serverName, uri);
+      return c.json({ ok: true, uri, contents: resource.contents });
+    } catch (err) {
+      const msg = errorMessage(err);
+      logger.error(
+        `Failed to read MCP UI resource ${serverName}/${toolName}:`,
+        err,
+      );
       return c.json({ error: msg }, 500 as ContentfulStatusCode);
     }
   },

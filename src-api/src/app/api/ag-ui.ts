@@ -763,6 +763,8 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       execSessionCwd,
       validatedModelConfig?.agentType ?? 'claude',
       runProvenance(validatedModelConfig),
+      'task',
+      branchId ?? 'main',
     );
     activeRunContexts.set(
       effectiveTaskId,
@@ -1244,6 +1246,8 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
     sessionCwd,
     validatedModelConfig?.agentType ?? 'claude',
     runProvenance(validatedModelConfig),
+    'task',
+    branchId ?? 'main',
   );
   activeRunContexts.set(effectiveTaskId, activeRunContextFor(runId, persister));
   const attachmentPromoter = new AttachmentPromotionService({

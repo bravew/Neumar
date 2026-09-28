@@ -346,16 +346,28 @@ interface StepUsage {
 /** Keyed by the adapter's run session id; released when its result settles. */
 const stepUsageBySession = new Map<string, StepUsage>();
 
-/** Last cumulative SDK cost seen per SDK session id (bounded, LRU-ish). */
-const cumulativeCostBySdkSession = new Map<string, number>();
-const MAX_TRACKED_SDK_SESSIONS = 500;
+/** Last cumulative SDK cost, scoped by task and SDK session (bounded, LRU-ish). */
+const cumulativeCostByTaskAndSdkSession = new Map<string, number>();
+const MAX_TRACKED_COST_BASELINES = 500;
 
-function rememberCumulativeCost(sdkSessionId: string, cost: number): void {
-  cumulativeCostBySdkSession.delete(sdkSessionId);
-  cumulativeCostBySdkSession.set(sdkSessionId, cost);
-  if (cumulativeCostBySdkSession.size > MAX_TRACKED_SDK_SESSIONS) {
-    const oldest = cumulativeCostBySdkSession.keys().next().value;
-    if (oldest !== undefined) cumulativeCostBySdkSession.delete(oldest);
+function cumulativeCostKey(
+  taskId: string | undefined,
+  sdkSessionId: string,
+): string {
+  return JSON.stringify([taskId ?? '', sdkSessionId]);
+}
+
+function rememberCumulativeCost(
+  taskId: string | undefined,
+  sdkSessionId: string,
+  cost: number,
+): void {
+  const key = cumulativeCostKey(taskId, sdkSessionId);
+  cumulativeCostByTaskAndSdkSession.delete(key);
+  cumulativeCostByTaskAndSdkSession.set(key, cost);
+  if (cumulativeCostByTaskAndSdkSession.size > MAX_TRACKED_COST_BASELINES) {
+    const oldest = cumulativeCostByTaskAndSdkSession.keys().next().value;
+    if (oldest !== undefined) cumulativeCostByTaskAndSdkSession.delete(oldest);
   }
 }
 
@@ -398,18 +410,29 @@ export function observeClaudeStepUsage(
  */
 export function lookupPersistedCumulativeCost(
   sdkSessionId: string,
+  taskId?: string,
 ): number | undefined {
   try {
+    // `created_at` is second-resolution, so several results in one run can
+    // tie. `rowid` is the insert order. A zero cumulative is never a usable
+    // baseline (including a crashed turn that persisted 0), so those rows
+    // are skipped and the previous positive total is used instead.
+    // `task_id` is indexed and narrows the JSON scan when the run has one.
+    const scoped = taskId != null && taskId !== '';
     const row = getDatabase()
       .prepare(
         `SELECT json_extract(metadata, '$.sdk_cumulative_cost_usd') AS cost
            FROM usage_logs
           WHERE call_type = 'agent'
+            ${scoped ? 'AND task_id = ?' : ''}
             AND json_extract(metadata, '$.sdk_session_id') = ?
-          ORDER BY created_at DESC
+            AND CAST(json_extract(metadata, '$.sdk_cumulative_cost_usd') AS REAL) > 0
+          ORDER BY rowid DESC
           LIMIT 1`,
       )
-      .get(sdkSessionId) as { cost?: unknown } | undefined;
+      .get(...(scoped ? [taskId, sdkSessionId] : [sdkSessionId])) as
+      | { cost?: unknown }
+      | undefined;
     return num(row?.cost);
   } catch (err) {
     logger.debug('Cumulative cost lookup failed', err);
@@ -473,7 +496,9 @@ export function settleClaudeResultUsage(
   message: unknown,
   lookupPersisted: (
     sdkSessionId: string,
+    taskId?: string,
   ) => number | undefined = lookupPersistedCumulativeCost,
+  taskId?: string,
 ): ClaudeResultTelemetry {
   const steps = stepUsageBySession.get(sessionId);
   stepUsageBySession.delete(sessionId);
@@ -489,15 +514,17 @@ export function settleClaudeResultUsage(
   let billable = cumulative;
   if (cumulative !== undefined && sdkSessionId) {
     const baseline =
-      cumulativeCostBySdkSession.get(sdkSessionId) ??
-      lookupPersisted(sdkSessionId) ??
+      cumulativeCostByTaskAndSdkSession.get(
+        cumulativeCostKey(taskId, sdkSessionId),
+      ) ??
+      lookupPersisted(sdkSessionId, taskId) ??
       0;
     // A total below the baseline means the SDK started over (no transcript
     // totals restored) — the whole total is this call's own spend.
     billable = cumulative >= baseline ? cumulative - baseline : cumulative;
     // A zeroed crash result must not reset the baseline, or the next resume
     // (which restores the transcript total) would be logged twice.
-    if (!zeroedError) rememberCumulativeCost(sdkSessionId, cumulative);
+    if (!zeroedError) rememberCumulativeCost(taskId, sdkSessionId, cumulative);
   }
 
   const { models, thinkingTokens } = summarizeModelUsage(msg.modelUsage);
@@ -518,8 +545,11 @@ export function settleClaudeResultUsage(
     resultIndex,
     queuedTurnCount,
     metadata: {
-      ...(sdkSessionId ? { sdk_session_id: sdkSessionId } : {}),
-      ...(cumulative !== undefined
+      // A zeroed crash result must not become the persisted baseline. After a
+      // restart the lookup reads the newest row; a stored 0 would re-bill the
+      // restored transcript on the next resume.
+      ...(sdkSessionId && !zeroedError ? { sdk_session_id: sdkSessionId } : {}),
+      ...(cumulative !== undefined && !zeroedError
         ? { sdk_cumulative_cost_usd: cumulative }
         : {}),
       ...(steps ? { api_steps: steps.seenMessageIds.size } : {}),
@@ -539,5 +569,5 @@ export function settleClaudeResultUsage(
 /** Test hook: clear module state between cases. */
 export function resetClaudeStreamSignalState(): void {
   stepUsageBySession.clear();
-  cumulativeCostBySdkSession.clear();
+  cumulativeCostByTaskAndSdkSession.clear();
 }

@@ -5,6 +5,7 @@ import { AlertTriangle, ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
+import { McpAppArtifacts } from './McpAppArtifacts';
 import type { AGUIMessage, AGUIToolCall } from './TaskV2MessageBubble.types';
 import { getToolName } from './TaskV2MessageBubble.types';
 import { AskUserQuestionCard } from './TaskV2MessageBubbleAskUser';
@@ -181,6 +182,7 @@ export function ToolCallGroup({
           onSendMessage={onSendMessage}
         />
       ))}
+      <McpAppArtifacts toolCalls={regularCalls} allMessages={allMessages} />
     </>
   );
 }

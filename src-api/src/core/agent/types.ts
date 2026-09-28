@@ -698,6 +698,12 @@ export interface AgentOptions {
    * `@~/.ssh/id_rsa` cannot trigger local file expansion. Interactive
    * desktop chat must NOT set this — a user typing `@` to attach a file or
    * `/` to run a slash command in their own session expects it to work.
+   *
+   * Requires Claude Code CLI 2.1.248 or later. Older CLIs ignore the field,
+   * so those channel and scheduled runs are refused rather than sent. While
+   * the option is on, the CLI also skips its turn-start attachment pass on
+   * the first turn (nested CLAUDE.md, rules, skill and tool listings, and
+   * `@server:resource` expansion) until after the first tool call.
    */
   verbatimPrompt?: boolean;
 

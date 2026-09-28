@@ -14,13 +14,17 @@
  *   automations): nobody can answer a prompt, so the SDK gets
  *   `permissionPrompts: 'none'` and denies anything its rules don't allow.
  *   Only the run's explicit `allowedTools` still run, with `Edit`/`Write`
- *   narrowed to the session's workspace directories.
+ *   narrowed to the session's workspace directories. A `PreToolUse` hook
+ *   still applies the Bash danger check and registry deny rules, because
+ *   `permissionPrompts: 'none'` never calls `canUseTool` and the SDK
+ *   auto-approves bare allow rules on its own.
  */
 
 import { isAbsolute, resolve } from 'node:path';
 
 import type {
   CanUseTool,
+  HookCallback,
   Options,
   PermissionResult,
 } from '@anthropic-ai/claude-agent-sdk';
@@ -229,12 +233,20 @@ export function applyPermissionPolicy(
       ),
     ];
     // `permissionPrompts: 'none'` means canUseTool is never called; drop it so
-    // the SDK does not treat the bare allow rules as shadowing it.
+    // the SDK does not treat the bare allow rules as shadowing it. Hooks still
+    // run, so the safety hook below is what actually checks those allow rules.
     const { canUseTool: _neverCalled, ...rest } = options;
     return {
       ...rest,
       allowedTools: scopedAllowedTools,
       permissionPrompts: 'none',
+      hooks: {
+        ...rest.hooks,
+        PreToolUse: [
+          headlessSafetyHook(input.registry),
+          ...(rest.hooks?.PreToolUse ?? []),
+        ],
+      },
     };
   }
 
@@ -247,6 +259,59 @@ export function applyPermissionPolicy(
     ...options,
     allowedTools: allowedTools.filter((rule) => !isBareRule(rule)),
   };
+}
+
+function denyPreToolUse(message: string) {
+  // `continue: false` stops the whole agent. Deny only this call.
+  return {
+    continue: true as const,
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse' as const,
+      permissionDecision: 'deny' as const,
+      permissionDecisionReason: message,
+    },
+  };
+}
+
+/**
+ * Safety net for headless runs. Bare `Bash`, `Task`, `WebFetch`, and
+ * `mcp__*` allow rules are approved by the SDK without calling `canUseTool`,
+ * so this hook applies the same Bash block-list and registry deny rules.
+ * An `alwaysAsk` rule is also a deny: this path has no approval prompt.
+ * A hook failure denies the call: a missed check must not fail open.
+ */
+function headlessSafetyHook(registry: ToolPermissionRegistry): {
+  hooks: HookCallback[];
+} {
+  const callback: HookCallback = async (input) => {
+    if (input.hook_event_name !== 'PreToolUse') return { continue: true };
+    try {
+      const { tool_name: toolName, tool_input: toolInput } = input;
+      if (toolName === 'Bash' && toolInput && typeof toolInput === 'object') {
+        const command = (toolInput as Record<string, unknown>).command;
+        if (typeof command === 'string') {
+          const danger = checkBashCommand(command);
+          if (danger.isDangerous && danger.severity === 'block') {
+            const message = danger.suggestion ?? 'Blocked: dangerous command';
+            logger.warn(`Headless Bash blocked: ${message}`);
+            return denyPreToolUse(message);
+          }
+        }
+      }
+      if (
+        registry.evaluate(toolName, toolInput) === 'deny' ||
+        registry.hasAlwaysAskRule(toolName, toolInput)
+      ) {
+        logger.warn(`Headless ${toolName} blocked by permission rules`);
+        return denyPreToolUse('Blocked by permission rules');
+      }
+      return { continue: true };
+    } catch (err) {
+      logger.error('Headless safety hook failed; denying the tool call', err);
+      return denyPreToolUse('Tool denied: safety check failed');
+    }
+  };
+  return { hooks: [callback] };
 }
 
 type CanUseToolOptions = Parameters<CanUseTool>[2];

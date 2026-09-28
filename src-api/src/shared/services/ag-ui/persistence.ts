@@ -164,8 +164,8 @@ function getInsertMessageStmt(): Database.Statement {
       stmt: db.prepare(`
         INSERT OR IGNORE INTO messages (
           task_id, type, content, tool_name, tool_input, tool_output,
-          tool_use_id, subtype, error_message, message_id, run_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          tool_use_id, subtype, error_message, message_id, run_id, branch_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
     };
   }
@@ -228,6 +228,8 @@ export class AGUIEventPersister {
       invalidationReason?: string;
     } = {},
     private readonly mode: RunMode = 'task',
+    /** Conversation branch this run's output rows belong to. */
+    private readonly branchId: string = 'main',
   ) {}
 
   get runStartedAtMs(): number {
@@ -824,6 +826,7 @@ export class AGUIEventPersister {
         params.errorMessage ?? null,
         params.messageId ?? null,
         this.runId ?? null,
+        this.branchId,
       );
     } catch (err) {
       // Best-effort — don't crash the stream for a persistence failure
@@ -933,7 +936,7 @@ export class AGUIEventPersister {
           type: 'result',
           subtype,
           content: summary,
-          messageId: `${taskId}_${subtype}`,
+          messageId: `${taskId}_${this.branchId}_${subtype}`,
         });
         if (updateTitleIfEmpty && !task.title) {
           updateTask(taskId, { title: summary.slice(0, 120) });

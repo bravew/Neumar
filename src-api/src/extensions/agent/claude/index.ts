@@ -243,6 +243,11 @@ import {
   observeClaudeStepUsage,
   settleClaudeResultUsage,
 } from './stream-signals';
+import {
+  selectClaudePathForVerbatim,
+  supportsVerbatimPrompts,
+  VERBATIM_PROMPTS_MIN_VERSION,
+} from './verbatim-prompts';
 
 /**
  * Whether built-in MCP servers should be registered for this profile.
@@ -1198,6 +1203,13 @@ function getClaudeCodeVersion(claudeCodePath?: string): string | undefined {
     claudeCodeVersionCache.set(cliPath, version);
     if (version) {
       logger.info(`Claude Code version: ${version}`);
+      if (!supportsVerbatimPrompts(version)) {
+        logger.warn(
+          `Claude Code ${version} at ${cliPath} does not support verbatim prompts ` +
+            `(requires ${VERBATIM_PROMPTS_MIN_VERSION} or later). ` +
+            'Channel and scheduled runs will be refused until this CLI is updated.',
+        );
+      }
     }
     return version;
   } catch {
@@ -1219,6 +1231,37 @@ function supportsSettingSources(claudeCodePath?: string): boolean {
   const major = parseInt(version.split('.')[0] ?? '', 10);
   // --setting-sources requires Claude Code >= 2.0.0
   return !isNaN(major) && major >= 2;
+}
+
+/**
+ * Channel and scheduled runs set `verbatimPrompt`. If the CLI on PATH is too
+ * old to honor it, use a new enough bundled binary for this run only. If
+ * neither binary qualifies, the caller must refuse the run.
+ */
+function claudeExecutableForRun(
+  preferredPath: string,
+  verbatimPrompt: boolean | undefined,
+  sessionId: string,
+): { ok: true; path: string } | { ok: false; message: string } {
+  const sidecarPath = getSidecarClaudeCodePath();
+  const decision = selectClaudePathForVerbatim({
+    preferredPath,
+    preferredVersion: getClaudeCodeVersion(preferredPath),
+    sidecarPath,
+    sidecarVersion: sidecarPath ? getClaudeCodeVersion(sidecarPath) : undefined,
+    verbatimRequired: verbatimPrompt === true,
+  });
+  if (!decision.ok) {
+    logger.error(`[Claude ${sessionId}] ${decision.message}`);
+    return decision;
+  }
+  if (decision.choice.usedSidecarFallback) {
+    logger.warn(
+      `[Claude ${sessionId}] PATH Claude CLI predates ${VERBATIM_PROMPTS_MIN_VERSION}; ` +
+        `using bundled CLI ${decision.choice.path} so verbatim prompts stay enforced`,
+    );
+  }
+  return { ok: true, path: decision.choice.path };
 }
 
 function validateClaudeCodeModelSupport(
@@ -2811,8 +2854,8 @@ User's request (answer this AFTER reading the images):
     );
 
     // Ensure Claude Code is installed
-    const claudeCodePath = await ensureClaudeCode();
-    if (!claudeCodePath) {
+    const discoveredClaudePath = await ensureClaudeCode();
+    if (!discoveredClaudePath) {
       yield {
         type: 'error',
         message: '__CLAUDE_CODE_NOT_FOUND__',
@@ -2820,6 +2863,17 @@ User's request (answer this AFTER reading the images):
       yield { type: 'done' };
       return;
     }
+    const executable = claudeExecutableForRun(
+      discoveredClaudePath,
+      options?.verbatimPrompt,
+      session.id,
+    );
+    if (!executable.ok) {
+      yield { type: 'error', message: executable.message };
+      yield { type: 'done' };
+      return;
+    }
+    const claudeCodePath = executable.path;
     const effectiveModel = resolveSupportedClaudeModel(
       claudeCodePath,
       this.config.model,
@@ -4577,8 +4631,8 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
       // ── Strategy 2: Claude Code subprocess (fallback) ──
       // Used when no API key is available (Claude Code auth) or when direct API fails.
       if (!directApiSucceeded) {
-        const claudeCodePath = await ensureClaudeCode();
-        if (!claudeCodePath) {
+        const discoveredClaudePath = await ensureClaudeCode();
+        if (!discoveredClaudePath) {
           yield {
             type: 'error',
             message: '__CLAUDE_CODE_NOT_FOUND__',
@@ -4586,6 +4640,16 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
           yield { type: 'done' };
           return;
         }
+        const executable = claudeExecutableForRun(
+          discoveredClaudePath,
+          options?.verbatimPrompt,
+          session.id,
+        );
+        if (!executable.ok) {
+          yield { type: 'error', message: executable.message };
+          return;
+        }
+        const claudeCodePath = executable.path;
 
         const effectiveModel = resolveSupportedClaudeModel(
           claudeCodePath,
@@ -4993,8 +5057,8 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
     );
 
     // Ensure Claude Code is installed
-    const claudeCodePath = await ensureClaudeCode();
-    if (!claudeCodePath) {
+    const discoveredClaudePath = await ensureClaudeCode();
+    if (!discoveredClaudePath) {
       yield {
         type: 'error',
         message: '__CLAUDE_CODE_NOT_FOUND__',
@@ -5002,6 +5066,17 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       yield { type: 'done' };
       return;
     }
+    const executable = claudeExecutableForRun(
+      discoveredClaudePath,
+      options.verbatimPrompt,
+      session.id,
+    );
+    if (!executable.ok) {
+      yield { type: 'error', message: executable.message };
+      yield { type: 'done' };
+      return;
+    }
+    const claudeCodePath = executable.path;
     const effectiveModel = resolveSupportedClaudeModel(
       claudeCodePath,
       this.config.model,
@@ -6339,7 +6414,12 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       )?.output_tokens_details;
       // Log only this call's spend: a resumed session's total_cost_usd
       // includes spend restored from its transcript (SDK 0.3.277).
-      const telemetry = settleClaudeResultUsage(sessionId, message);
+      const telemetry = settleClaudeResultUsage(
+        sessionId,
+        message,
+        undefined,
+        taskId,
+      );
       logUsage({
         sessionId,
         taskId,

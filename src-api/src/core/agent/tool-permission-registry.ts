@@ -169,6 +169,14 @@ export class ToolPermissionRegistry {
     return { ...this.rules };
   }
 
+  /**
+   * True when an `alwaysAsk` rule matches. Classification-based asks (Bash,
+   * Task) are not included: a headless allow-list is the approval for those.
+   */
+  hasAlwaysAskRule(toolName: string, input: unknown): boolean {
+    return this.matchesAny(toolName, input, this.rules.alwaysAsk);
+  }
+
   private matchesAny(
     toolName: string,
     input: unknown,

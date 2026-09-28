@@ -33,6 +33,11 @@ interface HtmlSandboxProps {
   renderFullDocument?: boolean;
   /** Fixed iframe height for device-preset previews — see IframeSandbox. */
   fixedHeight?: number;
+  /**
+   * CSP from an untrusted MCP App resource. Intersected with SANDBOX_CSP
+   * before it is written into the frame.
+   */
+  resourceCsp?: string;
 }
 
 const FORBID_HANDLERS = [
@@ -57,6 +62,7 @@ export function HtmlSandbox({
   onFrameRef,
   renderFullDocument = false,
   fixedHeight,
+  resourceCsp,
 }: HtmlSandboxProps) {
   // Stable nonce per iframe lifecycle; iframe is keyed by identity so a
   // version bump remounts and re-rolls the nonce naturally.
@@ -70,6 +76,7 @@ export function HtmlSandbox({
     const opts = {
       paletteBridge,
       initialPalette: initialPalette ?? undefined,
+      contentSecurityPolicy: resourceCsp,
     };
     // Trusted local full-document artifact (e.g. a DesignMode prototype with a
     // styled dashboard + canvas charts): render it as authored, injecting the
@@ -98,6 +105,7 @@ export function HtmlSandbox({
     nonce,
     paletteBridge,
     renderFullDocument,
+    resourceCsp,
     selectBridgeMode,
   ]);
 

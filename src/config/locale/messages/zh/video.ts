@@ -2244,6 +2244,7 @@ export default {
       broll: 'B-roll',
       music: '音乐',
       eval: '评估',
+      'reference-analysis': '参考分析',
       unknown: '任务',
     },
     caller: {

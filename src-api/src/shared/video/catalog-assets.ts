@@ -10,7 +10,6 @@ import {
   type Asset,
   type MaterializeResult,
 } from '@/shared/assets';
-import { validateInputFile } from '@/shared/services/ffmpeg';
 import { createLogger } from '@/shared/utils/logger';
 import { extensionFromMime } from '@/shared/utils/mime-extension';
 
