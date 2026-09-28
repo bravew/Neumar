@@ -9,7 +9,7 @@ describe('probeBlueBubbles', () => {
 
   it('uses password header and surfaces version metadata', async () => {
     const fetchMock = vi.fn(
-      async () =>
+      async (_url: string, _init: RequestInit) =>
         new Response(
           JSON.stringify({
             data: {

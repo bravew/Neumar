@@ -7,6 +7,7 @@ const PNG_DATA_URI =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
 const config = {
+  id: 'openai',
   name: 'OpenAI',
   baseUrl: 'https://api.openai.com',
   apiKey: 'sk-test',

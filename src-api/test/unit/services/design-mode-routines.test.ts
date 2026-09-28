@@ -4,6 +4,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { defined } from '../../helpers/defined';
+
 describe('DesignMode routines', () => {
   let tempHome = '';
   let workDir = '';
@@ -80,7 +82,9 @@ describe('DesignMode routines', () => {
     getDatabase()
       .prepare('UPDATE design_routine_runs SET error = ? WHERE id = ?')
       .run('Provider returned $&', runData.run.id);
-    expect(listDesignRoutines()[0].lastRunError).toBe('Provider returned $&');
+    expect(defined(listDesignRoutines()[0]).lastRunError).toBe(
+      'Provider returned $&',
+    );
 
     const runs = await designRoutes.request(
       `/routines/${createdData.routine.id}/runs`,

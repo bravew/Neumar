@@ -8,14 +8,30 @@
  * cannot silently drift apart again.
  */
 
-import type { AIProvider } from '@/shared/db/settings';
+/**
+ * Mirrors `AIProvider['agentType']` in `src/shared/db/settings.ts`.
+ * Kept inline so this catalog stays free of `@/` imports and the API
+ * parity test can import it without pulling the frontend module graph
+ * through the API path alias.
+ */
+export type ModelCatalogAgentType =
+  | 'claude'
+  | 'codex'
+  | 'open-agent-sdk'
+  | 'openai-compat'
+  | 'gemini'
+  | 'cursor-agent'
+  | 'qwen'
+  | 'copilot'
+  | 'kimi'
+  | 'atomcode';
 
 export interface ModelOption {
   id: string;
   label: string;
   description: string;
   descKey?: string; // locale key — resolved to description at render time
-  provider: NonNullable<AIProvider['agentType']>;
+  provider: ModelCatalogAgentType;
   /** Shown but not selectable (runtime installed yet blocked: needs sign-in,
    *  or lacks this mode's capability). Reason rendered in the row. */
   disabled?: boolean;

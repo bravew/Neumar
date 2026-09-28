@@ -48,6 +48,7 @@ describe('HTML video native frame enhancement route', () => {
     });
     await writeProject({
       id: projectId,
+      revision: 1,
       name: 'Native enhancement test',
       template: 'custom',
       prompt: '',

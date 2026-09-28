@@ -390,7 +390,7 @@ describe('remotion render input', () => {
           {
             ...videoTrack.clips[0]!,
             transitionToNext: 'fade',
-          },
+          } as (typeof videoTrack.clips)[number],
           {
             ...videoTrack.clips[0]!,
             id: 'clip-video-second',
@@ -402,7 +402,7 @@ describe('remotion render input', () => {
             muted: undefined,
             transitionToNext: undefined,
             filters: undefined,
-          },
+          } as (typeof videoTrack.clips)[number],
         ],
       },
       {

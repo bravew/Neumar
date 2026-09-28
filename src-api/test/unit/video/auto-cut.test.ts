@@ -129,10 +129,10 @@ describe('video auto-cut compiler', () => {
       compiled.ops[1]?.kind === 'clip.removeTimeRange'
         ? compiled.ops[1].after
         : [];
-    expect(videoAfter[0]?.linkGroupId).toBe('generated-1');
-    expect(audioAfter[0]?.linkGroupId).toBe('generated-1');
-    expect(videoAfter[1]?.linkGroupId).toBe('generated-2');
-    expect(audioAfter[1]?.linkGroupId).toBe('generated-2');
+    expect(videoAfter?.[0]?.linkGroupId).toBe('generated-1');
+    expect(audioAfter?.[0]?.linkGroupId).toBe('generated-1');
+    expect(videoAfter?.[1]?.linkGroupId).toBe('generated-2');
+    expect(audioAfter?.[1]?.linkGroupId).toBe('generated-2');
   });
 });
 
@@ -235,7 +235,7 @@ function linkedTimelineFixture(): Timeline {
             linkGroupId: 'link-av',
           },
         ],
-      },
+      } as Timeline['tracks'][number],
       {
         id: 'track-audio',
         kind: 'audio-vo',

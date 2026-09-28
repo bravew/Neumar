@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AgentMessage } from '../../src/core/agent/types';
 import { AGUIEmitter } from '../../src/shared/services/ag-ui/emitter';
+import { defined } from '../helpers/defined';
 
 async function collectEvents(messages: AgentMessage[]) {
   const emitter = new AGUIEmitter('thread-1', 'run-1');
@@ -111,8 +112,10 @@ describe('AGUIEmitter', () => {
 
   it('wraps run with RUN_STARTED / RUN_FINISHED', async () => {
     const events = await collectEvents([]);
-    expect(events[0].type).toBe(EventType.RUN_STARTED);
-    expect(events[events.length - 1].type).toBe(EventType.RUN_FINISHED);
+    expect(defined(events[0]).type).toBe(EventType.RUN_STARTED);
+    expect(defined(events[events.length - 1]).type).toBe(
+      EventType.RUN_FINISHED,
+    );
   });
 
   it('emits post-tool continuation attempts as durable custom events', async () => {

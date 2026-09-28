@@ -7,12 +7,10 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "outDir": "./dist",
-    "rootDir": ".",
-    "declaration": true,
+    "declaration": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": false,
+    "noEmit": true,
     "paths": {
       "@/*": ["./src/*"]
     }

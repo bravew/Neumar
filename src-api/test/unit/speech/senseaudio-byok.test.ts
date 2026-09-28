@@ -27,7 +27,9 @@ describe('SenseAudio BYOK TTS hardening', () => {
   });
 
   it('does not double-append /v1 when the configured base URL is versioned', async () => {
-    const fetchMock = vi.fn(async () => okAudioResponse());
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) =>
+      okAudioResponse(),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     const adapter = new SenseAudioSpeechAdapter({

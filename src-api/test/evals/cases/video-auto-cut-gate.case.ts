@@ -1,5 +1,9 @@
 import { applyTimelineOps } from '@neumar/video-ir';
-import type { Timeline, TimelineClip } from '@neumar/video-ir';
+import type {
+  AudioTimelineClip,
+  Timeline,
+  VisualTimelineClip,
+} from '@neumar/video-ir';
 
 import {
   buildAutoCutCandidates,
@@ -242,13 +246,22 @@ function sourceTimeline(): Timeline {
 
 function sourceClip(
   id: string,
+  kind: 'video',
+  assetId: string,
+): VisualTimelineClip;
+function sourceClip(
+  id: string,
+  kind: 'audio',
+  assetId: string,
+): AudioTimelineClip;
+function sourceClip(
+  id: string,
   kind: 'video' | 'audio',
   assetId: string,
-): TimelineClip {
-  return {
+): VisualTimelineClip | AudioTimelineClip {
+  const clip = {
     id,
-    kind,
-    sourceRef: { kind: 'asset', assetId },
+    sourceRef: { kind: 'asset' as const, assetId },
     sceneId: 'scene-1',
     linkGroupId: 'link-av-source',
     startMs: 0,
@@ -257,6 +270,8 @@ function sourceClip(
     trimEndMs: 3900,
     sourceDurationMs: 3900,
   };
+  if (kind === 'video') return { ...clip, kind };
+  return { ...clip, kind };
 }
 
 function sourceCutPlan(candidates: CutCandidate[]): SourceCutPlan {

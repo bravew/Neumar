@@ -42,18 +42,18 @@ describe('WhatsApp Cloud send', () => {
 
   it('sends Graph API messages with bearer auth', async () => {
     const fetchFn = vi.fn(
-      async () =>
+      async (_url: string, _init: RequestInit) =>
         new Response(JSON.stringify({ messages: [{ id: 'wamid.1' }] }), {
           status: 200,
         }),
-    ) as unknown as typeof fetch;
+    );
 
     await expect(
       sendWhatsAppCloudMessage({
         config,
         to: '15551234567',
         content: { text: 'hello' },
-        fetchFn,
+        fetchFn: fetchFn as unknown as typeof fetch,
       }),
     ).resolves.toBe('wamid.1');
     expect(fetchFn.mock.calls[0]![0]).toBe(

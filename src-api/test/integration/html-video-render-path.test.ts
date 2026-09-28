@@ -155,6 +155,7 @@ describeReal('VIDEO_EVAL=1 — starter template renders end-to-end', () => {
     });
     const project = {
       id: 'proj-starter',
+      revision: 1,
       name: 'starter',
       template: 'custom' as const,
       prompt: '',
@@ -197,6 +198,7 @@ describeReal('VIDEO_EVAL=1 — real Playwright render via queue prepass', () => 
     });
     const project = {
       id: 'proj-eval',
+      revision: 1,
       name: 'eval',
       template: 'custom' as const,
       prompt: '',

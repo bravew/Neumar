@@ -12,6 +12,8 @@ import {
   writeFrameHtml,
 } from '@/shared/video/content-graph/persistence';
 
+import { defined } from '../helpers/defined';
+
 // Phase 6 M3 — content-graph GET/PUT routes that back the frames strip + viewer.
 
 let workDirRoot: string;
@@ -34,9 +36,11 @@ function graph(nodeIds: string[]): ContentGraph {
     schemaVersion: 1,
     intent: 'explainer',
     nodes: nodeIds.map((id) => ({ id, kind: 'text', text: `body ${id}` })),
-    edges: nodeIds
-      .slice(1)
-      .map((id, i) => ({ from: nodeIds[i], to: id, kind: 'sequence' })),
+    edges: nodeIds.slice(1).map((id, i) => ({
+      from: defined(nodeIds[i], 'content graph node'),
+      to: id,
+      kind: 'sequence' as const,
+    })),
   };
 }
 

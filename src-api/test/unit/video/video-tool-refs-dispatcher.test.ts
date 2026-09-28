@@ -319,5 +319,5 @@ function fixture(): VideoProject {
     outputs: [],
     createdAt: now,
     updatedAt: now,
-  } as VideoProject;
+  } as unknown as VideoProject;
 }

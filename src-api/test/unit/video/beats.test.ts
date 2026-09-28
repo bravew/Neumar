@@ -30,7 +30,7 @@ describe('beat analysis', () => {
       asset: {
         id: 'asset-1',
         kind: 'audio',
-        source: 'upload',
+        source: 'user',
         path: 'music.wav',
         metadata: { durationMs: 2_000, audioTrackCount: 1 },
       },

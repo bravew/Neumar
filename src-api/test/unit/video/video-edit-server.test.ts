@@ -17,7 +17,11 @@ import {
 } from '@/shared/mcp/video-edit-server';
 import { MULTICAM_TOOL_NAMES } from '@/shared/mcp/video-multicam-tools';
 import { writeProject } from '@/shared/video/store';
-import type { TimelineTransition, VideoProject } from '@/shared/video/types';
+import type {
+  TimelineTrack,
+  TimelineTransition,
+  VideoProject,
+} from '@/shared/video/types';
 
 import { toolResultText } from '../../helpers/tool-result-text';
 
@@ -1996,7 +2000,7 @@ function projectWithTransitionSeam(
               trimEndMs: 1000,
             },
           ],
-        },
+        } as TimelineTrack,
       ],
     },
   };

@@ -142,13 +142,13 @@ describe('Immich asset catalog sync', () => {
           changes: [
             {
               id: 'change-1',
-              type: 'updated',
+              type: 'updated' as const,
               itemId: 'asset-1',
               item: updated,
             },
             {
               id: 'change-2',
-              type: 'deleted',
+              type: 'deleted' as const,
               itemId: 'asset-2',
             },
           ],

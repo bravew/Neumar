@@ -439,9 +439,12 @@ function clipById(
   project: VideoProject,
   clipId: string,
 ): TimelineClip | undefined {
-  return project.timeline?.tracks
-    .flatMap((track) => track.clips)
-    .find((clip) => clip.id === clipId);
+  for (const track of project.timeline?.tracks ?? []) {
+    for (const clip of track.clips) {
+      if (clip.id === clipId) return clip;
+    }
+  }
+  return undefined;
 }
 
 function timelineEqual(

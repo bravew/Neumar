@@ -19,6 +19,8 @@ import { getClaudePluginHealth } from '@/shared/plugins/claude-plugin-health';
 import { AGUIEmitter } from '@/shared/services/ag-ui/emitter';
 import { CustomEventName } from '@/shared/services/ag-ui/event-schema';
 
+import { defined } from '../../../../helpers/defined';
+
 // Recorded SDK 0.3.283 message shapes (uuid/session_id trimmed where unused).
 const SESSION = 'sdk-session-1';
 
@@ -149,11 +151,11 @@ describe('mapClaudeStreamSignals', () => {
 
   it('keeps info-level notices out of conversation history', () => {
     const [msg] = mapClaudeStreamSignals({ ...informational, level: 'info' });
-    expect(msg.isProgress).toBe(true);
+    expect(defined(msg).isProgress).toBe(true);
   });
 
   it('maps api_retry to a structured retry signal', () => {
-    expect(mapClaudeStreamSignals(apiRetry)[0].streamSignal).toEqual({
+    expect(defined(mapClaudeStreamSignals(apiRetry)[0]).streamSignal).toEqual({
       kind: 'api_retry',
       attempt: 2,
       maxRetries: 10,
@@ -164,7 +166,9 @@ describe('mapClaudeStreamSignals', () => {
   });
 
   it('maps a rejected rate_limit_event with resetsAt in ms', () => {
-    expect(mapClaudeStreamSignals(rateLimitRejected)[0].streamSignal).toEqual({
+    expect(
+      defined(mapClaudeStreamSignals(rateLimitRejected)[0]).streamSignal,
+    ).toEqual({
       kind: 'rate_limit',
       status: 'rejected',
       resetsAt: 1_900_000_000_000,
@@ -184,7 +188,7 @@ describe('mapClaudeStreamSignals', () => {
 
   it('records init plugin_errors in plugin health and emits a signal', () => {
     const [msg] = mapClaudeStreamSignals(initWithPluginErrors);
-    expect(msg.streamSignal).toEqual({
+    expect(defined(msg).streamSignal).toEqual({
       kind: 'plugin_errors',
       errors: initWithPluginErrors.plugin_errors,
     });
@@ -199,11 +203,15 @@ describe('mapClaudeStreamSignals', () => {
   });
 
   it('maps session_state_changed and conversation_reset', () => {
-    expect(mapClaudeStreamSignals(sessionState)[0].streamSignal).toEqual({
+    expect(
+      defined(mapClaudeStreamSignals(sessionState)[0]).streamSignal,
+    ).toEqual({
       kind: 'session_state',
       state: 'requires_action',
     });
-    expect(mapClaudeStreamSignals(conversationReset)[0].streamSignal).toEqual({
+    expect(
+      defined(mapClaudeStreamSignals(conversationReset)[0]).streamSignal,
+    ).toEqual({
       kind: 'conversation_reset',
       newConversationId: conversationReset.new_conversation_id,
       trigger: 'clear',
@@ -212,7 +220,7 @@ describe('mapClaudeStreamSignals', () => {
 
   it('maps tool_use_result.resourceLinks without parsing result text', () => {
     expect(
-      mapClaudeStreamSignals(mcpToolResultWithLinks)[0].streamSignal,
+      defined(mapClaudeStreamSignals(mcpToolResultWithLinks)[0]).streamSignal,
     ).toEqual({
       kind: 'resource_links',
       toolUseId: 'toolu_01',
@@ -236,7 +244,8 @@ describe('mapClaudeStreamSignals', () => {
       status: 'completed',
       resource_links: [{ uri: 'https://example.com/a.png', name: 'a.png' }],
     });
-    expect(msg.streamSignal).toEqual({
+    const backgrounded = defined(msg, 'backgrounded notice');
+    expect(backgrounded.streamSignal).toEqual({
       kind: 'resource_links',
       toolUseId: 'toolu_02',
       links: [{ uri: 'https://example.com/a.png', name: 'a.png' }],
@@ -244,7 +253,7 @@ describe('mapClaudeStreamSignals', () => {
   });
 
   it('turns startup_failure_reason into an actionable error', () => {
-    const [msg] = mapClaudeStreamSignals(startupFailure);
+    const msg = defined(mapClaudeStreamSignals(startupFailure)[0], 'msg');
     expect(msg.type).toBe('error');
     expect(msg.subtype).toBe('startup_failure');
     expect(msg.code).toBe('cwd_unavailable');
@@ -256,7 +265,9 @@ describe('mapClaudeStreamSignals', () => {
       ...startupFailure,
       startup_failure_reason: 'something_new',
     });
-    expect(msg.message).toBe('Error: working directory does not exist');
+    expect(defined(msg).message).toBe(
+      'Error: working directory does not exist',
+    );
   });
 
   it('ignores unrelated messages', () => {
@@ -361,9 +372,12 @@ describe('settleClaudeResultUsage', () => {
 
   it('treats an absent costBasis as list price', () => {
     const r = result();
-    const mu = (r.modelUsage as Record<string, Record<string, unknown>>)[
-      'claude-opus-4-7'
-    ];
+    const mu = defined(
+      (r.modelUsage as Record<string, Record<string, unknown>>)[
+        'claude-opus-4-7'
+      ],
+      'model usage',
+    );
     delete mu.costBasis;
     const t = settleClaudeResultUsage('run-1', r, noPersisted);
     expect(t.metadata.model_usage).toMatchObject({
@@ -491,7 +505,7 @@ describe('settleClaudeResultUsage', () => {
 
 describe('AGUIEmitter stream signals', () => {
   it('forwards streamSignal as a neuma.stream_signal CUSTOM event', async () => {
-    const [notice] = mapClaudeStreamSignals(apiRetry);
+    const notice = defined(mapClaudeStreamSignals(apiRetry)[0], 'notice');
     const emitter = new AGUIEmitter('thread-1', 'run-1');
     async function* source() {
       yield notice;

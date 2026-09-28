@@ -89,6 +89,7 @@ describe('video asset filmstrip route', () => {
 function projectFixture(withProxy: boolean): VideoProject {
   return {
     id: projectId,
+    revision: 1,
     name: 'Filmstrip route',
     template: 'slideshow',
     prompt: '',
@@ -104,6 +105,7 @@ function projectFixture(withProxy: boolean): VideoProject {
                 path: proxyPath,
                 widthPx: 1280,
                 heightPx: 720,
+                bitrateBps: 1_500_000,
                 createdAt: '2026-06-22T00:00:00.000Z',
               },
             }
@@ -111,10 +113,10 @@ function projectFixture(withProxy: boolean): VideoProject {
         metadata: { durationMs: 5000, width: 3840, height: 2160 },
       },
     ],
-    render: { status: 'idle' },
+    render: { status: 'idle', updatedAt: '2026-05-20T00:00:00.000Z' },
     budget: { capUsd: 5, spentUsd: 0 },
     outputs: [],
     createdAt: '2026-06-22T00:00:00.000Z',
     updatedAt: '2026-06-22T00:00:00.000Z',
-  } as VideoProject;
+  };
 }

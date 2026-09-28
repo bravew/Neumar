@@ -98,7 +98,10 @@ describe('retimeTimelineCaptions', () => {
       ],
     });
     // 2x speed: source [2000,2500) now plays back over half the timeline span.
-    const tl = timeline([videoClip({ playback: { speed: 2 } })], [cue]);
+    const tl = timeline(
+      [videoClip({ playback: { speed: 2, reverse: false } })],
+      [cue],
+    );
     const next = retimeTimelineCaptions(tl);
     const out = next.tracks.find((t) => t.kind === 'caption')!
       .clips[0]! as typeof cue;

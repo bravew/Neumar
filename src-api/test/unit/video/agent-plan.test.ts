@@ -51,7 +51,10 @@ describe('durable Video agent plans', () => {
           origin: 'external',
           path: externalPath,
           metadata: { durationMs: 4000 },
-          provenance: { sourceDisplayName: 'master.mp4' },
+          provenance: {
+            provider: 'local-file',
+            sourceDisplayName: 'master.mp4',
+          },
         },
       ],
     });

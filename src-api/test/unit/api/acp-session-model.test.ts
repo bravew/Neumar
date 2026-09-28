@@ -44,7 +44,7 @@ describe('ACP session model state', () => {
     const result = applyAcpSessionModel(current, { modelId: '   ' }, 3);
 
     expect(result.ok).toBe(false);
-    expect(result.error).toMatchObject({
+    expect(result.ok ? undefined : result.error).toMatchObject({
       jsonrpc: '2.0',
       id: 3,
       error: {

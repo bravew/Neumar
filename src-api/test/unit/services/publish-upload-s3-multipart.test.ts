@@ -16,10 +16,18 @@ describe('s3 multipart upload session', () => {
         { partNumber: 1, etag: 'etag-1', size: 5 },
         { partNumber: 2, etag: 'etag-2', size: 5 },
       ]),
-      completeMultipartUpload: vi.fn(async ({ uploadId, parts }) => ({
-        providerId: uploadId,
-        etag: parts.map((p) => p.etag).join(','),
-      })),
+      completeMultipartUpload: vi.fn(
+        async ({
+          uploadId,
+          parts,
+        }: {
+          uploadId: string;
+          parts: { etag: string }[];
+        }) => ({
+          providerId: uploadId,
+          etag: parts.map((p) => p.etag).join(','),
+        }),
+      ),
       abortMultipartUpload: vi.fn(async () => undefined),
     };
     const session = new S3MultipartUploadSession(transport);

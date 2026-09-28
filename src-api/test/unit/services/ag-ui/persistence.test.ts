@@ -347,7 +347,7 @@ describe('AGUIEventPersister persistence', () => {
     );
     const replayedRows = replayAGUIEvents(runId, -1).map((event, index) => ({
       run_id: runId,
-      seq: (event as { seq: number }).seq,
+      seq: (event as unknown as { seq: number }).seq,
       event_type: event.type,
       event_json: JSON.stringify(event),
       created_at: `2026-01-01T00:00:0${index}.000Z`,

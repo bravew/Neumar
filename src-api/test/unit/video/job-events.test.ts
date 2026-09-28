@@ -9,6 +9,8 @@ import {
 } from '@/shared/video/job-events';
 import type { RenderStatus } from '@/shared/video/types';
 
+import { defined } from '../../helpers/defined';
+
 // Phase 6 M4 — resumable render progress. The bus must (a) replay buffered
 // events to a fresh subscriber, (b) replay only events newer than a cursor on
 // reconnect (the disconnect→reconnect case), and (c) mark the stream terminal
@@ -31,7 +33,7 @@ describe('video job-events render stream', () => {
     unsub();
 
     expect(received.map((e) => e.status)).toEqual(['queued', 'running']);
-    expect(received[1].progress).toBe(40);
+    expect(defined(received[1]).progress).toBe(40);
   });
 
   it('resumes from the last sequence on reconnect (afterSeq)', () => {
@@ -78,8 +80,9 @@ describe('video job-events render stream', () => {
     subscribeRenderStream(projectId, (msg) => received.push(msg));
     publishRenderStatus(projectId, status({ status: 'cancelled' }));
 
-    expect(received[0].type).toBe('error');
-    expect(received[0].status).toBe('cancelled');
+    const cancelled = defined(received[0], 'cancelled event');
+    expect(cancelled.type).toBe('error');
+    expect(cancelled.status).toBe('cancelled');
     expect(isRenderStreamActive(projectId)).toBe(false);
   });
 });

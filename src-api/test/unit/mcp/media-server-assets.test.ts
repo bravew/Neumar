@@ -90,7 +90,7 @@ describe('media MCP generated asset cataloging', () => {
         prompt: 'A catalog image prompt',
         provider: 'BytePlus',
         seed: 12345,
-      },
+      } as never,
       {},
     );
     expect(imageResult.isError).not.toBe(true);
@@ -115,7 +115,7 @@ describe('media MCP generated asset cataloging', () => {
         seed: 67890,
         duration: 5,
         resolution: '720p',
-      },
+      } as never,
       {},
     );
     expect(videoStartResult.isError).not.toBe(true);
@@ -141,7 +141,7 @@ describe('media MCP generated asset cataloging', () => {
     });
 
     const videoStatusResult = await checkVideoTool!.handler(
-      { task_id: 'video-task-1' },
+      { task_id: 'video-task-1' } as never,
       {},
     );
     expect(videoStatusResult.isError).not.toBe(true);

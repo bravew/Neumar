@@ -128,7 +128,6 @@ describe('publish helpers', () => {
   });
 
   it('drops malformed events instead of throwing', () => {
-    // @ts-expect-error — intentional bad input
     publishArtifactCreate({
       taskId: 't1',
       messageId: 'm1',

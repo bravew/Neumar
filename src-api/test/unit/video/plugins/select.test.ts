@@ -118,7 +118,7 @@ function createPlugin(
     manifestPath: `/tmp/${manifest.name}/video-plugin.json`,
     substratePlugin: {
       manifest: genericManifest,
-      scope: 'local',
+      scope: 'user',
       path: `/tmp/${manifest.name}`,
       skills: [],
     },

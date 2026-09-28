@@ -123,6 +123,7 @@ describe('publish MCP server', () => {
             kind: 'immich' as const,
             connectionId: 'local_immich_1',
             label: 'home album',
+            approvalRequired: false,
           },
         ],
       });

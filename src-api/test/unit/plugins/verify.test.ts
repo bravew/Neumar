@@ -1,4 +1,4 @@
-import { generateKeyPairSync } from 'crypto';
+import { generateKeyPairSync, type KeyObject } from 'crypto';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,15 +22,11 @@ function makeKeyPair() {
   return generateKeyPairSync('ed25519');
 }
 
-function pemEncode(
-  publicKey: ReturnType<typeof generateKeyPairSync>['publicKey'],
-): string {
+function pemEncode(publicKey: KeyObject): string {
   return publicKey.export({ type: 'spki', format: 'pem' }).toString();
 }
 
-function pemEncodePrivate(
-  privateKey: ReturnType<typeof generateKeyPairSync>['privateKey'],
-): string {
+function pemEncodePrivate(privateKey: KeyObject): string {
   return privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
 }
 

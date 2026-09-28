@@ -42,6 +42,7 @@ describe('SiteApiClient', () => {
     const refreshProvider = vi.fn(async () => ({
       accessToken: 'access-2',
       refreshToken: 'refresh-2',
+      idToken: null,
       expiresAt: Date.now() + 3600,
       tokenType: 'bearer' as const,
       scopes: [],

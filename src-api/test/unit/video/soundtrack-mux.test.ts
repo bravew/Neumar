@@ -15,7 +15,12 @@ import type { MediaItem, VideoProject } from '@/shared/video/types';
 let root: string;
 
 function audioAsset(id: string, file: string): MediaItem {
-  return { id, kind: 'audio', source: 'upload', path: file } as MediaItem;
+  return {
+    id,
+    kind: 'audio',
+    source: 'upload',
+    path: file,
+  } as unknown as MediaItem;
 }
 
 function project(
@@ -49,7 +54,7 @@ describe('collectSoundtrackAudioTracks', () => {
       30,
     );
     expect(tracks).toHaveLength(1);
-    const music = tracks[0];
+    const music = tracks[0]!;
     expect(music.role).toBe('music');
     expect(music.volume).toBeCloseTo(vol(-18), 5);
     expect(music.fadeInMs).toBe(0);
@@ -93,7 +98,7 @@ describe('collectSoundtrackAudioTracks', () => {
           kind: 'image',
           source: 'upload',
           path: 'still.png',
-        } as MediaItem,
+        } as unknown as MediaItem,
       ]),
       root,
       30,

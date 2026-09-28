@@ -46,9 +46,14 @@ describe('video templates', () => {
 
   it('registers Remotion-specific templates with composition ids', () => {
     expect(
-      BUILTIN_VIDEO_TEMPLATES.filter(
-        (template) => template.renderer === 'remotion',
-      ).map((template) => template.compositionId),
+      (
+        BUILTIN_VIDEO_TEMPLATES as readonly {
+          renderer?: string;
+          compositionId?: string;
+        }[]
+      )
+        .filter((template) => template.renderer === 'remotion')
+        .map((template) => template.compositionId),
     ).toEqual(
       expect.arrayContaining([
         'ExplainerLowerThirdsTemplate',

@@ -7,7 +7,7 @@ import {
   redoProjectTimelineOp,
   undoProjectTimelineOp,
 } from '@/shared/video/timeline-ops';
-import type { VideoProject } from '@/shared/video/types';
+import type { TimelineTrack, VideoProject } from '@/shared/video/types';
 
 describe('video timeline op history', () => {
   it('applies timeline ops and replays undo/redo through the shared reducer', () => {
@@ -213,6 +213,7 @@ function projectFixture(
   return {
     id: 'project-1',
     name: 'Project',
+    revision: 0,
     template: 'custom',
     prompt: 'Make a video',
     assets: [],
@@ -267,7 +268,7 @@ function projectFixture(
                   },
                   ...(options.extraAudioClip ? [options.extraAudioClip] : []),
                 ],
-              },
+              } as TimelineTrack,
             ]
           : []),
       ],

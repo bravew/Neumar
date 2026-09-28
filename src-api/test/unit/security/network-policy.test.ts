@@ -108,7 +108,6 @@ describe('networkPolicySchema', () => {
     const r = networkPolicySchema.safeParse({
       version: 1,
       default: 'deny',
-      // @ts-expect-error testing strict
       extra: true,
     });
     expect(r.success).toBe(false);

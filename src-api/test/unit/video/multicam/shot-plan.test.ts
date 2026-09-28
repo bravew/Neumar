@@ -216,7 +216,7 @@ describe('shot planner', () => {
   });
 
   it('proposes shots without touching a timeline', () => {
-    const result = plan([speech('p-ana', 0, 4000)], 4000) as Record<
+    const result = plan([speech('p-ana', 0, 4000)], 4000) as unknown as Record<
       string,
       unknown
     >;

@@ -200,7 +200,7 @@ describe('acquireReference', () => {
         child.emit('close', 1);
       });
       return child;
-    }) as ReferenceSpawnFn;
+    }) as unknown as ReferenceSpawnFn;
 
     await expect(
       acquireReference(project.id, {

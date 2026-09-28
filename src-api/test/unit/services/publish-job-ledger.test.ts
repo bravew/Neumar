@@ -53,9 +53,11 @@ describe('publish job ledger', () => {
       const ledger = new JobLedger({ db });
       const job = ledger.createJob(createJobInput());
       const leg = ledger.getLeg(
-        db
-          .prepare('SELECT id FROM publish_destination_legs WHERE job_id = ?')
-          .get(job.id)!.id as string,
+        (
+          db
+            .prepare('SELECT id FROM publish_destination_legs WHERE job_id = ?')
+            .get(job.id) as { id: string }
+        ).id,
       );
 
       expect(job.destinations).toHaveLength(1);
@@ -90,9 +92,11 @@ describe('publish job ledger', () => {
 
       expect(second.id).toBe(first.id);
       expect(
-        db
-          .prepare('SELECT COUNT(*) AS count FROM publish_destination_legs')
-          .get()!.count,
+        (
+          db
+            .prepare('SELECT COUNT(*) AS count FROM publish_destination_legs')
+            .get() as { count: number }
+        ).count,
       ).toBe(1);
     } finally {
       db.close();

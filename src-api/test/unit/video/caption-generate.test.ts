@@ -19,6 +19,8 @@ import type {
   VideoTimeline,
 } from '@/shared/video/types';
 
+import { defined } from '../../helpers/defined';
+
 describe('caption generation from transcript', () => {
   let workDir: string;
 
@@ -88,8 +90,9 @@ describe('caption generation from transcript', () => {
     // A SourceMedia was registered pointing at the existing asset, so the clip
     // is no longer skipped for lack of a source.
     const stored = await getProject(project.id);
-    expect(stored.sources).toHaveLength(1);
-    expect(stored.sources[0]?.mediaItemId).toBe('asset-source');
+    const sources = defined(stored.sources, 'sources');
+    expect(sources).toHaveLength(1);
+    expect(sources[0]?.mediaItemId).toBe('asset-source');
   });
 
   it('reports a skip reason instead of silently producing nothing', async () => {

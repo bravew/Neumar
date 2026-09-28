@@ -69,7 +69,9 @@ describe('connector binder materialization', () => {
         allow: input.toolName !== 'github.github_create_issue',
         requireConfirmation: false,
         approval:
-          input.toolName === 'github.github_create_issue' ? 'confirm' : 'auto',
+          input.toolName === 'github.github_create_issue'
+            ? ('confirm' as const)
+            : ('auto' as const),
         policyKey: 'desktop',
         reason:
           input.toolName === 'github.github_create_issue'
@@ -140,7 +142,9 @@ function allowAllPolicy(): ConnectorBinderPolicy {
       allow: true,
       requireConfirmation: input.toolName === 'github.github_create_issue',
       approval:
-        input.toolName === 'github.github_create_issue' ? 'confirm' : 'auto',
+        input.toolName === 'github.github_create_issue'
+          ? ('confirm' as const)
+          : ('auto' as const),
       policyKey: 'desktop',
     })),
   };
