@@ -12,14 +12,14 @@ import {
 } from '@/shared/video/export-metadata';
 import type { VideoProject } from '@/shared/video/types';
 
-function project(assets: VideoProject['assets']): VideoProject {
+function project(assets: unknown[]): VideoProject {
   return {
     id: 'p1',
     name: 'My Clip',
     template: 'explainer',
     prompt: '',
     assets,
-  } as VideoProject;
+  } as unknown as VideoProject;
 }
 
 const requiredAsset = {

@@ -136,7 +136,7 @@ async function main() {
         kind: 'image',
         source: 'user',
         path: imageRelativePath,
-        metadata: { width: 1280, height: 720 },
+        metadata: { durationMs: 0, width: 1280, height: 720 },
       },
       {
         id: 'long-audio',

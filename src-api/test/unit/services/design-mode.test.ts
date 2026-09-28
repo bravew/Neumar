@@ -551,6 +551,8 @@ describe('DesignMode project persistence', () => {
             id: 'bad-figma',
             source: 'figma',
             title: 'Bad Figma',
+            notes: [],
+            components: [],
             figma: {
               url: 'https://example.com/design/AbCdEF123456/Checkout',
             },
@@ -568,6 +570,7 @@ describe('DesignMode project persistence', () => {
             id: 'bad-source-path',
             source: 'code-connect',
             title: 'Bad source path',
+            notes: [],
             components: [
               {
                 name: 'DangerButton',
@@ -589,6 +592,7 @@ describe('DesignMode project persistence', () => {
             id: 'bad-source-url',
             source: 'code-connect',
             title: 'Bad source URL',
+            notes: [],
             components: [
               {
                 name: 'LocalOnlyButton',
@@ -610,6 +614,7 @@ describe('DesignMode project persistence', () => {
             id: 'large-props',
             source: 'code-connect',
             title: 'Large props',
+            notes: [],
             components: [
               {
                 name: 'LargePropsButton',

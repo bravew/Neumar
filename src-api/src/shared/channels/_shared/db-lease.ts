@@ -17,7 +17,7 @@ export class DbLeaser implements Leaser {
 
   constructor(
     private readonly db: Database.Database = getDatabase(),
-    holder = crypto.randomUUID(),
+    holder: string = crypto.randomUUID(),
   ) {
     this.holder = holder;
   }

@@ -130,11 +130,25 @@ describe('vivid overlay registry parity', () => {
 
   it('exposes taste metadata for router seed presets', () => {
     expect(
-      apiRegistry.filter((preset) => preset.taste).map((preset) => preset.id),
+      (apiRegistry as readonly { id: string; taste?: unknown }[])
+        .filter((preset) => preset.taste)
+        .map((preset) => preset.id),
     ).toEqual(TASTE_SEED_PRESET_IDS);
 
     for (const presetId of TASTE_SEED_PRESET_IDS) {
-      const preset = apiRegistry.find((candidate) => candidate.id === presetId);
+      const preset = (
+        apiRegistry as readonly {
+          id: string;
+          taste?: {
+            intent: string;
+            targets: readonly unknown[];
+            bestFor: readonly unknown[];
+            avoidWhen: readonly unknown[];
+            reducedMotion: unknown;
+            motionTokens: unknown;
+          };
+        }[]
+      ).find((candidate) => candidate.id === presetId);
       const taste = preset?.taste;
       expect(taste).toBeDefined();
       if (!taste) throw new Error(`Missing taste metadata for ${presetId}`);

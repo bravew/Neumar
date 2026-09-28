@@ -269,9 +269,11 @@ async function projectWithSource(displayName: string) {
     template: 'slideshow',
     prompt: displayName,
   });
+  const added = await addSource(project.id, displayName);
   return {
     projectId: project.id,
-    ...(await addSource(project.id, displayName)),
+    sourceId: added.sourceId,
+    root: added.root,
   };
 }
 

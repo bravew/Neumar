@@ -31,8 +31,10 @@ describe('generated official plugin registry', () => {
 
     for (const plugin of marketplace.plugins) {
       // Bundled entries must resolve inside the repo's plugin root.
-      expect(plugin.source.startsWith('./')).toBe(true);
-      expect(plugin.source).not.toContain('..');
+      const source =
+        typeof plugin.source === 'string' ? plugin.source : undefined;
+      expect(source?.startsWith('./')).toBe(true);
+      expect(source).not.toContain('..');
       // Pre-install capability disclosure is mandatory for official entries.
       const neuma = (
         plugin as { metadata?: { neuma?: { capabilitiesSummary?: string[] } } }

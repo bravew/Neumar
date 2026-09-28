@@ -40,6 +40,7 @@ describe('LAN bridge path mapping re-verification scheduler', () => {
         verificationHash: 'abc',
         resolution: {
           kind: 'local',
+          mappingId: 'mapping-1',
           absolutePath: '/Volumes/photos/a.jpg',
           sizeBytes: 5,
         },
@@ -136,9 +137,11 @@ describe('LAN bridge path mapping re-verification scheduler', () => {
 function createStore(mappings: PathMapping[]) {
   return {
     listDueForReverification: vi.fn<
-      ReverificationCycleDeps['store']['listDueForReverification']
+      NonNullable<ReverificationCycleDeps['store']>['listDueForReverification']
     >(() => mappings),
     markVerification:
-      vi.fn<ReverificationCycleDeps['store']['markVerification']>(),
+      vi.fn<
+        NonNullable<ReverificationCycleDeps['store']>['markVerification']
+      >(),
   };
 }

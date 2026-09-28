@@ -274,11 +274,12 @@ describe('multicam tool handlers', () => {
 
     expect(result).toMatchObject({ available: true, repeated: false });
     if (!result.available || result.repeated) return;
+    if (!('batch' in result)) throw new Error('Expected applied batch');
     expect(result.batch.ops.length).toBeGreaterThan(0);
 
     const appliedProject = await getProject('project-1');
     const appliedClips = appliedProject.timeline?.tracks.flatMap(
-      (track) => track.clips,
+      (track) => track.clips as readonly { id: string }[],
     );
     expect(appliedClips?.map((clip) => clip.id)).toEqual(result.clipIds);
     expect(appliedProject.history?.entries.at(-1)?.id).toBe(result.batchId);
@@ -303,7 +304,7 @@ describe('multicam tool handlers', () => {
     });
     expect(
       (await getProject('project-1')).timeline?.tracks.flatMap(
-        (track) => track.clips,
+        (track) => track.clips as readonly { id: string }[],
       ),
     ).toHaveLength(result.clipIds.length);
   });
@@ -334,7 +335,7 @@ function projectFixture(): VideoProject {
         },
       ],
     },
-    render: { status: 'idle' },
+    render: { status: 'idle', updatedAt: '2026-05-20T00:00:00.000Z' },
     budget: { capUsd: 5, spentUsd: 0 },
     outputs: [],
     createdAt: '2026-09-08T00:00:00.000Z',

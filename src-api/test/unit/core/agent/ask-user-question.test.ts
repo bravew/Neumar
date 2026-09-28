@@ -12,6 +12,8 @@ import {
 import { parsePlanningResponse } from '@/core/agent/base';
 import type { AgentMessage } from '@/core/agent/types';
 
+import { defined } from '../../../helpers/defined';
+
 const VALID_PAYLOAD = {
   questions: [
     {
@@ -54,11 +56,12 @@ describe('validateAskUserQuestionPayload', () => {
       ],
     });
     expect(ok).not.toBeNull();
-    expect(ok!.questions[0].options[0]).toEqual({
+    const question = defined(defined(ok).questions[0], 'question');
+    expect(defined(question.options[0], 'option')).toEqual({
       label: 'A',
       description: '',
     });
-    expect(ok!.questions[0].multiSelect).toBe(false);
+    expect(question.multiSelect).toBe(false);
   });
 
   it('rejects empty questions, too many questions, and bad option counts', () => {
@@ -117,8 +120,12 @@ describe('validateAskUserQuestionPayload', () => {
       ],
     });
 
-    expect(missing?.questions[0].policy).toEqual({ behavior: 'manual' });
-    expect(invalid?.questions[0].policy).toEqual({ behavior: 'manual' });
+    expect(defined(missing?.questions[0]).policy).toEqual({
+      behavior: 'manual',
+    });
+    expect(defined(invalid?.questions[0]).policy).toEqual({
+      behavior: 'manual',
+    });
   });
 
   it.each(['approval', 'cost', 'rights', 'upload', 'destructive_edit'])(
@@ -139,7 +146,7 @@ describe('validateAskUserQuestionPayload', () => {
         ],
       });
 
-      expect(parsed?.questions[0].policy).toEqual({
+      expect(defined(parsed?.questions[0]).policy).toEqual({
         behavior: 'manual',
         gate,
       });
@@ -158,7 +165,7 @@ describe('validateAskUserQuestionPayload', () => {
       ],
     });
 
-    expect(parsed?.questions[0].policy).toEqual({
+    expect(defined(parsed?.questions[0]).policy).toEqual({
       behavior: 'optional',
       defaultOptionLabel: 'B',
     });
@@ -180,7 +187,9 @@ describe('validateAskUserQuestionPayload', () => {
       ],
     });
 
-    expect(parsed?.questions[0].policy).toEqual({ behavior: 'manual' });
+    expect(defined(parsed?.questions[0]).policy).toEqual({
+      behavior: 'manual',
+    });
   });
 });
 
@@ -189,7 +198,7 @@ describe('tryExtractAskUserQuestion', () => {
     const text = `here is some prose\n${fence(VALID_PAYLOAD)}\ntrailing text`;
     const parsed = tryExtractAskUserQuestion(text);
     expect(parsed).not.toBeNull();
-    expect(parsed!.questions[0].header).toBe('Tone');
+    expect(defined(defined(parsed).questions[0]).header).toBe('Tone');
   });
 
   it('returns null when there is no fence at all', () => {
@@ -213,14 +222,14 @@ describe('tryExtractAskUserQuestion', () => {
     const text = `<question-form>\n${JSON.stringify(VALID_PAYLOAD)}\n</question-form>`;
     const parsed = tryExtractAskUserQuestion(text);
     expect(parsed).not.toBeNull();
-    expect(parsed!.questions[0].header).toBe('Tone');
+    expect(defined(defined(parsed).questions[0]).header).toBe('Tone');
   });
 
   it('returns the parsed payload when an ask-question block is present', () => {
     const text = `<ask-question>\n${JSON.stringify(VALID_PAYLOAD)}\n</ask-question>`;
     const parsed = tryExtractAskUserQuestion(text);
     expect(parsed).not.toBeNull();
-    expect(parsed!.questions[0].header).toBe('Tone');
+    expect(defined(defined(parsed).questions[0]).header).toBe('Tone');
   });
 
   it('does not parse question-form examples inside markdown code fences', () => {
@@ -309,7 +318,7 @@ describe('AskUserQuestionStreamFilter', () => {
     ]);
     const toolUses = events.filter((e) => e.type === 'tool_use');
     expect(toolUses).toHaveLength(1);
-    expect(toolUses[0].name).toBe(ASK_USER_QUESTION_TOOL_NAME);
+    expect(defined(toolUses[0]).name).toBe(ASK_USER_QUESTION_TOOL_NAME);
     // Surrounding prose should still appear as text events.
     const text = events
       .filter((e) => e.type === 'text')
@@ -329,7 +338,7 @@ describe('AskUserQuestionStreamFilter', () => {
     ]);
     const toolUses = events.filter((e) => e.type === 'tool_use');
     expect(toolUses).toHaveLength(1);
-    expect(toolUses[0].name).toBe(ASK_USER_QUESTION_TOOL_NAME);
+    expect(defined(toolUses[0]).name).toBe(ASK_USER_QUESTION_TOOL_NAME);
     const text = events
       .filter((e) => e.type === 'text')
       .map((e) => e.content)
@@ -391,7 +400,7 @@ describe('parsePlanningResponse — ask_user_question variant', () => {
     const result = parsePlanningResponse(wrapped);
     expect(result?.type).toBe('ask_user_question');
     if (result?.type === 'ask_user_question') {
-      expect(result.payload.questions[0].header).toBe('Tone');
+      expect(defined(result.payload.questions[0]).header).toBe('Tone');
     }
   });
 

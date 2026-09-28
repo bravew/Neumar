@@ -42,7 +42,7 @@ describe('YouTube b-roll atom', () => {
     await expect(
       importYoutubeBroll(
         project.id,
-        { url: YOUTUBE_URL, rightsAcknowledged: true },
+        { url: YOUTUBE_URL, rightsAcknowledged: true } as never,
         { capabilityGranted: false, runner: fakeRunner() },
       ),
     ).rejects.toThrow('network:youtube capability');
@@ -245,7 +245,7 @@ describe('YouTube b-roll atom', () => {
     if (!tool) throw new Error('Expected youtube tool');
 
     const result = await tool.handler(
-      { url: YOUTUBE_URL, rightsAcknowledged: true },
+      { url: YOUTUBE_URL, rightsAcknowledged: true } as never,
       {},
     );
     const payload = JSON.parse(toolResultText(result) ?? '{}');

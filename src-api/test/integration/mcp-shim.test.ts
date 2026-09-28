@@ -13,6 +13,8 @@ import type {
   OpenAIToolCall,
 } from '@/core/agent/mcp-shim-types';
 
+import { defined } from '../helpers/defined';
+
 const SAMPLE_TOOLS: GenericToolDefinition[] = [
   {
     name: 'search',
@@ -32,18 +34,20 @@ const SAMPLE_TOOLS: GenericToolDefinition[] = [
     },
   },
 ];
+const searchTool = defined(SAMPLE_TOOLS[0], 'search tool');
+const readFileTool = defined(SAMPLE_TOOLS[1], 'read_file tool');
 
 describe('MCP Shim', () => {
   describe('McpShim', () => {
     it('getToolDefinitions returns registered tools', () => {
       const shim = new McpShim();
-      shim.registerTool('google', SAMPLE_TOOLS[0]);
-      shim.registerTool('fs', SAMPLE_TOOLS[1]);
+      shim.registerTool('google', searchTool);
+      shim.registerTool('fs', readFileTool);
 
       const defs = shim.getToolDefinitions();
       expect(defs).toHaveLength(2);
-      expect(defs[0].name).toBe('search');
-      expect(defs[1].name).toBe('read_file');
+      expect(defined(defs[0]).name).toBe('search');
+      expect(defined(defs[1]).name).toBe('read_file');
     });
 
     it('executeTool returns isError for unknown tool names', async () => {
@@ -59,7 +63,7 @@ describe('MCP Shim', () => {
 
     it('executeTool routes to correct MCP server', async () => {
       const shim = new McpShim();
-      shim.registerTool('google', SAMPLE_TOOLS[0]);
+      shim.registerTool('google', searchTool);
 
       const result = await shim.executeTool({
         id: 'call-2',
@@ -72,10 +76,10 @@ describe('MCP Shim', () => {
 
     it('toolNamePrefix correctly prefixes/strips tool names', () => {
       const shim = new McpShim({ toolNamePrefix: 'mcp_' });
-      shim.registerTool('google', SAMPLE_TOOLS[0]);
+      shim.registerTool('google', searchTool);
 
       const defs = shim.getToolDefinitions();
-      expect(defs[0].name).toBe('mcp_search');
+      expect(defined(defs[0]).name).toBe('mcp_search');
     });
   });
 
@@ -83,12 +87,11 @@ describe('MCP Shim', () => {
     it('converts GenericToolDefinition to OpenAI function calling format', () => {
       const result = toOpenAITools(SAMPLE_TOOLS);
       expect(result).toHaveLength(2);
-      expect(result[0].type).toBe('function');
-      expect(result[0].function.name).toBe('search');
-      expect(result[0].function.description).toBe('Search the web');
-      expect(result[0].function.parameters).toEqual(
-        SAMPLE_TOOLS[0].inputSchema,
-      );
+      const openaiTool = defined(result[0]);
+      expect(openaiTool.type).toBe('function');
+      expect(openaiTool.function.name).toBe('search');
+      expect(openaiTool.function.description).toBe('Search the web');
+      expect(openaiTool.function.parameters).toEqual(searchTool.inputSchema);
     });
   });
 
@@ -96,9 +99,10 @@ describe('MCP Shim', () => {
     it('converts GenericToolDefinition to Gemini function declaration format', () => {
       const result = toGeminiTools(SAMPLE_TOOLS);
       expect(result).toHaveLength(2);
-      expect(result[0].name).toBe('search');
-      expect(result[0].description).toBe('Search the web');
-      expect(result[0].parameters).toEqual(SAMPLE_TOOLS[0].inputSchema);
+      const geminiTool = defined(result[0]);
+      expect(geminiTool.name).toBe('search');
+      expect(geminiTool.description).toBe('Search the web');
+      expect(geminiTool.parameters).toEqual(searchTool.inputSchema);
     });
   });
 

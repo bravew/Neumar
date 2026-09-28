@@ -6,6 +6,8 @@ import {
   runAcpPromptSequence,
 } from '@/extensions/agent/shared/acp';
 
+import { defined } from '../../helpers/defined';
+
 function sequence<T>(options: {
   activity?: AcpTurnActivity;
   send: (prompt: string, continuation: boolean) => Promise<T>;
@@ -120,7 +122,9 @@ describe('ACP prompt completion', () => {
       { stopReason: 'end_turn' },
     );
     expect(send).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls[1][0]).toContain('Continue the same turn');
+    expect(defined(defined(send.mock.calls[1])[0])).toContain(
+      'Continue the same turn',
+    );
     expect(sessionIds).toEqual(['same-session', 'same-session']);
     expect(onContinuation).toHaveBeenCalledOnce();
   });

@@ -81,7 +81,7 @@ function eventStream(events: unknown[]) {
 
 function createThread(events: unknown[]) {
   return {
-    runStreamed: vi.fn(async () => ({
+    runStreamed: vi.fn(async (_input: string | CodexUserInputLike[]) => ({
       events: eventStream(events),
     })),
   };
@@ -118,9 +118,7 @@ describe('CodexAgent local image input', () => {
     }
 
     expect(thread.runStreamed).toHaveBeenCalledOnce();
-    const input = thread.runStreamed.mock.calls[0]?.[0] as
-      | string
-      | CodexUserInputLike[];
+    const input = thread.runStreamed.mock.calls[0]?.[0];
     expect(Array.isArray(input)).toBe(true);
     const inputItems = input as CodexUserInputLike[];
 
@@ -163,6 +161,6 @@ describe('CodexAgent local image input', () => {
     expect(thread.runStreamed).toHaveBeenCalledOnce();
     const input = thread.runStreamed.mock.calls[0]?.[0];
     expect(typeof input).toBe('string');
-    expect(input as string).toContain('no images here');
+    expect(input).toContain('no images here');
   });
 });

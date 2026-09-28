@@ -177,7 +177,11 @@ describe('remotion renderer service', () => {
     });
 
     const bundleCall = vi.mocked(bundle).mock.calls.at(-1)?.[0];
-    if (!bundleCall || typeof bundleCall.outDir !== 'string') {
+    if (
+      !bundleCall ||
+      typeof bundleCall === 'string' ||
+      typeof bundleCall.outDir !== 'string'
+    ) {
       throw new Error('Expected Remotion bundle outDir');
     }
     const fingerprint = path.relative(bundleRoot, bundleCall.outDir);

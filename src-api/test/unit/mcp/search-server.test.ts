@@ -53,7 +53,7 @@ describe('search MCP server', () => {
         query: 'vite latest',
         depth: 'quick',
         sources: ['https://vite.dev/guide/', 'docs.example.com/path'],
-      },
+      } as never,
       {},
     );
 
@@ -79,7 +79,7 @@ describe('search MCP server', () => {
 
     const research = searchTools.find((tool) => tool.name === 'research');
     await research!.handler(
-      { query: 'react 19', depth: 'thorough', sources: undefined },
+      { query: 'react 19', depth: 'thorough', sources: undefined } as never,
       {},
     );
 
@@ -94,7 +94,7 @@ describe('search MCP server', () => {
     vi.stubEnv(RESEARCH_TOOL_FLAG, '');
 
     const research = searchTools.find((tool) => tool.name === 'research');
-    const result = await research!.handler({ query: 'react 19' }, {});
+    const result = await research!.handler({ query: 'react 19' } as never, {});
 
     expect(search).not.toHaveBeenCalled();
     expect(result.isError).toBe(true);

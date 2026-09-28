@@ -1152,7 +1152,7 @@ type JsonContainer = Record<string, unknown> | unknown[];
 
 export function applyVideoAgentTool(
   project: VideoProject,
-  rawCall: VideoAgentToolCall,
+  rawCall: z.input<typeof videoAgentToolCallSchema>,
   options: VideoAgentToolOptions = {},
 ): VideoAgentToolExecution {
   const call = videoAgentToolCallSchema.parse(rawCall);

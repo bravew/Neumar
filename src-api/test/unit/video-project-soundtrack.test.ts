@@ -40,7 +40,7 @@ describe('VideoProject.soundtrack', () => {
   });
 
   it('treats absence as legitimate (no migration needed for older projects)', () => {
-    const project = {} satisfies Pick<VideoProject, 'soundtrack'>;
+    const project: Pick<VideoProject, 'soundtrack'> = {};
     expect(project.soundtrack).toBeUndefined();
   });
 });

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { defined } from '../helpers/defined';
 import { getJson, postJson } from '../helpers/http-client';
 import {
   spawnApiInstance,
@@ -80,7 +81,10 @@ describe('multi-mode reliability real-server smoke', () => {
 
     await runTaskTurn(api, taskId, workDir);
     const firstTaskTree = await ownerTree(api, 'task', taskId);
-    const firstTaskRun = flatten(firstTaskTree.tree)[0];
+    const firstTaskRun = defined(
+      flatten(firstTaskTree.tree)[0],
+      'firstTaskRun',
+    );
     expect(firstTaskRun).toMatchObject({ status: 'completed' });
     await expectReplay(api, 'task', taskId, firstTaskRun.id);
 
@@ -126,9 +130,10 @@ describe('multi-mode reliability real-server smoke', () => {
     expect(
       await collectSSEWithLabel('Design turn', designResponse),
     ).not.toHaveLength(0);
-    const designRun = flatten(
-      (await ownerTree(api, 'design', designId)).tree,
-    )[0];
+    const designRun = defined(
+      flatten((await ownerTree(api, 'design', designId)).tree)[0],
+      'designRun',
+    );
     expect(designRun).toMatchObject({ status: 'completed' });
     await expectReplay(api, 'design', designId, designRun.id);
 

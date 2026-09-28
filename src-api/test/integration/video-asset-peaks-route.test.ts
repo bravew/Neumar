@@ -70,6 +70,7 @@ describe('video asset peaks route', () => {
 function projectFixture(): VideoProject {
   return {
     id: projectId,
+    revision: 1,
     name: 'Peaks route',
     template: 'podcast',
     prompt: '',
@@ -86,7 +87,7 @@ function projectFixture(): VideoProject {
         },
       },
     ],
-    render: { status: 'idle' },
+    render: { status: 'idle', updatedAt: '2026-05-20T00:00:00.000Z' },
     budget: { capUsd: 5, spentUsd: 0 },
     outputs: [],
     createdAt: '2026-06-22T00:00:00.000Z',

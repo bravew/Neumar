@@ -16,6 +16,8 @@ import {
   readQwenConfiguredModelIds,
 } from '@/shared/agent-runtimes';
 
+import { defined } from '../../helpers/defined';
+
 const roots: string[] = [];
 
 async function tempRoot(): Promise<string> {
@@ -164,7 +166,7 @@ describe('Qwen registry model ordering', () => {
       'default',
       'qwen3-coder-flash',
     ]);
-    expect(models?.[0].source).toBe('configured');
+    expect(defined(models?.[0]).source).toBe('configured');
     expect(qwen?.capabilities?.modes?.video).toBe('unsupported');
   });
 

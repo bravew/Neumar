@@ -6,7 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { closeDatabase } from '@/shared/db';
 import { deleteProjectAsset, writeProject } from '@/shared/video/store';
-import type { VideoProject, VideoTimeline } from '@/shared/video/types';
+import type {
+  VideoProject,
+  VideoTimeline,
+  VisualTimelineClip,
+} from '@/shared/video/types';
 
 let workDir: string;
 
@@ -56,6 +60,7 @@ describe('deleteProjectAsset timeline cleanup', () => {
 function projectFixture(): VideoProject {
   return {
     id: 'project-1',
+    revision: 1,
     name: 'Delete asset',
     template: 'explainer',
     prompt: '',
@@ -63,18 +68,20 @@ function projectFixture(): VideoProject {
       {
         id: 'asset-1',
         kind: 'video',
+        source: 'user',
         path: 'assets/asset-1.mp4',
-        metadata: {},
+        metadata: { durationMs: 3000 },
       },
       {
         id: 'asset-2',
         kind: 'image',
+        source: 'user',
         path: 'assets/asset-2.png',
-        metadata: {},
+        metadata: { durationMs: 0 },
       },
-    ] as VideoProject['assets'],
+    ],
     timeline: timelineFixture(),
-    render: { status: 'idle' },
+    render: { status: 'idle', updatedAt: '2026-05-20T00:00:00.000Z' },
     budget: { capUsd: 5, spentUsd: 0 },
     outputs: [],
     createdAt: '2026-06-19T00:00:00.000Z',
@@ -116,9 +123,9 @@ function timelineFixture(): VideoTimeline {
 
 function clipFixture(
   id: string,
-  sourceRef: VideoTimeline['tracks'][number]['clips'][number]['sourceRef'],
+  sourceRef: VisualTimelineClip['sourceRef'],
   startMs: number,
-): VideoTimeline['tracks'][number]['clips'][number] {
+): VisualTimelineClip {
   return {
     id,
     kind: 'video',
@@ -130,5 +137,5 @@ function clipFixture(
     trimStartMs: 0,
     trimEndMs: 1000,
     sourceDurationMs: 1000,
-  } as VideoTimeline['tracks'][number]['clips'][number];
+  };
 }

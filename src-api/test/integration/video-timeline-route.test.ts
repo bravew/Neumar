@@ -134,18 +134,18 @@ describe('video timeline route', () => {
     // `projectDocumentUpdateLocks` (updateProjectDocument) could not see each
     // other, so these two could interleave and one would lose its write.
     const order: string[] = [];
-    const patch = videoRoutes
-      .request('/projects/project-1/timeline', {
+    const patch = Promise.resolve(
+      videoRoutes.request('/projects/project-1/timeline', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           timeline: { ...timelineFixture(), durationMs: 5000 },
         }),
-      })
-      .then((response) => {
-        order.push(`patch:${response.status}`);
-        return response;
-      });
+      }),
+    ).then((response) => {
+      order.push(`patch:${response.status}`);
+      return response;
+    });
     const documentUpdate = updateProjectDocument(
       'project-1',
       async (project) => {
@@ -191,9 +191,10 @@ function projectFixture(): VideoProject {
     name: 'Timeline route',
     template: 'explainer',
     prompt: '',
+    revision: 0,
     assets: [],
     timeline: timelineFixture(),
-    render: { status: 'idle' },
+    render: { status: 'idle', updatedAt: '2026-05-20T00:00:00.000Z' },
     budget: { capUsd: 5, spentUsd: 0 },
     outputs: [],
     createdAt: '2026-06-19T00:00:00.000Z',

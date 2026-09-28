@@ -10,6 +10,8 @@ import {
   getAgentRun,
 } from '@/shared/db/operations';
 
+import { defined } from '../../../helpers/defined';
+
 describe('prepareTaskRun', () => {
   it('reserves a durable run before returning', async () => {
     const sessionId = crypto.randomUUID();
@@ -29,7 +31,9 @@ describe('prepareTaskRun', () => {
     });
     expect(first.reservation?.disposition).toBe('created');
     expect(first.agentRunId).toBeTruthy();
-    expect(getAgentRun(first.agentRunId!).status).toBe('running');
+    expect(defined(getAgentRun(defined(first.agentRunId))).status).toBe(
+      'running',
+    );
 
     const replay = await prepareTaskRun({
       taskId,

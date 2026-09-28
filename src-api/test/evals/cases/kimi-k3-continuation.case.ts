@@ -30,7 +30,11 @@ const evalCase: EvalCase = {
     const envelope = kimiK3Dialect.buildAssistantEnvelope(state);
     const passed =
       envelope.reasoning_content === 'inspect repository' &&
-      envelope.tool_calls?.[0]?.function.arguments === '{"path":"a.ts"}';
+      (
+        envelope.tool_calls?.[0] as
+          | { function: { arguments: string } }
+          | undefined
+      )?.function.arguments === '{"path":"a.ts"}';
     return {
       passed,
       score: passed ? 1 : 0,

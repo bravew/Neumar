@@ -79,7 +79,7 @@ function project(): VideoProject {
     outputs: [],
     createdAt: '2026-08-22T00:00:00.000Z',
     updatedAt: '2026-08-22T00:00:00.000Z',
-  } as VideoProject;
+  } as unknown as VideoProject;
 }
 
 function resolve(

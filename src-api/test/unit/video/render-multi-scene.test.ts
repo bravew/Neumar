@@ -367,7 +367,11 @@ describe('video render args', () => {
 
       const filter = filterGraph(args);
       expect(filter).toContain(`xfade=transition=${expectedXfade}`);
-      if (typeof transitionToNext === 'object' && transitionToNext.durationMs) {
+      if (
+        typeof transitionToNext === 'object' &&
+        'durationMs' in transitionToNext &&
+        transitionToNext.durationMs
+      ) {
         expect(filter).toContain(':duration=0.8:offset=3.2');
       }
     },

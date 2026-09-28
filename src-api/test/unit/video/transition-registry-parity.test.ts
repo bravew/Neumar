@@ -234,10 +234,10 @@ describe('video transition registry parity', () => {
       },
     } as const;
 
-    expect(normalizeVideoTransition(invalidParams)).toEqual(
-      normalizeTransition(invalidParams),
+    expect(normalizeVideoTransition(invalidParams as never)).toEqual(
+      normalizeTransition(invalidParams as never),
     );
-    expect(normalizeTransition(invalidParams)).toEqual({
+    expect(normalizeTransition(invalidParams as never)).toEqual({
       kind: 'clock-wipe',
       durationMs: 700,
     });
@@ -252,10 +252,28 @@ function matrixEntry(kind: string) {
   return TRANSITION_QUALITY_MATRIX.find((entry) => entry.kind === kind);
 }
 
+interface RegistryEntryShape {
+  kind: string;
+  tier: string;
+  native: readonly string[];
+  fallbackFor: object;
+  directions: readonly string[];
+  labelKey: string;
+  group: string;
+  descriptionKey: string;
+  defaultDurationMs: number;
+  minDurationMs: number;
+  maxDurationMs: number;
+  webglPreview: unknown;
+  recommendedUse: unknown;
+  paramDefs?: readonly object[];
+  timingDefs?: object;
+}
+
 function registryShape(
   registry: typeof apiRegistry | typeof uiRegistry,
 ): Array<Record<string, unknown>> {
-  return registry.map((entry) => ({
+  return (registry as readonly RegistryEntryShape[]).map((entry) => ({
     kind: entry.kind,
     tier: entry.tier,
     native: [...entry.native],

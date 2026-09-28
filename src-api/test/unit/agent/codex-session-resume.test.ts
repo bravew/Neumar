@@ -77,7 +77,7 @@ function eventStream(events: unknown[]) {
 
 function createThread(events: unknown[]) {
   return {
-    runStreamed: vi.fn(async () => ({
+    runStreamed: vi.fn(async (_input: unknown) => ({
       events: eventStream(events),
     })),
   };

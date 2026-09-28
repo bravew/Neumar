@@ -49,7 +49,7 @@ describe('Cloud Storage API path mappings', () => {
   it('tests self-hosted Immich connections from the desktop side', async () => {
     const { createCloudStorageRoutes } =
       await import('@/app/api/cloud-storage');
-    const fetchFn = vi.fn(async () => {
+    const fetchFn = vi.fn(async (_url: URL, _init: RequestInit) => {
       return new Response(JSON.stringify({ version: '1.132.0' }), {
         headers: { 'content-type': 'application/json' },
       });
@@ -74,7 +74,7 @@ describe('Cloud Storage API path mappings', () => {
       serverInfo: { version: '1.132.0', serverVersion: '1.132.0' },
       lanReachable: true,
     });
-    const [url, init] = fetchFn.mock.calls[0] as [URL, RequestInit];
+    const [url, init] = fetchFn.mock.calls[0]!;
     expect(url.toString()).toBe('http://192.168.1.20:2283/api/server/ping');
     expect(init.headers).toEqual({ 'x-api-key': 'immich-key' });
     expect(init.redirect).toBe('manual');
@@ -524,7 +524,7 @@ describe('Cloud Storage API path mappings', () => {
       getTimelineBuckets: vi.fn(async (input) => {
         expect(input).toEqual({ size: 'month' });
         return {
-          size: 'month',
+          size: 'month' as const,
           buckets: [
             { bucket: '2025-04', count: 12 },
             { bucket: '2024-11', count: 5 },

@@ -14,7 +14,7 @@ import {
 
 describe('video plugin runtime gate', () => {
   it('keeps unreviewed local plugins restricted', () => {
-    const plugin = createPlugin('local');
+    const plugin = createPlugin('user');
     const gate = computeVideoPluginRunGate(plugin, {
       approvedCapabilities: ['network:youtube'],
     });
@@ -48,7 +48,7 @@ describe('video plugin runtime gate', () => {
   });
 
   it('grants reviewed local plugins and freezes replayable snapshots', () => {
-    const plugin = createPlugin('local');
+    const plugin = createPlugin('user');
     const gate = computeVideoPluginRunGate(plugin, {
       lastReviewedDigest: plugin.manifestDigest,
       approvedCapabilities: ['network:youtube'],
@@ -103,7 +103,7 @@ describe('video plugin runtime gate', () => {
   });
 
   it('keeps full runtime config off replayable snapshots', () => {
-    const plugin = createPlugin('local');
+    const plugin = createPlugin('user');
     const manifestWithConfig = {
       name: plugin.id,
       version: plugin.version,
@@ -151,7 +151,7 @@ describe('video plugin runtime gate', () => {
   });
 
   it('forces restricted mode when a reviewed plugin digest changes', () => {
-    const plugin = createPlugin('local');
+    const plugin = createPlugin('user');
     const gate = computeVideoPluginRunGate(plugin, {
       lastReviewedDigest: 'previous-digest',
     });

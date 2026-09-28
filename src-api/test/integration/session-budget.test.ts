@@ -6,6 +6,8 @@ import { getDatabase } from '@/shared/db';
 import { saveSetting } from '@/shared/db/operations';
 import { SessionBudgetGuard } from '@/shared/services/session-budget';
 
+import { defined } from '../helpers/defined';
+
 /** Micro-dollars per USD */
 const MICRODOLLARS_PER_USD = 1_000_000;
 
@@ -121,7 +123,7 @@ describe('Session Budget Guard', () => {
         )
         .all() as Array<{ name: string }>;
       expect(indexes.length).toBe(1);
-      expect(indexes[0].name).toBe('idx_usage_logs_session_id');
+      expect(defined(indexes[0]).name).toBe('idx_usage_logs_session_id');
     });
   });
 });

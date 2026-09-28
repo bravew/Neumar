@@ -25,9 +25,8 @@ export async function createEditorHandoffFixtureProject(
     {
       kind: 'clip.removeTimeRange',
       trackId: 'track-video-main',
-      range: { startMs: 1200, endMs: 1800 },
-      replacements: [],
-      removedClips: [],
+      startMs: 1200,
+      endMs: 1800,
       magnetic: true,
     },
   ];

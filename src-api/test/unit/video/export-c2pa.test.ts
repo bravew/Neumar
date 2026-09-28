@@ -26,6 +26,7 @@ const metadata: ExportMetadata = {
   artist: 'Credits: Jane',
   comment: 'AI-generated with Neuma. Credits: Jane',
   credits: [],
+  warnings: [],
   aiGenerated: true,
 };
 

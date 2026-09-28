@@ -5,8 +5,24 @@ declare module 'playwright' {
     abort(errorCode?: string): Promise<void>;
   }
 
+  export interface Locator {
+    locator(selector: string): Locator;
+    first(): Locator;
+    click(options?: { timeout?: number }): Promise<void>;
+    waitFor(options?: {
+      state?: 'attached' | 'detached' | 'visible' | 'hidden';
+      timeout?: number;
+    }): Promise<void>;
+  }
+
+  export interface FrameLocator {
+    locator(selector: string): Locator;
+  }
+
   export interface Page {
     route(pattern: string, handler: (route: Route) => unknown): Promise<void>;
+    frameLocator(selector: string): FrameLocator;
+    getByText(text: string | RegExp, options?: { exact?: boolean }): Locator;
     goto(
       url: string,
       options?: {
@@ -29,8 +45,14 @@ declare module 'playwright' {
     close(): Promise<void>;
   }
 
+  export interface LaunchOptions {
+    headless?: boolean;
+    args?: string[];
+    executablePath?: string;
+  }
+
   export const chromium: {
-    launch(options?: { headless?: boolean }): Promise<Browser>;
+    launch(options?: LaunchOptions): Promise<Browser>;
   };
 }
 

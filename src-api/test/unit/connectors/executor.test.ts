@@ -47,7 +47,7 @@ describe('connector binder execution gate', () => {
         context,
         policy: allowPolicy('confirm'),
         approvalGateway: {
-          requestConnectorToolApproval: vi.fn(async () => 'approved'),
+          requestConnectorToolApproval: vi.fn(async () => 'approved' as const),
         },
         executor,
       }),
@@ -178,7 +178,7 @@ function denyPolicy(reason: string): ConnectorBinderPolicy {
     canExecute: vi.fn(() => ({
       allow: false,
       requireConfirmation: false,
-      approval: 'auto',
+      approval: 'auto' as const,
       policyKey: 'desktop',
       reason,
     })),

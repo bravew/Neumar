@@ -92,7 +92,7 @@ describe('bounded video QA loop', () => {
       audioClipping: [],
       silentGaps: [],
       missingMedia: [],
-    } as VideoQaReport;
+    } as unknown as VideoQaReport;
 
     expect(summarizeQaReport(legacyReport)).toEqual([]);
   });
@@ -111,6 +111,8 @@ function projectFixture(output: Partial<RenderOutput>): VideoProject {
     id: 'project-1',
     name: 'QA project',
     template: 'explainer',
+    prompt: '',
+    revision: 0,
     assets: [],
     outputs: [
       {

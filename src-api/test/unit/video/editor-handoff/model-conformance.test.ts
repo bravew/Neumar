@@ -250,7 +250,7 @@ describe('multicamera provenance survives handoff', () => {
                 }
               : clip,
           ),
-        } as (typeof project.timeline)['tracks'][number],
+        } as NonNullable<typeof project.timeline>['tracks'][number],
       ],
     };
     return project;

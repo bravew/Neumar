@@ -92,7 +92,7 @@ describe('external MCP transport', () => {
       code: 'auth_required',
       status: 401,
       message: 'MCP server requires authentication',
-    } satisfies Partial<ExternalMcpTransportError>);
+    } satisfies Partial<InstanceType<typeof ExternalMcpTransportError>>);
   });
 
   it('rejects oversized tool call payloads before network egress', async () => {

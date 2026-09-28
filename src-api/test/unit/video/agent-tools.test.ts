@@ -17,13 +17,12 @@ describe('video agent tools', () => {
         schemaVersion: 1,
         id: 'plan-1',
         revision: 1,
-        status: 'approved',
+        status: 'active',
         title: 'Bulk storyboard',
         request: 'Build 48 scenes.',
         assumptions: [],
-        projectRevisionAtApproval: 4,
-        approvedAt: '2026-08-25T00:00:00.000Z',
-        approvedBy: 'user',
+        projectRevisionAtStart: 4,
+        createdAt: '2026-08-25T00:00:00.000Z',
         markdownDigest: 'digest',
         steps: [],
       },
@@ -71,13 +70,12 @@ describe('video agent tools', () => {
         schemaVersion: 1,
         id: 'plan-1',
         revision: 1,
-        status: 'approved',
+        status: 'active',
         title: 'Bulk storyboard',
         request: 'Build it.',
         assumptions: [],
-        projectRevisionAtApproval: 4,
-        approvedAt: '2026-08-25T00:00:00.000Z',
-        approvedBy: 'user',
+        projectRevisionAtStart: 4,
+        createdAt: '2026-08-25T00:00:00.000Z',
         markdownDigest: 'digest',
         steps: [],
       },
@@ -118,13 +116,12 @@ describe('video agent tools', () => {
         schemaVersion: 1,
         id: 'plan-1',
         revision: 1,
-        status: 'approved',
+        status: 'active',
         title: 'Bulk storyboard',
         request: 'Build it.',
         assumptions: [],
-        projectRevisionAtApproval: 4,
-        approvedAt: '2026-08-25T00:00:00.000Z',
-        approvedBy: 'user',
+        projectRevisionAtStart: 4,
+        createdAt: '2026-08-25T00:00:00.000Z',
         markdownDigest: 'digest',
         steps: [],
       },
@@ -174,7 +171,7 @@ describe('video agent tools', () => {
       { now: '2026-05-20T01:00:00.000Z', journalId: 'journal-1' },
     );
 
-    expect(execution.project.storyboard?.scenes[1].caption?.text).toBe(
+    expect(execution.project.storyboard?.scenes[1]?.caption?.text).toBe(
       'Launch today',
     );
     expect(execution.project.renderPlan).toBeUndefined();
@@ -213,17 +210,17 @@ describe('video agent tools', () => {
     );
     expect(undone.project.storyboard).toEqual(project.storyboard);
     expect(undone.project.renderPlan).toEqual(project.renderPlan);
-    expect(undone.project.agentJournal?.[0].undone).toBe(true);
+    expect(undone.project.agentJournal?.[0]?.undone).toBe(true);
 
     const redone = redoVideoAgentJournalEntry(
       undone.project,
       'journal-1',
       '2026-05-20T01:02:00.000Z',
     );
-    expect(redone.project.storyboard?.scenes[1].caption?.text).toBe(
+    expect(redone.project.storyboard?.scenes[1]?.caption?.text).toBe(
       'Launch today',
     );
-    expect(redone.project.agentJournal?.[0].undone).toBe(false);
+    expect(redone.project.agentJournal?.[0]?.undone).toBe(false);
   });
 
   it.each([
@@ -303,7 +300,7 @@ describe('video agent tools', () => {
     const project = projectFixture();
     const execution = applyVideoAgentTool(
       project,
-      { ...tool, reasoning: 'test' },
+      { ...tool, reasoning: 'test' } as never,
       {
         now: '2026-05-20T02:00:00.000Z',
         journalId: `${tool.name}-journal`,
@@ -365,7 +362,7 @@ describe('video agent tools', () => {
       ...base,
       storyboard: {
         ...base.storyboard!,
-        scenes: [base.storyboard!.scenes[0]],
+        scenes: [base.storyboard!.scenes[0]!],
       },
     };
 
@@ -1336,8 +1333,10 @@ function projectWithLinkedTimeline(): VideoProject {
       tracks: [
         {
           ...videoTrack,
-          clips: [{ ...videoClip, linkGroupId: 'link-av-1' }],
-        },
+          clips: [
+            { ...videoClip, linkGroupId: 'link-av-1' } as typeof videoClip,
+          ],
+        } as typeof videoTrack,
         {
           id: 'track-audio-main',
           kind: 'audio-vo',

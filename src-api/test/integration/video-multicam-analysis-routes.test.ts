@@ -389,7 +389,7 @@ function projectFixture(): VideoProject {
       fps: 30,
       tracks: [],
     },
-    render: { status: 'idle' },
+    render: { status: 'idle', updatedAt: '2026-05-20T00:00:00.000Z' },
     budget: { capUsd: 5, spentUsd: 0 },
     outputs: [],
     createdAt: '2026-09-08T00:00:00.000Z',

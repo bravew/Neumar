@@ -236,7 +236,7 @@ describe('applyOutputRangeToEdl', () => {
     const edl = edlFixture();
     edl.segments[0] = {
       ...edl.segments[0]!,
-      playback: { speed: 2, preservePitch: true },
+      playback: { speed: 2, reverse: false, pitchCorrection: true },
     };
     const range = resolveOutputRange(
       {

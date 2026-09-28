@@ -95,6 +95,7 @@ describe('buildHomeView', () => {
               displayName: 'GitHub',
               hint: '',
               tokenUrl: '',
+              envVar: 'GITHUB_TOKEN',
             },
             credential: {
               slackTeamId: 'T0001',
