@@ -272,6 +272,7 @@ async function directoryExists(dir: string): Promise<boolean> {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Remotion render',
     template: 'explainer',

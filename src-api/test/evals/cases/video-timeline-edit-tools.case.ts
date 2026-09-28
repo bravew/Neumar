@@ -389,6 +389,7 @@ function baseProject(
   ];
 
   return {
+    revision: 1,
     id: 'eval-video-edit-tools',
     name: 'Timeline edit tools eval',
     template: 'custom',

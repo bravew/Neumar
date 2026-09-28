@@ -5,6 +5,7 @@ import type { VideoProject } from '@/shared/video/types';
 
 function projectWithSelectedOverlay(): VideoProject {
   return {
+    revision: 1,
     id: 'project-ctx-1',
     name: 'Context fixture',
     template: 'product-reel',

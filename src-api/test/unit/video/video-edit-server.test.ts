@@ -19,6 +19,8 @@ import { MULTICAM_TOOL_NAMES } from '@/shared/mcp/video-multicam-tools';
 import { writeProject } from '@/shared/video/store';
 import type { TimelineTransition, VideoProject } from '@/shared/video/types';
 
+import { toolResultText } from '../../helpers/tool-result-text';
+
 describe('video-edit MCP server', () => {
   let workDir: string;
 
@@ -157,7 +159,7 @@ describe('video-edit MCP server', () => {
     const tool = findTool('video_approve_storyboard');
 
     const result = await tool.handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       projectId: 'project-1',
@@ -177,7 +179,7 @@ describe('video-edit MCP server', () => {
     const tool = findTool('video_set_project_template');
 
     const result = await tool.handler({ template: 'custom' }, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(result.isError).not.toBe(true);
     expect(payload).toMatchObject({
@@ -211,7 +213,7 @@ describe('video-edit MCP server', () => {
       { assetId: 'asset-video', sceneId: 'scene-1' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     const after = await getProject('project-1');
 
     expect(result.isError).not.toBe(true);
@@ -247,7 +249,7 @@ describe('video-edit MCP server', () => {
       { assetId: 'asset-video', sceneId: 'scene-1' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     const after = await getProject('project-1');
 
     expect(result.isError).toBe(true);
@@ -333,7 +335,7 @@ describe('video-edit MCP server', () => {
     });
 
     const result = await tool.handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.mcp-proposal-required.v1',
@@ -375,7 +377,7 @@ describe('video-edit MCP server', () => {
     const tool = findTool('video_list_transition_presets');
 
     const result = await tool.handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.transition-presets.v1',
@@ -402,7 +404,7 @@ describe('video-edit MCP server', () => {
 
   it('lists the installed clip-effect catalog', async () => {
     const result = await findTool('video_list_effect_presets').handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.effect-presets.v1',
@@ -428,7 +430,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.mcp-proposal.v1',
@@ -450,7 +452,7 @@ describe('video-edit MCP server', () => {
     const tool = findTool('video_get_transition_seams');
 
     const result = await tool.handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.transition-seams.v1',
@@ -496,7 +498,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.timeline-transition-edit.v1',
@@ -550,7 +552,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.timeline-transition-edit.v1',
@@ -579,7 +581,7 @@ describe('video-edit MCP server', () => {
       { intentText: 'Should I add transitions here?' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.timeline-transition-suggestions.v1',
@@ -601,7 +603,7 @@ describe('video-edit MCP server', () => {
       { intentText: 'Make the montage smoother, but show me before applying.' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.timeline-transition-suggestions.v1',
@@ -637,7 +639,7 @@ describe('video-edit MCP server', () => {
       { intentText: 'Make the montage smoother, but show me before applying.' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.timeline-transition-suggestions.v1',
@@ -660,7 +662,7 @@ describe('video-edit MCP server', () => {
       { sceneId: 'scene-1', text: 'A sharper launch line' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     // mutationResult returns the narrow ack shape, not the full project.
     // Verify the mutation actually persisted by reading the project file.
@@ -683,7 +685,7 @@ describe('video-edit MCP server', () => {
       { sourceClipId: 'music-clip', toleranceMs: 100 },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload).toMatchObject({
       schema: 'neuma.video.mcp-proposal.v1',
       mode: 'proposal-only',
@@ -710,7 +712,7 @@ describe('video-edit MCP server', () => {
       { sourceClipId: 'music-clip', toleranceMs: 100 },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.opCount).toBe(4);
 
     // The middle clip is trimmed twice; the second op must start from the
@@ -753,7 +755,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload).toMatchObject({
       projectId: 'project-1',
       tool: 'setOverlayControls',
@@ -777,7 +779,7 @@ describe('video-edit MCP server', () => {
       { startMs: 0, endMs: 4000 },
       {},
     );
-    const windowPayload = JSON.parse(windowResult.content[0]?.text ?? '{}');
+    const windowPayload = JSON.parse(toolResultText(windowResult) ?? '{}');
     const overlaySummaries = JSON.stringify(windowPayload);
     expect(overlaySummaries).toContain('"presetId":"html.marker-highlight"');
     expect(overlaySummaries).toContain(
@@ -812,7 +814,7 @@ describe('video-edit MCP server', () => {
       { clipId: 'selection', controls: { color: '#112233' } },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.tool).toBe('setOverlayControls');
 
     const { getProject } = await import('@/shared/video/store');
@@ -833,7 +835,7 @@ describe('video-edit MCP server', () => {
       {},
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toMatch(/above max 160/);
+    expect(toolResultText(result)).toMatch(/above max 160/);
   });
 
   it('sets numeric overlay control keyframes and rejects nonnumeric controls', async () => {
@@ -861,7 +863,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload).toMatchObject({
       projectId: 'project-1',
       tool: 'setOverlayControlKeyframes',
@@ -891,7 +893,7 @@ describe('video-edit MCP server', () => {
       { startMs: 0, endMs: 4000 },
       {},
     );
-    const windowPayload = JSON.parse(windowResult.content[0]?.text ?? '{}');
+    const windowPayload = JSON.parse(toolResultText(windowResult) ?? '{}');
     const overlaySummaries = JSON.stringify(windowPayload);
     expect(overlaySummaries).toContain(
       '"keyframeTool":"video_set_overlay_control_keyframes"',
@@ -907,7 +909,7 @@ describe('video-edit MCP server', () => {
       {},
     );
     expect(rejected.isError).toBe(true);
-    expect(rejected.content[0]?.text).toMatch(
+    expect(toolResultText(rejected)).toMatch(
       /Control color does not support keyframes/,
     );
   });
@@ -934,7 +936,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload).toMatchObject({
       projectId: 'project-1',
       tool: 'applyOverlayMotionTemplate',
@@ -967,7 +969,7 @@ describe('video-edit MCP server', () => {
       {},
     );
     expect(
-      JSON.stringify(JSON.parse(windowResult.content[0]?.text ?? '{}')),
+      JSON.stringify(JSON.parse(toolResultText(windowResult) ?? '{}')),
     ).toContain('"templateId":"entrance.fade-up"');
 
     const rejected = await tool.handler(
@@ -978,7 +980,7 @@ describe('video-edit MCP server', () => {
       {},
     );
     expect(rejected.isError).toBe(true);
-    expect(rejected.content[0]?.text).toMatch(/not compatible/);
+    expect(toolResultText(rejected)).toMatch(/not compatible/);
   });
 
   it('returns a proposal instead of applying timeline ops for external MCP clients', async () => {
@@ -998,7 +1000,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.mcp-proposal.v1',
@@ -1029,7 +1031,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.mcp-proposal.v1',
@@ -1066,7 +1068,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.mcp-proposal.v1',
@@ -1103,7 +1105,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       projectId: 'project-1',
@@ -1142,7 +1144,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.mcp-proposal-required.v1',
@@ -1168,7 +1170,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       projectId: 'project-1',
@@ -1217,7 +1219,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       projectId: 'project-1',
@@ -1263,7 +1265,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       projectId: 'project-1',
@@ -1292,7 +1294,7 @@ describe('video-edit MCP server', () => {
       { query: 'product hero', refreshIndex: true },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.frame-search.v1',
@@ -1318,7 +1320,7 @@ describe('video-edit MCP server', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('endMs must be after startMs');
+    expect(toolResultText(result)).toContain('endMs must be after startMs');
   });
 
   it('does not persist partial timeline batches when a later op fails', async () => {
@@ -1356,7 +1358,7 @@ describe('video-edit MCP server', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Clip not found');
+    expect(toolResultText(result)).toContain('Clip not found');
 
     const { getProject } = await import('@/shared/video/store');
     const project = await getProject('project-1');
@@ -1389,7 +1391,7 @@ describe('video-edit MCP server', () => {
       { startMs: 0, endMs: 1000 },
       {},
     );
-    const windowPayload = JSON.parse(windowResult.content[0]?.text ?? '{}');
+    const windowPayload = JSON.parse(toolResultText(windowResult) ?? '{}');
 
     expect(windowPayload).toMatchObject({
       schema: 'neuma.video.timeline-window.v1',
@@ -1416,7 +1418,7 @@ describe('video-edit MCP server', () => {
       { query: 'asset-video' },
       {},
     );
-    const searchPayload = JSON.parse(searchResult.content[0]?.text ?? '{}');
+    const searchPayload = JSON.parse(toolResultText(searchResult) ?? '{}');
 
     expect(searchPayload).toMatchObject({
       schema: 'neuma.video.timeline-clip-search.v1',
@@ -1447,7 +1449,7 @@ describe('video-edit MCP server', () => {
     const tool = findTool('video_get_project_summary');
 
     const result = await tool.handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       id: 'project-1',
@@ -1480,7 +1482,7 @@ describe('video-edit MCP server', () => {
       { include: ['scene', 'selection', 'previewFrame', 'assets'] },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       schema: 'neuma.video.current-context.v1',
@@ -1515,7 +1517,7 @@ describe('video-edit MCP server', () => {
     const tool = findTool('video_get_scene');
 
     const result = await tool.handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload.sceneId).toBe('scene-1');
     expect(payload.storyboardScene.intent).toBe('Show the product in motion');
@@ -1526,7 +1528,7 @@ describe('video-edit MCP server', () => {
     const tool = findTool('video_list_assets');
 
     const result = await tool.handler({ kind: 'image', limit: 1 }, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload.total).toBe(1);
     expect(payload.assets).toEqual([
@@ -1559,7 +1561,7 @@ describe('video-edit MCP server', () => {
     await writeProject(project);
 
     const result = await findTool('video_list_assets').handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(result.isError).toBeUndefined();
     expect(payload.total).toBe(3);
@@ -1589,7 +1591,7 @@ describe('video-edit MCP server', () => {
     await writeProject(project);
 
     const result = await findTool('video_list_assets').handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(result.isError).toBeUndefined();
     // The other assets still list.
@@ -1615,7 +1617,7 @@ describe('video-edit MCP server', () => {
     await writeProject(project);
 
     const result = await findTool('video_list_assets').handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     const sensitive = payload.assets.find(
       (asset: { id: string }) => asset.id === 'asset-sensitive',
     );
@@ -1629,9 +1631,9 @@ describe('video-edit MCP server', () => {
 
     const result = await tool.handler({ sceneId: 'scene-1' }, {});
 
-    expect(result.content[0]?.text).toContain('Scene scene-1');
-    expect(result.content[0]?.text).toContain('Show the product in motion');
-    expect(result.content[0]?.text).toContain('Referenced assets: asset-video');
+    expect(toolResultText(result)).toContain('Scene scene-1');
+    expect(toolResultText(result)).toContain('Show the product in motion');
+    expect(toolResultText(result)).toContain('Referenced assets: asset-video');
   });
 
   it('reports missing scenes as tool errors', async () => {
@@ -1640,7 +1642,7 @@ describe('video-edit MCP server', () => {
     const result = await tool.handler({ sceneId: 'missing' }, {});
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Scene missing was not found');
+    expect(toolResultText(result)).toContain('Scene missing was not found');
   });
 
   it('reads the persisted content-graph via video_get_content_graph', async () => {
@@ -1648,8 +1650,9 @@ describe('video-edit MCP server', () => {
       await import('@/shared/video/content-graph/persistence');
     // Null before anything is written.
     const empty = JSON.parse(
-      (await findTool('video_get_content_graph').handler({}, {})).content[0]
-        ?.text ?? '{}',
+      toolResultText(
+        await findTool('video_get_content_graph').handler({}, {}),
+      ) || '{}',
     );
     expect(empty).toMatchObject({ projectId: 'project-1', graph: null });
 
@@ -1660,7 +1663,7 @@ describe('video-edit MCP server', () => {
       edges: [],
     });
     const result = await findTool('video_get_content_graph').handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.graph.nodes).toHaveLength(1);
     expect(payload.graph.nodes[0]).toMatchObject({ id: 'a', kind: 'text' });
   });
@@ -1690,7 +1693,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       projectId: 'project-1',
@@ -1759,7 +1762,7 @@ describe('video-edit MCP server', () => {
       },
       {},
     );
-    const saved = JSON.parse(saveResult.content[0]?.text ?? '{}');
+    const saved = JSON.parse(toolResultText(saveResult) ?? '{}');
     expect(saved.template).toMatchObject({
       displayName: 'Market recap card',
       engine: 'html',
@@ -1770,7 +1773,7 @@ describe('video-edit MCP server', () => {
       { engine: 'html' },
       {},
     );
-    const listed = JSON.parse(listResult.content[0]?.text ?? '{}');
+    const listed = JSON.parse(toolResultText(listResult) ?? '{}');
     expect(listed.templates).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1841,6 +1844,7 @@ function findTool(
 function projectFixture(): VideoProject {
   const now = '2026-05-31T00:00:00.000Z';
   return {
+    revision: 1,
     schemaVersion: 2,
     id: 'project-1',
     name: 'Launch clip',
@@ -2192,7 +2196,7 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
   it('lists the overlay catalog with tags and control schemas', async () => {
     const tool = findTool('video_list_overlay_presets');
     const result = await tool.handler({}, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.schema).toBe('neuma.video.overlay-presets.v1');
     expect(payload.presets.length).toBeGreaterThanOrEqual(60);
     const marker = payload.presets.find(
@@ -2222,7 +2226,7 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
     ]);
 
     const filtered = await tool.handler({ category: 'screen' }, {});
-    const screenPayload = JSON.parse(filtered.content[0]?.text ?? '{}');
+    const screenPayload = JSON.parse(toolResultText(filtered) ?? '{}');
     expect(
       screenPayload.presets.every(
         (preset: { category: string }) => preset.category === 'screen',
@@ -2246,7 +2250,7 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.schema).toBe('neuma.video.user-overlay-preset.v1');
     expect(payload.preset).toMatchObject({
       name: 'Reference lower third',
@@ -2282,7 +2286,7 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
       {},
     );
 
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.schema).toBe('neuma.video.user-overlay-style.v1');
     expect(payload.style).toMatchObject({
       name: 'Reference callout style',
@@ -2333,7 +2337,7 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
       {},
     );
 
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.schema).toBe('neuma.video.user-overlay-document.v1');
     expect(payload.document).toMatchObject({
       name: 'Custom badge',
@@ -2362,8 +2366,8 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('lint_failed');
-    expect(result.content[0]?.text).toContain('no-timers');
+    expect(toolResultText(result)).toContain('lint_failed');
+    expect(toolResultText(result)).toContain('no-timers');
   });
 
   it('returns a proposal instead of saving for external MCP clients', async () => {
@@ -2378,7 +2382,7 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload).toMatchObject({
       schema: 'neuma.video.mcp-proposal-required.v1',
       mode: 'proposal-only',
@@ -2397,6 +2401,6 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
       {},
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toMatch(/Unknown base preset/);
+    expect(toolResultText(result)).toMatch(/Unknown base preset/);
   });
 });

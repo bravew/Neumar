@@ -470,6 +470,7 @@ async function createAssetFiles(project: VideoProject): Promise<void> {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Remotion input',
     template: 'explainer',

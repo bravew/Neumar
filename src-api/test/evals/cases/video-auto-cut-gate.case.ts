@@ -159,6 +159,7 @@ function sourceAnalysis(): SourceMediaAnalysis {
 
 function importedProject(analysis: SourceMediaAnalysis): VideoProject {
   return {
+    revision: 1,
     id: 'video-auto-cut-gate',
     name: 'Auto-cut gate',
     template: 'custom',

@@ -137,6 +137,7 @@ const buildStoryboard = (scenes: StoryboardScene[]): Storyboard => ({
 });
 
 const buildProject = (storyboard?: Storyboard): VideoProject => ({
+  revision: 1,
   id: 'proj-1',
   name: 'Test',
   template: 'custom',

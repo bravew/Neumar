@@ -85,6 +85,7 @@ export default evalCase;
 function videoProject(id: string): VideoProject {
   const now = new Date(0).toISOString();
   return {
+    revision: 1,
     id,
     name: 'Catalog recall eval',
     template: 'custom',

@@ -500,6 +500,7 @@ describe('video timeline migration and EDL compilation', () => {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Timeline migration',
     template: 'explainer',

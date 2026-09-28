@@ -4,6 +4,8 @@ import { createVideoEditTools } from '@/shared/mcp/video-edit-server';
 import * as ingest from '@/shared/video/source/ingest';
 import { SourceIngestError } from '@/shared/video/source/ingest';
 
+import { toolResultText } from '../../helpers/tool-result-text';
+
 // Phase 4 M2 — `video_fetch_source` MCP read tool. Mocks `fetchSource` so the
 // test never touches the network; the SSRF-safe fetch itself is covered by the
 // source-ingest unit tests.
@@ -45,7 +47,7 @@ describe('video_fetch_source MCP tool', () => {
       { url: 'https://example.com/post' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload.source).toMatchObject({
       url: 'https://example.com/post',
@@ -72,6 +74,6 @@ describe('video_fetch_source MCP tool', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('ssrf-denied');
+    expect(toolResultText(result)).toContain('ssrf-denied');
   });
 });

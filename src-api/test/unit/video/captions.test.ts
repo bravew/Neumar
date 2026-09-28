@@ -40,6 +40,7 @@ describe('video captions', () => {
 
 function projectFixture(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Caption snapping',
     template: 'explainer',

@@ -8,6 +8,8 @@ import { createVideoEditTools } from '@/shared/mcp/video-edit-server';
 import { getProject, writeProject } from '@/shared/video/store';
 import type { VideoProject } from '@/shared/video/types';
 
+import { toolResultText } from '../../helpers/tool-result-text';
+
 /**
  * P2-2 / P2-4 — ref resolution now lives in the MCP dispatcher, so every
  * clip-taking tool understands the shared vocabulary; and batch ops can mint
@@ -44,7 +46,7 @@ describe('video-edit dispatcher ref resolution', () => {
       { clipIds: ['clipIndex:1'], speed: 2, applyMode: 'propose' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.ops?.[0]).toMatchObject({ clipId: 'clip-b' });
   });
 
@@ -55,7 +57,7 @@ describe('video-edit dispatcher ref resolution', () => {
       { clipIds: ['$selection'], speed: 0.5, applyMode: 'propose' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.ops?.[0]).toMatchObject({ clipId: 'clip-b' });
   });
 
@@ -68,7 +70,7 @@ describe('video-edit dispatcher ref resolution', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(JSON.stringify(payload)).toContain('clip-b');
     expect(JSON.stringify(payload)).not.toContain('atSec:4');
   });
@@ -79,8 +81,8 @@ describe('video-edit dispatcher ref resolution', () => {
       {},
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('video_set_clip_speed');
-    expect(result.content[0]?.text).toContain('atSec:99');
+    expect(toolResultText(result)).toContain('video_set_clip_speed');
+    expect(toolResultText(result)).toContain('atSec:99');
   });
 
   it('leaves literal ids untouched', async () => {
@@ -88,7 +90,7 @@ describe('video-edit dispatcher ref resolution', () => {
       { clipIds: ['clip-a'], speed: 1.5, applyMode: 'propose' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
     expect(payload.ops?.[0]).toMatchObject({ clipId: 'clip-a' });
   });
 });
@@ -139,7 +141,7 @@ describe('video_apply_timeline_ops symbolic keys', () => {
       {},
     );
     expect(result.isError).toBeUndefined();
-    const keys = JSON.parse(result.content.at(-1)?.text ?? '{}').symbolicKeys;
+    const keys = JSON.parse(toolResultText(result, -1) || '{}').symbolicKeys;
     expect(Object.keys(keys)).toEqual(['outro']);
 
     const project = await getProject('project-refs');
@@ -177,7 +179,7 @@ describe('video_apply_timeline_ops symbolic keys', () => {
       {},
     );
     expect(result.isError).toBeUndefined();
-    const keys = JSON.parse(result.content.at(-1)?.text ?? '{}').symbolicKeys;
+    const keys = JSON.parse(toolResultText(result, -1) || '{}').symbolicKeys;
     const project = await getProject('project-refs');
     const outro = project.timeline?.tracks[0]?.clips.find(
       (clip) => clip.id === keys.outro,
@@ -205,7 +207,7 @@ describe('video_apply_timeline_ops symbolic keys', () => {
       {},
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Duplicate symbolic key');
+    expect(toolResultText(result)).toContain('Duplicate symbolic key');
   });
 
   it('rejects a key on an op that creates no clip', async () => {
@@ -217,7 +219,7 @@ describe('video_apply_timeline_ops symbolic keys', () => {
       {},
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('clip-creating ops');
+    expect(toolResultText(result)).toContain('clip-creating ops');
   });
 
   it('rejects a $key: reference that was never minted', async () => {
@@ -236,7 +238,7 @@ describe('video_apply_timeline_ops symbolic keys', () => {
       {},
     );
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('ghost');
+    expect(toolResultText(result)).toContain('ghost');
   });
 
   it('still resolves clipIndex inside a batch', async () => {

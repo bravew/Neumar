@@ -14,6 +14,8 @@ import {
 import { buildYtDlpArgs } from '@/shared/video/source/ytdlp';
 import { createProject, getProject } from '@/shared/video/store';
 
+import { toolResultText } from '../../helpers/tool-result-text';
+
 const YOUTUBE_URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
 
 describe('YouTube b-roll atom', () => {
@@ -246,7 +248,7 @@ describe('YouTube b-roll atom', () => {
       { url: YOUTUBE_URL, rightsAcknowledged: true },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       projectId: project.id,

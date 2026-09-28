@@ -991,6 +991,7 @@ function filterGraph(args: string[]): string {
 
 function timelineCaptionProject(): VideoProject {
   return {
+    revision: 1,
     id: 'project-1',
     name: 'Timeline captions',
     template: 'explainer',

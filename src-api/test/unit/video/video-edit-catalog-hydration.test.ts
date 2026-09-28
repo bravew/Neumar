@@ -16,6 +16,8 @@ import { attachCatalogAssetToProject } from '@/shared/video/catalog-assets';
 import { createProject, getProject, writeProject } from '@/shared/video/store';
 import type { VideoProject } from '@/shared/video/types';
 
+import { toolResultText } from '../../helpers/tool-result-text';
+
 describe('video-edit MCP catalog hydration', () => {
   let homeDir: string;
   let workDir: string;
@@ -86,7 +88,7 @@ describe('video-edit MCP catalog hydration', () => {
       { assetId: referenced.asset.id, sceneId: 'scene-1' },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload.asset).toMatchObject({
       id: referenced.asset.id,
@@ -151,7 +153,7 @@ describe('video-edit MCP catalog hydration', () => {
 
     const tool = findTool(project.id, 'video_attach_asset');
     const result = await tool.handler({ assetId: referenced.asset.id }, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload.asset).toMatchObject({
       id: referenced.asset.id,
@@ -212,7 +214,7 @@ describe('video-edit MCP catalog hydration', () => {
       },
       {},
     );
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload).toMatchObject({
       projectId: project.id,
@@ -280,7 +282,7 @@ describe('video-edit MCP catalog hydration', () => {
 
     const tool = findTool(project.id, 'video_list_assets');
     const result = await tool.handler({ kind: 'image' }, {});
-    const payload = JSON.parse(result.content[0]?.text ?? '{}');
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
 
     expect(payload.assets).toEqual([
       expect.objectContaining({
