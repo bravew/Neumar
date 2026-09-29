@@ -2,6 +2,7 @@ import type { ModelInfo } from '@anthropic-ai/claude-agent-sdk';
 import { describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_MODEL_OPTION,
   getAgentDef,
   parseClaudeSupportedModels,
   parseCodexModelCatalog,
@@ -114,6 +115,37 @@ describe('parseClaudeSupportedModels', () => {
     expect(models.find((m) => m.id === 'claude-fable-5-1')).toMatchObject({
       label: 'Fable 5.1',
     });
+  });
+
+  it('does not promote description-only copy to the model label', () => {
+    const models = parseClaudeSupportedModels([
+      {
+        value: 'opus',
+        resolvedModel: 'claude-opus-5-5',
+        displayName: 'Opus 5.5',
+        description: 'For complex work and everyday tasks',
+      },
+      {
+        value: 'sonnet',
+        resolvedModel: 'claude-sonnet-5-5',
+        displayName: 'Sonnet 5.5',
+        description: 'Efficient for routine tasks',
+      },
+    ]);
+
+    expect(models).toEqual([
+      DEFAULT_MODEL_OPTION,
+      {
+        id: 'claude-opus-5-5',
+        label: 'Opus 5.5',
+        description: 'For complex work and everyday tasks',
+      },
+      {
+        id: 'claude-sonnet-5-5',
+        label: 'Sonnet 5.5',
+        description: 'Efficient for routine tasks',
+      },
+    ]);
   });
 
   it('returns null when the CLI reports nothing selectable', () => {
