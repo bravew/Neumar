@@ -35,14 +35,21 @@ export function parseClaudeSupportedModels(
     seen.add(id);
     // "Opus 5.5 · Best for everyday, complex tasks · ~2× usage" → the head
     // names the concrete version; `displayName` is only the family ("Opus").
+    // Some CLI versions instead return description-only copy such as
+    // "For complex work and everyday tasks". In that shape, keep the SDK's
+    // display name as the row label rather than promoting marketing copy.
     const [head, ...rest] = model.description
       .split(' · ')
       .map((part) => part.trim());
+    const descriptionIncludesLabel = rest.length > 0;
     const option: ModelOption = {
       id,
-      label: head || model.displayName || id,
+      label:
+        (descriptionIncludesLabel ? head : model.displayName?.trim()) || id,
     };
-    const description = head ? rest.join(' · ') : model.description.trim();
+    const description = descriptionIncludesLabel
+      ? rest.join(' · ')
+      : model.description.trim();
     if (description) option.description = description;
     if (model.supportedEffortLevels?.length) {
       option.compatibleReasoningTiers = [...model.supportedEffortLevels];
