@@ -312,7 +312,7 @@ function ProfileDetailContent() {
   if (loading) {
     return (
       <div className="bg-sidebar flex h-screen overflow-hidden">
-        <LeftSidebar tasks={[]} />
+        <LeftSidebar />
         <main className="bg-background my-2 mr-2 flex flex-1 items-center justify-center rounded-l-2xl shadow-sm">
           <Loader2 className="text-muted-foreground size-6 animate-spin" />
         </main>
@@ -325,7 +325,7 @@ function ProfileDetailContent() {
   if (isNew && form) {
     return (
       <div className="bg-sidebar flex h-screen overflow-hidden">
-        <LeftSidebar tasks={[]} />
+        <LeftSidebar />
         <main className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm">
           <ProfileWizard profileId={profileId!} initialForm={form} />
         </main>
@@ -336,7 +336,7 @@ function ProfileDetailContent() {
   if (notFound || !form || !profileId) {
     return (
       <div className="bg-sidebar flex h-screen overflow-hidden">
-        <LeftSidebar tasks={[]} />
+        <LeftSidebar />
         <main className="bg-background my-2 mr-2 flex flex-1 flex-col items-center justify-center gap-3 rounded-l-2xl shadow-sm">
           <motion.p
             initial={{ opacity: 0 }}
@@ -358,7 +358,7 @@ function ProfileDetailContent() {
 
   return (
     <div className="bg-sidebar flex h-screen overflow-hidden">
-      <LeftSidebar tasks={[]} />
+      <LeftSidebar />
 
       <motion.main
         initial={{ opacity: 0, x: 20 }}

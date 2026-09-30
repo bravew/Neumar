@@ -1417,7 +1417,6 @@ function TaskDetailContent() {
         >
           {/* Left Sidebar */}
           <LeftSidebar
-            tasks={allTasks}
             currentTaskId={taskId}
             onDeleteTask={handleDeleteTask}
             onToggleFavorite={handleToggleFavorite}

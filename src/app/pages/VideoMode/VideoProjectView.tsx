@@ -327,7 +327,7 @@ export function VideoProjectRoute() {
 function VideoProjectShell({ children }: { children: ReactNode }) {
   return (
     <div className="bg-sidebar flex h-screen overflow-hidden">
-      <LeftSidebar tasks={[]} />
+      <LeftSidebar />
       <main className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl shadow-sm">
         {children}
       </main>

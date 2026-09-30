@@ -127,7 +127,7 @@ function ProjectsContent() {
 
   return (
     <div className="bg-sidebar flex h-screen overflow-hidden">
-      <LeftSidebar tasks={[]} />
+      <LeftSidebar />
       <main
         className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm"
         data-testid="projects-page"

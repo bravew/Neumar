@@ -2,6 +2,7 @@ export default {
   newTask: 'नया कार्य',
   allTasks: 'हाल के कार्य',
   noTasksYet: 'अभी कोई कार्य नहीं — शुरू करने के लिए एक बनाएँ',
+  tasksLoadError: 'कार्य लोड नहीं हो सके',
   automation: 'स्वचालन',
   settings: 'सेटिंग्स',
   logOut: 'लॉग आउट',

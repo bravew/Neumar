@@ -2,6 +2,7 @@ export default {
   newTask: '新建任务',
   allTasks: '最近任务',
   noTasksYet: '暂无任务 — 开始一个新任务吧',
+  tasksLoadError: '无法加载任务',
   automation: '自动化',
   settings: '设置',
   logOut: '退出登录',

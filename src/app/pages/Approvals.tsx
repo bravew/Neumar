@@ -160,7 +160,7 @@ export function ApprovalsPage() {
   return (
     <SidebarProvider>
       <div className="flex h-svh overflow-hidden" data-testid="approvals-page">
-        <LeftSidebar tasks={[]} />
+        <LeftSidebar />
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="border-border border-b px-6 py-4">
             <div className="flex items-center gap-2">

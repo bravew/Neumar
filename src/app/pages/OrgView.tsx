@@ -133,7 +133,7 @@ function OrgViewContent() {
       className="bg-sidebar flex h-screen overflow-hidden"
       data-testid="org-page"
     >
-      <LeftSidebar tasks={[]} />
+      <LeftSidebar />
 
       <main className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm">
         {/* Header */}

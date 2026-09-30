@@ -32,7 +32,7 @@ export function VideoSettingsShell({
   return (
     <SidebarProvider>
       <div className="bg-sidebar flex h-screen overflow-hidden">
-        <LeftSidebar tasks={[]} />
+        <LeftSidebar />
         <main className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl shadow-sm">
           <header className="border-border flex items-center gap-3 border-b px-5 py-3">
             <button

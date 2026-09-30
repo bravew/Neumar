@@ -27,14 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { AssistantTemplate } from '@/config/assistant-templates';
-import type { Task } from '@/shared/db';
-import {
-  createSession,
-  deleteTask,
-  getAllTasks,
-  getTask,
-  updateTask,
-} from '@/shared/db';
+import { createSession, deleteTask, getTask, updateTask } from '@/shared/db';
 import {
   getSettingItem,
   getSettings,
@@ -82,7 +75,6 @@ function HomeContent() {
     preSelectProfileId?: string;
   } | null;
 
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [workDirs, setWorkDirs] = useState<string[]>(
     projectState?.projectWorkspace ? [projectState.projectWorkspace] : [],
@@ -195,19 +187,6 @@ function HomeContent() {
     return unsubscribe;
   }, []);
 
-  // Load tasks for sidebar
-  useEffect(() => {
-    async function loadTasks() {
-      try {
-        const allTasks = await getAllTasks();
-        setTasks(allTasks);
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to load tasks:', error);
-      }
-    }
-    loadTasks();
-  }, []);
-
   // Handle task deletion — wrapped in useCallback since it's passed as a prop to LeftSidebar
   const handleDeleteTask = useCallback(
     async (taskId: string, deleteFolder?: boolean) => {
@@ -217,7 +196,6 @@ function HomeContent() {
 
         // Delete task from database
         await deleteTask(taskId);
-        setTasks((prev) => prev.filter((t) => t.id !== taskId));
 
         // Delete session folder if requested (best-effort, errors are logged internally)
         // Pass per-task work_dir so the correct folder is targeted
@@ -237,9 +215,6 @@ function HomeContent() {
     async (taskId: string, favorite: boolean) => {
       try {
         await updateTask(taskId, { favorite });
-        setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, favorite } : t)),
-        );
       } catch (error) {
         if (import.meta.env.DEV) console.error('Failed to update task:', error);
       }
@@ -371,7 +346,6 @@ function HomeContent() {
     >
       {/* Left Sidebar */}
       <LeftSidebar
-        tasks={tasks}
         onDeleteTask={handleDeleteTask}
         onToggleFavorite={handleToggleFavorite}
         runningTaskIds={backgroundTasks
