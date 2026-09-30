@@ -55,7 +55,7 @@ function DashboardContent() {
       className="bg-sidebar flex h-screen overflow-hidden"
       data-testid="dashboard-page"
     >
-      <LeftSidebar tasks={[]} />
+      <LeftSidebar />
       <main className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm">
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-4xl px-6 py-8">

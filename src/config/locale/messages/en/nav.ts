@@ -2,6 +2,7 @@ export default {
   newTask: 'New task',
   allTasks: 'Recent tasks',
   noTasksYet: 'No tasks yet — start one to get going',
+  tasksLoadError: "Couldn't load tasks",
   automation: 'Automations',
   settings: 'Settings',
   logOut: 'Log out',

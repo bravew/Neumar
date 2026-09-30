@@ -2,6 +2,7 @@ export default {
   newTask: 'Nova tarefa',
   allTasks: 'Tarefas recentes',
   noTasksYet: 'Nenhuma tarefa ainda — comece uma para começar',
+  tasksLoadError: 'Não foi possível carregar as tarefas',
   automation: 'Automações',
   settings: 'Configurações',
   logOut: 'Sair',

@@ -152,7 +152,7 @@ function ProjectDetailContent() {
   if (loading) {
     return (
       <div className="bg-sidebar flex h-screen overflow-hidden">
-        <LeftSidebar tasks={[]} />
+        <LeftSidebar />
         <main className="bg-background my-2 mr-2 flex flex-1 items-center justify-center overflow-hidden rounded-l-2xl shadow-sm">
           <Loader2 className="text-muted-foreground size-6 animate-spin" />
         </main>
@@ -163,7 +163,7 @@ function ProjectDetailContent() {
   if (!project) {
     return (
       <div className="bg-sidebar flex h-screen overflow-hidden">
-        <LeftSidebar tasks={[]} />
+        <LeftSidebar />
         <main className="bg-background my-2 mr-2 flex flex-1 items-center justify-center overflow-hidden rounded-l-2xl shadow-sm">
           <p className="text-muted-foreground">{t.projects.notFound}</p>
         </main>
@@ -173,7 +173,7 @@ function ProjectDetailContent() {
 
   return (
     <div className="bg-sidebar flex h-screen overflow-hidden">
-      <LeftSidebar tasks={[]} />
+      <LeftSidebar />
       <main
         className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm"
         data-testid="project-detail"

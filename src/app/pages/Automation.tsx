@@ -13,8 +13,7 @@ import { AutomationDetail } from '@/components/automation/AutomationDetail';
 import { AutomationList } from '@/components/automation/AutomationList';
 import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { API_BASE_URL } from '@/config';
-import type { Task } from '@/shared/db';
-import { deleteTask, getAllTasks, getTask, updateTask } from '@/shared/db';
+import { deleteTask, getTask, updateTask } from '@/shared/db';
 import { useAutomations } from '@/shared/hooks/useAutomation';
 import {
   subscribeToBackgroundTasks,
@@ -36,7 +35,6 @@ export function AutomationPage() {
 
 function AutomationContent() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [selectedAutomationId, setSelectedAutomationId] = useState<
     string | null
@@ -76,25 +74,11 @@ function AutomationContent() {
     return unsubscribe;
   }, []);
 
-  // Load tasks for sidebar
-  useEffect(() => {
-    async function loadTasks() {
-      try {
-        const allTasks = await getAllTasks();
-        setTasks(allTasks);
-      } catch {
-        // Sidebar task loading is non-critical
-      }
-    }
-    loadTasks();
-  }, []);
-
   const handleDeleteTask = useCallback(
     async (taskId: string, deleteFolder?: boolean) => {
       try {
         const task = await getTask(taskId);
         await deleteTask(taskId);
-        setTasks((prev) => prev.filter((t) => t.id !== taskId));
         if (deleteFolder && task) {
           await deleteSessionFolder(task.id, task.work_dir, task.session_id);
         }
@@ -109,9 +93,6 @@ function AutomationContent() {
     async (taskId: string, favorite: boolean) => {
       try {
         await updateTask(taskId, { favorite });
-        setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, favorite } : t)),
-        );
       } catch {
         // Sidebar favorite toggle is non-critical
       }
@@ -178,7 +159,6 @@ function AutomationContent() {
       data-testid="automation-page"
     >
       <LeftSidebar
-        tasks={tasks}
         onDeleteTask={handleDeleteTask}
         onToggleFavorite={handleToggleFavorite}
         runningTaskIds={backgroundTasks

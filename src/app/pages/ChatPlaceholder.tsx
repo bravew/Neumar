@@ -18,7 +18,7 @@ export function ChatPlaceholderPage() {
   return (
     <SidebarProvider>
       <div className="bg-sidebar flex h-screen overflow-hidden">
-        <LeftSidebar tasks={[]} />
+        <LeftSidebar />
         <main className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-2xl p-8 text-center shadow-sm">
           <div className="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-xl">
             <MessageCircle className="size-6" />

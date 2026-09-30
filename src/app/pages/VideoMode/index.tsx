@@ -288,7 +288,7 @@ export function VideoModeRoute() {
     <SidebarProvider>
       <div className="bg-sidebar flex h-screen overflow-hidden">
         <div className="hidden md:block">
-          <LeftSidebar tasks={[]} />
+          <LeftSidebar />
         </div>
         <main className="bg-background flex min-w-0 flex-1 flex-col overflow-hidden shadow-sm md:my-2 md:mr-2 md:rounded-2xl">
           <section className="flex flex-1 flex-col overflow-auto px-4 py-5 sm:px-6 sm:py-6">

@@ -195,7 +195,6 @@ function LibraryContent() {
       data-testid="library-page"
     >
       <LeftSidebar
-        tasks={tasks}
         onDeleteTask={handleDeleteTask}
         onToggleFavorite={handleToggleFavorite}
         runningTaskIds={runningTaskIds}

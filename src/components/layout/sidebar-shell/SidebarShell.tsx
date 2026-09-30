@@ -7,7 +7,6 @@ import { PanelLeft, PanelLeftOpen } from 'lucide-react';
 import ImageLogo from '@/assets/logo.png';
 import { useSidebar } from '@/components/layout/sidebar-context';
 import { APP_NAME } from '@/config';
-import type { Task } from '@/shared/db';
 import { useShortcut } from '@/shared/hotkeys/useShortcut';
 import { cn } from '@/shared/lib/utils';
 import { useMode } from '@/shared/modes/useMode';
@@ -20,7 +19,6 @@ import { SidebarRecents } from './SidebarRecents';
 import { SidebarSections } from './SidebarSections';
 
 interface SidebarShellProps {
-  tasks: Task[];
   currentTaskId?: string;
   onDeleteTask?: (taskId: string, deleteFolder?: boolean) => void;
   onToggleFavorite?: (taskId: string, favorite: boolean) => void;
@@ -28,7 +26,6 @@ interface SidebarShellProps {
 }
 
 export function SidebarShell({
-  tasks,
   currentTaskId,
   onDeleteTask,
   onToggleFavorite,
@@ -168,7 +165,6 @@ export function SidebarShell({
         <SidebarSections sections={activeMode.sidebar.sections} />
         <div className="bg-sidebar-border/60 my-3 h-px shrink-0" />
         <SidebarRecents
-          tasks={tasks}
           currentTaskId={currentTaskId}
           runningTaskIds={runningTaskIds}
           onDeleteTask={onDeleteTask}

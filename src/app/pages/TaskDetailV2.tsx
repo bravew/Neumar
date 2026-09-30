@@ -63,7 +63,7 @@ const PREVIEW_SIZE_KEY = 'task-v2-preview-size';
  */
 export function TaskDetailV2Page() {
   const { taskId } = useParams<{ taskId: string }>();
-  const { allTasks, handleDeleteTask, handleToggleFavorite, addTask } =
+  const { handleDeleteTask, handleToggleFavorite, addTask } =
     useV2TaskLoader(taskId);
   const runningTaskIds = useThreadStore(selectRunningTaskIds);
 
@@ -426,7 +426,6 @@ export function TaskDetailV2Page() {
         />
         <div className="bg-sidebar flex h-svh overflow-hidden">
           <LeftSidebar
-            tasks={allTasks}
             currentTaskId={taskId}
             onDeleteTask={handleDeleteTask}
             onToggleFavorite={handleToggleFavorite}
