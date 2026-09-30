@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { SettingsModal } from '@/components/settings';
+import { openSettings } from '@/components/settings/openSettings';
 import {
   getSettings,
   saveSettings,
@@ -43,7 +43,6 @@ import {
 export function PetOverlayRoot() {
   const settings = useSettingsValue();
   const runningTaskIds = useThreadStore(selectRunningTaskIds);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [backgroundRunningIds, setBackgroundRunningIds] = useState<string[]>(
     [],
   );
@@ -134,7 +133,7 @@ export function PetOverlayRoot() {
         },
       );
       unlistenOpenSettings = await listen(PET_EVENT_OPEN_SETTINGS, () => {
-        setSettingsOpen(true);
+        openSettings('pets');
       });
     }
 
@@ -281,11 +280,6 @@ export function PetOverlayRoot() {
 
   return (
     <>
-      <SettingsModal
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        initialCategory="pets"
-      />
       {petSettings.enabled &&
         !isNative &&
         createPortal(
@@ -294,7 +288,7 @@ export function PetOverlayRoot() {
             settings={petSettings}
             isAgentRunning={isAgentRunning}
             onDisable={() => updatePetSettings({ enabled: false })}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={() => openSettings('pets')}
             onPositionChange={handlePositionChange}
           />,
           document.body,

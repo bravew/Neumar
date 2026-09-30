@@ -14,35 +14,37 @@ export type {
   TaskType,
 };
 
-// Settings category type
-export type SettingsCategory =
-  | 'account'
-  | 'general'
-  | 'workplace'
-  | 'model'
-  | 'agentRuntimes'
-  | 'mcp'
-  | 'skills'
-  | 'plugins'
-  | 'modes'
-  | 'pets'
-  | 'designMode'
-  | 'connector'
-  | 'channels'
-  | 'memory'
-  | 'speech'
-  | 'search'
-  | 'keyboard'
-  | 'publish'
-  | 'usage'
-  | 'data'
-  | 'about'
-  | 'theme'
-  | 'profiles'
-  | 'secrets'
-  | 'permissions'
-  | 'hooks'
-  | 'advanced';
+export const SETTINGS_CATEGORIES = [
+  'account',
+  'general',
+  'workplace',
+  'model',
+  'agentRuntimes',
+  'mcp',
+  'skills',
+  'plugins',
+  'modes',
+  'pets',
+  'designMode',
+  'connector',
+  'channels',
+  'memory',
+  'speech',
+  'search',
+  'keyboard',
+  'publish',
+  'usage',
+  'data',
+  'about',
+  'theme',
+  'profiles',
+  'secrets',
+  'permissions',
+  'hooks',
+  'advanced',
+] as const;
+
+export type SettingsCategory = (typeof SETTINGS_CATEGORIES)[number];
 
 // Common props for settings tabs
 export interface SettingsTabProps {
