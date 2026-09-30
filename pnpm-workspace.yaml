@@ -80,7 +80,12 @@ overrides:
   # is outside the >=6.0.0 floor above but still matches these advisories'
   # vulnerable range. Vertex is transitive-only (unused by this app), so the
   # major bump to 6.28.0 has no reachable code path to regress.
-  'undici@<6.28.0': '6.28.0'
+  # Raised 2026-09-29: 6.28.0 matches GHSA-rfgv-xxqx-mfg5 (unrequested
+  # WebSocket subprotocol DoS, fixed at 6.28.1); 7.x <7.29.1 matches that and
+  # GHSA-w293-vg96-wgc3 (BalancedPool TLS validation bypass). `pnpm install`
+  # does not re-resolve inside an already-satisfied range, so the pins move.
+  'undici@<6.28.1': '6.28.1'
+  'undici@>=7.0.0 <7.29.1': '7.29.1'
   # GHSA-xcpc-8h2w-3j85 and GHSA-7q85-xj36-vmfc — adm-zip allocates from the
   # declared uncompressed size before validating it. Bundled by onnxruntime-node
   # (unpacks native binaries at install time) and hyperframes. Raised the floor
