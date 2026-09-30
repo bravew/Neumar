@@ -25,8 +25,6 @@ import type {
 
 import { toolResultText } from '../../helpers/tool-result-text';
 
-import { toolResultText } from '../../helpers/tool-result-text';
-
 describe('video-edit MCP server', () => {
   let workDir: string;
 
