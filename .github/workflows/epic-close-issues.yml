@@ -1,0 +1,77 @@
+name: Close epic sub-issues
+
+# ABOUT THIS WORKFLOW
+# - Purpose: GitHub only closes issues from "Closes #N" when a PR merges into the
+#   default branch. Epic work merges sub-issue PRs into an `epic/<issue>-<slug>`
+#   branch first, so this closes the referenced issues when such a PR merges.
+# - Trigger: a PR into `epic/**` is closed as merged. The workflow file is read
+#   from the base branch, so it must exist on the epic branch.
+# - Keywords: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved,
+#   followed by a same-repository `#N`. Pull requests, already-closed issues, and
+#   the epic's own issue (the number in the branch name) are skipped. The epic
+#   closes when the final PR merges the epic branch into `main`.
+# - Security: uses `pull_request`, not `pull_request_target`, so it never runs
+#   with write access for fork PRs. The PR body is read from the event file and
+#   only numeric issue ids are passed to `gh`.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: ['epic/**']
+
+permissions:
+  issues: write
+
+jobs:
+  close:
+    name: Close referenced issues
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Close issues referenced with closing keywords
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+
+          epic_issue=''
+          if [[ "$BASE_REF" =~ ^epic/([0-9]+) ]]; then
+            epic_issue="${BASH_REMATCH[1]}"
+          fi
+
+          body="$(jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH")"
+          numbers="$(printf '%s\n' "$body" \
+            | grep -oiE '\b(close[sd]?|fix(e[sd])?|resolve[sd]?):?[[:space:]]+#[0-9]+\b' \
+            | grep -oE '[0-9]+$' | sort -un || true)"
+
+          if [ -z "$numbers" ]; then
+            echo "No closing keywords found in PR #$PR_NUMBER."
+            exit 0
+          fi
+
+          for n in $numbers; do
+            if [ "$n" = "$epic_issue" ]; then
+              echo "#$n is the epic; it closes with the final PR into main."
+              continue
+            fi
+            if ! info="$(gh api "repos/$REPO/issues/$n" --jq '[.state, (.pull_request != null)] | @tsv')"; then
+              echo "::warning::#$n was not found; skipping."
+              continue
+            fi
+            state="${info%%$'\t'*}"
+            is_pr="${info##*$'\t'}"
+            if [ "$is_pr" = 'true' ]; then
+              echo "#$n is a pull request; skipping."
+              continue
+            fi
+            if [ "$state" != 'open' ]; then
+              echo "#$n is already $state."
+              continue
+            fi
+            gh issue close "$n" --repo "$REPO" --reason completed \
+              --comment "Merged into \`$BASE_REF\` in #$PR_NUMBER."
+          done
