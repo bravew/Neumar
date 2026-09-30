@@ -823,6 +823,10 @@ export interface Settings {
 
   // Feature flags
   advancedMode: boolean; // Enable advanced/experimental features (Org View, etc.)
+  // Client view state. Not synced. Sub-keys are merged in sanitizeSettings.
+  ui: {
+    simpleShell: boolean;
+  };
   artifactsV2: boolean; // Enable Phase-3 live artifacts + generative-UI pipeline
 }
 
@@ -1546,6 +1550,9 @@ export const defaultSettings: Settings = {
   },
   advancedMode: false,
   artifactsV2: false,
+  ui: {
+    simpleShell: false,
+  },
 };
 
 const DB_NAME = `sqlite:${APP_DB_NAME}`;
@@ -1661,9 +1668,15 @@ function sanitizeSettings(settings: Settings): Settings {
   } as Settings['connectors'] & { platformV2?: unknown };
   delete connectors.platformV2;
 
+  const ui = {
+    ...defaultSettings.ui,
+    ...settings.ui,
+  };
+
   return {
     ...settings,
     connectors,
+    ui,
   };
 }
 

@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import { Link } from 'react-router-dom';
 
 import { cjk } from '@streamdown/cjk';
@@ -20,7 +18,7 @@ import {
 } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 
-import { SettingsModal } from '@/components/settings';
+import { openSettings } from '@/components/settings/openSettings';
 import { TAURI_LINK_SAFETY } from '@/components/task/LinkSafetyModal';
 import { Button } from '@/components/ui/button';
 import type { AgentMessage } from '@/shared/hooks/useAgent';
@@ -115,7 +113,6 @@ function ErrorMessage({
   subtype?: string;
 }) {
   const { t } = useLanguage();
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Context overflow — show actionable error with suggestions
   if (subtype === 'context_length_exceeded') {
@@ -149,18 +146,13 @@ function ErrorMessage({
               variant="outline"
               size="sm"
               className="w-fit"
-              onClick={() => setSettingsOpen(true)}
+              onClick={() => openSettings('model')}
             >
               <Settings className="mr-2 size-4" />
               {t.common.errors.contextOverflowSwitchModel || 'Switch Model'}
             </Button>
           </div>
         </div>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          initialCategory="model"
-        />
       </>
     );
   }
@@ -178,17 +170,12 @@ function ErrorMessage({
             variant="outline"
             size="sm"
             className="w-fit"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => openSettings('model')}
           >
             <Settings className="mr-2 size-4" />
             {t.common.errors.configureModel}
           </Button>
         </div>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          initialCategory="model"
-        />
       </>
     );
   }
@@ -206,17 +193,12 @@ function ErrorMessage({
             variant="outline"
             size="sm"
             className="w-fit"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => openSettings('model')}
           >
             <Settings className="mr-2 size-4" />
             {t.common.errors.configureModel}
           </Button>
         </div>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          initialCategory="model"
-        />
       </>
     );
   }
@@ -234,17 +216,12 @@ function ErrorMessage({
             variant="outline"
             size="sm"
             className="w-fit"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => openSettings('model')}
           >
             <Settings className="mr-2 size-4" />
             {t.common.errors.configureApiKey}
           </Button>
         </div>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          initialCategory="model"
-        />
       </>
     );
   }
@@ -265,17 +242,12 @@ function ErrorMessage({
             variant="outline"
             size="sm"
             className="w-fit"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => openSettings('model')}
           >
             <Settings className="mr-2 size-4" />
             {t.common.errors.configureApiKey}
           </Button>
         </div>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          initialCategory="model"
-        />
       </>
     );
   }

@@ -4,6 +4,7 @@ import { AutomationNotification } from '@/components/automation/AutomationNotifi
 import { PetOverlayRoot } from '@/components/pets/PetOverlayRoot';
 import { SearchCommandDialog } from '@/components/search';
 import { UpdateNotification } from '@/components/settings/components/UpdateNotification';
+import { SettingsHost } from '@/components/settings/SettingsHost';
 import { BuiltinShortcuts } from '@/components/shortcuts/BuiltinShortcuts';
 import { ShortcutOverlay } from '@/components/shortcuts/ShortcutOverlay';
 import { HotkeyProvider } from '@/shared/hotkeys/HotkeyProvider';
@@ -25,6 +26,7 @@ export function AppRouteProviders() {
         <AutomationNotification />
         <UpdateNotification />
         <PetOverlayRoot />
+        <SettingsHost />
       </HotkeyProvider>
     </ModeProvider>
   );

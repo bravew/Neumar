@@ -4,7 +4,6 @@ import { ArrowLeft, Settings } from 'lucide-react';
 
 import ImageLogo from '@/assets/logo.png';
 import { ActivePluginChip } from '@/components/plugins/ActivePluginChip';
-import { SettingsModal } from '@/components/settings';
 import { APP_NAME } from '@/config';
 import {
   DEFAULT_DESIGN_MODE_SETTINGS,
@@ -48,13 +47,7 @@ import { useEntrySettingsPanel } from './useEntrySettingsPanel';
 
 export function DesignEntryView() {
   const { t, language } = useLanguage();
-  const {
-    location,
-    navigate,
-    settingsOpen,
-    openSettings,
-    onSettingsOpenChange,
-  } = useEntrySettingsPanel();
+  const { location, navigate, openSettings } = useEntrySettingsPanel();
   const { projects, loading, refresh, setProjects } = useDesignProjects();
   const catalogs = useDesignCatalogs('prototype');
   const initialPanelSurface = useMemo(
@@ -346,11 +339,6 @@ export function DesignEntryView() {
           )}
         </main>
       </div>
-      <SettingsModal
-        open={settingsOpen}
-        onOpenChange={onSettingsOpenChange}
-        initialCategory="designMode"
-      />
       <PromptTemplatePreviewModal
         template={previewTemplate}
         creating={creatingTemplate}
