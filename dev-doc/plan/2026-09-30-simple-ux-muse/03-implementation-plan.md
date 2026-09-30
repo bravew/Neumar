@@ -34,6 +34,9 @@ Conventions that apply to every phase:
   put user-triggered work in event handlers.
 - **Evidence.** Each phase's PR includes before/after screenshots at 1280×800 and
   390×844.
+- **Branches.** Every PR targets `epic/130-simple-ux`, not `main`. Branch from
+  `origin/epic/130-simple-ux` and put `Closes #<issue>` in the PR body. The
+  README's *Branch and PR flow* covers syncing `main` and the final PR.
 
 ---
 

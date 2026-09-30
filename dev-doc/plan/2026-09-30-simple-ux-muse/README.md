@@ -7,6 +7,7 @@ Reviewed against the tree: 2026-09-30 (commit `8b3fac7`, second pass)
 Owner: Frontend
 Status: Approved for implementation. Review decisions recorded in [Review log](#review-log-2026-09-30)
 Tracking: epic [#130](https://github.com/bravew/Neumar/issues/130); see [Issues](#issues)
+Integration branch: `epic/130-simple-ux`; see [Branch and PR flow](#branch-and-pr-flow)
 Reference: <https://muse.ai/> (Meta's personal agent), examined first-hand on 2026-09-30
 alongside the local app at `http://localhost:3420/`
 
@@ -162,8 +163,8 @@ user-visible string ships in all six locales.
 
 ### Issues
 
-Each issue is one PR. The epic (#130) lists the waves, hotspot files, and
-open decisions. GitHub records the blocked-by links.
+Each issue is one PR into the epic branch. The epic (#130) lists the waves,
+hotspot files, and open decisions. GitHub records the blocked-by links.
 
 | Phase | Issues |
 |---|---|
@@ -177,6 +178,30 @@ open decisions. GitHub records the blocked-by links.
 | 7 | #127 unified onboarding |
 | 8 | #128 rollout and cleanup |
 | Follow-up | #129 turn-level rewind |
+
+### Branch and PR flow
+
+All work integrates on `epic/130-simple-ux` (created from `main` at
+`8b3fac7`) and reaches `main` in one final PR.
+
+1. **Sub-issue PRs.** Create a worktree and branch from
+   `origin/epic/130-simple-ux`, named `<type>/<issue>-<slug>` (for example
+   `fix/108-recents-false-empty`). Open the PR with base `epic/130-simple-ux`
+   and `Closes #<issue>` in the body. Squash-merge it.
+2. **Closing issues.** GitHub acts on `Closes #N` only for PRs into the
+   default branch. `.github/workflows/epic-close-issues.yml` (#132) closes the
+   referenced issues when a PR merges into `epic/**`. It must be on the epic
+   branch before the first sub-issue PR merges, so #132 and this plan (#131)
+   merge first.
+3. **Staying current.** Merge `main` into the epic branch with a merge commit
+   (not a rebase; the branch is shared) at least once per wave and before the
+   final PR. Do it through a `chore/130-sync-main` PR when there are conflicts.
+   Never force-push the epic branch.
+4. **Final PR.** When every sub-issue except #129 is closed, open
+   `epic/130-simple-ux` → `main`. The `main` ruleset allows only squash
+   merges, so the epic lands as one commit. Its body lists every sub-PR and
+   `Closes #130`. Keep the epic branch afterwards as the per-issue history. Do
+   not delete it.
 
 ## Success measures
 
