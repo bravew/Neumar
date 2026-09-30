@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+
+## 26.9.10 — 2026-09-30
+
+### Added
+- **mcp**: per-server timeouts and interrupt semantics (#96)
+- **chat**: back conversation branches with forked SDK sessions (#93)
+- **channels**: send channel and scheduled prompts verbatim (#92)
+- **agent**: surface new Claude SDK stream signals (#91)
+- **agent-runtimes**: Codex GPT-6 models, persistent effort, cache-write usage (#89)
+- **codex**: forward user images as local_image input (#88)
+- **codex**: honor outputFormat via TurnOptions.outputSchema (#87)
+- **ui**: React 19.3 <ViewTransition> for route and panel transitions (#84)
+- **codex**: per-tool output limits for bridged MCP servers (#82)
+- **codex**: stream item.started/item.updated and render todo_list (#81)
+
+### Fixed
+- **api**: remove duplicate test import; pin patched undici (#105)
+- **models**: show Claude model names in picker (#104)
+- **api**: clear the remaining API test typecheck errors (#103)
+- **desktop**: ship tray-icon 0.25 and repair test types (#102)
+- **agent**: close headless, cost, and branch gaps (#101)
+- **agent**: deny headless permission asks and un-shadow canUseTool (#90)
+- **deps**: upgrade claude-agent-sdk to 0.3.283 with Zod-safe MCP schemas (#80)
+
+### Performance
+- **agent**: measure and cut Claude first-turn latency (#95)
 ## Unreleased
 
 ## [26.9.9] - 2026-09-09
