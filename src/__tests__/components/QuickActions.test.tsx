@@ -1,11 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { QuickActions } from '@/components/home/QuickActions';
 
-// Mock language provider with category labels and item prompts
-// Build mock translation object matching the real locale structure:
-// t.home.quickActionCategories.<category>.label / .items.<item>.label / .prompt
 const makeItems = (items: Record<string, { label: string; prompt: string }>) =>
   items;
 
@@ -13,6 +11,7 @@ vi.mock('@/shared/providers/language-provider', () => ({
   useLanguage: () => ({
     t: {
       home: {
+        quickActions: { moreIdeas: 'More ideas', back: 'Back' },
         quickActionCategories: {
           write: {
             label: 'Write',
@@ -83,49 +82,36 @@ vi.mock('@/shared/providers/language-provider', () => ({
 }));
 
 describe('QuickActions', () => {
-  it('renders category pills', () => {
-    render(<QuickActions onSelectPrompt={vi.fn()} />);
-    expect(screen.getByText('Write')).toBeInTheDocument();
-    expect(screen.getByText('Code')).toBeInTheDocument();
-    expect(screen.getByText('Analyze')).toBeInTheDocument();
-  });
-
-  it('expands panel when category is clicked', () => {
-    render(<QuickActions onSelectPrompt={vi.fn()} />);
-    fireEvent.click(screen.getByText('Write'));
-    // Sub-items should appear
-    expect(screen.getByText('Draft email')).toBeInTheDocument();
-  });
-
-  it('collapses panel when same category is clicked again', () => {
+  it('shows one More ideas trigger and hides category labels until opened', async () => {
+    const user = userEvent.setup();
     render(<QuickActions onSelectPrompt={vi.fn()} />);
 
-    // Open — click the first "Write" button (the pill)
-    fireEvent.click(screen.getAllByText('Write')[0]!);
-    expect(screen.getByText('Draft email')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'More ideas' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Analyze' })).toBeNull();
 
-    // Close — click the pill again
-    fireEvent.click(screen.getAllByText('Write')[0]!);
-    // AnimatePresence will remove items asynchronously
+    await user.click(screen.getByRole('button', { name: 'More ideas' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Write' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Analyze' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: 'Draft email' }),
+    ).not.toBeInTheDocument();
   });
 
-  it('calls onSelectPrompt when item is clicked', () => {
+  it('calls onSelectPrompt with the chosen idea and closes the menu', async () => {
+    const user = userEvent.setup();
     const onSelect = vi.fn();
     render(<QuickActions onSelectPrompt={onSelect} />);
 
-    fireEvent.click(screen.getByText('Write'));
-    fireEvent.click(screen.getByText('Draft email'));
+    await user.click(screen.getByRole('button', { name: 'More ideas' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Write' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Draft email' }));
 
     expect(onSelect).toHaveBeenCalledWith('Draft an email about...');
-  });
-
-  it('closes panel when Escape is pressed', () => {
-    render(<QuickActions onSelectPrompt={vi.fn()} />);
-
-    fireEvent.click(screen.getByText('Code'));
-    expect(screen.getByText('Build feature')).toBeInTheDocument();
-
-    fireEvent.keyDown(document, { key: 'Escape' });
-    // Panel should close
+    expect(screen.queryByRole('menuitem', { name: 'Draft email' })).toBeNull();
   });
 });

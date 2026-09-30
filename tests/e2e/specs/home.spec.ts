@@ -9,6 +9,49 @@ import { test, expect } from '../fixtures/base';
  * - Mock LLM responses via page.route() for deterministic results
  * - One logical assertion per test
  */
+test.describe('Home first paint', () => {
+  test('greeting and composer frame are present on the first sampled frame', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const sample = () => {
+        const root = document.documentElement;
+        const greeting = document.querySelector(
+          '[data-testid="home-greeting"]',
+        );
+        const composer = document.querySelector(
+          '[data-testid="home-composer-frame"]',
+        );
+        if (root.dataset.homeGreetingOpacity) return;
+        if (
+          !(greeting instanceof HTMLElement) ||
+          !(composer instanceof HTMLElement)
+        ) {
+          requestAnimationFrame(sample);
+          return;
+        }
+        root.dataset.homeGreetingOpacity = getComputedStyle(greeting).opacity;
+        root.dataset.homeComposerOpacity = getComputedStyle(composer).opacity;
+      };
+      requestAnimationFrame(sample);
+    });
+
+    await page.goto('/');
+    await expect(page.getByTestId('home-greeting')).toBeVisible();
+    await expect(page.getByTestId('home-composer-frame')).toBeVisible();
+    const row = page.getByTestId('home-suggestion-row');
+    await expect(row).toBeVisible();
+    await expect(row.getByRole('button')).toHaveCount(6);
+
+    const frame = await page.evaluate(() => ({
+      greetingOpacity: document.documentElement.dataset.homeGreetingOpacity,
+      composerOpacity: document.documentElement.dataset.homeComposerOpacity,
+    }));
+    expect(frame.greetingOpacity).toBe('1');
+    expect(frame.composerOpacity).toBe('1');
+  });
+});
+
 test.describe('Home Page', () => {
   test.beforeEach(async ({ homePage }) => {
     await homePage.goto();

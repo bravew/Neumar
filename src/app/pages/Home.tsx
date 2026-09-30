@@ -3,13 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { BookTemplate, ChevronDown, User, X as XIcon } from 'lucide-react';
-import { motion } from 'motion/react';
 
 import { BackgroundTasksSection } from '@/components/home/BackgroundTasksSection';
 import { BudgetBanner } from '@/components/home/BudgetBanner';
 import { HomeGreeting } from '@/components/home/HomeGreeting';
-import { QuickActions } from '@/components/home/QuickActions';
-import { StarterChips } from '@/components/home/StarterChips';
+import { HomeSuggestionRow } from '@/components/home/HomeSuggestionRow';
 import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { ActivePluginChip } from '@/components/plugins/ActivePluginChip';
 import { AvatarSvg } from '@/components/profiles/avatar-options';
@@ -28,7 +26,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DURATION, EASE, STAGGER } from '@/config/animation';
 import type { AssistantTemplate } from '@/config/assistant-templates';
 import type { Task } from '@/shared/db';
 import {
@@ -389,42 +386,13 @@ function HomeContent() {
         <div className="flex flex-1 flex-col items-center justify-center overflow-auto px-4 py-6">
           <ParallelTaskDashboard />
           <BackgroundTasksSection />
-          <motion.div
-            className="flex w-full max-w-2xl flex-col items-center gap-6"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: {},
-              visible: {
-                transition: { staggerChildren: STAGGER.slow },
-              },
-            }}
-          >
-            <motion.div
-              className="text-center"
-              variants={{
-                hidden: { opacity: 0 },
-                visible: {
-                  opacity: 1,
-                  transition: { duration: DURATION.slow, ease: EASE.out },
-                },
-              }}
-            >
+          <div className="flex w-full max-w-2xl flex-col items-center gap-6">
+            <div className="text-center">
               <HomeGreeting />
-            </motion.div>
+            </div>
 
-            {/* Input Box — slides up after title */}
-            <motion.div
-              className="w-full"
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: {
-                  opacity: 1,
-                  y: 0,
-                  transition: { duration: DURATION.moderate, ease: EASE.out },
-                },
-              }}
-            >
+            {/* Composer frame is static so the first paint is never blank. */}
+            <div className="w-full" data-testid="home-composer-frame">
               {/* Project context badge */}
               {projectState?.projectName && (
                 <div className="bg-accent/50 border-border mb-2 flex items-center gap-2 self-start rounded-lg border px-3 py-1.5 text-sm">
@@ -468,12 +436,14 @@ function HomeContent() {
                 initialSkills={profileSkills}
               />
 
-              <div className="mt-3">
-                <StarterChips
-                  chips={activeMode.composer?.starterChips ?? []}
-                  onSelect={handleStarterChip}
-                />
-              </div>
+              <HomeSuggestionRow
+                chips={activeMode.composer?.starterChips ?? []}
+                onSelectChip={handleStarterChip}
+                onSelectPrompt={(prompt) => {
+                  setPrefillValue(prompt);
+                  setPrefillNonce((n) => n + 1);
+                }}
+              />
 
               {/* Agent profile + Template row */}
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
@@ -552,32 +522,8 @@ function HomeContent() {
                   {t.templates.startWithTemplate}
                 </button>
               </div>
-            </motion.div>
-
-            {/* Quick action categories — below chat input */}
-            <motion.div
-              className="w-full"
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: {
-                  opacity: 1,
-                  y: 0,
-                  transition: {
-                    duration: DURATION.moderate,
-                    ease: EASE.out,
-                    delay: STAGGER.slow * 4,
-                  },
-                },
-              }}
-            >
-              <QuickActions
-                onSelectPrompt={(prompt) => {
-                  setPrefillValue(prompt);
-                  setPrefillNonce((n) => n + 1);
-                }}
-              />
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </div>
       </div>
 

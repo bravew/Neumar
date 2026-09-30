@@ -49,6 +49,8 @@ export default {
     design: 'UI डिज़ाइन करें',
     designPrompt: 'मेरे लिए एक यूज़र इंटरफ़ेस डिज़ाइन करें',
     more: 'और',
+    moreIdeas: 'और विचार',
+    back: 'वापस',
   },
 
   // Quick action categories with expandable sub-items

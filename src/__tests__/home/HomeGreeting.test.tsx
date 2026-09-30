@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeGreeting } from '@/components/home/HomeGreeting';
 
 const testState = vi.hoisted(() => ({
+  loading: false,
   connection: {
     displayName: 'Ada Lovelace',
     accountEmail: 'ada@example.com',
@@ -13,6 +14,7 @@ const testState = vi.hoisted(() => ({
 
 vi.mock('@/shared/hooks/useAuth', () => ({
   useAuth: () => ({
+    loading: testState.loading,
     getConnection: () => testState.connection,
   }),
 }));
@@ -32,6 +34,7 @@ vi.mock('@/shared/providers/language-provider', () => ({
 
 describe('HomeGreeting', () => {
   beforeEach(() => {
+    testState.loading = false;
     testState.connection = {
       displayName: 'Ada Lovelace',
       accountEmail: 'ada@example.com',
@@ -62,6 +65,18 @@ describe('HomeGreeting', () => {
 
     expect(screen.getByRole('heading')).toHaveTextContent(
       'home.greeting.evening:grace',
+    );
+  });
+
+  it('keeps the greeting frame and shows a skeleton while auth is loading', () => {
+    testState.loading = true;
+
+    render(<HomeGreeting />);
+
+    expect(screen.getByTestId('home-greeting')).toBeInTheDocument();
+    expect(screen.getByTestId('home-greeting-skeleton')).toBeInTheDocument();
+    expect(screen.getByRole('heading')).not.toHaveTextContent(
+      'home.greeting.morning:Ada',
     );
   });
 });
