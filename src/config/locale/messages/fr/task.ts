@@ -55,6 +55,7 @@ export default {
   continueRunPrompt:
     "Continuez l'exécution précédente depuis son point d'arrêt. Conservez l'objectif existant et passez à la prochaine étape utile.",
   openInFinder: 'Ouvrir dans le Finder',
+  copyPath: 'Copier le chemin',
   collapse: 'Réduire',
   expand: 'Développer',
   apiKeyError:

@@ -62,6 +62,7 @@ export default {
   continueRunPrompt:
     'Continue a execução anterior de onde parou. Preserve o objetivo existente e prossiga com o próximo passo útil.',
   openInFinder: 'Abrir no Finder',
+  copyPath: 'Copiar caminho',
   collapse: 'Recolher',
   expand: 'Expandir',
 

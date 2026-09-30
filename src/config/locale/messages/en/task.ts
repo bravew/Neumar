@@ -62,6 +62,7 @@ export default {
   continueRunPrompt:
     'Continue the previous run from where it left off. Preserve the existing goal and proceed with the next useful step.',
   openInFinder: 'Open in Finder',
+  copyPath: 'Copy path',
   collapse: 'Collapse',
   expand: 'Expand',
 

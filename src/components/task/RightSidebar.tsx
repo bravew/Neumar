@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Code2,
-  ExternalLink,
   File,
   FileCode2,
   FileEdit,
@@ -20,7 +19,6 @@ import {
   FileSpreadsheet,
   FileText,
   FileType,
-  Folder,
   FolderOpen,
   FolderSearch,
   Globe,
@@ -54,7 +52,9 @@ import { useLanguage } from '@/shared/providers/language-provider';
 
 import { DocumentPanel } from './DocumentPanel';
 import { FileDiffViewer } from './FileDiffViewer';
+import { FileTreeItem, type WorkingFile } from './FileTreeItem';
 import { TraceMetricsSummary } from './trace/TraceMetricsSummary';
+import { WorkspaceFilesSection } from './WorkspaceFilesSection';
 
 /** Check if an error message indicates a directory/file not found (non-error state) */
 function isNotFoundError(message: string): boolean {
@@ -78,14 +78,6 @@ interface ToolUsage {
   timestamp: number;
 }
 
-interface WorkingFile {
-  name: string;
-  path: string;
-  isDir: boolean;
-  children?: WorkingFile[];
-  isExpanded?: boolean;
-}
-
 interface RightSidebarProps {
   messages: AgentMessage[];
   artifacts: Artifact[];
@@ -97,103 +89,6 @@ interface RightSidebarProps {
   taskId?: string;
   isRunning?: boolean;
 }
-
-// Get file icon based on file extension
-function getFileIconByExt(ext?: string) {
-  if (!ext) return File;
-  switch (ext) {
-    case 'html':
-    case 'htm':
-      return FileCode2;
-    case 'js':
-    case 'jsx':
-    case 'ts':
-    case 'tsx':
-      return FileCode2;
-    case 'css':
-    case 'scss':
-    case 'less':
-      return FileCode2;
-    case 'json':
-      return FileText;
-    case 'md':
-    case 'markdown':
-      return FileType;
-    case 'csv':
-      return Table;
-    case 'xlsx':
-    case 'xls':
-      return FileSpreadsheet;
-    case 'pptx':
-    case 'ppt':
-      return Presentation;
-    case 'docx':
-    case 'doc':
-      return FileText;
-    case 'pdf':
-      return FileText;
-    case 'png':
-    case 'jpg':
-    case 'jpeg':
-    case 'gif':
-    case 'svg':
-    case 'webp':
-    case 'bmp':
-    case 'ico':
-      return FileImage;
-    case 'mp3':
-    case 'wav':
-    case 'ogg':
-    case 'm4a':
-    case 'aac':
-    case 'flac':
-    case 'wma':
-    case 'aud':
-    case 'aiff':
-    case 'mid':
-    case 'midi':
-      return Music;
-    case 'mp4':
-    case 'webm':
-    case 'mov':
-    case 'avi':
-    case 'mkv':
-    case 'm4v':
-    case 'wmv':
-    case 'flv':
-    case '3gp':
-      return Video;
-    case 'ttf':
-    case 'otf':
-    case 'woff':
-    case 'woff2':
-    case 'eot':
-      return Type;
-    case 'py':
-    case 'rb':
-    case 'go':
-    case 'rs':
-    case 'java':
-    case 'c':
-    case 'cpp':
-    case 'h':
-      return FileCode2;
-    default:
-      return File;
-  }
-}
-
-// File types that should NOT read content (binary/streaming files)
-const SKIP_CONTENT_TYPES: ArtifactType[] = [
-  'audio',
-  'video',
-  'font',
-  'image',
-  'pdf',
-  'spreadsheet',
-  'presentation',
-  'document',
-];
 
 // Get tool icon based on tool name
 function getToolIcon(toolName: string) {
@@ -391,220 +286,6 @@ function ToolPreviewModal({
 
 // Default number of items to show before "show more"
 const DEFAULT_VISIBLE_COUNT = 5;
-
-// Max file size for text content preview (10MB)
-const MAX_TEXT_FILE_SIZE = 10 * 1024 * 1024;
-
-// Check file size via API
-async function checkFileSize(
-  filePath: string,
-  signal?: AbortSignal,
-): Promise<number | null> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/files/stat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ path: filePath }),
-      signal,
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    if (data.exists && data.size !== undefined) {
-      return data.size;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-// Read file content via API with optional abort signal
-async function readFileContent(
-  filePath: string,
-  signal?: AbortSignal,
-): Promise<string | null> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/files/read`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ path: filePath }),
-      signal,
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    if (data.success && data.content !== undefined) {
-      return data.content;
-    }
-    return null;
-  } catch (err) {
-    // Don't log abort errors
-    if (err instanceof Error && err.name === 'AbortError') {
-      return null;
-    }
-    return null;
-  }
-}
-
-// File Tree Item Component for recursive directory display
-function FileTreeItem({
-  file,
-  depth = 0,
-  onSelectFile,
-  onSelectArtifact,
-  activeFileLoadRef,
-}: {
-  file: WorkingFile;
-  depth?: number;
-  onSelectFile?: (file: WorkingFile) => void;
-  onSelectArtifact: (artifact: Artifact) => void;
-  activeFileLoadRef: React.MutableRefObject<AbortController | null>;
-}) {
-  const [isExpanded, setIsExpanded] = useState(file.isExpanded ?? false);
-  const [isLoading, setIsLoading] = useState(false);
-  const ext = file.name.split('.').pop()?.toLowerCase();
-  const IconComponent = file.isDir ? FolderOpen : getFileIconByExt(ext);
-
-  const handleClick = async () => {
-    if (file.isDir) {
-      setIsExpanded(!isExpanded);
-    } else if (onSelectFile) {
-      onSelectFile(file);
-    } else {
-      const artifactType = getArtifactTypeFromExt(ext);
-
-      // For binary/streaming files, don't read content - just pass the path
-      if (SKIP_CONTENT_TYPES.includes(artifactType)) {
-        const artifact: Artifact = {
-          id: file.path,
-          name: file.name,
-          type: artifactType,
-          path: file.path,
-        };
-        onSelectArtifact(artifact);
-        return;
-      }
-
-      // Cancel any previous file loading operation
-      if (activeFileLoadRef.current) {
-        activeFileLoadRef.current.abort();
-      }
-
-      // Create new AbortController for this operation
-      const controller = new AbortController();
-      activeFileLoadRef.current = controller;
-
-      // For text-based files, check size first then load content
-      setIsLoading(true);
-      try {
-        // Check file size first
-        const fileSize = await checkFileSize(file.path, controller.signal);
-
-        // If aborted during size check, exit
-        if (controller.signal.aborted) {
-          setIsLoading(false);
-          return;
-        }
-
-        // If file is too large, don't read content
-        if (fileSize !== null && fileSize > MAX_TEXT_FILE_SIZE) {
-          const artifact: Artifact = {
-            id: file.path,
-            name: file.name,
-            type: artifactType,
-            path: file.path,
-            fileSize: fileSize,
-            fileTooLarge: true,
-          };
-          onSelectArtifact(artifact);
-          setIsLoading(false);
-          return;
-        }
-
-        // Read content with abort signal
-        const content = await readFileContent(file.path, controller.signal);
-
-        // If aborted during content read, exit
-        if (controller.signal.aborted) {
-          setIsLoading(false);
-          return;
-        }
-
-        const artifact: Artifact = {
-          id: file.path,
-          name: file.name,
-          type: artifactType,
-          path: file.path,
-          content: content || undefined,
-          fileSize: fileSize || undefined,
-        };
-        onSelectArtifact(artifact);
-      } finally {
-        // Only clear loading if this is still the active controller
-        if (activeFileLoadRef.current === controller) {
-          setIsLoading(false);
-          activeFileLoadRef.current = null;
-        }
-      }
-    }
-  };
-
-  return (
-    <div>
-      <button
-        onClick={handleClick}
-        disabled={isLoading}
-        className={cn(
-          'group flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1 text-left transition-colors',
-          'hover:bg-accent/50',
-          isLoading && 'opacity-70',
-        )}
-        style={{ paddingLeft: `${depth * 12}px` }}
-      >
-        <span className="text-muted-foreground/50 flex size-4 shrink-0 items-center justify-center">
-          {file.isDir ? (
-            isExpanded ? (
-              <ChevronDown className="size-3" />
-            ) : (
-              <ChevronRight className="size-3" />
-            )
-          ) : null}
-        </span>
-        {isLoading ? (
-          <AILoadingIndicator size="sm" />
-        ) : (
-          <IconComponent className="text-muted-foreground/60 size-3.5 shrink-0" />
-        )}
-        <span className="text-foreground/80 truncate text-sm">{file.name}</span>
-      </button>
-      {file.isDir && isExpanded && file.children && (
-        <div>
-          {file.children.map((child) => (
-            <FileTreeItem
-              key={child.path}
-              file={child}
-              depth={depth + 1}
-              onSelectFile={onSelectFile}
-              onSelectArtifact={onSelectArtifact}
-              activeFileLoadRef={activeFileLoadRef}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // Empty State Component
 function EmptyState({
@@ -1342,120 +1023,22 @@ export function RightSidebar({
         title={t.task.workspace || 'Workspace'}
         defaultExpanded={hasWorkspaceContent}
       >
-        {/* Output folder subsection */}
-        <div className="mt-1 mb-3">
-          <div className="mb-1 flex items-center gap-1">
-            <button
-              onClick={() => setOutputExpanded(!outputExpanded)}
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-            >
-              {outputExpanded ? (
-                <ChevronDown className="size-3" />
-              ) : (
-                <ChevronRight className="size-3" />
-              )}
-              <span className="text-xs font-medium">
-                {t.task.outputFolder || 'Output'}
-              </span>
-            </button>
-            {effectiveWorkingDir && (
-              <button
-                onClick={() => handleOpenFolder(effectiveWorkingDir)}
-                className="text-muted-foreground hover:text-foreground ml-auto p-0.5 transition-colors"
-                title={t.task.openInFinder}
-              >
-                <ExternalLink className="size-3" />
-              </button>
-            )}
-          </div>
-          {outputExpanded && (
-            <>
-              {!effectiveWorkingDir ? (
-                <p className="text-muted-foreground py-1 text-sm">
-                  {t.task.waitingForTask}
-                </p>
-              ) : loadingFiles ? (
-                <div className="text-muted-foreground flex items-center gap-2 py-1">
-                  <AILoadingIndicator size="sm" />
-                  <span className="text-sm">{t.common.loading}</span>
-                </div>
-              ) : workingDirError ? (
-                <div className="flex items-start gap-2 rounded-md bg-red-500/10 px-2 py-2">
-                  <svg
-                    viewBox="0 0 16 16"
-                    className="mt-0.5 size-3.5 shrink-0 text-red-500"
-                    fill="currentColor"
-                  >
-                    <path d="M8 1a7 7 0 100 14A7 7 0 008 1zM7 4.5a1 1 0 112 0v3a1 1 0 11-2 0v-3zm1 7a1 1 0 100-2 1 1 0 000 2z" />
-                  </svg>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs text-red-600 dark:text-red-400">
-                      {workingDirError.includes('EACCES') ||
-                      workingDirError.includes('permission')
-                        ? t.task.permissionDenied
-                        : t.task.failedToLoadWorkspace}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {workingDirError}
-                    </p>
-                  </div>
-                </div>
-              ) : workingFiles.length === 0 ? (
-                <EmptyState icon={Folder} description={t.task.outputsDesc} />
-              ) : (
-                <div className="max-h-[200px] space-y-0.5 overflow-y-auto">
-                  {workingFiles.map((file) => (
-                    <FileTreeItem
-                      key={file.path}
-                      file={file}
-                      onSelectFile={onSelectWorkingFile}
-                      onSelectArtifact={onSelectArtifact}
-                      activeFileLoadRef={activeFileLoadRef}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Edited folders subsection */}
-        {externalFolders.length > 0 && (
-          <div>
-            <div className="mb-1 flex items-center gap-1">
-              <button
-                onClick={() => setEditedExpanded(!editedExpanded)}
-                className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-              >
-                {editedExpanded ? (
-                  <ChevronDown className="size-3" />
-                ) : (
-                  <ChevronRight className="size-3" />
-                )}
-                <span className="text-xs font-medium">
-                  {t.task.editedFolders || 'Edited'}
-                </span>
-              </button>
-            </div>
-            {editedExpanded && (
-              <div className="space-y-0.5">
-                {externalFolders.map((folder) => (
-                  <button
-                    key={folder}
-                    onClick={() => handleOpenFolder(folder)}
-                    className="hover:bg-accent/50 flex w-full items-center gap-1.5 rounded-md py-1 text-left transition-colors"
-                  >
-                    <span className="size-4 shrink-0" />
-                    <FolderOpen className="text-muted-foreground/60 size-3.5 shrink-0" />
-                    <span className="text-foreground/80 truncate text-sm">
-                      {getFolderName(folder)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <WorkspaceFilesSection
+          outputExpanded={outputExpanded}
+          setOutputExpanded={setOutputExpanded}
+          editedExpanded={editedExpanded}
+          setEditedExpanded={setEditedExpanded}
+          effectiveWorkingDir={effectiveWorkingDir}
+          loadingFiles={loadingFiles}
+          workingDirError={workingDirError}
+          workingFiles={workingFiles}
+          externalFolders={externalFolders}
+          onSelectWorkingFile={onSelectWorkingFile}
+          onSelectArtifact={onSelectArtifact}
+          activeFileLoadRef={activeFileLoadRef}
+          handleOpenFolder={handleOpenFolder}
+          getFolderName={getFolderName}
+        />
       </CollapsibleSection>
 
       {/* 2. Output Section — final deliverables */}
@@ -1700,6 +1283,7 @@ export function RightSidebar({
                   <FileTreeItem
                     key={file.path}
                     file={{ ...file, isExpanded: false }}
+                    sessionRoot={effectiveWorkingDir}
                     onSelectFile={onSelectWorkingFile}
                     onSelectArtifact={onSelectArtifact}
                     activeFileLoadRef={activeFileLoadRef}
