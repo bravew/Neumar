@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { preloadRoute } from '@/app/route-preload';
 import { cn } from '@/shared/lib/utils';
 import type { SidebarSection } from '@/shared/modes/types';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -31,6 +32,8 @@ export function SidebarSections({ sections }: SidebarSectionsProps) {
           <button
             key={section.id}
             type="button"
+            onPointerEnter={() => section.href && preloadRoute(section.href)}
+            onFocus={() => section.href && preloadRoute(section.href)}
             onClick={() =>
               // The route-level `<ViewTransition>` in AppRouteProviders
               // already cross-fades every navigation (React 19.3); don't

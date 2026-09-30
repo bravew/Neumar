@@ -397,8 +397,10 @@ pre {
 }
 
 ::view-transition-new(.page-fade) {
+  /* `both` keeps the incoming page at opacity 0 during the delay. `forwards`
+     alone leaves it at 1 until the animation starts, so both pages are visible. */
   animation: vt-fade-in var(--motion-base) var(--ease-out) var(--motion-fast)
-    forwards;
+    both;
 }
 
 /* Right-sidebar panel show/hide (RightSidebarPanelTransition) */

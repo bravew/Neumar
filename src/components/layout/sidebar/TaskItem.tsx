@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 
+import { preloadRoute } from '@/app/route-preload';
 import { AILoadingIndicator } from '@/components/ui/AILoadingIndicator';
 import { Button } from '@/components/ui/button';
 import {
@@ -129,6 +130,8 @@ export const TaskItem = memo(function TaskItem({
               ? 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
               : 'text-foreground/80 hover:bg-accent/50',
         )}
+        onPointerEnter={() => preloadRoute(`/task-v2/${task.id}`)}
+        onFocus={() => preloadRoute(`/task-v2/${task.id}`)}
         onClick={() => onSelect(task.id)}
       >
         <div className="relative shrink-0">

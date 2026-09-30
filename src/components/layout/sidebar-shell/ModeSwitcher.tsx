@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { Check, ChevronDown } from 'lucide-react';
 
+import { preloadRoute } from '@/app/route-preload';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +71,8 @@ export function ModeSwitcher() {
             return (
               <DropdownMenuItem
                 key={mode.id}
+                onPointerEnter={() => preloadRoute(mode.rootPath)}
+                onFocus={() => preloadRoute(mode.rootPath)}
                 onSelect={() => setActiveMode(mode.id)}
                 className="gap-2"
               >

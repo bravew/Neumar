@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
+import { AsyncList } from '@/components/common/async-list';
 import type { Task } from '@/shared/db';
 import { cn } from '@/shared/lib/utils';
 import type { RecentsSourceProps } from '@/shared/modes/types';
@@ -54,68 +55,64 @@ export function TasksRecents({
     navigate(`/task-v2/${taskId}`, { state: null });
   };
 
-  if (status === 'loading') {
-    return (
-      <div
-        data-testid="tasks-recents-skeleton"
-        className="space-y-2 px-2 py-2"
-        aria-busy="true"
-      >
-        <div className="bg-sidebar-accent h-8 animate-pulse rounded-md" />
-        <div className="bg-sidebar-accent h-8 animate-pulse rounded-md" />
-        <div className="bg-sidebar-accent h-8 animate-pulse rounded-md" />
-      </div>
-    );
-  }
-
-  if (status === 'error') {
-    return (
-      <p className="text-sidebar-foreground/50 px-2 py-2 text-xs">
-        {t.nav.tasksLoadError}
-      </p>
-    );
-  }
-
-  if (filtered.length === 0) {
-    return (
-      <p className="text-sidebar-foreground/50 px-2 py-2 text-xs">
-        {t.nav.noTasksYet}
-      </p>
-    );
-  }
-
   return (
-    <div className={cn('space-y-0.5')}>
-      {filtered.map((task) => (
-        <TaskItem
-          key={task.id}
-          task={task}
-          isActive={currentTaskId === task.id}
-          isLoading={loadingTaskId === task.id}
-          isRunning={runningTaskIds.includes(task.id)}
-          variant="sidebar"
-          t={t}
-          onSelect={handleSelect}
-          onDelete={(taskId, event) => {
-            event.stopPropagation();
-            // Deleting a task from here used to leave its whole session
-            // folder behind on disk — only the database row was removed.
-            onDeleteTask?.(taskId, true);
-          }}
-          onToggleFavorite={(nextTask, event) => {
-            event.stopPropagation();
-            onToggleFavorite?.(nextTask.id, !nextTask.favorite);
-          }}
-          onViewFolder={(taskId, event) => {
-            event.stopPropagation();
-            window.dispatchEvent(
-              new CustomEvent('open-task-folder', { detail: taskId }),
-            );
-          }}
-          onRename={async () => {}}
-          onRegenerate={async () => {}}
-        />
-      ))}
-    </div>
+    <AsyncList
+      status={status}
+      empty={filtered.length === 0}
+      renderSkeleton={() => (
+        <div
+          data-testid="tasks-recents-skeleton"
+          className="space-y-2 px-2 py-2"
+          aria-busy="true"
+        >
+          <div className="bg-sidebar-accent h-8 animate-pulse rounded-md" />
+          <div className="bg-sidebar-accent h-8 animate-pulse rounded-md" />
+          <div className="bg-sidebar-accent h-8 animate-pulse rounded-md" />
+        </div>
+      )}
+      renderError={() => (
+        <p className="text-sidebar-foreground/50 px-2 py-2 text-xs">
+          {t.nav.tasksLoadError}
+        </p>
+      )}
+      renderEmpty={() => (
+        <p className="text-sidebar-foreground/50 px-2 py-2 text-xs">
+          {t.nav.noTasksYet}
+        </p>
+      )}
+    >
+      <div className={cn('space-y-0.5')}>
+        {filtered.map((task) => (
+          <TaskItem
+            key={task.id}
+            task={task}
+            isActive={currentTaskId === task.id}
+            isLoading={loadingTaskId === task.id}
+            isRunning={runningTaskIds.includes(task.id)}
+            variant="sidebar"
+            t={t}
+            onSelect={handleSelect}
+            onDelete={(taskId, event) => {
+              event.stopPropagation();
+              // Deleting a task from here used to leave its whole session
+              // folder behind on disk — only the database row was removed.
+              onDeleteTask?.(taskId, true);
+            }}
+            onToggleFavorite={(nextTask, event) => {
+              event.stopPropagation();
+              onToggleFavorite?.(nextTask.id, !nextTask.favorite);
+            }}
+            onViewFolder={(taskId, event) => {
+              event.stopPropagation();
+              window.dispatchEvent(
+                new CustomEvent('open-task-folder', { detail: taskId }),
+              );
+            }}
+            onRename={async () => {}}
+            onRegenerate={async () => {}}
+          />
+        ))}
+      </div>
+    </AsyncList>
   );
 }

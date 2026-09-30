@@ -1,124 +1,35 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
-import { motion } from 'motion/react';
-
 import { AppRouteProviders } from '@/app/AppRouteProviders';
 import { RouteErrorPage } from '@/app/pages/RouteError';
-import { SetupGuard } from '@/components/setup-guard';
-
-// Lazy load page components - only loaded when route is visited
-const HomePage = lazy(() =>
-  import('@/app/pages/Home').then((m) => ({ default: m.HomePage })),
-);
-const TaskDetailPage = lazy(() =>
-  import('@/app/pages/TaskDetail').then((m) => ({ default: m.TaskDetailPage })),
-);
-const LibraryPage = lazy(() =>
-  import('@/app/pages/Library').then((m) => ({ default: m.LibraryPage })),
-);
-const AutomationPage = lazy(() =>
-  import('@/app/pages/Automation').then((m) => ({ default: m.AutomationPage })),
-);
-const SetupPage = lazy(() =>
-  import('@/app/pages/Setup').then((m) => ({ default: m.SetupPage })),
-);
-const ProjectsPage = lazy(() =>
-  import('@/app/pages/Projects').then((m) => ({ default: m.ProjectsPage })),
-);
-const ProjectDetailPage = lazy(() =>
-  import('@/app/pages/ProjectDetail').then((m) => ({
-    default: m.ProjectDetailPage,
-  })),
-);
-const DashboardPage = lazy(() =>
-  import('@/app/pages/Dashboard').then((m) => ({ default: m.DashboardPage })),
-);
-const ApprovalsPage = lazy(() =>
-  import('@/app/pages/Approvals').then((m) => ({ default: m.ApprovalsPage })),
-);
-const OrgViewPage = lazy(() =>
-  import('@/app/pages/OrgView').then((m) => ({ default: m.OrgViewPage })),
-);
-const ProfileDetailPage = lazy(() =>
-  import('@/app/pages/ProfileDetail').then((m) => ({
-    default: m.ProfileDetailPage,
-  })),
-);
-const TaskDetailV2Page = lazy(() =>
-  import('@/app/pages/TaskDetailV2').then((m) => ({
-    default: m.TaskDetailV2Page,
-  })),
-);
-const QuickStartWizardPage = lazy(() =>
-  import('@/app/pages/QuickStartWizard').then((m) => ({
-    default: m.QuickStartWizard,
-  })),
-);
-const DesignModePage = lazy(() =>
-  import('@/app/pages/DesignMode').then((m) => ({
-    default: m.DesignModeRoute,
-  })),
-);
-const VideoModePage = lazy(() =>
-  import('@/app/pages/VideoMode').then((m) => ({
-    default: m.VideoModeRoute,
-  })),
-);
-const VideoProjectViewPage = lazy(() =>
-  import('@/app/pages/VideoMode/VideoProjectView').then((m) => ({
-    default: m.VideoProjectRoute,
-  })),
-);
-const VideoRenderHostPage = lazy(() =>
-  import('@/app/pages/VideoRenderHost').then((m) => ({
-    default: m.VideoRenderHostPage,
-  })),
-);
-const VideoProvidersSettingsPage = lazy(() =>
-  import('@/app/pages/VideoMode/settings/ProvidersPage').then((m) => ({
-    default: m.VideoProvidersSettingsPage,
-  })),
-);
-const VideoTemplatesSettingsPage = lazy(() =>
-  import('@/app/pages/VideoMode/settings/TemplatesPage').then((m) => ({
-    default: m.VideoTemplatesSettingsPage,
-  })),
-);
-const VideoBrandSettingsPage = lazy(() =>
-  import('@/app/pages/VideoMode/settings/BrandPage').then((m) => ({
-    default: m.VideoBrandSettingsPage,
-  })),
-);
-const VideoMemorySettingsPage = lazy(() =>
-  import('@/app/pages/VideoMode/settings/MemoryPage').then((m) => ({
-    default: m.VideoMemorySettingsPage,
-  })),
-);
-const VideoAssetsLibraryPage = lazy(() =>
-  import('@/app/pages/VideoMode/settings/AssetsPage').then((m) => ({
-    default: m.VideoAssetsLibraryPage,
-  })),
-);
-const ChatPlaceholderPage = lazy(() =>
-  import('@/app/pages/ChatPlaceholder').then((m) => ({
-    default: m.ChatPlaceholderPage,
-  })),
-);
-
-// Animated loading fallback with smooth spinner
-function PageLoader() {
-  return (
-    <div className="bg-background flex min-h-svh items-center justify-center">
-      <motion.div
-        className="border-primary size-6 rounded-full border-2 border-t-transparent"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-      />
-    </div>
-  );
-}
+import { RouteFallback } from '@/app/route-fallback';
+import {
+  ApprovalsPage,
+  AutomationPage,
+  ChatPlaceholderPage,
+  DashboardPage,
+  DesignModePage,
+  HomePage,
+  LibraryPage,
+  OrgViewPage,
+  ProfileDetailPage,
+  ProjectDetailPage,
+  ProjectsPage,
+  QuickStartWizardPage,
+  SetupPage,
+  TaskDetailPage,
+  TaskDetailV2Page,
+  VideoAssetsLibraryPage,
+  VideoBrandSettingsPage,
+  VideoMemorySettingsPage,
+  VideoModePage,
+  VideoProjectViewPage,
+  VideoProvidersSettingsPage,
+  VideoRenderHostPage,
+  VideoTemplatesSettingsPage,
+} from '@/app/route-preload';
 
 export const router = createBrowserRouter([
   {
@@ -129,161 +40,129 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <HomePage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="home">
+            <HomePage />
+          </RouteFallback>
         ),
       },
       {
         path: 'task/:taskId',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <TaskDetailPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="task">
+            <TaskDetailPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'task-v2/:taskId',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <TaskDetailV2Page />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="task">
+            <TaskDetailV2Page />
+          </RouteFallback>
         ),
       },
       {
         path: 'library',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <LibraryPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="library">
+            <LibraryPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'automation',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <AutomationPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="automation">
+            <AutomationPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'projects',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <ProjectsPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <ProjectsPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'projects/:id',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <ProjectDetailPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <ProjectDetailPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'design',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <DesignModePage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <DesignModePage />
+          </RouteFallback>
         ),
       },
       {
         path: 'design/:projectId',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <DesignModePage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <DesignModePage />
+          </RouteFallback>
         ),
       },
       {
         path: 'video',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <VideoModePage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <VideoModePage />
+          </RouteFallback>
         ),
       },
       {
         path: 'video/settings/providers',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <VideoProvidersSettingsPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="settings">
+            <VideoProvidersSettingsPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'video/settings/templates',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <VideoTemplatesSettingsPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="settings">
+            <VideoTemplatesSettingsPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'video/settings/brand',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <VideoBrandSettingsPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="settings">
+            <VideoBrandSettingsPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'video/settings/memory',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <VideoMemorySettingsPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="settings">
+            <VideoMemorySettingsPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'video/library/assets',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <VideoAssetsLibraryPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="library">
+            <VideoAssetsLibraryPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'video/:projectId/timeline',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <VideoProjectViewPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <VideoProjectViewPage />
+          </RouteFallback>
         ),
       },
       {
@@ -297,31 +176,25 @@ export const router = createBrowserRouter([
       {
         path: 'video/:projectId',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <VideoProjectViewPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <VideoProjectViewPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'chat',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <ChatPlaceholderPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <ChatPlaceholderPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'dashboard',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <DashboardPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <DashboardPage />
+          </RouteFallback>
         ),
       },
       {
@@ -331,47 +204,41 @@ export const router = createBrowserRouter([
       {
         path: 'approvals',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <ApprovalsPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <ApprovalsPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'setup',
         element: (
-          <Suspense fallback={<PageLoader />}>
+          <RouteFallback shape="page" guard={false}>
             <SetupPage />
-          </Suspense>
+          </RouteFallback>
         ),
       },
       {
         path: 'quickstart',
         element: (
-          <Suspense fallback={<PageLoader />}>
+          <RouteFallback shape="page" guard={false}>
             <QuickStartWizardPage />
-          </Suspense>
+          </RouteFallback>
         ),
       },
       {
         path: 'org',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <OrgViewPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <OrgViewPage />
+          </RouteFallback>
         ),
       },
       {
         path: 'org/:id',
         element: (
-          <SetupGuard>
-            <Suspense fallback={<PageLoader />}>
-              <ProfileDetailPage />
-            </Suspense>
-          </SetupGuard>
+          <RouteFallback shape="page">
+            <ProfileDetailPage />
+          </RouteFallback>
         ),
       },
     ],

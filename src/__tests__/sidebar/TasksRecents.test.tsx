@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -44,6 +44,7 @@ describe('TasksRecents', () => {
   });
 
   it('renders a skeleton while tasks are loading and not the empty state', () => {
+    vi.useFakeTimers();
     render(
       <TasksRecents
         tasks={[]}
@@ -53,8 +54,18 @@ describe('TasksRecents', () => {
       />,
     );
 
+    expect(screen.queryByText('No tasks yet')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('tasks-recents-skeleton'),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(120);
+    });
+
     expect(screen.getByTestId('tasks-recents-skeleton')).toBeInTheDocument();
     expect(screen.queryByText('No tasks yet')).not.toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it('renders the empty state only when the list is ready and empty', () => {
