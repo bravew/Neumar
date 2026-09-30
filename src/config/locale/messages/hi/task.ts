@@ -62,6 +62,7 @@ export default {
   continueRunPrompt:
     'पिछला रन जहां रुका था वहीं से जारी रखें। मौजूदा लक्ष्य बनाए रखें और अगले उपयोगी चरण पर आगे बढ़ें।',
   openInFinder: 'Finder में खोलें',
+  copyPath: 'पथ कॉपी करें',
   collapse: 'संक्षिप्त करें',
   expand: 'विस्तृत करें',
 

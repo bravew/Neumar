@@ -55,6 +55,7 @@ export default {
   continueRunPrompt:
     'Continúa la ejecución anterior desde donde se detuvo. Conserva el objetivo existente y avanza con el siguiente paso útil.',
   openInFinder: 'Abrir en Finder',
+  copyPath: 'Copiar ruta',
   collapse: 'Contraer',
   expand: 'Expandir',
   apiKeyError:

@@ -62,6 +62,7 @@ export default {
   continueRunPrompt:
     '从上次停止的位置继续运行。保留现有目标，并执行下一个有用步骤。',
   openInFinder: '在访达中打开',
+  copyPath: '复制路径',
   collapse: '收起',
   expand: '展开',
 
