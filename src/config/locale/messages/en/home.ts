@@ -57,6 +57,8 @@ export default {
     design: 'Design UI',
     designPrompt: 'Design a user interface for me',
     more: 'More',
+    moreIdeas: 'More ideas',
+    back: 'Back',
   },
 
   // Quick action categories with expandable sub-items

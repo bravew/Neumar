@@ -11,7 +11,7 @@ export function StarterChips({ chips, onSelect }: StarterChipsProps) {
   if (chips.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
+    <div className="contents">
       {chips.map((chip) => {
         const Icon = chip.icon;
         return (

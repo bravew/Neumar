@@ -54,6 +54,8 @@ export default {
     design: 'Diseñar UI',
     designPrompt: 'Diseña una interfaz de usuario para mí',
     more: 'Más',
+    moreIdeas: 'Más ideas',
+    back: 'Volver',
   },
 
   // Categorías de acciones rápidas

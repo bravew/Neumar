@@ -57,6 +57,8 @@ export default {
     design: '设计界面',
     designPrompt: '帮我设计一个用户界面',
     more: '更多',
+    moreIdeas: '更多想法',
+    back: '返回',
   },
 
   // 快捷操作分类

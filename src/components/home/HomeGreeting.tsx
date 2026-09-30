@@ -22,7 +22,7 @@ export function HomeGreeting() {
   const { tt } = useLanguage();
   const settings = useSettingsValue();
   const auth = useAuth();
-  const siteConnection = auth.getConnection('site');
+  const siteConnection = auth.loading ? null : auth.getConnection('site');
   const rawName =
     siteConnection?.displayName ||
     siteConnection?.accountEmail?.split('@')[0] ||
@@ -32,14 +32,25 @@ export function HomeGreeting() {
   const period = greetingPeriod(new Date().getHours());
 
   return (
-    <div className="flex flex-col items-center gap-3 text-center">
+    <div
+      data-testid="home-greeting"
+      className="flex flex-col items-center gap-3 text-center"
+      aria-busy={auth.loading}
+    >
       <img
         src={ImageLogo}
         alt=""
         className="size-8 rounded-md object-contain"
       />
       <h1 className="text-foreground font-serif text-4xl font-normal tracking-normal">
-        {tt(`home.greeting.${period}`, { name })}
+        {auth.loading ? (
+          <span
+            data-testid="home-greeting-skeleton"
+            className="bg-muted inline-block h-9 w-64 animate-pulse rounded-md"
+          />
+        ) : (
+          tt(`home.greeting.${period}`, { name })
+        )}
       </h1>
     </div>
   );
