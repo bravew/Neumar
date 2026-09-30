@@ -197,11 +197,16 @@ All work integrates on `epic/130-simple-ux` (created from `main` at
    (not a rebase; the branch is shared) at least once per wave and before the
    final PR. Do it through a `chore/130-sync-main` PR when there are conflicts.
    Never force-push the epic branch.
-4. **Final PR.** When every sub-issue except #129 is closed, open
+4. **Final PR.** When #107–#127 and the release N part of #128 (the opt-in
+   toggle) are merged, open
    `epic/130-simple-ux` → `main`. The `main` ruleset allows only squash
    merges, so the epic lands as one commit. Its body lists every sub-PR and
    `Closes #130`. Keep the epic branch afterwards as the per-issue history. Do
    not delete it.
+5. **After the epic.** #128's release N+1 (default on) and N+2 (delete the
+   flag-off shell) are separate PRs into `main`, one release apart. #129 also
+   targets `main`. Nothing from this plan reaches users before the final PR,
+   including the phase 0 bug fixes.
 
 ## Success measures
 

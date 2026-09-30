@@ -34,7 +34,8 @@ Conventions that apply to every phase:
   put user-triggered work in event handlers.
 - **Evidence.** Each phase's PR includes before/after screenshots at 1280×800 and
   390×844.
-- **Branches.** Every PR targets `epic/130-simple-ux`, not `main`. Branch from
+- **Branches.** Every PR through release N of phase 8 targets
+  `epic/130-simple-ux`, not `main`. Branch from
   `origin/epic/130-simple-ux` and put `Closes #<issue>` in the PR body. The
   README's *Branch and PR flow* covers syncing `main` and the final PR.
 
@@ -342,11 +343,11 @@ directly. Do not weaken the bypass.
 
 ## Phase 8: Rollout and cleanup (S)
 
-1. Release N: `simpleShell` is opt-in under *General › Advanced*, with a feedback link
+1. Release N (PR into the epic branch; ships with the final epic PR): `simpleShell` is opt-in under *General › Advanced*, with a feedback link
    and a local counter of *Usage & activity* opens (no remote telemetry beyond what
    exists).
-2. Release N+1: the default flips to `true`, with an opt-out kept for one release.
-3. Release N+2: delete the flag-off paths (`ModeSwitcher`, safe because Phase 4
+2. Release N+1 (PR into `main` after the epic lands): the default flips to `true`, with an opt-out kept for one release.
+3. Release N+2 (PR into `main`): delete the flag-off paths (`ModeSwitcher`, safe because Phase 4
    step 1 moved the slot shortcuts, the full-screen settings
    layout, `StarterChips` if superseded, the old Library tabs), and remove their
    allowlist entries. Follow migrate-then-delete: no compatibility shims left behind.
