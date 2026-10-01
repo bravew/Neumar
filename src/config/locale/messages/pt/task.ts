@@ -408,6 +408,12 @@ export default {
   permissionDefaultToNoHint:
     'Revise com atenção: esta solicitação é negada por padrão.',
   permissionDeniedLabel: 'Negado',
+  approvalWhat: 'O quê',
+  approvalWhere: 'Onde',
+  approvalWhy: 'Por quê',
+  approvalApprove: 'Aprovar',
+  approvalDeny: 'Recusar',
+  approvalEdit: 'Editar',
   riskLow: 'Risco baixo',
   riskMedium: 'Risco médio',
   riskHigh: 'Risco alto',

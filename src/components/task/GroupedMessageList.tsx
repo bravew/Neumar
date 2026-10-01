@@ -12,6 +12,7 @@ import {
   groupMessages,
   type GroupedItem,
 } from '@/components/task/groupMessages';
+import { IntentApprovalCard } from '@/components/task/IntentApprovalCard';
 import { LocalOutputArtifactPreviews } from '@/components/task/LocalOutputArtifactPreviews';
 import { MessageToolbar } from '@/components/task/MessageToolbar';
 import { PlanApproval } from '@/components/task/PlanApproval';
@@ -224,6 +225,8 @@ export function renderGroupedItem(
           onReject={ctx.onRejectPlan}
         />
       );
+    case 'permission':
+      return <IntentApprovalCard key={item.key} permission={item.permission} />;
     case 'branch-nav':
       return (
         <BranchNavigator
