@@ -12,7 +12,7 @@ import type {
   AGUIToolCall,
 } from '@/components/task/TaskV2MessageBubble.types';
 import { getToolName } from '@/components/task/TaskV2MessageBubble.types';
-import type { TaskPlan } from '@/shared/hooks/agent-types';
+import type { PermissionRequest, TaskPlan } from '@/shared/hooks/agent-types';
 import type { BranchMeta } from '@/shared/stores/branch-store';
 
 /** Unwrap a ```json … ``` fence, if the whole string is one. */
@@ -69,6 +69,14 @@ export type GroupedItem =
       type: 'output-artifacts';
       key: string;
       artifacts: Artifact[];
+    }
+  | {
+      type: 'permission';
+      key: string;
+      permission: PermissionRequest & {
+        resolved?: boolean;
+        decision?: 'allow' | 'deny' | 'always_allow';
+      };
     };
 
 /**

@@ -14,9 +14,11 @@ import {
   resolveInProjectLink,
 } from '@/shared/lib/in-project-link';
 import { preprocessMarkdown } from '@/shared/lib/markdown-utils';
+import { rewriteDisplayPaths } from '@/shared/lib/rewriteDisplayPaths';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { LinkSafetyModal } from './LinkSafetyModal';
+import { useTaskSessionRoot } from './task-thread-actions';
 import { TaskV2CodeCard } from './TaskV2CodeCard';
 
 // Module-level stable plugin config for Streamdown
@@ -123,6 +125,11 @@ export function MarkdownProse({
   onProjectFileOpen?: (path: string) => void;
 }) {
   const { t } = useLanguage();
+  const sessionRoot = useTaskSessionRoot();
+  const shown = useMemo(
+    () => rewriteDisplayPaths(content, sessionRoot),
+    [content, sessionRoot],
+  );
   const remarkPlugins = useMemo(() => {
     if (!onProjectFileOpen) return STREAMDOWN_REMARK_PLUGINS;
     return [
@@ -194,7 +201,7 @@ export function MarkdownProse({
         translations={streamdownTranslations}
         animated={animated}
       >
-        {preprocessMarkdown(content)}
+        {preprocessMarkdown(shown)}
       </Streamdown>
     </div>
   );

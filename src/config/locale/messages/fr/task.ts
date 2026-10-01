@@ -398,6 +398,12 @@ export default {
   permissionDefaultToNoHint:
     'Vérifiez attentivement : cette demande est refusée par défaut.',
   permissionDeniedLabel: 'Refusé',
+  approvalWhat: 'Quoi',
+  approvalWhere: 'Où',
+  approvalWhy: 'Pourquoi',
+  approvalApprove: 'Approuver',
+  approvalDeny: 'Refuser',
+  approvalEdit: 'Modifier',
   riskLow: 'Risque faible',
   riskMedium: 'Risque moyen',
   riskHigh: 'Risque élevé',

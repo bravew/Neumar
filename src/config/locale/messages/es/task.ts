@@ -398,6 +398,12 @@ export default {
   permissionDefaultToNoHint:
     'Revísalo con cuidado: esta solicitud se deniega de forma predeterminada.',
   permissionDeniedLabel: 'Denegado',
+  approvalWhat: 'Qué',
+  approvalWhere: 'Dónde',
+  approvalWhy: 'Por qué',
+  approvalApprove: 'Aprobar',
+  approvalDeny: 'Rechazar',
+  approvalEdit: 'Editar',
   riskLow: 'Riesgo bajo',
   riskMedium: 'Riesgo medio',
   riskHigh: 'Riesgo alto',

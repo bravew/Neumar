@@ -404,6 +404,12 @@ export default {
   permissionDefaultToNoHint:
     'ध्यान से समीक्षा करें: यह अनुरोध डिफ़ॉल्ट रूप से अस्वीकार होता है।',
   permissionDeniedLabel: 'अस्वीकृत',
+  approvalWhat: 'क्या',
+  approvalWhere: 'कहाँ',
+  approvalWhy: 'क्यों',
+  approvalApprove: 'मंज़ूरी दें',
+  approvalDeny: 'अस्वीकार करें',
+  approvalEdit: 'संपादित करें',
   riskLow: 'कम जोखिम',
   riskMedium: 'मध्यम जोखिम',
   riskHigh: 'उच्च जोखिम',
