@@ -152,4 +152,25 @@ test.describe('Library Page', () => {
     await expect(page.getByText('clip.mp4')).toBeVisible();
     await expect(page.getByText('By Avery on OpenVerse')).toBeVisible();
   });
+
+  test('simple shell sends legacy library tabs to their new homes', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const settings = JSON.parse(
+        window.localStorage.getItem('neumar_settings') || '{}',
+      ) as Record<string, unknown>;
+      settings.ui = { simpleShell: true };
+      settings.language = 'en-US';
+      window.localStorage.setItem('neumar_settings', JSON.stringify(settings));
+    });
+
+    await page.goto('/library?tab=cloud-storage');
+    await expect(page.getByTestId('library-tab-files')).toBeVisible();
+    await expect(page.getByTestId('library-tab-plugins')).toHaveCount(0);
+
+    await page.goto('/library?tab=plugins');
+    await expect(page.getByTestId('settings-modal')).toBeVisible();
+    await expect(page.getByTestId('library-tab-plugins')).toHaveCount(0);
+  });
 });
