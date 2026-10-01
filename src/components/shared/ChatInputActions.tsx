@@ -10,6 +10,7 @@ import { ArrowUp, FolderOpen, Mic, Rocket, Send, Square } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { DURATION } from '@/config/animation';
+import { useSettingsValue } from '@/shared/db/settings';
 import type { McpServerInfo } from '@/shared/hooks/useMcpServers';
 import type { SkillInfo } from '@/shared/hooks/useSkills';
 import { getFileName } from '@/shared/lib/paths';
@@ -112,6 +113,7 @@ export function ChatInputActions({
   onDispatch,
 }: ChatInputActionsProps) {
   const { t } = useLanguage();
+  const simpleShell = useSettingsValue().ui.simpleShell;
   return (
     <div
       className={cn(
@@ -134,7 +136,7 @@ export function ChatInputActions({
           allowAssetCatalog={allowAssetCatalog}
         />
 
-        {showFolderPicker && hasFolderChangeHandler && (
+        {!simpleShell && showFolderPicker && hasFolderChangeHandler && (
           <FolderPicker
             selectedFolders={effectiveWorkDirs}
             onFoldersChange={handleWorkDirsChange}
@@ -142,7 +144,7 @@ export function ChatInputActions({
           />
         )}
 
-        {mcpServers.length > 0 && (
+        {!simpleShell && mcpServers.length > 0 && (
           <McpSelector
             servers={mcpServers}
             selected={selectedMcp}
@@ -155,7 +157,7 @@ export function ChatInputActions({
           />
         )}
 
-        {availableSkills.length > 0 && (
+        {!simpleShell && availableSkills.length > 0 && (
           <SkillSelector
             skills={availableSkills}
             selected={selectedSkills}
@@ -165,7 +167,7 @@ export function ChatInputActions({
           />
         )}
 
-        {!showFolderPicker && workDir && (
+        {!simpleShell && !showFolderPicker && workDir && (
           <button
             type="button"
             onClick={handleOpenWorkDir}
@@ -184,7 +186,7 @@ export function ChatInputActions({
 
       {/* Right side */}
       <div className="flex items-center gap-1">
-        {isHome && (
+        {(isHome || simpleShell) && (
           <ComposerPermissionPicker disabled={disabled} isRunning={isRunning} />
         )}
 
@@ -201,7 +203,7 @@ export function ChatInputActions({
           />
         )}
 
-        {isHome && onDispatch && !isRunning && (
+        {!simpleShell && isHome && onDispatch && !isRunning && (
           <button
             type="button"
             onClick={onDispatch}
