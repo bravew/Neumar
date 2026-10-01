@@ -64,6 +64,11 @@ export default {
   connectors: 'Conectores',
   noConnectors: 'Sin conectores usados aún',
   stop: 'Detener',
+  dockTitle: 'Chat',
+  dockClose: 'Cerrar',
+  dockPlaceholder: 'Mensaje…',
+  dockFullView: 'Abrir vista completa',
+  dockDismiss: 'Quitar contexto',
   retry: 'Reintentar',
   continueRun: 'Continuar ejecución',
   continueRunPrompt:

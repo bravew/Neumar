@@ -4,12 +4,12 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { AppRouteProviders } from '@/app/AppRouteProviders';
 import { AppShellLayout, ChromelessLayout } from '@/app/AppShellLayout';
+import { ChatDockEntry } from '@/app/pages/ChatDockEntry';
 import { RouteErrorPage } from '@/app/pages/RouteError';
 import { RouteFallback } from '@/app/route-fallback';
 import {
   ApprovalsPage,
   AutomationPage,
-  ChatPlaceholderPage,
   DashboardPage,
   DesignModePage,
   HomePage,
@@ -165,7 +165,7 @@ export const router = createBrowserRouter([
             path: 'chat',
             element: (
               <RouteFallback shape="page">
-                <ChatPlaceholderPage />
+                <ChatDockEntry />
               </RouteFallback>
             ),
           },

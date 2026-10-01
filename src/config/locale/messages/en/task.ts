@@ -71,6 +71,11 @@ export default {
 
   // Actions
   stop: 'Stop',
+  dockTitle: 'Chat',
+  dockClose: 'Close',
+  dockPlaceholder: 'Message…',
+  dockFullView: 'Open full view',
+  dockDismiss: 'Remove context',
   retry: 'Retry',
   continueRun: 'Continue run',
   continueRunPrompt:
