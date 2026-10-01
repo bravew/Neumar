@@ -121,4 +121,84 @@ test.describe('Settings simple shell', () => {
       page.getByTestId('default-model-claude-claude-opus-5'),
     ).toHaveAttribute('aria-pressed', 'true');
   });
+
+  test('opens a connector in two clicks', async ({ page }) => {
+    await page.route('**/db/settings', (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ui: JSON.stringify({ simpleShell: true }),
+          language: JSON.stringify('en-US'),
+        }),
+      });
+    });
+    await page.route('**/connectors/composio/config', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ configured: false, apiKeyTail: '' }),
+      }),
+    );
+    await page.route('**/connectors', (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (route.request().method() !== 'GET' || !path.endsWith('/connectors')) {
+        return route.fallback();
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          connectors: [
+            {
+              id: 'slack',
+              name: 'Slack',
+              provider: 'composio',
+              category: 'work',
+              status: 'available',
+              tools: [],
+              allowedToolNames: [],
+              curatedToolNames: [],
+              auth: { provider: 'oauth', configured: false },
+            },
+          ],
+        }),
+      });
+    });
+    await page.route('**/connectors/slack', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'slack',
+          name: 'Slack',
+          provider: 'composio',
+          category: 'work',
+          status: 'available',
+          tools: [],
+          allowedToolNames: [],
+          curatedToolNames: [],
+          auth: { provider: 'oauth', configured: false },
+        }),
+      }),
+    );
+    await page.addInitScript(() => {
+      const settings = JSON.parse(
+        window.localStorage.getItem('neumar_settings') || '{}',
+      ) as Record<string, unknown>;
+      settings.ui = { simpleShell: true };
+      settings.language = 'en-US';
+      window.localStorage.setItem('neumar_settings', JSON.stringify(settings));
+    });
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.keyboard.press('Meta+,');
+    await expect(page.getByTestId('settings-modal')).toBeVisible();
+    await page.getByRole('button', { name: 'Connectors', exact: true }).click();
+    await page.getByTestId('connector-connect-slack').click();
+    await expect(page.getByRole('button', { name: 'Connect' })).toBeVisible();
+    await expect(page.getByLabel('Composio API key')).toHaveCount(0);
+  });
 });
