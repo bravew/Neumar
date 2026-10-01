@@ -31,6 +31,7 @@ import {
   VideoRenderHostPage,
   VideoTemplatesSettingsPage,
 } from '@/app/route-preload';
+import { IdeasPage } from '@/components/ideas/IdeasPage';
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +71,14 @@ export const router = createBrowserRouter([
             element: (
               <RouteFallback shape="library">
                 <LibraryPage />
+              </RouteFallback>
+            ),
+          },
+          {
+            path: 'ideas',
+            element: (
+              <RouteFallback shape="page">
+                <IdeasPage />
               </RouteFallback>
             ),
           },

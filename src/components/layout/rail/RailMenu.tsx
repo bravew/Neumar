@@ -29,6 +29,13 @@ export function RailMenu() {
           className="border-border bg-popover absolute bottom-0 left-12 z-20 w-48 rounded-lg border p-1 shadow-md"
         >
           <MenuButton
+            label={t.ideas.title}
+            onSelect={() => {
+              setOpen(false);
+              navigate('/ideas');
+            }}
+          />
+          <MenuButton
             label={t.nav.approvals}
             onSelect={() => {
               setOpen(false);
