@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Search } from 'lucide-react';
 
@@ -41,32 +41,29 @@ export function SettingsShellV2({
 }) {
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
-  const [homeDetail, setHomeDetail] = useState(false);
+  const [homeDetailPage, setHomeDetailPage] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const labels = t.settings as Record<string, string>;
   const labelFor = (key: string) =>
     labels[key] ?? t.settings[key as SettingsCategory] ?? key;
   const location = resolveSettingsLocation(activeCategory);
   const page = settingsPage(location.page);
+  const homeDetail = homeDetailPage === location.page;
   const nested =
     Boolean(location.drillIn) ||
     activeCategory !== page.homeCategory ||
     homeDetail;
 
-  useEffect(() => {
-    setHomeDetail(false);
-  }, [location.page]);
-
   const openCategory = (category: SettingsCategory) => {
     if (category === page.homeCategory) {
-      setHomeDetail(true);
+      setHomeDetailPage(location.page);
       return;
     }
-    setHomeDetail(false);
+    setHomeDetailPage(null);
     onSelectCategory(category);
   };
   const backToPage = () => {
-    setHomeDetail(false);
+    setHomeDetailPage(null);
     onSelectCategory(page.homeCategory);
   };
   const q = query.trim().toLowerCase();
@@ -112,7 +109,7 @@ export function SettingsShellV2({
                   key={`${entry.page}-${entry.category}`}
                   type="button"
                   onClick={() => {
-                    setHomeDetail(false);
+                    setHomeDetailPage(null);
                     onSelectCategory(entry.category);
                     setQuery('');
                   }}
