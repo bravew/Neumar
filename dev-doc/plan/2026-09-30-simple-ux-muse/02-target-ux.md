@@ -66,7 +66,7 @@ stop mounting a sidebar and stop owning the recents task list.
 
 ```
 state A  rail + context panel      (default on wide screens)
-state B  rail only                 (default < 1100 px, and on Ideas)
+state B  rail only                 (default < 880 px: rail 56 + panel 264 + a 560 px column; and on Ideas)
 state C  nothing (focus)           (⌘. from any state; ⌘. again restores the previous state)
 ```
 

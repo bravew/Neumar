@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
+import { ChevronDown, MessagesSquare } from 'lucide-react';
+
 import { ScopingCard } from '@/components/ideas/ScopingCard';
+import { useSidebarTasks } from '@/components/layout/sidebar-shell/useSidebarTasks';
 import {
   createMessage,
   createSession,
@@ -14,10 +17,12 @@ import {
   IDEAS_PREFILL_EVENT,
   takeComposerPrefill,
 } from '@/shared/ideas/prefill';
+import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { randomUUID } from '@/shared/utils/uuid';
 
 import { ContextChip } from './ContextChip';
+import { DockSessionList, sessionLabel } from './DockSessionList';
 import { usePageContextValue } from './usePageContext';
 
 export function ChatDock({
@@ -26,7 +31,7 @@ export function ChatDock({
   onClose,
 }: {
   taskId: string | null;
-  onTaskId: (taskId: string) => void;
+  onTaskId: (taskId: string | null) => void;
   onClose: () => void;
 }) {
   const { t } = useLanguage();
@@ -36,6 +41,13 @@ export function ChatDock({
   const [draft, setDraft] = useState('');
   const [scopeQuestions, setScopeQuestions] = useState<string[] | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [listOpen, setListOpen] = useState(false);
+  // Set once the user picks New chat, so opening on the latest session never
+  // overrides that choice.
+  const [startedNew, setStartedNew] = useState(false);
+  const { tasks, status, reload } = useSidebarTasks();
+  const latestId = tasks[0]?.id;
+  const current = taskId ? tasks.find((task) => task.id === taskId) : undefined;
   const chip =
     pageContext && pageContext.payload !== dismissedPayload
       ? pageContext
@@ -47,8 +59,21 @@ export function ChatDock({
 
   useEffect(() => {
     if (!taskId) return;
-    void load(taskId);
-  }, [load, taskId]);
+    // Switching sessions quickly must not let an older load win.
+    let stale = false;
+    void getMessagesByTaskId(taskId).then((loaded) => {
+      if (!stale) setMessages(loaded);
+    });
+    return () => {
+      stale = true;
+    };
+  }, [taskId]);
+
+  // Spec §2: the dock opens on the most recent conversation.
+  useEffect(() => {
+    if (taskId || startedNew || status !== 'ready' || !latestId) return;
+    onTaskId(latestId);
+  }, [latestId, onTaskId, startedNew, status, taskId]);
 
   useEffect(() => {
     // An open dock claims the prompt so Home does not also receive it.
@@ -85,6 +110,7 @@ export function ChatDock({
         prompt: content,
       });
       onTaskId(id);
+      reload();
     }
     await createMessage({ task_id: id, type: 'user', content });
     await load(id);
@@ -95,60 +121,105 @@ export function ChatDock({
       data-testid="chat-dock"
       className="border-border flex h-full w-[360px] max-w-[560px] min-w-[320px] shrink-0 flex-col border-r"
     >
-      <div className="flex items-center justify-between px-3 py-2">
-        <p className="text-sm font-medium">{t.task.dockTitle}</p>
-        <button type="button" className="text-xs" onClick={onClose}>
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <button
+          type="button"
+          aria-expanded={listOpen}
+          aria-label={t.task.dockSwitchChat}
+          title={t.task.dockSwitchChat}
+          onClick={() => {
+            if (!listOpen) reload();
+            setListOpen((open) => !open);
+          }}
+          className="hover:bg-sidebar-accent flex min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium transition-colors"
+        >
+          <MessagesSquare className="size-4 shrink-0" />
+          <span className="truncate">
+            {listOpen
+              ? t.task.dockChats
+              : current
+                ? sessionLabel(current)
+                : t.task.dockTitle}
+          </span>
+          <ChevronDown
+            className={cn(
+              'size-3.5 shrink-0 transition-transform',
+              listOpen && 'rotate-180',
+            )}
+          />
+        </button>
+        <button type="button" className="shrink-0 text-xs" onClick={onClose}>
           {t.task.dockClose}
         </button>
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3">
-        {(taskId ? messages : []).map((message) => (
-          <p key={message.id} className="text-sm whitespace-pre-wrap">
-            {message.content}
-          </p>
-        ))}
-      </div>
-      <form
-        className="space-y-2 p-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void send();
-        }}
-      >
-        {scopeQuestions ? (
-          <ScopingCard
-            title={t.task.dockTitle}
-            questions={scopeQuestions.slice(0, 3)}
-            onSubmit={(answers) => {
-              setDraft(answers.filter(Boolean).join('\n'));
-              setScopeQuestions(null);
-            }}
-          />
-        ) : null}
-        {chip ? (
-          <ContextChip
-            label={chip.label}
-            removeLabel={t.task.dockDismiss}
-            onRemove={() => setDismissedPayload(chip.payload)}
-          />
-        ) : null}
-        <input
-          data-testid="chat-dock-input"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={t.task.dockPlaceholder}
-          className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
+      {listOpen ? (
+        <DockSessionList
+          tasks={tasks}
+          status={status}
+          activeId={taskId}
+          onSelect={(id) => {
+            onTaskId(id);
+            setListOpen(false);
+          }}
+          onNewChat={() => {
+            setStartedNew(true);
+            setMessages([]);
+            onTaskId(null);
+            setListOpen(false);
+          }}
         />
-        {taskId ? (
-          <button
-            type="button"
-            className="text-primary text-xs"
-            onClick={() => navigate(`/task-v2/${taskId}`)}
-          >
-            {t.task.dockFullView}
-          </button>
-        ) : null}
-      </form>
+      ) : (
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3">
+          {(taskId ? messages : []).map((message) => (
+            <p key={message.id} className="text-sm whitespace-pre-wrap">
+              {message.content}
+            </p>
+          ))}
+        </div>
+      )}
+      {listOpen ? null : (
+        <form
+          className="space-y-2 p-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void send();
+          }}
+        >
+          {scopeQuestions ? (
+            <ScopingCard
+              title={t.task.dockTitle}
+              questions={scopeQuestions.slice(0, 3)}
+              onSubmit={(answers) => {
+                setDraft(answers.filter(Boolean).join('\n'));
+                setScopeQuestions(null);
+              }}
+            />
+          ) : null}
+          {chip ? (
+            <ContextChip
+              label={chip.label}
+              removeLabel={t.task.dockDismiss}
+              onRemove={() => setDismissedPayload(chip.payload)}
+            />
+          ) : null}
+          <input
+            data-testid="chat-dock-input"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder={t.task.dockPlaceholder}
+            className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
+          />
+          {taskId ? (
+            <button
+              type="button"
+              className="text-primary text-xs"
+              onClick={() => navigate(`/task-v2/${taskId}`)}
+            >
+              {t.task.dockFullView}
+            </button>
+          ) : null}
+        </form>
+      )}
     </aside>
   );
 }

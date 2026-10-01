@@ -13,8 +13,13 @@ describe('panelState', () => {
     expect(defaultPanelRecord(1280)).toEqual({ state: 'A', restore: 'A' });
   });
 
-  it('defaults to the rail only below 1100px', () => {
-    expect(defaultPanelRecord(1099)).toEqual({ state: 'B', restore: 'B' });
+  it('keeps the panel when it fits beside a reading column', () => {
+    expect(defaultPanelRecord(960)).toEqual({ state: 'A', restore: 'A' });
+    expect(defaultPanelRecord(880)).toEqual({ state: 'A', restore: 'A' });
+  });
+
+  it('defaults to the rail only below 880px', () => {
+    expect(defaultPanelRecord(879)).toEqual({ state: 'B', restore: 'B' });
   });
 
   it('cycles A to B to C and back to A', () => {

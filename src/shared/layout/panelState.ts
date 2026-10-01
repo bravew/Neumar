@@ -6,8 +6,14 @@ export interface PanelRecord {
   restore: 'A' | 'B';
 }
 
+const RAIL_WIDTH = 56;
+const PANEL_WIDTH = 264;
+const MIN_READING_WIDTH = 560;
+/** Show the panel whenever it fits beside a readable column, like muse. */
+const PANEL_MIN_VIEWPORT = RAIL_WIDTH + PANEL_WIDTH + MIN_READING_WIDTH;
+
 export function defaultPanelRecord(width: number): PanelRecord {
-  const state = width < 1100 ? 'B' : 'A';
+  const state = width < PANEL_MIN_VIEWPORT ? 'B' : 'A';
   return { state, restore: state };
 }
 
