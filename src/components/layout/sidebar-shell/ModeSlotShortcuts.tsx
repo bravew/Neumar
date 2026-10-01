@@ -1,12 +1,10 @@
-import { useNavigate } from 'react-router-dom';
-
 import { useSettingsValue } from '@/shared/db/settings';
 import { useShortcut } from '@/shared/hotkeys/useShortcut';
 import type { ModeDefinition } from '@/shared/modes/types';
 import { useMode } from '@/shared/modes/useMode';
 
 function ModeShortcut({ mode }: { mode: ModeDefinition }) {
-  const navigate = useNavigate();
+  const { setActiveMode } = useMode();
   const slot = mode.shortcutSlot ?? 1;
   useShortcut({
     id: `mode.switch.${mode.id}`,
@@ -14,7 +12,7 @@ function ModeShortcut({ mode }: { mode: ModeDefinition }) {
     scope: 'global',
     descriptionKey: mode.labelKey,
     group: 'mode',
-    handler: () => navigate(mode.rootPath),
+    handler: () => setActiveMode(mode.id),
   });
   return null;
 }

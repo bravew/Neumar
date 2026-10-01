@@ -38,6 +38,12 @@ export interface ModeDefinition {
   icon: ComponentType<{ className?: string }>;
   rootPath: string;
   matches: (RegExp | string)[];
+  /**
+   * Paths the mode returns to when the user comes back from another mode.
+   * Defaults to `matches`; narrow it when the mode also owns pages that have
+   * their own rail entry.
+   */
+  resumePaths?: (RegExp | string)[];
   shortcutSlot?: number;
   /** Where the mode appears on the flag-on rail. */
   railItem?: { group: 'primary' | 'studios' };

@@ -195,6 +195,9 @@ const tasksMode: ModeDefinition = {
     '/org',
     /^\/org\//,
   ],
+  // Library and the other pages above have their own entries; coming back
+  // to Tasks should reopen the conversation, not one of them.
+  resumePaths: ['/', /^\/task\//, /^\/task-v2\//],
   shortcutSlot: 1,
   railItem: { group: 'primary' },
   enabled: true,

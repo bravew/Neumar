@@ -10,6 +10,7 @@ import {
 
 import { SidebarFooter } from '@/components/layout/sidebar-shell/SidebarFooter';
 import { ModeRegistry } from '@/shared/modes/ModeRegistry';
+import { useMode } from '@/shared/modes/useMode';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { RailItem } from './RailItem';
@@ -26,6 +27,7 @@ export function AppRail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
+  const { setActiveMode } = useMode();
   const pending = usePendingApprovalCount();
   const modes = ModeRegistry.list().filter((mode) => mode.railItem);
   const primary = modes.filter((mode) => mode.railItem?.group === 'primary');
@@ -56,7 +58,7 @@ export function AppRail() {
             shortcut={mode.shortcutSlot ? `⌘${mode.shortcutSlot}` : undefined}
             active={modeActive(mode.id, mode.rootPath)}
             badge={mode.id === 'tasks' && pending > 0}
-            onSelect={() => navigate(mode.rootPath)}
+            onSelect={() => setActiveMode(mode.id)}
           >
             <Icon className="size-4" />
           </RailItem>
@@ -78,7 +80,7 @@ export function AppRail() {
             label={labels[mode.id]?.label ?? mode.id}
             shortcut={mode.shortcutSlot ? `⌘${mode.shortcutSlot}` : undefined}
             active={modeActive(mode.id, mode.rootPath)}
-            onSelect={() => navigate(mode.rootPath)}
+            onSelect={() => setActiveMode(mode.id)}
           >
             <Icon className="size-4" />
           </RailItem>
