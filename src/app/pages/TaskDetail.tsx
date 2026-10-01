@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 
 import { ArrowDown, PanelLeft, Wand2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -24,7 +24,7 @@ import {
   type Artifact,
 } from '@/components/artifacts';
 import { shouldTreatArtifactAsOutput } from '@/components/artifacts/output-classification';
-import { LeftSidebar, SidebarProvider, useSidebar } from '@/components/layout';
+import { useSidebar } from '@/components/layout';
 import { AvatarSvg } from '@/components/profiles/avatar-options';
 import { ChatInput, DEFAULT_MODEL_ID } from '@/components/shared/ChatInput';
 import { ExtractSkillDialog } from '@/components/task/ExtractSkillDialog';
@@ -50,7 +50,6 @@ import {
 } from '@/config/animation';
 import type { LibraryFile, Task } from '@/shared/db';
 import {
-  deleteTask,
   getAllTasks,
   getFilesByTaskId,
   getTask,
@@ -74,7 +73,6 @@ import { useNeumaAGUIEvents } from '@/shared/hooks/useNeumaAGUIEvents';
 import { useResizeAutoFollow } from '@/shared/hooks/useResizeAutoFollow';
 import { useVitePreview } from '@/shared/hooks/useVitePreview';
 import { resolveArtifactPath } from '@/shared/lib/paths';
-import { deleteSessionFolder } from '@/shared/lib/session';
 import { cn } from '@/shared/lib/utils';
 import { AgentExternalRuntimeProvider } from '@/shared/providers/AgentExternalRuntimeProvider';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -205,9 +203,7 @@ function NeumaAGUIEventDispatcher({
 
 export function TaskDetailPage() {
   return (
-    <SidebarProvider>
-      <TaskDetailContent />
-    </SidebarProvider>
+    <TaskDetailContent />
   );
 }
 
@@ -232,7 +228,6 @@ function TaskDetailContent() {
   const { t } = useLanguage();
   const { taskId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const state = location.state as LocationState | null;
   const initialPrompt = state?.prompt || '';
   const initialSessionId = state?.sessionId;
@@ -274,7 +269,6 @@ function TaskDetailContent() {
     respondToQuestion,
     sessionFolder,
     filesVersion,
-    backgroundTasks,
     setPlan,
   } = useAgent();
 
@@ -311,7 +305,7 @@ function TaskDetailContent() {
   const [hasStarted, setHasStarted] = useState(false);
   const loadGenerationRef = useRef(0); // Generation counter to handle concurrent task loads
   const [task, setTask] = useState<Task | null>(null);
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [, setAllTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1031,54 +1025,6 @@ function TaskDetailContent() {
       window.removeEventListener('task-title-updated', handleTitleUpdate);
   }, [taskId]);
 
-  // Handle task deletion from sidebar
-  const handleDeleteTask = useCallback(
-    async (id: string, deleteFolder?: boolean) => {
-      try {
-        // Get task info before deleting (to get session_id)
-        const taskToDelete = await getTask(id);
-
-        // Delete task from database
-        await deleteTask(id);
-        setAllTasks((prev) => prev.filter((t) => t.id !== id));
-
-        // If deleting current task, navigate to home
-        if (id === taskId) {
-          navigate('/');
-        }
-
-        // Delete session folder if requested (best-effort, errors are logged internally)
-        // Pass per-task work_dir so the correct folder is targeted
-        if (deleteFolder && taskToDelete) {
-          await deleteSessionFolder(
-            taskToDelete.id,
-            taskToDelete.work_dir,
-            taskToDelete.session_id,
-          );
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to delete task:', error);
-      }
-    },
-    [taskId, navigate],
-  );
-
-  // Handle favorite toggle from sidebar — wrapped in useCallback so child
-  // components that are memoized don't re-render when unrelated state changes.
-  const handleToggleFavorite = useCallback(
-    async (id: string, favorite: boolean) => {
-      try {
-        await updateTask(id, { favorite });
-        setAllTasks((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, favorite } : t)),
-        );
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to update task:', error);
-      }
-    },
-    [],
-  );
-
   // Reset UI state when taskId changes (but don't touch agent/task state - let loadTask handle that)
   useEffect(() => {
     if (prevTaskIdRef.current !== taskId) {
@@ -1412,29 +1358,9 @@ function TaskDetailContent() {
     >
       <ToolSelectionContext.Provider value={toolSelectionValue}>
         <div
-          className="bg-sidebar flex h-screen overflow-hidden"
+          className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
           data-testid="task-detail-page"
         >
-          {/* Left Sidebar */}
-          <LeftSidebar
-            currentTaskId={taskId}
-            onDeleteTask={handleDeleteTask}
-            onToggleFavorite={handleToggleFavorite}
-            runningTaskIds={[
-              ...new Set([
-                ...backgroundTasks
-                  .filter((t) => t.isRunning)
-                  .map((t) => t.taskId),
-                // Include current task if it's running
-                ...(isRunning && taskId ? [taskId] : []),
-                // Include tasks with DB status 'running' (e.g. running in another tab)
-                ...allTasks
-                  .filter((t) => t.status === 'running')
-                  .map((t) => t.id),
-              ]),
-            ]}
-          />
-
           {/* Main Content Area with Resizable Panels */}
           <div
             ref={containerRef}

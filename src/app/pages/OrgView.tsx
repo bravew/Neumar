@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 
 import { Building2, Plus } from 'lucide-react';
 
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { OrgProfileCard } from '@/components/org/OrgProfileCard';
 import { API_BASE_URL } from '@/config';
 import {
@@ -35,9 +34,7 @@ type StatusFilter = 'all' | 'active' | 'paused' | 'archived';
 
 export function OrgViewPage() {
   return (
-    <SidebarProvider>
-      <OrgViewContent />
-    </SidebarProvider>
+    <OrgViewContent />
   );
 }
 
@@ -130,10 +127,9 @@ function OrgViewContent() {
 
   return (
     <div
-      className="bg-sidebar flex h-screen overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="org-page"
     >
-      <LeftSidebar />
 
       <main className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm">
         {/* Header */}

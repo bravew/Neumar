@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { Archive, FolderKanban, FolderOpen, Loader2, Plus } from 'lucide-react';
 import { motion } from 'motion/react';
 
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { API_BASE_URL } from '@/config';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -31,9 +30,7 @@ interface Project {
 
 export function ProjectsPage() {
   return (
-    <SidebarProvider>
-      <ProjectsContent />
-    </SidebarProvider>
+    <ProjectsContent />
   );
 }
 
@@ -126,8 +123,7 @@ function ProjectsContent() {
   );
 
   return (
-    <div className="bg-sidebar flex h-screen overflow-hidden">
-      <LeftSidebar />
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <main
         className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm"
         data-testid="projects-page"

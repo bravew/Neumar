@@ -15,8 +15,6 @@ import { Panel, Group as PanelGroup } from 'react-resizable-panels';
 import { LiveArtifactPanel } from '@/components/artifacts/live';
 import type { Artifact } from '@/components/artifacts/types';
 import { getArtifactTypeFromExt } from '@/components/artifacts/utils';
-import { SidebarProvider } from '@/components/layout';
-import { LeftSidebar } from '@/components/layout/left-sidebar';
 import { InitialMessageSender } from '@/components/task/InitialMessageSender';
 import type {
   LocationState,
@@ -63,8 +61,7 @@ const PREVIEW_SIZE_KEY = 'task-v2-preview-size';
  */
 export function TaskDetailV2Page() {
   const { taskId } = useParams<{ taskId: string }>();
-  const { handleDeleteTask, handleToggleFavorite, addTask } =
-    useV2TaskLoader(taskId);
+  const { addTask } = useV2TaskLoader(taskId);
   const runningTaskIds = useThreadStore(selectRunningTaskIds);
 
   const location = useLocation();
@@ -416,21 +413,14 @@ export function TaskDetailV2Page() {
     `Task ${taskId.slice(0, 8)}`;
 
   return (
-    <SidebarProvider>
-      <AgUiProvider key={taskId} threadId={taskId} isNewTask={hasPrompt}>
+    <AgUiProvider key={taskId} threadId={taskId} isNewTask={hasPrompt}>
         <InitialMessageSender
           taskId={taskId}
           addTask={addTask}
           onAttachMessage={handleAttachMessage}
           modelConfig={modelConfig}
         />
-        <div className="bg-sidebar flex h-svh overflow-hidden">
-          <LeftSidebar
-            currentTaskId={taskId}
-            onDeleteTask={handleDeleteTask}
-            onToggleFavorite={handleToggleFavorite}
-            runningTaskIds={runningTaskIds}
-          />
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <div className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl shadow-sm">
             {/* ── Header ── */}
             <TaskV2Header
@@ -551,6 +541,5 @@ export function TaskDetailV2Page() {
           </div>
         </div>
       </AgUiProvider>
-    </SidebarProvider>
   );
 }

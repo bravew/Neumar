@@ -1,7 +1,3 @@
-import { useMemo } from 'react';
-
-import { useNavigate } from 'react-router-dom';
-
 import { Check, ChevronDown } from 'lucide-react';
 
 import { preloadRoute } from '@/app/route-preload';
@@ -13,41 +9,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatChord } from '@/shared/hotkeys/format';
-import { useShortcut } from '@/shared/hotkeys/useShortcut';
 import { cn } from '@/shared/lib/utils';
-import type { ModeDefinition } from '@/shared/modes/types';
 import { useMode } from '@/shared/modes/useMode';
 import { useLanguage } from '@/shared/providers/language-provider';
-
-function ModeShortcut({ mode }: { mode: ModeDefinition }) {
-  const navigate = useNavigate();
-  const slot = mode.shortcutSlot ?? 1;
-  useShortcut({
-    id: `mode.switch.${mode.id}`,
-    chord: `mod+${slot}`,
-    scope: 'global',
-    descriptionKey: mode.labelKey,
-    group: 'mode',
-    handler: () => navigate(mode.rootPath),
-  });
-  return null;
-}
 
 export function ModeSwitcher() {
   const { activeMode, modes, setActiveMode } = useMode();
   const { tt } = useLanguage();
-  const switcherModes = useMemo(
-    () => modes.filter((mode) => mode.shortcutSlot),
-    [modes],
-  );
   const ActiveIcon = activeMode.icon;
   const activeLabel = tt(activeMode.labelKey);
 
   return (
     <div aria-label={tt('modes.switcherLabel')}>
-      {switcherModes.map((mode) => (
-        <ModeShortcut key={mode.id} mode={mode} />
-      ))}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
