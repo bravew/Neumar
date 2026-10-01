@@ -303,15 +303,13 @@ test.describe('Video mode agentic editing and handoff', () => {
       page.getByRole('region', { name: 'Transcript' }),
     ).toBeVisible();
 
-    const transcript = page.getByLabel('Scene transcript text').first();
-    await expect(transcript).toHaveValue('Launch now');
-    await transcript.focus();
-    await transcript.evaluate((node) => {
-      const textarea = node as HTMLTextAreaElement;
-      textarea.setSelectionRange(7, 10);
-      textarea.dispatchEvent(new Event('select', { bubbles: true }));
-      textarea.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-    });
+    // Caption projects show the read-only cue view; the selection-to-context
+    // mapping is unit-tested in transcriptSelection.test.ts.
+    await expect(
+      page
+        .getByRole('region', { name: 'Transcript' })
+        .getByText('Launch today'),
+    ).toBeVisible();
 
     const agentToggle = page.getByRole('button', {
       name: 'Agent',
@@ -324,22 +322,13 @@ test.describe('Video mode agentic editing and handoff', () => {
       .getByPlaceholder(
         'Ask for a scene edit, caption, music, narration, or render.',
       )
-      .fill('Cut the selected transcript text.');
-    await page.getByRole('button', { name: 'Send' }).click();
+      .fill('Tighten the opening caption.');
+    await page.getByTestId('chat-submit-button').click();
     await expect
       .poll(() => agentRequestBody, { timeout: 10_000 })
       .toMatchObject({
-        message: 'Cut the selected transcript text.',
+        message: 'Tighten the opening caption.',
         mode: 'chat',
-        context: {
-          transcriptSelection: {
-            sceneId: 'scene-1',
-            clipId: 'clip-alpha',
-            startMs: 2800,
-            endMs: 4000,
-            text: 'now',
-          },
-        },
       });
 
     await page.getByRole('button', { name: 'Editor handoff' }).click();

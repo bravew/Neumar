@@ -75,6 +75,8 @@ test.describe('Video Mode happy path', () => {
     context,
     page,
   }) => {
+    // The assets panel collapses below its 220px minimum on narrower windows.
+    await page.setViewportSize({ width: 1920, height: 1080 });
     const assetEventRequests: string[] = [];
     let fileDialogRequests = 0;
     let folderDialogRequests = 0;
