@@ -158,7 +158,10 @@ export const TaskItem = memo(function TaskItem({
           ) : null}
           {taskTitle}
         </span>
-        <AskAboutThis item={{ kind: 'library', name: taskTitle }} />
+        {/* Library rows only: in Recents it would crowd every title. */}
+        {!isSidebar ? (
+          <AskAboutThis item={{ kind: 'library', name: taskTitle }} />
+        ) : null}
         {isLoading && (
           <div className="flex shrink-0 items-center justify-center">
             {isSidebar ? (

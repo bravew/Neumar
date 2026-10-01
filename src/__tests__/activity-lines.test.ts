@@ -2,9 +2,22 @@ import { describe, expect, it } from 'vitest';
 
 import {
   mapActivityLines,
+  parentDir,
   type ActivityEvent,
   type ActivityKind,
 } from '@/components/task/activity-lines';
+
+describe('parentDir', () => {
+  it.each([
+    ['/sessions/demo/a.txt', '/sessions/demo'],
+    ['/file.txt', '/'],
+    ['C:\\work\\a.txt', 'C:\\work'],
+    ['C:\\a.txt', 'C:\\'],
+    ['a.txt', 'a.txt'],
+  ])('%s → %s', (path, expected) => {
+    expect(parentDir(path)).toBe(expected);
+  });
+});
 
 const ROOT = '/sessions/demo';
 

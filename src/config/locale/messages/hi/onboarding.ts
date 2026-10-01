@@ -5,9 +5,6 @@ export default {
   back: 'वापस',
   skip: 'छोड़ें',
   getStarted: 'शुरू करें',
-  installTools: 'टूल इंस्टॉल करें',
-  installToolsBody: 'Claude Code या Codex अभी उपलब्ध नहीं है। एक इंस्टॉल करें, फिर जारी रखें।',
-  connectBrain: 'एक मॉडल जोड़ें',
 
   // Step 1: Welcome & Profile
   welcomeTitle: '{appName} में आपका स्वागत है',

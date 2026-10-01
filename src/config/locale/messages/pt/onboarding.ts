@@ -5,9 +5,6 @@ export default {
   back: 'Voltar',
   skip: 'Pular',
   getStarted: 'Começar',
-  installTools: 'Instalar ferramentas',
-  installToolsBody: 'Claude Code ou Codex ainda não está disponível. Instale um e continue.',
-  connectBrain: 'Conectar um modelo',
 
   // Step 1: Welcome & Profile
   welcomeTitle: 'Bem-vindo ao {appName}',

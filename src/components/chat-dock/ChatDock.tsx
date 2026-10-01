@@ -10,6 +10,10 @@ import {
   getMessagesByTaskId,
 } from '@/shared/db';
 import type { Message } from '@/shared/db';
+import {
+  IDEAS_PREFILL_EVENT,
+  takeComposerPrefill,
+} from '@/shared/ideas/prefill';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { randomUUID } from '@/shared/utils/uuid';
 
@@ -47,18 +51,19 @@ export function ChatDock({
   }, [load, taskId]);
 
   useEffect(() => {
-    const onPrefill = (event: Event) => {
-      const detail = event instanceof CustomEvent ? event.detail : undefined;
-      if (typeof detail?.prompt === 'string') setDraft(detail.prompt);
+    // An open dock claims the prompt so Home does not also receive it.
+    const onPrefill = () => {
+      const prompt = takeComposerPrefill();
+      if (prompt !== null) setDraft(prompt);
     };
     const onScope = (event: Event) => {
       const detail = event instanceof CustomEvent ? event.detail : undefined;
       if (Array.isArray(detail?.questions)) setScopeQuestions(detail.questions);
     };
-    window.addEventListener('ideas:prefill', onPrefill);
+    window.addEventListener(IDEAS_PREFILL_EVENT, onPrefill);
     window.addEventListener('automation:scope', onScope);
     return () => {
-      window.removeEventListener('ideas:prefill', onPrefill);
+      window.removeEventListener(IDEAS_PREFILL_EVENT, onPrefill);
       window.removeEventListener('automation:scope', onScope);
     };
   }, []);

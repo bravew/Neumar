@@ -8,6 +8,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 
 import {
   mapActivityLines,
+  parentDir,
   type ActivityKind,
   type ActivityLine,
 } from './activity-lines';
@@ -46,11 +47,6 @@ async function openPath(path: string) {
   } catch {
     // The panel still shows the path if the OS opener is unavailable.
   }
-}
-
-function parentDir(path: string): string {
-  const idx = path.lastIndexOf('/');
-  return idx > 0 ? path.slice(0, idx) : path;
 }
 
 export function ActivityPanel({

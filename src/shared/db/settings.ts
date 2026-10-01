@@ -830,7 +830,8 @@ export interface Settings {
     usageActivityOpens?: number;
     /** Flag-on rail state per destination. Not synced. */
     panelState?: Record<string, { state: 'A' | 'B' | 'C'; restore: 'A' | 'B' }>;
-    ideasFeedback?: Record<string, 'dismissed'>;
+    /** Ideas gallery feedback: `dismissed` hides, `more` ranks first. */
+    ideasFeedback?: Record<string, 'dismissed' | 'more'>;
   };
   artifactsV2: boolean; // Enable Phase-3 live artifacts + generative-UI pipeline
 }

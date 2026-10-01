@@ -55,6 +55,16 @@ function displayPath(path: string, sessionRoot?: string): string {
   return toDisplayPath(path, sessionRoot);
 }
 
+/** Folder that "Reveal" opens: the filesystem root for a top-level file. */
+export function parentDir(path: string): string {
+  const idx = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  if (idx < 0) return path;
+  if (idx === 0) return path[0] ?? '/';
+  // Keep the separator after a Windows drive letter: `C:\file` → `C:\`.
+  if (idx === 2 && path[1] === ':') return path.slice(0, 3);
+  return path.slice(0, idx);
+}
+
 function commandLabel(command: string): string {
   const token = command.trim().split(/\s+/)[0] ?? command.trim();
   const base = token.split('/').pop() || token;

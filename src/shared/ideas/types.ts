@@ -23,11 +23,19 @@ export interface IdeaDefinition {
   requires?: 'connector' | 'schedule';
 }
 
-export type IdeasFeedback = Record<string, 'dismissed'>;
+/** `dismissed` hides an idea; `more` (More like this) ranks it first. */
+export type IdeaFeedback = 'dismissed' | 'more';
+
+export type IdeasFeedback = Record<string, IdeaFeedback>;
 
 export function visibleIdeas(
   ideas: IdeaDefinition[],
   feedback: IdeasFeedback | undefined,
 ): IdeaDefinition[] {
-  return ideas.filter((idea) => feedback?.[idea.id] !== 'dismissed');
+  const shown = ideas.filter((idea) => feedback?.[idea.id] !== 'dismissed');
+  // Array.prototype.sort is stable, so registry order holds within each tier.
+  return shown.sort(
+    (a, b) =>
+      Number(feedback?.[b.id] === 'more') - Number(feedback?.[a.id] === 'more'),
+  );
 }

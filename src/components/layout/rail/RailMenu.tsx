@@ -4,80 +4,46 @@ import { useNavigate } from 'react-router-dom';
 
 import { Menu } from 'lucide-react';
 
+import { openSettings } from '@/components/settings/openSettings';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { API_BASE_URL } from '@/config';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { RailItem } from './RailItem';
 
+// Radix handles Escape, outside click, focus return, and arrow keys, so the
+// rail menu behaves like the other menus in the app.
 export function RailMenu() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative">
-      <RailItem
-        label={t.nav.menu}
-        active={open}
-        onSelect={() => setOpen((value) => !value)}
-      >
-        <Menu className="size-4" />
-      </RailItem>
-      {open ? (
-        <div
-          role="menu"
-          className="border-border bg-popover absolute bottom-0 left-12 z-20 w-48 rounded-lg border p-1 shadow-md"
-        >
-          <MenuButton
-            label={t.ideas.title}
-            onSelect={() => {
-              setOpen(false);
-              navigate('/ideas');
-            }}
-          />
-          <MenuButton
-            label={t.nav.approvals}
-            onSelect={() => {
-              setOpen(false);
-              navigate('/approvals');
-            }}
-          />
-          <MenuButton
-            label={t.nav.dashboard}
-            onSelect={() => {
-              setOpen(false);
-              navigate('/dashboard');
-            }}
-          />
-          <MenuButton
-            label={t.nav.settings}
-            onSelect={() => {
-              setOpen(false);
-              window.dispatchEvent(new CustomEvent('open-settings'));
-            }}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function MenuButton({
-  label,
-  onSelect,
-}: {
-  label: string;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      className="hover:bg-accent w-full rounded-md px-2 py-1.5 text-left text-sm"
-      onClick={onSelect}
-    >
-      {label}
-    </button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <RailItem label={t.nav.menu}>
+          <Menu className="size-4" />
+        </RailItem>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="right" align="end" className="w-48">
+        <DropdownMenuItem onSelect={() => navigate('/ideas')}>
+          {t.ideas.title}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => navigate('/approvals')}>
+          {t.nav.approvals}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => navigate('/dashboard')}>
+          {t.nav.dashboard}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openSettings()}>
+          {t.nav.settings}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

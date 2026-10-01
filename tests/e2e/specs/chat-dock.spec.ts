@@ -13,7 +13,7 @@ test.describe('Chat dock', () => {
 
     await page.goto('/library');
     await page.waitForLoadState('networkidle');
-    await page.keyboard.press('Meta+j');
+    await page.keyboard.press('ControlOrMeta+j');
     await expect(page.getByTestId('chat-dock')).toBeVisible();
     await expect(page.getByText('Library')).toBeVisible();
     await page
@@ -34,7 +34,7 @@ test.describe('Chat dock', () => {
     });
     await page.goto('/library');
     await page.waitForLoadState('networkidle');
-    await page.keyboard.press('Meta+j');
+    await page.keyboard.press('ControlOrMeta+j');
     const remove = page.getByRole('button', { name: 'Remove context' });
     await expect(remove).toBeVisible();
     await remove.click();

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 
+import { useSettingsValue } from '@/shared/db/settings';
 import {
-  getSettings,
-  saveSettings,
-  useSettingsValue,
-} from '@/shared/db/settings';
+  ideaLabel,
+  ideaPrompt,
+  saveIdeaFeedback,
+  scopedPrompt,
+} from '@/shared/ideas/idea-text';
+import { requestComposerPrefill } from '@/shared/ideas/prefill';
 import { listIdeas } from '@/shared/ideas/registry';
 import { visibleIdeas, type IdeaDefinition } from '@/shared/ideas/types';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -14,14 +17,17 @@ import { useLanguage } from '@/shared/providers/language-provider';
 import { ScopingCard } from './ScopingCard';
 
 export function IdeasPage() {
-  const simpleShell = useSettingsValue().ui.simpleShell;
-  const feedback = useSettingsValue().ui.ideasFeedback;
+  const { simpleShell, ideasFeedback } = useSettingsValue().ui;
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const [scopingId, setScopingId] = useState<string | null>(null);
+  // Home's suggestion row links scoping ideas here with `?scope=<id>`.
+  const [searchParams] = useSearchParams();
+  const [scopingId, setScopingId] = useState<string | null>(
+    searchParams.get('scope'),
+  );
   if (!simpleShell) return <Navigate to="/" replace />;
 
-  const ideas = visibleIdeas(listIdeas(), feedback);
+  const ideas = visibleIdeas(listIdeas(), ideasFeedback);
   const groups = new Map<string, IdeaDefinition[]>();
   for (const idea of ideas) {
     const list = groups.get(idea.categoryKey) ?? [];
@@ -29,34 +35,24 @@ export function IdeasPage() {
     groups.set(idea.categoryKey, list);
   }
 
-  const dismiss = (id: string) => {
-    const current = getSettings();
-    saveSettings({
-      ...current,
-      ui: {
-        ...current.ui,
-        ideasFeedback: { ...current.ui.ideasFeedback, [id]: 'dismissed' },
-      },
-    });
+  // The open dock takes the prompt in place; otherwise Home picks it up.
+  const prefill = (prompt: string) => {
+    if (!prompt) return;
+    if (!requestComposerPrefill(prompt)) navigate('/');
   };
 
   const letsDoIt = (idea: IdeaDefinition) => {
-    if (idea.action.kind === 'nav') {
-      navigate(idea.action.path);
-      return;
+    switch (idea.action.kind) {
+      case 'nav':
+        navigate(idea.action.path);
+        return;
+      case 'scoping':
+        setScopingId(idea.id);
+        return;
+      case 'prefill':
+        prefill(ideaPrompt(t.ideas, idea));
+        return;
     }
-    if (idea.action.kind === 'scoping') {
-      setScopingId(idea.id);
-      return;
-    }
-    const messages = t.ideas as unknown as { prompt: Record<string, string> };
-    const key = idea.action.promptKey.split('.').pop() ?? '';
-    window.dispatchEvent(
-      new CustomEvent('ideas:prefill', {
-        detail: { prompt: messages.prompt[key] ?? '' },
-      }),
-    );
-    navigate('/');
   };
 
   return (
@@ -67,34 +63,37 @@ export function IdeasPage() {
       <h1 className="text-xl font-semibold">{t.ideas.title}</h1>
       {[...groups.entries()].map(([categoryKey, rows]) => (
         <section key={categoryKey} className="mt-6">
-          <h2 className="text-sm font-medium">{label(t.ideas, categoryKey)}</h2>
+          <h2 className="text-sm font-medium">
+            {ideaLabel(t.ideas, categoryKey)}
+          </h2>
           <ul className="mt-2 space-y-2">
             {rows.map((idea) => (
               <li
                 key={idea.id}
                 className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2"
               >
-                <div>
-                  <p>{label(t.ideas, idea.promiseKey)}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {label(t.ideas, idea.howKey)}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    className="block text-left"
+                    onClick={() => letsDoIt(idea)}
+                  >
+                    <span className="block">
+                      {ideaLabel(t.ideas, idea.promiseKey)}
+                    </span>
+                    <span className="text-muted-foreground block text-xs">
+                      {ideaLabel(t.ideas, idea.howKey)}
+                    </span>
+                  </button>
                   {scopingId === idea.id && idea.action.kind === 'scoping' ? (
                     <ScopingCard
                       title={t.ideas.letsDoIt}
                       questions={idea.action.questions.map((key) =>
-                        label(t.ideas, key),
+                        ideaLabel(t.ideas, key),
                       )}
-                      onSubmit={(answers) => {
-                        window.dispatchEvent(
-                          new CustomEvent('ideas:prefill', {
-                            detail: {
-                              prompt: answers.filter(Boolean).join('\n'),
-                            },
-                          }),
-                        );
-                        navigate('/');
-                      }}
+                      onSubmit={(answers) =>
+                        prefill(scopedPrompt(t.ideas, idea, answers))
+                      }
                     />
                   ) : null}
                 </div>
@@ -109,8 +108,9 @@ export function IdeasPage() {
                   </button>
                   <button
                     type="button"
+                    data-testid={`idea-more-${idea.id}`}
                     className="block text-sm"
-                    onClick={() => letsDoIt(idea)}
+                    onClick={() => saveIdeaFeedback(idea.id, 'more')}
                   >
                     {t.ideas.moreLikeThis}
                   </button>
@@ -118,7 +118,7 @@ export function IdeasPage() {
                     type="button"
                     data-testid={`idea-dismiss-${idea.id}`}
                     className="block text-sm"
-                    onClick={() => dismiss(idea.id)}
+                    onClick={() => saveIdeaFeedback(idea.id, 'dismissed')}
                   >
                     {t.ideas.notInterested}
                   </button>
@@ -130,14 +130,4 @@ export function IdeasPage() {
       ))}
     </main>
   );
-}
-
-function label(messages: { [key: string]: unknown }, key: string): string {
-  const parts = key.split('.').slice(1);
-  let current: unknown = messages;
-  for (const part of parts) {
-    if (!current || typeof current !== 'object') return key;
-    current = (current as Record<string, unknown>)[part];
-  }
-  return typeof current === 'string' ? current : key;
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import type { PermissionRequestState } from '@/shared/hooks/usePermissionRequests';
 
@@ -21,10 +21,14 @@ export function TaskThreadActions({
   sendMessage,
   children,
 }: TaskThreadActionsValue & { children: ReactNode }) {
+  // The thread re-renders on every streamed message; a stable value keeps
+  // approval cards from re-rendering unless these inputs change.
+  const value = useMemo(
+    () => ({ sessionRoot, respondToPermission, sendMessage }),
+    [sessionRoot, respondToPermission, sendMessage],
+  );
   return (
-    <TaskThreadActionsContext.Provider
-      value={{ sessionRoot, respondToPermission, sendMessage }}
-    >
+    <TaskThreadActionsContext.Provider value={value}>
       {children}
     </TaskThreadActionsContext.Provider>
   );

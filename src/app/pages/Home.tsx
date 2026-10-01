@@ -40,6 +40,7 @@ import {
 } from '@/shared/hooks/useAgent';
 import { useAgentProfiles } from '@/shared/hooks/useAgentProfiles';
 import { useDispatch } from '@/shared/hooks/useDispatch';
+import { useComposerPrefill } from '@/shared/ideas/prefill';
 import { generateSessionId } from '@/shared/lib/session';
 import { parseJsonArray } from '@/shared/lib/utils';
 import type { ChipDefinition } from '@/shared/modes/types';
@@ -74,6 +75,11 @@ function HomeContent() {
   );
   const [prefillValue, setPrefillValue] = useState('');
   const [prefillNonce, setPrefillNonce] = useState(0);
+  const prefillComposer = (prompt: string) => {
+    setPrefillValue(prompt);
+    setPrefillNonce((n) => n + 1);
+  };
+  useComposerPrefill(prefillComposer);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const { profiles } = useAgentProfiles('active');
@@ -353,10 +359,7 @@ function HomeContent() {
               <HomeSuggestionRow
                 chips={activeMode.composer?.starterChips ?? []}
                 onSelectChip={handleStarterChip}
-                onSelectPrompt={(prompt) => {
-                  setPrefillValue(prompt);
-                  setPrefillNonce((n) => n + 1);
-                }}
+                onSelectPrompt={prefillComposer}
               />
 
               {/* Agent profile + Template row */}

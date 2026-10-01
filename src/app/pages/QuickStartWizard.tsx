@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { AnimatePresence, motion } from 'motion/react';
 
+import { createDefaultProfile } from '@/components/onboarding/default-profile';
 import {
   DEFAULT_AVATAR,
   TEMPLATE_AVATARS,
@@ -191,33 +192,10 @@ export function QuickStartWizard() {
     setLoading(true);
     setError(null);
     try {
-      const id = randomUUID();
-      const avatar = TEMPLATE_AVATARS['general-assistant'] ?? DEFAULT_AVATAR;
-      const defaultName =
+      const id = await createDefaultProfile(
         (qs as Record<string, string>).quickstartDefaultName ??
-        'General Helper';
-      const createRes = await fetch(`${API_BASE_URL}/db/agent-profiles`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          name: defaultName,
-          runtime_id: 'claude',
-          avatar_icon: avatar.icon,
-          avatar_color: avatar.color,
-        }),
-      });
-      if (!createRes.ok) throw new Error('Failed to create default profile');
-
-      const applyRes = await fetch(
-        `${API_BASE_URL}/soul/agent-profiles/${id}/apply`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ template_id: 'general-assistant' }),
-        },
+          'General Helper',
       );
-      if (!applyRes.ok) throw new Error('Failed to apply template');
 
       await Promise.all([
         saveSettingItem('quickstart_step', 'completed'),

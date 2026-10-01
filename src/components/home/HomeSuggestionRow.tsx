@@ -1,8 +1,9 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { useSettingsValue } from '@/shared/db/settings';
+import { ideaLabel, ideaPrompt } from '@/shared/ideas/idea-text';
 import { listIdeas } from '@/shared/ideas/registry';
-import { visibleIdeas } from '@/shared/ideas/types';
+import { visibleIdeas, type IdeaDefinition } from '@/shared/ideas/types';
 import type { ChipDefinition } from '@/shared/modes/types';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -19,9 +20,9 @@ export function HomeSuggestionRow({
   onSelectChip,
   onSelectPrompt,
 }: HomeSuggestionRowProps) {
-  const simpleShell = useSettingsValue().ui.simpleShell;
-  const feedback = useSettingsValue().ui.ideasFeedback;
+  const { simpleShell, ideasFeedback } = useSettingsValue().ui;
   const { t } = useLanguage();
+  const navigate = useNavigate();
   if (!simpleShell) {
     return (
       <div
@@ -33,11 +34,24 @@ export function HomeSuggestionRow({
     );
   }
 
-  const ideas = visibleIdeas(listIdeas(), feedback).slice(0, 3);
-  const messages = t.ideas as unknown as {
-    promise: Record<string, string>;
-    prompt: Record<string, string>;
-    title: string;
+  const ideas = visibleIdeas(listIdeas(), ideasFeedback).slice(0, 3);
+
+  // Same outcomes as "Let's do it" in the gallery. Scoping ideas open their
+  // card there, since the questions need room to answer.
+  const select = (idea: IdeaDefinition) => {
+    switch (idea.action.kind) {
+      case 'prefill': {
+        const prompt = ideaPrompt(t.ideas, idea);
+        if (prompt) onSelectPrompt(prompt);
+        return;
+      }
+      case 'nav':
+        navigate(idea.action.path);
+        return;
+      case 'scoping':
+        navigate(`/ideas?scope=${encodeURIComponent(idea.id)}`);
+        return;
+    }
   };
 
   return (
@@ -45,26 +59,18 @@ export function HomeSuggestionRow({
       data-testid="home-suggestion-row"
       className="mt-3 flex flex-wrap items-center justify-center gap-2"
     >
-      {ideas.map((idea) => {
-        const key = idea.promiseKey.split('.').pop() ?? '';
-        const prompt =
-          idea.action.kind === 'prefill'
-            ? (messages.prompt[idea.action.promptKey.split('.').pop() ?? ''] ??
-              '')
-            : '';
-        return (
-          <button
-            key={idea.id}
-            type="button"
-            className="text-sm"
-            onClick={() => prompt && onSelectPrompt(prompt)}
-          >
-            {messages.promise[key] ?? idea.id}
-          </button>
-        );
-      })}
+      {ideas.map((idea) => (
+        <button
+          key={idea.id}
+          type="button"
+          className="text-sm"
+          onClick={() => select(idea)}
+        >
+          {ideaLabel(t.ideas, idea.promiseKey)}
+        </button>
+      ))}
       <Link to="/ideas" className="text-sm">
-        {messages.title}
+        {t.ideas.title}
       </Link>
     </div>
   );

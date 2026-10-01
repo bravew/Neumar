@@ -139,6 +139,15 @@ export function markQuickstartDone() {
   cachedQuickstartDone = true;
 }
 
+/**
+ * For flows that finish onboarding outside SetupGuard (the `/onboarding`
+ * route). Without it the guard keeps its cached `false` and sends the user
+ * straight back into the flow.
+ */
+export function markOnboardingDone() {
+  cachedOnboardingDone = true;
+}
+
 export function SetupGuard({ children }: SetupGuardProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
