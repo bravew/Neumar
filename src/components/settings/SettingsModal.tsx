@@ -22,6 +22,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 import { findNavItem } from './navigation';
 import { SettingsContent } from './SettingsContent';
 import { SettingsNav } from './SettingsNav';
+import { SettingsShellV2 } from './SettingsShellV2';
 import type { SettingsCategory } from './types';
 
 interface SettingsModalProps {
@@ -108,6 +109,20 @@ export function SettingsModal({
 
   const settingsLabels = t.settings as Record<string, string>;
   const activeItem = findNavItem(activeCategory);
+
+  if (settings.ui.simpleShell) {
+    return (
+      <SettingsShellV2
+        open={open}
+        onOpenChange={onOpenChange}
+        activeCategory={activeCategory}
+        onSelectCategory={setActiveCategory}
+        settings={settings}
+        onSettingsChange={handleSettingsChange}
+        defaultPaths={defaultPaths}
+      />
+    );
+  }
 
   // Portal to document.body so the modal escapes any ancestor containing
   // block (e.g. the sidebar's `view-transition-name`, which would otherwise
