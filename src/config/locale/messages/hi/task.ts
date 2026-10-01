@@ -71,6 +71,11 @@ export default {
 
   // Actions
   stop: 'रोकें',
+  dockTitle: 'चैट',
+  dockClose: 'बंद करें',
+  dockPlaceholder: 'संदेश…',
+  dockFullView: 'पूरा दृश्य खोलें',
+  dockDismiss: 'संदर्भ हटाएँ',
   retry: 'पुनः प्रयास',
   continueRun: 'रन जारी रखें',
   continueRunPrompt:

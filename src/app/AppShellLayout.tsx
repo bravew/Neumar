@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 
 import { RouteViewTransition } from '@/app/RouteViewTransition';
+import { ChatDock } from '@/components/chat-dock/ChatDock';
 import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { AppRail } from '@/components/layout/rail/AppRail';
 import { ModeSlotShortcuts } from '@/components/layout/sidebar-shell/ModeSlotShortcuts';
@@ -32,11 +33,32 @@ export function AppShellLayout() {
   useEffect(() => subscribeToBackgroundTasks(setBackgroundTasks), []);
 
   const simpleShell = useSettingsValue().ui.simpleShell;
+  const [dockOpen, setDockOpen] = useState(false);
+  const [dockTaskId, setDockTaskId] = useState<string | null>(null);
   const [panel, setPanel] = useState<PanelRecord>(() =>
     defaultPanelRecord(
       typeof window === 'undefined' ? 1280 : window.innerWidth,
     ),
   );
+
+  useEffect(() => {
+    const openDock = () => setDockOpen(true);
+    window.addEventListener('shell:open-dock', openDock);
+    return () => window.removeEventListener('shell:open-dock', openDock);
+  }, []);
+
+  useShortcut({
+    id: 'shell.chat-dock',
+    chord: 'mod+j',
+    scope: 'global',
+    descriptionKey: 'shortcuts.sidebarToggle.description',
+    group: 'navigation',
+    handler: (event) => {
+      event?.preventDefault();
+      if (!getSettings().ui.simpleShell) return;
+      setDockOpen((open) => !open);
+    },
+  });
 
   useEffect(() => {
     const onCycle = () => setPanel((current) => cyclePanel(current));
@@ -104,7 +126,13 @@ export function AppShellLayout() {
       <ModeSlotShortcuts />
       <div className="bg-sidebar flex h-svh overflow-hidden">
         {simpleShell && panel.state !== 'C' ? <AppRail /> : null}
-        {!simpleShell || panel.state === 'A' ? (
+        {simpleShell && dockOpen && panel.state !== 'C' ? (
+          <ChatDock
+            taskId={dockTaskId}
+            onTaskId={setDockTaskId}
+            onClose={() => setDockOpen(false)}
+          />
+        ) : !simpleShell || panel.state === 'A' ? (
           <LeftSidebar
             currentTaskId={taskId}
             runningTaskIds={runningTaskIds}

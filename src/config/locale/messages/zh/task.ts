@@ -71,6 +71,11 @@ export default {
 
   // 操作
   stop: '停止',
+  dockTitle: '聊天',
+  dockClose: '关闭',
+  dockPlaceholder: '发消息…',
+  dockFullView: '打开完整视图',
+  dockDismiss: '移除上下文',
   retry: '重试',
   continueRun: '继续运行',
   continueRunPrompt:

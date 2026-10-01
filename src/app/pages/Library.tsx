@@ -13,6 +13,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import * as Tabs from '@radix-ui/react-tabs';
 
+import { useRegisterPageContext } from '@/components/chat-dock/usePageContext';
 import type { AsyncListStatus } from '@/components/common/async-list';
 import {
   AssetsLibraryTab,
@@ -71,6 +72,9 @@ function LibraryContent() {
   const { t } = useLanguage();
   const libraryScrollRef = useRef<HTMLDivElement>(null);
   const simpleShell = useSettingsValue().ui.simpleShell;
+  useRegisterPageContext(
+    simpleShell ? { label: 'Library', payload: 'Looking at: Library' } : null,
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
 
