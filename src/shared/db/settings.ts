@@ -828,6 +828,7 @@ export interface Settings {
     simpleShell: boolean;
     /** Flag-on rail state per destination. Not synced. */
     panelState?: Record<string, { state: 'A' | 'B' | 'C'; restore: 'A' | 'B' }>;
+    ideasFeedback?: Record<string, 'dismissed'>;
   };
   artifactsV2: boolean; // Enable Phase-3 live artifacts + generative-UI pipeline
 }

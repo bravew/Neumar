@@ -10,6 +10,7 @@ import creative from './creative';
 import dashboard from './dashboard';
 import design from './design';
 import home from './home';
+import ideas from './ideas';
 import library from './library';
 import modes from './modes';
 import nav from './nav';
@@ -42,6 +43,7 @@ export default {
   design,
   nav,
   home,
+  ideas,
   task,
   preview,
   profiles,

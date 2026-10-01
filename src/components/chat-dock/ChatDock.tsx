@@ -44,6 +44,15 @@ export function ChatDock({
     void load(taskId);
   }, [load, taskId]);
 
+  useEffect(() => {
+    const onPrefill = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      if (typeof detail?.prompt === 'string') setDraft(detail.prompt);
+    };
+    window.addEventListener('ideas:prefill', onPrefill);
+    return () => window.removeEventListener('ideas:prefill', onPrefill);
+  }, []);
+
   const send = async () => {
     const text = draft.trim();
     if (!text) return;
