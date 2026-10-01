@@ -6,6 +6,7 @@
 
 import { Monitor, MoreHorizontal, Play, Power, Trash2 } from 'lucide-react';
 
+import { AskAboutThis } from '@/components/chat-dock/AskAboutThis';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -91,6 +92,9 @@ export function AutomationCard({
             <h3 className="text-foreground text-sm font-semibold">
               {automation.name}
             </h3>
+            <AskAboutThis
+              item={{ kind: 'automation', name: automation.name }}
+            />
             <p className="text-muted-foreground text-xs">{triggerDesc}</p>
           </div>
         </div>

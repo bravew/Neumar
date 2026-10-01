@@ -72,6 +72,7 @@ export default {
   // Actions
   stop: 'रोकें',
   dockTitle: 'चैट',
+  askAboutThis: 'इसके बारे में पूछें',
   dockClose: 'बंद करें',
   dockPlaceholder: 'संदेश…',
   dockFullView: 'पूरा दृश्य खोलें',

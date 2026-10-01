@@ -72,6 +72,7 @@ export default {
   // Actions
   stop: 'Stop',
   dockTitle: 'Chat',
+  askAboutThis: 'Ask about this',
   dockClose: 'Close',
   dockPlaceholder: 'Message…',
   dockFullView: 'Open full view',
