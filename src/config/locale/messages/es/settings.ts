@@ -1401,6 +1401,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'Restablecer toda la configuración — tus tareas se mantienen.',
   dataClearAll: 'Borrar todo',
+  resetProduct: 'Restablecer {name}',
   dataClearAllDescription:
     'Eliminar todas las tareas, mensajes y configuraciones — un reinicio completo.',
   dataClearTasksConfirm:

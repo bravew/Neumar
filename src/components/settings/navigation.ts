@@ -291,6 +291,17 @@ export const CATEGORY_TO_LOCATION = {
   },
 } satisfies Record<SettingsCategory, SettingsLocation>;
 
+export function categoriesForPage(page: SettingsPageId): SettingsCategory[] {
+  return (
+    Object.entries(CATEGORY_TO_LOCATION) as [
+      SettingsCategory,
+      SettingsLocation,
+    ][]
+  )
+    .filter(([, location]) => location.page === page)
+    .map(([category]) => category);
+}
+
 export function settingsPage(id: SettingsPageId): SettingsPageDefinition {
   const page = SETTINGS_PAGES.find((entry) => entry.id === id);
   if (!page) throw new Error(`Unknown settings page: ${id}`);
