@@ -1307,6 +1307,7 @@ export default {
   dataClearSettingsOnly: '仅清空设置',
   dataClearSettingsOnlyDescription: '重置所有设置为默认值 — 任务保持不变。',
   dataClearAll: '清空所有',
+  resetProduct: '重置 {name}',
   dataClearAllDescription: '删除所有任务、消息和设置 — 完全重置。',
   dataClearTasksConfirm: '确定要删除所有任务和消息吗？此操作无法撤销。',
   dataClearSettingsConfirm: '确定要将所有设置重置为默认值吗？此操作无法撤销。',

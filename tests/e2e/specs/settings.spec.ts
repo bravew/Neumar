@@ -201,4 +201,43 @@ test.describe('Settings simple shell', () => {
     await expect(page.getByRole('button', { name: 'Connect' })).toBeVisible();
     await expect(page.getByLabel('Composio API key')).toHaveCount(0);
   });
+
+  test('search for mcp returns to Agents with the same scroll on Escape', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const settings = JSON.parse(
+        window.localStorage.getItem('neumar_settings') || '{}',
+      ) as Record<string, unknown>;
+      settings.ui = { simpleShell: true };
+      settings.language = 'en-US';
+      window.localStorage.setItem('neumar_settings', JSON.stringify(settings));
+    });
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.keyboard.press('Meta+,');
+    await expect(page.getByTestId('settings-modal')).toBeVisible();
+    await page.getByRole('button', { name: 'Agents & skills' }).click();
+    const scroller = page.getByTestId('settings-page-scroll');
+    const before = await scroller.evaluate((element) => {
+      const spacer = document.createElement('div');
+      spacer.style.height = '800px';
+      element.appendChild(spacer);
+      element.scrollTop = 120;
+      return element.scrollTop;
+    });
+    await page.getByTestId('settings-search').fill('mcp');
+    await page.getByRole('button', { name: 'MCP', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Agents & skills' }),
+    ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('settings-modal')).toBeVisible();
+    await expect(page.getByTestId('settings-active-category')).toHaveText(
+      'Agents & skills',
+    );
+    await expect
+      .poll(() => scroller.evaluate((element) => element.scrollTop))
+      .toBe(before);
+  });
 });

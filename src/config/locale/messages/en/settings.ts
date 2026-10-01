@@ -1380,6 +1380,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'Reset all settings to defaults — your tasks stay intact.',
   dataClearAll: 'Clear Everything',
+  resetProduct: 'Reset {name}',
   dataClearAllDescription:
     'Delete all tasks, messages, and settings — a complete reset.',
   dataClearTasksConfirm:

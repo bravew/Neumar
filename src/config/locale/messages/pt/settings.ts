@@ -1398,6 +1398,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'Redefinir todas as configurações para os padrões — suas tarefas permanecem intactas.',
   dataClearAll: 'Limpar Tudo',
+  resetProduct: 'Redefinir {name}',
   dataClearAllDescription:
     'Excluir todas as tarefas, mensagens e configurações — uma redefinição completa.',
   dataClearTasksConfirm:

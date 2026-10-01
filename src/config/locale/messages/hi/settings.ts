@@ -1357,6 +1357,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'सभी सेटिंग्स डिफ़ॉल्ट पर रीसेट करें — आपके कार्य बरकरार रहेंगे।',
   dataClearAll: 'सब कुछ साफ़ करें',
+  resetProduct: '{name} रीसेट करें',
   dataClearAllDescription: 'सभी कार्य, संदेश और सेटिंग्स हटाएँ — एक पूर्ण रीसेट।',
   dataClearTasksConfirm:
     'क्या आप वाकई सभी कार्य और संदेश हटाना चाहते हैं? यह पूर्ववत नहीं किया जा सकता।',

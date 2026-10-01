@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Search } from 'lucide-react';
 
@@ -18,6 +18,7 @@ import {
 } from './navigation';
 import { PermissionsPage } from './PermissionsPage';
 import { SettingsDrillIn } from './primitives/SettingsDrillIn';
+import { SettingsCategoryIndex } from './SettingsCategoryIndex';
 import { SettingsContent } from './SettingsContent';
 import type { SettingsCategory } from './types';
 
@@ -40,11 +41,34 @@ export function SettingsShellV2({
 }) {
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
+  const [homeDetail, setHomeDetail] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const labels = t.settings as Record<string, string>;
   const labelFor = (key: string) =>
     labels[key] ?? t.settings[key as SettingsCategory] ?? key;
   const location = resolveSettingsLocation(activeCategory);
   const page = settingsPage(location.page);
+  const nested =
+    Boolean(location.drillIn) ||
+    activeCategory !== page.homeCategory ||
+    homeDetail;
+
+  useEffect(() => {
+    setHomeDetail(false);
+  }, [location.page]);
+
+  const openCategory = (category: SettingsCategory) => {
+    if (category === page.homeCategory) {
+      setHomeDetail(true);
+      return;
+    }
+    setHomeDetail(false);
+    onSelectCategory(category);
+  };
+  const backToPage = () => {
+    setHomeDetail(false);
+    onSelectCategory(page.homeCategory);
+  };
   const q = query.trim().toLowerCase();
   const entries = q
     ? searchSettings(q, labelFor)
@@ -57,6 +81,11 @@ export function SettingsShellV2({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        onEscapeKeyDown={(event) => {
+          if (!nested) return;
+          event.preventDefault();
+          backToPage();
+        }}
         data-testid="settings-modal"
         className="flex h-[560px] max-h-[100dvh] w-[760px] !max-w-[calc(100vw-2rem)] flex-row gap-0 overflow-hidden p-0 duration-[var(--motion-base)] max-[720px]:h-dvh max-[720px]:w-screen max-[720px]:!max-w-none max-[720px]:rounded-none"
       >
@@ -83,6 +112,7 @@ export function SettingsShellV2({
                   key={`${entry.page}-${entry.category}`}
                   type="button"
                   onClick={() => {
+                    setHomeDetail(false);
                     onSelectCategory(entry.category);
                     setQuery('');
                   }}
@@ -100,50 +130,49 @@ export function SettingsShellV2({
             })}
           </div>
         </nav>
-        {location.page === 'models' && location.drillIn === 'advanced' ? (
-          <SettingsDrillIn
-            title={labelFor(activeCategory)}
-            backLabel={labelFor(page.labelKey)}
-            onBack={() => onSelectCategory(page.homeCategory)}
+        <div
+          className={cn(
+            'flex min-h-0 min-w-0 flex-1 flex-col',
+            nested && 'hidden',
+          )}
+        >
+          <h2
+            data-testid="settings-active-category"
+            className="text-foreground px-6 pt-4 pb-3 text-lg font-semibold"
           >
-            <ModelsAdvanced
+            {labelFor(page.labelKey)}
+          </h2>
+          {location.page === 'connectors' ? (
+            <ConnectorsPage />
+          ) : location.page === 'permissions' ? (
+            <PermissionsPage
               settings={settings}
               onSettingsChange={onSettingsChange}
             />
-          </SettingsDrillIn>
-        ) : location.drillIn ? (
+          ) : location.page === 'models' ? (
+            <ModelsPage
+              settings={settings}
+              onSettingsChange={onSettingsChange}
+              onOpenAdvanced={() => openCategory('agentRuntimes')}
+            />
+          ) : (
+            <SettingsCategoryIndex
+              pageId={location.page}
+              onOpen={openCategory}
+              scrollerRef={scrollRef}
+            />
+          )}
+        </div>
+        {nested ? (
           <SettingsDrillIn
             title={labelFor(activeCategory)}
             backLabel={labelFor(page.labelKey)}
-            onBack={() => onSelectCategory(page.homeCategory)}
+            onBack={backToPage}
           >
-            <SettingsContent
-              activeCategory={activeCategory}
-              settings={settings}
-              onSettingsChange={onSettingsChange}
-              defaultPaths={defaultPaths}
-            />
-          </SettingsDrillIn>
-        ) : (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <h2
-              data-testid="settings-active-category"
-              className="text-foreground px-6 pt-4 pb-3 text-lg font-semibold"
-            >
-              {labelFor(page.labelKey)}
-            </h2>
-            {location.page === 'connectors' ? (
-              <ConnectorsPage />
-            ) : location.page === 'permissions' ? (
-              <PermissionsPage
+            {location.page === 'models' && location.drillIn === 'advanced' ? (
+              <ModelsAdvanced
                 settings={settings}
                 onSettingsChange={onSettingsChange}
-              />
-            ) : location.page === 'models' ? (
-              <ModelsPage
-                settings={settings}
-                onSettingsChange={onSettingsChange}
-                onOpenAdvanced={() => onSelectCategory('agentRuntimes')}
               />
             ) : (
               <SettingsContent
@@ -153,8 +182,8 @@ export function SettingsShellV2({
                 defaultPaths={defaultPaths}
               />
             )}
-          </div>
-        )}
+          </SettingsDrillIn>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

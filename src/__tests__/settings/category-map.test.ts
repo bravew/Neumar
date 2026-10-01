@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   CATEGORY_TO_LOCATION,
   SETTINGS_PAGE_IDS,
+  categoriesForPage,
   resolveSettingsLocation,
+  settingsPage,
 } from '@/components/settings/navigation';
 import {
   SETTINGS_CATEGORIES,
@@ -21,6 +23,21 @@ describe('settings category map', () => {
       expect(location.searchKeys.length).toBeGreaterThan(0);
       expect(CATEGORY_TO_LOCATION[category]).toBe(location);
     }
+  });
+
+  it('reaches every category in one step from its page', () => {
+    const seen = new Set<SettingsCategory>();
+    for (const pageId of SETTINGS_PAGE_IDS) {
+      const home = settingsPage(pageId).homeCategory;
+      for (const category of categoriesForPage(pageId)) {
+        seen.add(category);
+        const location = resolveSettingsLocation(category);
+        const steps = category === home && !location.drillIn ? 0 : 1;
+        expect(steps).toBeLessThanOrEqual(1);
+      }
+    }
+    expect([...seen].sort()).toEqual([...SETTINGS_CATEGORIES].sort());
+    expect(categoriesForPage('agents')).toContain('mcp');
   });
 
   it('resolves every open-settings detail used in src', () => {

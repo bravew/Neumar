@@ -1409,6 +1409,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'Réinitialiser tous les paramètres — vos tâches restent intactes.',
   dataClearAll: 'Tout effacer',
+  resetProduct: 'Réinitialiser {name}',
   dataClearAllDescription:
     'Supprimer toutes les tâches, messages et paramètres — une réinitialisation complète.',
   dataClearTasksConfirm:
