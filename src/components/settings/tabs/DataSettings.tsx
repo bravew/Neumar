@@ -351,7 +351,11 @@ export function DataSettings() {
             onClick={async () => {
               await saveSettingItem('quickstart_step', 'template');
               clearQuickstartCache();
-              navigate('/quickstart');
+              navigate(
+                getSettings().ui.simpleShell
+                  ? '/onboarding?step=idea'
+                  : '/quickstart',
+              );
             }}
             className={cn(
               'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',

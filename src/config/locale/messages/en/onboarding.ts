@@ -5,6 +5,9 @@ export default {
   back: 'Back',
   skip: 'Skip',
   getStarted: 'Get Started',
+  installTools: 'Install tools',
+  installToolsBody: 'Claude Code or Codex is not available yet. Install one, then continue.',
+  connectBrain: 'Connect a model',
 
   // Step 1: Welcome & Profile
   welcomeTitle: 'Welcome to {appName}',

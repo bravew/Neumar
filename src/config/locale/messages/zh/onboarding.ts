@@ -5,6 +5,9 @@ export default {
   back: '上一步',
   skip: '跳过',
   getStarted: '开始使用',
+  installTools: '安装工具',
+  installToolsBody: '还没有可用的 Claude Code 或 Codex。安装一个后继续。',
+  connectBrain: '连接模型',
 
   // Step 1: Welcome & Profile
   welcomeTitle: '欢迎使用 {appName}',
