@@ -212,7 +212,7 @@
   "src/components/task/DocumentPanel.tsx": { "current": 384, "target": 350 },
   "src/components/task/MediaLightbox.tsx": { "current": 554, "target": 350 },
   "src/components/task/MessageList.tsx": { "current": 376, "target": 350 },
-  "src/components/task/RightSidebar.tsx": { "current": 1310, "target": 350 },
+  "src/components/task/RightSidebar.tsx": { "current": 838, "target": 350 },
   "src/components/task/TaskV2MessageBubble.tsx": {
     "current": 739,
     "target": 350

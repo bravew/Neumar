@@ -112,6 +112,23 @@ test.describe('Task Lifecycle', () => {
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
   });
 
+  test('task review opens on Activity and keeps Trace under Details', async ({
+    page,
+  }) => {
+    await page.goto('/task-v2/task-1');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: 'Show right sidebar' }).click();
+    await expect(
+      page.getByRole('tab', { name: 'Activity', exact: true }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Files' })).toBeVisible();
+    await expect(page.getByText('Trace', { exact: true })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Details' }).click();
+    await expect(page.getByText('Trace', { exact: true })).toBeVisible();
+  });
+
   test('back navigation from task returns to home', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
