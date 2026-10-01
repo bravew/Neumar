@@ -7,6 +7,7 @@ import type { Settings as SettingsType } from '@/shared/db/settings';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
+import { ConnectorsPage } from './ConnectorsPage';
 import { ModelsAdvanced, ModelsPage } from './ModelsPage';
 import {
   CATEGORY_TO_LOCATION,
@@ -131,7 +132,9 @@ export function SettingsShellV2({
             >
               {labelFor(page.labelKey)}
             </h2>
-            {location.page === 'permissions' ? (
+            {location.page === 'connectors' ? (
+              <ConnectorsPage />
+            ) : location.page === 'permissions' ? (
               <PermissionsPage
                 settings={settings}
                 onSettingsChange={onSettingsChange}
