@@ -4,6 +4,11 @@ export default {
   // 分类
   account: '账号',
   general: '通用',
+  pageAgents: '智能体与技能',
+  pageChannels: '消息频道',
+  pageSecureStore: '安全存储',
+  pageData: '数据控制',
+  pageHelp: '帮助与关于',
   workplace: '工作区',
   model: '模型',
   agentRuntimes: '代理运行时',

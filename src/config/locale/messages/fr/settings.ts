@@ -4,6 +4,11 @@ export default {
   // Catégories
   account: 'Compte',
   general: 'Général',
+  pageAgents: 'Agents et compétences',
+  pageChannels: 'Canaux de messagerie',
+  pageSecureStore: 'Coffre sécurisé',
+  pageData: 'Contrôles des données',
+  pageHelp: 'Aide et à propos',
   workplace: 'Espace de travail',
   model: 'Modèle',
   agentRuntimes: 'Runtimes d’agent',

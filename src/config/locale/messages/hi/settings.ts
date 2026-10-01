@@ -4,6 +4,11 @@ export default {
   // Categories
   account: 'खाता',
   general: 'सामान्य',
+  pageAgents: 'एजेंट और कौशल',
+  pageChannels: 'मैसेजिंग चैनल',
+  pageSecureStore: 'सुरक्षित भंडार',
+  pageData: 'डेटा नियंत्रण',
+  pageHelp: 'मदद और परिचय',
   workplace: 'वर्कस्पेस',
   model: 'मॉडल',
   agentRuntimes: 'एजेंट रनटाइम',

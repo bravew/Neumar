@@ -330,6 +330,17 @@ pre {
   }
 }
 
+@keyframes settings-drill-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 :root {
   --motion-fast: 120ms;
   --motion-base: 160ms;
