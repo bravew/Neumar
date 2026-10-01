@@ -228,23 +228,45 @@ export function SetupGuard({ children }: SetupGuardProps) {
   // Not installed - show SetupPage with skip callback
   if (!installed) {
     return (
-      <SetupPage
-        onSkip={async () => {
-          // Check onboarding BEFORE setting installed to avoid a flash
-          // where children render briefly while onboarding check is pending
-          const isDone = await checkOnboardingCompleted();
-          setOnboardingDone(isDone);
-          setInstalled(true);
-        }}
-      />
+      <FirstRunLayer>
+        <SetupPage
+          onSkip={async () => {
+            // Check onboarding BEFORE setting installed to avoid a flash
+            // where children render briefly while onboarding check is pending
+            const isDone = await checkOnboardingCompleted();
+            setOnboardingDone(isDone);
+            setInstalled(true);
+          }}
+        />
+      </FirstRunLayer>
     );
   }
 
   // Dependencies OK but onboarding not completed - show onboarding
   if (!onboardingDone) {
-    return <OnboardingPage onComplete={handleOnboardingComplete} />;
+    return (
+      <FirstRunLayer>
+        <OnboardingPage onComplete={handleOnboardingComplete} />
+      </FirstRunLayer>
+    );
   }
 
   // All good
   return <>{children}</>;
+}
+
+/**
+ * The guard renders inside the routed page, which sits in the app shell. A
+ * first run owns the whole window, so it covers the shell instead of
+ * squeezing into the page region beside the sidebar.
+ */
+function FirstRunLayer({ children }: { children: ReactNode }) {
+  return (
+    <div
+      data-testid="first-run-layer"
+      className="bg-background fixed inset-0 z-50 overflow-y-auto"
+    >
+      {children}
+    </div>
+  );
 }
