@@ -79,6 +79,7 @@ export default {
   dockChats: 'Conversas',
   dockSideChats: 'Conversas paralelas',
   dockSwitchChat: 'Trocar de conversa',
+  dockOpenInPage: 'Esta conversa está aberta na página.',
   dockDismiss: 'Remover contexto',
   retry: 'Tentar novamente',
   continueRun: 'Continuar execução',

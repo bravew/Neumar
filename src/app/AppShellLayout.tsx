@@ -160,6 +160,7 @@ export function AppShellLayout() {
         {simpleShell && dockOpen && panel.state !== 'C' ? (
           <ChatDock
             taskId={dockTaskId}
+            pageTaskId={taskId}
             onTaskId={setDockTaskId}
             onClose={() => setDockOpen(false)}
           />

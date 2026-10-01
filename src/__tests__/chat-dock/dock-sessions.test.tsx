@@ -11,15 +11,31 @@ import type { Task } from '@/shared/db';
 
 const db = vi.hoisted(() => ({
   tasks: [] as Partial<Task>[],
-  messages: {} as Record<string, { id: string; content: string }[]>,
+  createTask: vi.fn(),
+  createSession: vi.fn(),
 }));
 
 vi.mock('@/shared/db', () => ({
   getAllTasks: async () => db.tasks,
-  getMessagesByTaskId: async (id: string) => db.messages[id] ?? [],
-  createMessage: vi.fn(),
-  createSession: vi.fn(),
-  createTask: vi.fn(),
+  createSession: db.createSession,
+  createTask: db.createTask,
+}));
+
+// The real thread needs a CopilotKit runtime; the dock only decides which
+// task it mounts and with what first prompt.
+vi.mock('@/components/chat-dock/DockThread', () => ({
+  DockThread: ({
+    taskId,
+    firstPrompt,
+  }: {
+    taskId: string;
+    firstPrompt?: string;
+  }) => (
+    <p data-testid="dock-thread">
+      {taskId}
+      {firstPrompt ? ` first:${firstPrompt}` : ''}
+    </p>
+  ),
 }));
 
 vi.mock('@/components/chat-dock/usePageContext', () => ({
@@ -38,6 +54,7 @@ vi.mock('@/shared/providers/language-provider', () => ({
         dockChats: 'Chats',
         dockSideChats: 'Side chats',
         dockSwitchChat: 'Switch chat',
+        dockOpenInPage: 'This chat is open on the page.',
       },
       nav: {
         recents: 'Recents',
@@ -50,12 +67,17 @@ vi.mock('@/shared/providers/language-provider', () => ({
   }),
 }));
 
-function Dock() {
+function Dock({ pageTaskId }: { pageTaskId?: string }) {
   const [taskId, setTaskId] = useState<string | null>(null);
   return (
     <MemoryRouter>
       <span data-testid="dock-task">{taskId ?? 'none'}</span>
-      <ChatDock taskId={taskId} onTaskId={setTaskId} onClose={() => {}} />
+      <ChatDock
+        taskId={taskId}
+        pageTaskId={pageTaskId}
+        onTaskId={setTaskId}
+        onClose={() => {}}
+      />
     </MemoryRouter>
   );
 }
@@ -71,22 +93,21 @@ describe('ChatDock sessions', () => {
       },
       { id: 'older', title: 'Convert video', prompt: 'convert' },
     ];
-    db.messages = {
-      latest: [{ id: 'm1', content: 'latest reply' }],
-      older: [{ id: 'm2', content: 'older reply' }],
-    };
+    db.createTask.mockClear();
+    db.createSession.mockClear();
   });
 
   it('opens on the most recent session', async () => {
     render(<Dock />);
-    expect(await screen.findByText('latest reply')).toBeInTheDocument();
-    expect(screen.getByTestId('dock-task')).toHaveTextContent('latest');
+    expect(await screen.findByTestId('dock-thread')).toHaveTextContent(
+      'latest',
+    );
   });
 
   it('lists side chats apart, filters, and switches on click', async () => {
     const user = userEvent.setup();
     render(<Dock />);
-    await screen.findByText('latest reply');
+    await screen.findByTestId('dock-thread');
 
     await user.click(screen.getByRole('button', { name: 'Switch chat' }));
     const sideHeading = screen.getByRole('heading', { name: 'Side chats' });
@@ -100,22 +121,44 @@ describe('ChatDock sessions', () => {
     expect(screen.getAllByTestId('dock-session')).toHaveLength(1);
 
     await user.click(screen.getByRole('button', { name: 'Convert video' }));
-    expect(await screen.findByText('older reply')).toBeInTheDocument();
-    expect(screen.getByTestId('dock-task')).toHaveTextContent('older');
+    expect(await screen.findByTestId('dock-thread')).toHaveTextContent('older');
   });
 
-  it('keeps a new chat empty instead of reopening the latest', async () => {
+  it('starts a new chat that runs through the thread', async () => {
     const user = userEvent.setup();
     render(<Dock />);
-    await screen.findByText('latest reply');
+    await screen.findByTestId('dock-thread');
 
     await user.click(screen.getByRole('button', { name: 'Switch chat' }));
     await user.click(screen.getByRole('button', { name: 'New chat' }));
-
     await waitFor(() =>
       expect(screen.getByTestId('dock-task')).toHaveTextContent('none'),
     );
-    expect(screen.queryByText('latest reply')).not.toBeInTheDocument();
-    expect(screen.getByTestId('chat-dock-input')).toBeInTheDocument();
+    expect(screen.queryByTestId('dock-thread')).not.toBeInTheDocument();
+
+    await user.type(
+      screen.getByTestId('chat-dock-input'),
+      'draft a post{Enter}',
+    );
+    expect(await screen.findByTestId('dock-thread')).toHaveTextContent(
+      'first:draft a post',
+    );
+    expect(db.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: 'draft a post', task_index: 1 }),
+    );
+  });
+
+  it('never mounts the task the page already shows', async () => {
+    const user = userEvent.setup();
+    render(<Dock pageTaskId="latest" />);
+    // The latest session is on the page, so the dock opens the next one.
+    expect(await screen.findByTestId('dock-thread')).toHaveTextContent('side');
+
+    await user.click(screen.getByRole('button', { name: 'Switch chat' }));
+    await user.click(screen.getByRole('button', { name: 'Weekly report' }));
+    expect(
+      screen.getByText('This chat is open on the page.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('dock-thread')).not.toBeInTheDocument();
   });
 });

@@ -79,6 +79,7 @@ export default {
   dockChats: '对话',
   dockSideChats: '侧边对话',
   dockSwitchChat: '切换对话',
+  dockOpenInPage: '此对话已在页面中打开。',
   dockDismiss: '移除上下文',
   retry: '重试',
   continueRun: '继续运行',

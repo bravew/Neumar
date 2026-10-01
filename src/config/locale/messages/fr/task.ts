@@ -72,6 +72,7 @@ export default {
   dockChats: 'Discussions',
   dockSideChats: 'Discussions annexes',
   dockSwitchChat: 'Changer de discussion',
+  dockOpenInPage: 'Cette discussion est ouverte dans la page.',
   dockDismiss: 'Retirer le contexte',
   retry: 'Réessayer',
   continueRun: "Continuer l'exécution",

@@ -79,6 +79,7 @@ export default {
   dockChats: 'चैट',
   dockSideChats: 'साइड चैट',
   dockSwitchChat: 'चैट बदलें',
+  dockOpenInPage: 'यह चैट पेज पर खुली है।',
   dockDismiss: 'संदर्भ हटाएँ',
   retry: 'पुनः प्रयास',
   continueRun: 'रन जारी रखें',

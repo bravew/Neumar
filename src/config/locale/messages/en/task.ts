@@ -79,6 +79,7 @@ export default {
   dockChats: 'Chats',
   dockSideChats: 'Side chats',
   dockSwitchChat: 'Switch chat',
+  dockOpenInPage: 'This chat is open on the page.',
   dockDismiss: 'Remove context',
   retry: 'Retry',
   continueRun: 'Continue run',

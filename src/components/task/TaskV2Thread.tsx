@@ -75,6 +75,7 @@ export function TaskV2Thread({
   workDir,
   additionalWorkDirs,
   allArtifacts,
+  promptPrefix,
 }: {
   attachmentMapRef?: React.RefObject<Map<string, MessageAttachment[]>>;
   taskId?: string;
@@ -89,6 +90,8 @@ export function TaskV2Thread({
   /** Additional workspace directories for multi-folder access */
   additionalWorkDirs?: string[];
   allArtifacts?: Artifact[];
+  /** Prepended to the next message only, then reported through `onUsed`. */
+  promptPrefix?: { text: string; onUsed: () => void };
 }) {
   const { agent } = useAgent();
   const { t } = useLanguage();
@@ -113,6 +116,9 @@ export function TaskV2Thread({
 
   const modelConfigRef = useRef(modelConfig);
   modelConfigRef.current = modelConfig;
+
+  const promptPrefixRef = useRef(promptPrefix);
+  promptPrefixRef.current = promptPrefix;
 
   // ── Extracted hooks ──
   const { runError, setRunError, clearRunError } = useRunError(
@@ -202,10 +208,12 @@ export function TaskV2Thread({
         workDirRef.current,
       );
 
+      const prefix = promptPrefixRef.current;
       const { prompt, imageBlocks } = buildAgentPrompt(
-        text,
+        prefix ? `${prefix.text}\n\n${text}` : text,
         resolvedAttachments,
       );
+      prefix?.onUsed();
 
       const msgId = randomUUID();
       if (resolvedAttachments && resolvedAttachments.length > 0) {
