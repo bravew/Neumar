@@ -4,7 +4,10 @@ import { ClipboardCheck } from 'lucide-react';
 
 import { ApprovalCard } from '@/components/approval/ApprovalCard';
 import type { RiskLevel } from '@/components/approval/RiskBadge';
-import { AsyncList } from '@/components/common/async-list';
+import {
+  AsyncList,
+  type AsyncListStatus,
+} from '@/components/common/async-list';
 import { ListSkeleton } from '@/components/common/route-skeleton';
 import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { API_BASE_URL } from '@/config';
@@ -27,13 +30,24 @@ interface Approval {
 
 type Tab = 'pending' | 'history';
 
+/** History failures must not hide live pending cards from the SSE stream. */
+export function approvalsListStatus(
+  tab: Tab,
+  pendingReady: boolean,
+  historyStatus: AsyncListStatus,
+): AsyncListStatus {
+  if (tab === 'history') return historyStatus;
+  return pendingReady ? 'ready' : 'loading';
+}
+
 export function ApprovalsPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('pending');
   const [pending, setPending] = useState<Approval[]>([]);
   const [history, setHistory] = useState<Approval[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [pendingReady, setPendingReady] = useState(false);
+  const [historyStatus, setHistoryStatus] =
+    useState<AsyncListStatus>('loading');
   // Resume tokens echo back at decide time for risk-gated approvals;
   // kept out of `pending` so they don't leak through state-shape consumers.
   const resumeTokensRef = useRef<Map<string, string>>(new Map());
@@ -53,10 +67,10 @@ export function ApprovalsPage() {
         : [];
       if (signal?.aborted) return;
       if (!approvedRes.ok && !rejectedRes.ok) {
-        setLoadError(true);
+        setHistoryStatus('error');
         return;
       }
-      setLoadError(false);
+      setHistoryStatus('ready');
       setHistory(
         [...approved, ...rejected].sort((a, b) =>
           b.created_at.localeCompare(a.created_at),
@@ -65,15 +79,13 @@ export function ApprovalsPage() {
     } catch (error) {
       if (signal?.aborted) return;
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      setLoadError(true);
+      setHistoryStatus('error');
     }
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setLoadError(false);
-    fetchHistory(controller.signal).finally(() => setLoading(false));
+    void fetchHistory(controller.signal);
 
     // EventSource auto-reconnects on transient drops; the server replays
     // `snapshot` on each connect, so reconciliation stays correct.
@@ -92,6 +104,7 @@ export function ApprovalsPage() {
       if (!data) return;
       const approvals = data.approvals ?? [];
       setPending(approvals);
+      setPendingReady(true);
       // Drop tokens for approvals decided/expired during disconnect — the
       // map would otherwise grow unbounded across reconnects.
       const live = new Set(approvals.map((a) => a.id));
@@ -221,7 +234,11 @@ export function ApprovalsPage() {
               </div>
             )}
             <AsyncList
-              status={loading ? 'loading' : loadError ? 'error' : 'ready'}
+              status={approvalsListStatus(
+                activeTab,
+                pendingReady,
+                historyStatus,
+              )}
               empty={
                 activeTab === 'pending'
                   ? pending.length === 0
