@@ -23,7 +23,11 @@ const mockAutomation = {
 test.describe('Automation Page', () => {
   test.beforeEach(async ({ page }) => {
     // Mock automation API
-    await page.route('**/automation/', (route) => {
+    // The list endpoint has no trailing slash; leave the page navigation alone.
+    await page.route('**/automation', (route) => {
+      if (route.request().resourceType() === 'document') {
+        return route.fallback();
+      }
       if (route.request().method() === 'GET') {
         return route.fulfill({
           status: 200,

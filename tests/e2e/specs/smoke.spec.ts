@@ -24,7 +24,9 @@ test.describe('Smoke Tests', () => {
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
 
     // A textarea for chat input should be present
-    await expect(page.getByPlaceholder(/type a message/i)).toBeVisible();
+    await expect(
+      page.getByTestId('home-composer-frame').getByRole('textbox'),
+    ).toBeVisible();
   });
 
   test('sidebar navigation is visible', async ({ page }) => {

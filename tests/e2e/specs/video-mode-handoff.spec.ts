@@ -291,7 +291,9 @@ test.describe('Video mode agentic editing and handoff', () => {
     await page.waitForURL(new RegExp(`/video/${escapeRegExp(project.id)}$`), {
       timeout: 30_000,
     });
-    await expect(page.getByRole('heading', { name: projectName })).toBeVisible({
+    await expect(
+      page.getByRole('button', { name: 'Rename video project' }),
+    ).toHaveText(projectName, {
       timeout: 30_000,
     });
     await expect(

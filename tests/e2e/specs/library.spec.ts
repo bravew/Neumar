@@ -45,8 +45,9 @@ test.describe('Library Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Should show task titles
-    await expect(page.getByText('Build a calculator')).toBeVisible();
-    await expect(page.getByText('Write tests')).toBeVisible();
+    const list = page.getByRole('main');
+    await expect(list.getByText('Build a calculator')).toBeVisible();
+    await expect(list.getByText('Write tests')).toBeVisible();
   });
 
   test('clicking a task navigates to task detail', async ({ page }) => {
@@ -75,7 +76,7 @@ test.describe('Library Page', () => {
     );
 
     // Click the first task
-    await page.getByText('Build a calculator').click();
+    await page.getByRole('main').getByText('Build a calculator').click();
 
     // Should navigate to task detail
     await page.waitForURL(/\/task/, { timeout: 5_000 });

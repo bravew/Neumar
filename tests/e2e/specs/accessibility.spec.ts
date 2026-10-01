@@ -93,10 +93,10 @@ test.describe('Accessibility', () => {
     await page.waitForLoadState('networkidle');
 
     // Open search dialog with Cmd+K
-    await page.keyboard.press('Meta+k');
+    await pressMod(page, 'k');
 
     // Try to find the search input
-    const searchInput = page.getByPlaceholder(/search/i);
+    const searchInput = page.getByRole('dialog').getByRole('combobox');
     const isVisible = await searchInput.isVisible().catch(() => false);
 
     if (isVisible) {

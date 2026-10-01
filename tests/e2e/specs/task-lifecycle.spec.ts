@@ -94,7 +94,9 @@ test.describe('Task Lifecycle', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const chatInput = page.getByPlaceholder(/type a message/i);
+    const chatInput = page
+      .getByTestId('home-composer-frame')
+      .getByRole('textbox');
     await chatInput.fill('Build a calculator app');
     await chatInput.press('Enter');
 
@@ -140,6 +142,8 @@ test.describe('Task Lifecycle', () => {
     // Go back
     await page.goBack();
     await page.waitForURL('/');
-    await expect(page.getByPlaceholder(/type a message/i)).toBeVisible();
+    await expect(
+      page.getByTestId('home-composer-frame').getByRole('textbox'),
+    ).toBeVisible();
   });
 });

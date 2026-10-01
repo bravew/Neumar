@@ -5,7 +5,7 @@ import type { Locator, Page } from '@playwright/test';
  *
  * Playwright best practices:
  * - Prefer role-based and text-based selectors over CSS/testid
- * - Use getByPlaceholder for input fields with known placeholder text
+ * - The placeholder follows the active mode, so find the input by role
  * - Use getByRole('navigation') for nav elements
  * - Locators are lazy — they don't query the DOM until an action/assertion
  */
@@ -18,7 +18,9 @@ export class HomePage {
   readonly nav: Locator;
 
   constructor(private page: Page) {
-    this.chatInput = page.getByPlaceholder(/type a message/i);
+    this.chatInput = page
+      .getByTestId('home-composer-frame')
+      .getByRole('textbox');
     this.sidebar = page.locator('aside').first();
     this.nav = page.locator('nav').first();
   }

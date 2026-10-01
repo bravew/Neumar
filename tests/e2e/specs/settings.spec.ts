@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/base';
+import { pressMod } from '../helpers/keys';
 
 /**
  * Settings modal E2E tests.
@@ -113,7 +114,7 @@ test.describe('Settings simple shell', () => {
 
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-    await page.keyboard.press('Meta+,');
+    await pressMod(page, ',');
     await expect(page.getByTestId('settings-modal')).toBeVisible();
     await page.getByRole('button', { name: 'Models', exact: true }).click();
     await page.getByTestId('default-model-claude-claude-opus-5').click();
@@ -194,11 +195,13 @@ test.describe('Settings simple shell', () => {
 
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-    await page.keyboard.press('Meta+,');
+    await pressMod(page, ',');
     await expect(page.getByTestId('settings-modal')).toBeVisible();
     await page.getByRole('button', { name: 'Connectors', exact: true }).click();
     await page.getByTestId('connector-connect-slack').click();
-    await expect(page.getByRole('button', { name: 'Connect' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Connect', exact: true }),
+    ).toBeVisible();
     await expect(page.getByLabel('Composio API key')).toHaveCount(0);
   });
 
@@ -215,7 +218,7 @@ test.describe('Settings simple shell', () => {
     });
     await page.goto('/');
     await page.waitForLoadState('networkidle');
-    await page.keyboard.press('Meta+,');
+    await pressMod(page, ',');
     await expect(page.getByTestId('settings-modal')).toBeVisible();
     await page.getByRole('button', { name: 'Agents & skills' }).click();
     const scroller = page.getByTestId('settings-page-scroll');
@@ -227,9 +230,13 @@ test.describe('Settings simple shell', () => {
       return element.scrollTop;
     });
     await page.getByTestId('settings-search').fill('mcp');
-    await page.getByRole('button', { name: 'MCP', exact: true }).click();
+    await page
+      .getByRole('navigation')
+      .getByRole('button', { name: 'MCP', exact: true })
+      .click();
     await expect(
-      page.getByRole('button', { name: 'Agents & skills' }),
+      // The nav entry comes first; the drill-in back button is the last match.
+      page.getByRole('button', { name: 'Agents & skills' }).last(),
     ).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('settings-modal')).toBeVisible();

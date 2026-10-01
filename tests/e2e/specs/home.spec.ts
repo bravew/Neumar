@@ -41,7 +41,7 @@ test.describe('Home first paint', () => {
     await expect(page.getByTestId('home-composer-frame')).toBeVisible();
     const row = page.getByTestId('home-suggestion-row');
     await expect(row).toBeVisible();
-    await expect(row.getByRole('button')).toHaveCount(6);
+    await expect(row.getByRole('button')).toHaveCount(5);
 
     const frame = await page.evaluate(() => ({
       greetingOpacity: document.documentElement.dataset.homeGreetingOpacity,

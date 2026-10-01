@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/base';
+import { pressMod } from '../helpers/keys';
 
 test.describe('Chat dock', () => {
   test('stays open while navigating', async ({ page }) => {
@@ -13,9 +14,11 @@ test.describe('Chat dock', () => {
 
     await page.goto('/library');
     await page.waitForLoadState('networkidle');
-    await page.keyboard.press('ControlOrMeta+j');
+    await pressMod(page, 'j');
     await expect(page.getByTestId('chat-dock')).toBeVisible();
-    await expect(page.getByText('Library')).toBeVisible();
+    await expect(
+      page.getByTestId('chat-dock').getByText('Library'),
+    ).toBeVisible();
     await page
       .getByTestId('app-rail')
       .getByRole('button', { name: 'Tasks' })
@@ -34,7 +37,7 @@ test.describe('Chat dock', () => {
     });
     await page.goto('/library');
     await page.waitForLoadState('networkidle');
-    await page.keyboard.press('ControlOrMeta+j');
+    await pressMod(page, 'j');
     const remove = page.getByRole('button', { name: 'Remove context' });
     await expect(remove).toBeVisible();
     await remove.click();

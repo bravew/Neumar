@@ -63,7 +63,9 @@ test.describe('Video Mode happy path', () => {
     if (id) createdProjectIds.push(id);
 
     // The editor header shows the project name once the project loads.
-    await expect(page.getByRole('heading', { name })).toBeVisible({
+    await expect(
+      page.getByRole('button', { name: 'Rename video project' }),
+    ).toHaveText(name, {
       timeout: 30_000,
     });
     await expect(page.getByText('Something went wrong')).not.toBeVisible();

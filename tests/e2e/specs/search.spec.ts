@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures/base';
+import { pressMod } from '../helpers/keys';
 
 /**
  * Search (Cmd+K) E2E tests.
@@ -11,10 +12,10 @@ test.describe('Search', () => {
     await page.waitForLoadState('networkidle');
 
     // Trigger Cmd+K (Meta+K on macOS)
-    await page.keyboard.press('Meta+k');
+    await pressMod(page, 'k');
 
     // Search dialog should appear — look for a search input or dialog
-    const searchInput = page.getByPlaceholder(/search/i);
+    const searchInput = page.getByRole('dialog').getByRole('combobox');
     // Give it a moment to animate in
     await expect(searchInput).toBeVisible({ timeout: 3_000 });
   });
@@ -24,8 +25,8 @@ test.describe('Search', () => {
     await page.waitForLoadState('networkidle');
 
     // Open search
-    await page.keyboard.press('Meta+k');
-    const searchInput = page.getByPlaceholder(/search/i);
+    await pressMod(page, 'k');
+    const searchInput = page.getByRole('dialog').getByRole('combobox');
     await expect(searchInput).toBeVisible({ timeout: 3_000 });
 
     // Close with Escape
@@ -40,7 +41,14 @@ test.describe('Search', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([
-          { id: 'task-1', title: 'Build calculator', status: 'completed' },
+          {
+            id: 'task-1',
+            title: 'Build calculator',
+            prompt: 'Build calculator',
+            status: 'completed',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
         ]),
       }),
     );
@@ -48,8 +56,8 @@ test.describe('Search', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    await page.keyboard.press('Meta+k');
-    const searchInput = page.getByPlaceholder(/search/i);
+    await pressMod(page, 'k');
+    const searchInput = page.getByRole('dialog').getByRole('combobox');
     await expect(searchInput).toBeVisible({ timeout: 3_000 });
 
     await searchInput.fill('calculator');
