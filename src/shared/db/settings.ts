@@ -1654,6 +1654,9 @@ async function loadSettingsFromBackend(): Promise<Partial<Settings> | null> {
     const partial: Partial<Settings> = {};
 
     for (const [key, value] of Object.entries(data)) {
+      // The table also holds standalone flags (first-run state); only keys
+      // that belong on Settings may be merged into it.
+      if (!Object.hasOwn(defaultSettings, key)) continue;
       try {
         (partial as Record<string, unknown>)[key] = JSON.parse(value);
       } catch {
@@ -2112,6 +2115,10 @@ export async function initializeSettings(): Promise<Settings> {
     });
   }
 
+  // Each read copies a client-only first-run flag to the API, so another
+  // client of the same data neither onboards nor seeds the demo again.
+  void Promise.allSettled([...SERVER_BACKED_KEYS].map(getSettingItem));
+
   return settings;
 }
 
@@ -2392,6 +2399,66 @@ export const FIRST_RUN_COMPLETED_AT_KEY = 'firstRunCompletedAt';
 export const DEMO_SEEDED_AT_KEY = 'demoSeededAt';
 
 /**
+ * First-run flags describe the local API's data (its tasks, demo task, and
+ * profiles), not one client. Keeping a copy there means a new browser
+ * profile, an incognito window, or a reset desktop webview does not onboard
+ * again, or seed the demo again, on top of existing data.
+ */
+const SERVER_BACKED_KEYS = new Set([
+  'onboardingCompleted',
+  'onboardingVersion',
+  'quickstart_step',
+  FIRST_RUN_COMPLETED_AT_KEY,
+  DEMO_SEEDED_AT_KEY,
+]);
+
+/** Keys already copied to the API this session, so the backfill runs once. */
+const serverBackedSynced = new Set<string>();
+
+async function saveServerBackedItem(key: string, value: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/db/settings/${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Plain string, the same format backup-import writes for these keys.
+      body: JSON.stringify({ value }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.ok) serverBackedSynced.add(key);
+  } catch {
+    // The API may be down; the client copy still holds the value.
+  }
+}
+
+async function loadServerBackedItem(key: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/db/settings/${key}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      !('value' in body) ||
+      typeof body.value !== 'string'
+    ) {
+      return null;
+    }
+    // The API's getSetting already unwraps JSON-quoted strings.
+    serverBackedSynced.add(key);
+    return body.value;
+  } catch {
+    return null;
+  }
+}
+
+/** Test-only: forgets which keys were copied to the API. */
+export function resetServerBackedSyncForTests(): void {
+  serverBackedSynced.clear();
+}
+
+/**
  * Save a single setting item (for simple key-value flags)
  */
 export async function saveSettingItem(
@@ -2417,12 +2484,36 @@ export async function saveSettingItem(
   } catch (error) {
     console.error(`[Settings] Failed to save ${key} to localStorage:`, error);
   }
+
+  if (SERVER_BACKED_KEYS.has(key)) await saveServerBackedItem(key, value);
 }
 
 /**
  * Get a single setting item
  */
 export async function getSettingItem(key: string): Promise<string | null> {
+  const local = await getClientSettingItem(key);
+  if (!SERVER_BACKED_KEYS.has(key)) return local;
+
+  if (local !== null) {
+    // Installs from before the API kept these flags: copy once so other
+    // clients of the same data see them.
+    if (!serverBackedSynced.has(key)) void saveServerBackedItem(key, local);
+    return local;
+  }
+
+  const remote = await loadServerBackedItem(key);
+  if (remote !== null) {
+    try {
+      localStorage.setItem(`${APP_SLUG}_${key}`, remote);
+    } catch {
+      // Ignore; the API copy is authoritative for the next read.
+    }
+  }
+  return remote;
+}
+
+async function getClientSettingItem(key: string): Promise<string | null> {
   const database = await getDatabase();
 
   if (database) {
