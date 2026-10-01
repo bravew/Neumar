@@ -2053,6 +2053,15 @@ export default {
     file: 'Arquivo',
     symlink: 'Link',
     other: 'Outro',
+    previewFailed: 'Não foi possível visualizar {name}.',
+    saveFailed: 'Não foi possível salvar {name}.',
+    previewUnavailable:
+      'A visualização não está disponível para este tipo de arquivo.',
+    edit: 'Editar',
+    cancel: 'Cancelar',
+    save: 'Salvar',
+    saving: 'Salvando...',
+    openFile: 'Abrir {name}',
   },
   sources: {
     title: 'Fontes',

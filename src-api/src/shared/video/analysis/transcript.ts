@@ -9,7 +9,7 @@ import {
   MEDIA_DATA_EGRESS,
   type MediaDataEgress,
 } from '@/shared/media/data-egress';
-import { runFFmpeg, validateInputFile } from '@/shared/services/ffmpeg';
+import { runFFmpeg } from '@/shared/services/ffmpeg';
 import {
   getSttProviderInfo,
   transcribe as transcribeSpeech,

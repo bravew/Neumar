@@ -29,9 +29,7 @@ interface Project {
 // ============================================================================
 
 export function ProjectsPage() {
-  return (
-    <ProjectsContent />
-  );
+  return <ProjectsContent />;
 }
 
 // ============================================================================

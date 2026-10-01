@@ -33,9 +33,7 @@ type StatusFilter = 'all' | 'active' | 'paused' | 'archived';
 // ============================================================================
 
 export function OrgViewPage() {
-  return (
-    <OrgViewContent />
-  );
+  return <OrgViewContent />;
 }
 
 // ============================================================================
@@ -130,7 +128,6 @@ function OrgViewContent() {
       className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="org-page"
     >
-
       <main className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm">
         {/* Header */}
         <motion.div

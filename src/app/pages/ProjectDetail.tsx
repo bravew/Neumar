@@ -59,9 +59,7 @@ interface Task {
 // ============================================================================
 
 export function ProjectDetailPage() {
-  return (
-    <ProjectDetailContent />
-  );
+  return <ProjectDetailContent />;
 }
 
 // ============================================================================

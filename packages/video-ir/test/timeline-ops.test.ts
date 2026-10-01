@@ -1482,7 +1482,7 @@ describe('output range op', () => {
       inFrame: 24,
       outFrameExclusive: 120,
     });
-    const restored = applyTimelineOp(applied.timeline, applied.inverse);
+    const restored = applyHistoryOperation(applied.timeline, applied.inverse);
     expect(restored.timeline.outputRange).toBeUndefined();
     expect(restored.timeline).toEqual(timeline);
   });
@@ -1498,7 +1498,8 @@ describe('output range op', () => {
     });
 
     expect(
-      applyTimelineOp(second.timeline, second.inverse).timeline.outputRange,
+      applyHistoryOperation(second.timeline, second.inverse).timeline
+        .outputRange,
     ).toEqual({ inFrame: 0, outFrameExclusive: 60 });
   });
 
@@ -1509,9 +1510,9 @@ describe('output range op', () => {
       after: null,
     });
     expect(cleared.timeline).toEqual(timeline);
-    expect(applyTimelineOp(cleared.timeline, cleared.inverse).timeline).toEqual(
-      timeline,
-    );
+    expect(
+      applyHistoryOperation(cleared.timeline, cleared.inverse).timeline,
+    ).toEqual(timeline);
   });
 
   it('rejects an empty, inverted, or fractional range', () => {

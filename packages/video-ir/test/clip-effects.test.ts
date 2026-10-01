@@ -11,7 +11,18 @@ import {
   TimelineSchema,
   type ClipEffectStack,
   type Timeline,
+  type TimelineHistoryOperation,
 } from '../src/index.js';
+
+function applyHistoryOperation(
+  timeline: Timeline,
+  operation: TimelineHistoryOperation,
+): { timeline: Timeline } {
+  if (operation.kind === 'timeline.batch') {
+    return applyTimelineOps(timeline, operation.ops);
+  }
+  return applyTimelineOp(timeline, operation);
+}
 
 const EFFECT_ID = '15ef4de3-a29d-4435-aa78-70e0948e5191';
 
@@ -137,7 +148,7 @@ describe('clip effects', () => {
       effects: effectStack,
     });
     expect(
-      applyTimelineOps(result.timeline, [result.inverse]).timeline,
+      applyHistoryOperation(result.timeline, result.inverse).timeline,
     ).toEqual(timeline);
   });
 
@@ -168,7 +179,7 @@ describe('clip effects', () => {
       ),
     ).toBe(0.5);
     expect(
-      applyTimelineOps(inserted.timeline, [inserted.inverse]).timeline,
+      applyHistoryOperation(inserted.timeline, inserted.inverse).timeline,
     ).toEqual(seeded);
   });
 
@@ -214,7 +225,7 @@ describe('clip effects', () => {
       },
     });
     expect(
-      applyTimelineOps(setTrack.timeline, [setTrack.inverse]).timeline,
+      applyHistoryOperation(setTrack.timeline, setTrack.inverse).timeline,
     ).toEqual(seeded);
 
     const removed = applyTimelineOp(setTrack.timeline, {
@@ -226,7 +237,7 @@ describe('clip effects', () => {
       snapshot: { atMs: 1000, value: 0.2 },
     });
     expect(
-      applyTimelineOps(removed.timeline, [removed.inverse]).timeline,
+      applyHistoryOperation(removed.timeline, removed.inverse).timeline,
     ).toEqual(setTrack.timeline);
   });
 

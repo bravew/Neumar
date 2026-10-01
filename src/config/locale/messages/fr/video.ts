@@ -2059,6 +2059,15 @@ export default {
     file: 'Fichier',
     symlink: 'Lien',
     other: 'Autre',
+    previewFailed: "Impossible d'afficher l'aperçu de {name}.",
+    saveFailed: "Impossible d'enregistrer {name}.",
+    previewUnavailable:
+      "L'aperçu n'est pas disponible pour ce type de fichier.",
+    edit: 'Modifier',
+    cancel: 'Annuler',
+    save: 'Enregistrer',
+    saving: 'Enregistrement...',
+    openFile: 'Ouvrir {name}',
   },
   sources: {
     title: 'Sources',

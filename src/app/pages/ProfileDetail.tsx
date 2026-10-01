@@ -86,9 +86,7 @@ const INITIAL_FORM: ProfileFormData = {
 // ============================================================================
 
 export function ProfileDetailPage() {
-  return (
-    <ProfileDetailContent />
-  );
+  return <ProfileDetailContent />;
 }
 
 // ============================================================================
@@ -352,7 +350,6 @@ function ProfileDetailContent() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-
       <motion.main
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}

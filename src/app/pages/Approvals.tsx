@@ -183,130 +183,124 @@ export function ApprovalsPage() {
 
   return (
     <div className="flex h-svh overflow-hidden" data-testid="approvals-page">
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="border-border border-b px-6 py-4">
-            <div className="flex items-center gap-2">
-              <ClipboardCheck className="text-primary size-5" />
-              <h1 className="text-foreground text-lg font-semibold">
-                {t.approvals?.title ?? 'Approvals'}
-              </h1>
-              {pending.length > 0 && (
-                <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-medium">
-                  {pending.length}
-                </span>
-              )}
-            </div>
-            <div className="mt-3 flex gap-1">
-              {(['pending', 'history'] as Tab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 text-sm transition-colors',
-                    activeTab === tab
-                      ? 'bg-accent text-accent-foreground font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                  )}
-                >
-                  {tab === 'pending'
-                    ? (t.approvals?.pending ?? 'Pending')
-                    : (t.approvals?.history ?? 'History')}
-                  {tab === 'pending' && pending.length > 0 && (
-                    <span className="ml-1.5 text-xs opacity-70">
-                      ({pending.length})
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            {decideError && (
-              <div
-                role="alert"
-                className="mb-3 max-w-2xl rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
-              >
-                {decideError}
-              </div>
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="border-border border-b px-6 py-4">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="text-primary size-5" />
+            <h1 className="text-foreground text-lg font-semibold">
+              {t.approvals?.title ?? 'Approvals'}
+            </h1>
+            {pending.length > 0 && (
+              <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-medium">
+                {pending.length}
+              </span>
             )}
-            <AsyncList
-              status={approvalsListStatus(
-                activeTab,
-                pendingReady,
-                historyStatus,
-              )}
-              empty={
-                activeTab === 'pending'
-                  ? pending.length === 0
-                  : history.length === 0
-              }
-              renderSkeleton={() => <ListSkeleton rows={3} />}
-              renderError={() => (
-                <p
-                  className="text-destructive py-12 text-center text-sm"
-                  role="alert"
-                >
-                  {t.common.error}
-                </p>
-              )}
-              renderEmpty={() =>
-                activeTab === 'pending' ? (
-                  <div className="text-muted-foreground flex flex-col items-center justify-center gap-3 py-16">
-                    <ClipboardCheck className="size-10 opacity-30" />
-                    <p className="text-sm">
-                      {t.approvals?.empty ?? 'No pending approvals'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="text-muted-foreground flex items-center justify-center py-16 text-sm">
-                    {t.approvals?.noHistory ?? 'No history yet'}
-                  </div>
-                )
-              }
+          </div>
+          <div className="mt-3 flex gap-1">
+            {(['pending', 'history'] as Tab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm transition-colors',
+                  activeTab === tab
+                    ? 'bg-accent text-accent-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                )}
+              >
+                {tab === 'pending'
+                  ? (t.approvals?.pending ?? 'Pending')
+                  : (t.approvals?.history ?? 'History')}
+                {tab === 'pending' && pending.length > 0 && (
+                  <span className="ml-1.5 text-xs opacity-70">
+                    ({pending.length})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {decideError && (
+            <div
+              role="alert"
+              className="mb-3 max-w-2xl rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
             >
-              {activeTab === 'pending' ? (
-                <div className="max-w-2xl space-y-3">
-                  {pending.map((a) => (
-                    <ApprovalCard
-                      key={a.id}
-                      approval={a}
-                      resumeToken={resumeTokensRef.current.get(a.id)}
-                      onDecide={handleDecide}
-                    />
-                  ))}
+              {decideError}
+            </div>
+          )}
+          <AsyncList
+            status={approvalsListStatus(activeTab, pendingReady, historyStatus)}
+            empty={
+              activeTab === 'pending'
+                ? pending.length === 0
+                : history.length === 0
+            }
+            renderSkeleton={() => <ListSkeleton rows={3} />}
+            renderError={() => (
+              <p
+                className="text-destructive py-12 text-center text-sm"
+                role="alert"
+              >
+                {t.common.error}
+              </p>
+            )}
+            renderEmpty={() =>
+              activeTab === 'pending' ? (
+                <div className="text-muted-foreground flex flex-col items-center justify-center gap-3 py-16">
+                  <ClipboardCheck className="size-10 opacity-30" />
+                  <p className="text-sm">
+                    {t.approvals?.empty ?? 'No pending approvals'}
+                  </p>
                 </div>
               ) : (
-                <div className="max-w-2xl space-y-3">
-                  {history.map((a) => (
-                    <div
-                      key={a.id}
-                      className="border-border bg-card rounded-lg border p-3 opacity-70"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={cn(
-                            'rounded-full px-2 py-0.5 text-xs font-medium',
-                            a.status === 'approved'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700',
-                          )}
-                        >
-                          {a.status === 'approved'
-                            ? (t.approvals?.statusApproved ?? 'Approved')
-                            : (t.approvals?.statusRejected ?? 'Rejected')}
-                        </span>
-                        <span className="text-foreground text-sm">
-                          {a.title}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-muted-foreground flex items-center justify-center py-16 text-sm">
+                  {t.approvals?.noHistory ?? 'No history yet'}
                 </div>
-              )}
-            </AsyncList>
-          </div>
-        </main>
-      </div>
+              )
+            }
+          >
+            {activeTab === 'pending' ? (
+              <div className="max-w-2xl space-y-3">
+                {pending.map((a) => (
+                  <ApprovalCard
+                    key={a.id}
+                    approval={a}
+                    resumeToken={resumeTokensRef.current.get(a.id)}
+                    onDecide={handleDecide}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="max-w-2xl space-y-3">
+                {history.map((a) => (
+                  <div
+                    key={a.id}
+                    className="border-border bg-card rounded-lg border p-3 opacity-70"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'rounded-full px-2 py-0.5 text-xs font-medium',
+                          a.status === 'approved'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700',
+                        )}
+                      >
+                        {a.status === 'approved'
+                          ? (t.approvals?.statusApproved ?? 'Approved')
+                          : (t.approvals?.statusRejected ?? 'Rejected')}
+                      </span>
+                      <span className="text-foreground text-sm">{a.title}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </AsyncList>
+        </div>
+      </main>
+    </div>
   );
 }

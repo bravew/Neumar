@@ -202,9 +202,7 @@ function NeumaAGUIEventDispatcher({
 }
 
 export function TaskDetailPage() {
-  return (
-    <TaskDetailContent />
-  );
+  return <TaskDetailContent />;
 }
 
 /** Small profile avatar for the task header bar. */

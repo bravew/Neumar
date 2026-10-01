@@ -18,7 +18,8 @@ export default {
   },
   prompt: {
     draftEmail: 'Rédige un e-mail. Demande le destinataire avant d’écrire.',
-    buildFeature: 'Aide-moi à construire une fonction. Demande quelle partie du produit.',
+    buildFeature:
+      'Aide-moi à construire une fonction. Demande quelle partie du produit.',
   },
   question: {
     audience: 'Qui le lit ?',
