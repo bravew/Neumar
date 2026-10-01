@@ -72,6 +72,7 @@ export default {
   // 操作
   stop: '停止',
   dockTitle: '聊天',
+  askAboutThis: '就此提问',
   dockClose: '关闭',
   dockPlaceholder: '发消息…',
   dockFullView: '打开完整视图',

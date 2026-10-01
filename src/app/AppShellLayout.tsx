@@ -42,7 +42,12 @@ export function AppShellLayout() {
   );
 
   useEffect(() => {
-    const openDock = () => setDockOpen(true);
+    const openDock = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      const taskId = detail?.taskId;
+      if (typeof taskId === 'string') setDockTaskId(taskId);
+      setDockOpen(true);
+    };
     window.addEventListener('shell:open-dock', openDock);
     return () => window.removeEventListener('shell:open-dock', openDock);
   }, []);

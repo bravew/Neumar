@@ -65,6 +65,7 @@ export default {
   noConnectors: 'Aucun connecteur utilisé pour le moment',
   stop: 'Arrêter',
   dockTitle: 'Discussion',
+  askAboutThis: 'Demander à propos de ceci',
   dockClose: 'Fermer',
   dockPlaceholder: 'Message…',
   dockFullView: 'Ouvrir la vue complète',

@@ -65,6 +65,7 @@ export default {
   noConnectors: 'Sin conectores usados aún',
   stop: 'Detener',
   dockTitle: 'Chat',
+  askAboutThis: 'Preguntar sobre esto',
   dockClose: 'Cerrar',
   dockPlaceholder: 'Mensaje…',
   dockFullView: 'Abrir vista completa',
