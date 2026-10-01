@@ -71,8 +71,14 @@ function countDiffLines(patch: string): {
   return { linesAdded, linesRemoved };
 }
 
-function SnapshotEntry({ snapshot }: { snapshot: FileSnapshot }) {
-  const [expanded, setExpanded] = useState(false);
+function SnapshotEntry({
+  snapshot,
+  initialExpanded = false,
+}: {
+  snapshot: FileSnapshot;
+  initialExpanded?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(initialExpanded);
   const fileName = snapshot.file_path.split('/').pop() ?? snapshot.file_path;
 
   const patch = buildUnifiedDiff(
@@ -148,9 +154,20 @@ interface FileDiffViewerProps {
   taskId: string;
   /** Increment to trigger re-fetch */
   version?: number;
+  /** Snapshot path to expand when Activity links to a written file. */
+  focusPath?: string;
 }
 
-export function FileDiffViewer({ taskId, version = 0 }: FileDiffViewerProps) {
+function snapshotMatches(filePath: string, focusPath: string | undefined) {
+  if (!focusPath) return false;
+  return filePath === focusPath || filePath.endsWith(`/${focusPath}`);
+}
+
+export function FileDiffViewer({
+  taskId,
+  version = 0,
+  focusPath,
+}: FileDiffViewerProps) {
   const { t } = useLanguage();
   const [snapshots, setSnapshots] = useState<FileSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
@@ -204,9 +221,16 @@ export function FileDiffViewer({ taskId, version = 0 }: FileDiffViewerProps) {
 
   return (
     <div className="space-y-1.5">
-      {snapshots.map((snap) => (
-        <SnapshotEntry key={snap.id} snapshot={snap} />
-      ))}
+      {snapshots.map((snap) => {
+        const focused = snapshotMatches(snap.file_path, focusPath);
+        return (
+          <SnapshotEntry
+            key={focused ? `${snap.id}-focused` : snap.id}
+            snapshot={snap}
+            initialExpanded={focused}
+          />
+        );
+      })}
     </div>
   );
 }

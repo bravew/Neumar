@@ -7,54 +7,25 @@ import {
   useState,
 } from 'react';
 
-import {
-  ChevronDown,
-  ChevronRight,
-  Code2,
-  File,
-  FileCode2,
-  FileEdit,
-  FileImage,
-  FileOutput,
-  FileSpreadsheet,
-  FileText,
-  FileType,
-  FolderOpen,
-  FolderSearch,
-  Globe,
-  Layers,
-  ListTodo,
-  Music,
-  Package,
-  Presentation,
-  Search,
-  Sparkles,
-  Table,
-  Terminal,
-  Type,
-  Video,
-  Wrench,
-  X,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 import {
   getArtifactTypeFromExt,
   type Artifact,
   type ArtifactType,
 } from '@/components/artifacts';
-import { AILoadingIndicator } from '@/components/ui/AILoadingIndicator';
 import { API_BASE_URL } from '@/config';
+import { useSettingsValue } from '@/shared/db/settings';
 import type { AgentMessage } from '@/shared/hooks/useAgent';
 import { useTraceStream } from '@/shared/hooks/useTraceStream';
 import { computeSessionFolder } from '@/shared/lib/session';
-import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
-import { DocumentPanel } from './DocumentPanel';
-import { FileDiffViewer } from './FileDiffViewer';
-import { FileTreeItem, type WorkingFile } from './FileTreeItem';
-import { TraceMetricsSummary } from './trace/TraceMetricsSummary';
-import { WorkspaceFilesSection } from './WorkspaceFilesSection';
+import { ActivityPanel } from './ActivityPanel';
+import { DetailsPanel } from './DetailsPanel';
+import { FilesPanel } from './FilesPanel';
+import type { WorkingFile } from './FileTreeItem';
+import type { ToolUsage } from './sidebar-bits';
 
 /** Check if an error message indicates a directory/file not found (non-error state) */
 function isNotFoundError(message: string): boolean {
@@ -68,16 +39,6 @@ function isNotFoundError(message: string): boolean {
 // Re-export types for backwards compatibility
 export type { Artifact, ArtifactType };
 
-interface ToolUsage {
-  id: string;
-  name: string;
-  displayName: string;
-  input: unknown;
-  output?: string;
-  isError?: boolean;
-  timestamp: number;
-}
-
 interface RightSidebarProps {
   messages: AgentMessage[];
   artifacts: Artifact[];
@@ -88,35 +49,6 @@ interface RightSidebarProps {
   filesVersion?: number;
   taskId?: string;
   isRunning?: boolean;
-}
-
-// Get tool icon based on tool name
-function getToolIcon(toolName: string) {
-  switch (toolName) {
-    case 'Bash':
-      return Terminal;
-    case 'Read':
-      return FileText;
-    case 'Write':
-      return FileEdit;
-    case 'Edit':
-      return FileEdit;
-    case 'Grep':
-      return Search;
-    case 'Glob':
-      return FolderSearch;
-    case 'WebFetch':
-    case 'WebSearch':
-      return Globe;
-    case 'TodoWrite':
-      return ListTodo;
-    case 'Task':
-      return Layers;
-    case 'LSP':
-      return Code2;
-    default:
-      return Wrench;
-  }
 }
 
 // Check if a tool is an MCP tool
@@ -198,181 +130,6 @@ function extractMcpTools(
   });
 
   return tools;
-}
-
-// Tool Preview Modal Component
-function ToolPreviewModal({
-  tool,
-  onClose,
-}: {
-  tool: ToolUsage;
-  onClose: () => void;
-}) {
-  const formatInput = (input: unknown): string => {
-    if (!input) return '—';
-    try {
-      return JSON.stringify(input, null, 2);
-    } catch {
-      return String(input);
-    }
-  };
-
-  const formatOutput = (output: string | undefined): string => {
-    if (!output) return '—';
-    // Truncate very long output
-    if (output.length > 5000) {
-      return output.slice(0, 5000) + '\n\n... (truncated)';
-    }
-    return output;
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="bg-background border-border relative flex max-h-[80vh] w-[600px] max-w-[90vw] flex-col rounded-lg border shadow-xl">
-        {/* Header */}
-        <div className="border-border flex items-center justify-between border-b px-4 py-3">
-          <div className="flex items-center gap-2">
-            {(() => {
-              const IconComponent = getToolIcon(tool.name);
-              return <IconComponent className="text-muted-foreground size-4" />;
-            })()}
-            <span className="font-medium">{tool.name}</span>
-            {tool.isError && (
-              <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-xs text-red-500">
-                Error
-              </span>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="hover:bg-accent rounded-md p-1 transition-colors"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 space-y-4 overflow-auto p-4">
-          {/* Input Section */}
-          <div>
-            <h3 className="text-muted-foreground mb-2 text-sm font-medium">
-              Input
-            </h3>
-            <pre className="bg-muted/50 max-h-[200px] overflow-auto rounded-md p-3 text-xs break-words whitespace-pre-wrap">
-              {formatInput(tool.input)}
-            </pre>
-          </div>
-
-          {/* Output Section */}
-          <div>
-            <h3 className="text-muted-foreground mb-2 text-sm font-medium">
-              Output
-            </h3>
-            <pre
-              className={cn(
-                'max-h-[300px] overflow-auto rounded-md p-3 text-xs break-words whitespace-pre-wrap',
-                tool.isError ? 'bg-red-500/10 text-red-400' : 'bg-muted/50',
-              )}
-            >
-              {formatOutput(tool.output)}
-            </pre>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Default number of items to show before "show more"
-const DEFAULT_VISIBLE_COUNT = 5;
-
-// Empty State Component
-function EmptyState({
-  icon: Icon,
-  description,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-}) {
-  return (
-    <div className="flex items-center gap-2 py-2">
-      <div className="bg-muted/30 rounded p-1.5">
-        <Icon className="text-muted-foreground/40 size-3.5" />
-      </div>
-      <p className="text-muted-foreground/60 text-xs">{description}</p>
-    </div>
-  );
-}
-
-// Collapsible Section Component
-function CollapsibleSection({
-  title,
-  children,
-  defaultExpanded = true,
-  headerAction,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultExpanded?: boolean;
-  /** Optional action button rendered on the right side of the header,
-   *  next to the chevron. Click events are isolated so they don't toggle
-   *  the section. */
-  headerAction?: React.ReactNode;
-}) {
-  const { t } = useLanguage();
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  // defaultExpanded often starts false (content loads async, e.g. workspace
-  // file listing) then flips true once content arrives — useState only reads
-  // it at mount, so without this the section stays collapsed forever. Track
-  // manual toggles so this auto-expand doesn't fight a user who collapsed it.
-  const userToggledRef = useRef(false);
-  useEffect(() => {
-    if (defaultExpanded && !userToggledRef.current) {
-      setIsExpanded(true);
-    }
-  }, [defaultExpanded]);
-  const toggleExpanded = useCallback(() => {
-    userToggledRef.current = true;
-    setIsExpanded((prev) => !prev);
-  }, []);
-
-  return (
-    <div className="border-border/50 border-b">
-      <div className="hover:bg-accent/30 flex w-full items-center justify-between px-4 py-3 transition-colors">
-        <button
-          onClick={toggleExpanded}
-          className="flex flex-1 cursor-pointer items-center text-left"
-        >
-          <span className="text-foreground text-sm font-medium">{title}</span>
-        </button>
-        <div className="flex items-center gap-1">
-          {headerAction}
-          <button
-            onClick={toggleExpanded}
-            className="text-muted-foreground hover:text-foreground cursor-pointer p-0.5 transition-colors"
-            aria-label={isExpanded ? t.task.collapse : t.task.expand}
-          >
-            {isExpanded ? (
-              <ChevronDown className="size-4" />
-            ) : (
-              <ChevronRight className="size-4" />
-            )}
-          </button>
-        </div>
-      </div>
-      <div
-        className={cn(
-          'grid transition-[grid-template-rows] duration-300',
-          isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-        )}
-      >
-        <div className="overflow-hidden">
-          <div className="px-4 pb-3">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // Skills directory info
@@ -550,46 +307,6 @@ function extractExternalFolders(
   return Array.from(foldersSet);
 }
 
-// Get file icon based on artifact type
-function getFileIcon(type: Artifact['type']) {
-  switch (type) {
-    case 'html':
-      return FileCode2;
-    case 'jsx':
-      return FileCode2;
-    case 'css':
-      return FileCode2;
-    case 'json':
-      return FileText;
-    case 'image':
-      return FileImage;
-    case 'code':
-      return FileCode2;
-    case 'markdown':
-      return FileType;
-    case 'csv':
-      return Table;
-    case 'document':
-      return FileText;
-    case 'spreadsheet':
-      return FileSpreadsheet;
-    case 'presentation':
-      return Presentation;
-    case 'pdf':
-      return FileText;
-    case 'video':
-      return Video;
-    case 'audio':
-      return Music;
-    case 'font':
-      return Type;
-    case 'websearch':
-      return Globe;
-    default:
-      return File;
-  }
-}
-
 // Extract artifacts from messages
 function extractArtifacts(messages: AgentMessage[]): Artifact[] {
   const artifacts: Artifact[] = [];
@@ -697,8 +414,12 @@ export function RightSidebar({
   taskId,
   isRunning = false,
 }: RightSidebarProps) {
-  const { t, tt } = useLanguage();
-  const [selectedTool, setSelectedTool] = useState<ToolUsage | null>(null);
+  const { t } = useLanguage();
+  const advancedMode = useSettingsValue().advancedMode;
+  const [panel, setPanel] = useState<'activity' | 'files'>('activity');
+  const [detailsOverride, setDetailsOverride] = useState<boolean | null>(null);
+  const detailsOpen = detailsOverride ?? advancedMode;
+  const [focusPath, setFocusPath] = useState<string | undefined>();
   const { summary: traceSummary } = useTraceStream(messages, isRunning);
 
   // Ref for active file loading AbortController — scoped to this component instance
@@ -713,8 +434,6 @@ export function RightSidebar({
       }
     };
   }, []);
-  const [showAllArtifacts, setShowAllArtifacts] = useState(false);
-  const [showAllTools, setShowAllTools] = useState(false);
   const [workingFiles, setWorkingFiles] = useState<WorkingFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [workingDirError, setWorkingDirError] = useState<string | null>(null);
@@ -947,21 +666,10 @@ export function RightSidebar({
     return { outputArtifacts: outputs, remainingArtifacts: remaining };
   }, [artifacts]);
 
-  // Artifacts with show more/less (max 10)
-  const visibleArtifacts = showAllArtifacts
-    ? remainingArtifacts
-    : remainingArtifacts.slice(0, 10);
-  const hasMoreArtifacts = remainingArtifacts.length > 10;
-
-  // MCP tools only (memoized)
   const mcpTools = useMemo(
     () => extractMcpTools(messages, t.task),
     [messages, t.task],
   );
-  const visibleTools = showAllTools
-    ? mcpTools
-    : mcpTools.slice(0, DEFAULT_VISIBLE_COUNT);
-  const hasMoreTools = mcpTools.length > DEFAULT_VISIBLE_COUNT;
 
   // Extract and deduplicate external folders (memoized — heavy computation)
   const externalFolders = useMemo(() => {
@@ -1016,292 +724,112 @@ export function RightSidebar({
     return idx > 0 ? firstWithPath.path.slice(0, idx) : null;
   }, [outputArtifacts]);
 
+  const openDiff = useCallback((path: string) => {
+    setFocusPath(path);
+    setDetailsOverride(true);
+  }, []);
+
   return (
-    <div className="bg-background flex h-full flex-col overflow-x-hidden overflow-y-auto">
-      {/* 1. Workspace Section */}
-      <CollapsibleSection
-        title={t.task.workspace || 'Workspace'}
-        defaultExpanded={hasWorkspaceContent}
+    <div className="bg-background flex h-full flex-col overflow-hidden">
+      <div
+        role="tablist"
+        aria-label={t.task.panelActivity}
+        className="border-border/50 flex shrink-0 gap-1 border-b px-3 py-2"
       >
-        <WorkspaceFilesSection
-          outputExpanded={outputExpanded}
-          setOutputExpanded={setOutputExpanded}
-          editedExpanded={editedExpanded}
-          setEditedExpanded={setEditedExpanded}
-          effectiveWorkingDir={effectiveWorkingDir}
-          loadingFiles={loadingFiles}
-          workingDirError={workingDirError}
-          workingFiles={workingFiles}
-          externalFolders={externalFolders}
-          onSelectWorkingFile={onSelectWorkingFile}
-          onSelectArtifact={onSelectArtifact}
-          activeFileLoadRef={activeFileLoadRef}
-          handleOpenFolder={handleOpenFolder}
-          getFolderName={getFolderName}
-        />
-      </CollapsibleSection>
-
-      {/* 2. Output Section — final deliverables */}
-      <CollapsibleSection
-        title={t.task.output}
-        defaultExpanded={true}
-        headerAction={
-          outputFolderDir ? (
-            <button
-              onClick={() => handleOpenFolder(outputFolderDir)}
-              className="text-muted-foreground hover:text-foreground p-0.5 transition-colors"
-              title={t.task.openInFinder}
-              aria-label={t.task.openInFinder}
-            >
-              <FolderOpen className="size-3.5" />
-            </button>
-          ) : null
-        }
-      >
-        {outputArtifacts.length === 0 ? (
-          <EmptyState icon={FileOutput} description={t.task.noOutput} />
-        ) : (
-          <div className="space-y-1">
-            {outputArtifacts.map((artifact) => {
-              const IconComponent = getFileIcon(artifact.type);
-              const isSelected = selectedArtifact?.id === artifact.id;
-
-              return (
-                <button
-                  key={artifact.id}
-                  onClick={() => onSelectArtifact(artifact)}
-                  className={cn(
-                    'flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors',
-                    isSelected ? 'bg-accent/60' : 'hover:bg-accent/30',
-                  )}
-                >
-                  <IconComponent
-                    className={cn(
-                      'size-3.5 shrink-0',
-                      isSelected
-                        ? 'text-foreground/70'
-                        : 'text-muted-foreground/60',
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      'truncate text-sm',
-                      isSelected ? 'text-foreground' : 'text-foreground/80',
-                    )}
-                  >
-                    {artifact.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </CollapsibleSection>
-
-      {/* 3. Artifacts Section — intermediate/working files */}
-      <CollapsibleSection title={t.task.artifacts} defaultExpanded={false}>
-        {remainingArtifacts.length === 0 ? (
-          <EmptyState icon={Package} description={t.task.noArtifacts} />
-        ) : (
-          <>
-            <div
-              className={cn(
-                'space-y-1',
-                showAllArtifacts && 'max-h-[300px] overflow-y-auto',
-              )}
-            >
-              {visibleArtifacts.map((artifact) => {
-                const IconComponent = getFileIcon(artifact.type);
-                const isSelected = selectedArtifact?.id === artifact.id;
-
-                return (
-                  <button
-                    key={artifact.id}
-                    onClick={() => onSelectArtifact(artifact)}
-                    className={cn(
-                      'flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors',
-                      isSelected ? 'bg-accent/60' : 'hover:bg-accent/30',
-                    )}
-                  >
-                    <IconComponent
-                      className={cn(
-                        'size-3.5 shrink-0',
-                        isSelected
-                          ? 'text-foreground/70'
-                          : 'text-muted-foreground/60',
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        'truncate text-sm',
-                        isSelected ? 'text-foreground' : 'text-foreground/80',
-                      )}
-                    >
-                      {artifact.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {hasMoreArtifacts && (
-              <button
-                onClick={() => setShowAllArtifacts(!showAllArtifacts)}
-                className="text-muted-foreground hover:text-foreground w-full py-2 text-center text-xs transition-colors"
-              >
-                {showAllArtifacts
-                  ? t.common.showLess
-                  : tt('common.showMoreCount', {
-                      count: remainingArtifacts.length - 10,
-                    })}
-              </button>
-            )}
-          </>
-        )}
-      </CollapsibleSection>
-
-      {/* 4. Tools Section - MCP tools */}
-      <CollapsibleSection title={t.task.tools} defaultExpanded={false}>
-        {mcpTools.length === 0 ? (
-          <EmptyState icon={Wrench} description={t.task.noTools} />
-        ) : (
-          <>
-            <div
-              className={cn(
-                'space-y-1',
-                showAllTools && 'max-h-[300px] overflow-y-auto',
-              )}
-            >
-              {visibleTools.map((tool) => {
-                const IconComponent = getToolIcon(tool.name);
-                return (
-                  <button
-                    key={tool.id}
-                    onClick={() => setSelectedTool(tool)}
-                    className={cn(
-                      'group flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1 text-left transition-colors',
-                      'hover:bg-accent/50',
-                      tool.isError && 'text-red-400',
-                    )}
-                  >
-                    <IconComponent
-                      className={cn(
-                        'size-3.5 shrink-0',
-                        tool.isError
-                          ? 'text-red-400'
-                          : 'text-muted-foreground/60',
-                      )}
-                    />
-                    <span className="text-foreground/80 truncate text-sm">
-                      {tool.displayName}
-                    </span>
-                    {tool.isError && (
-                      <span className="shrink-0 rounded bg-red-500/10 px-1 py-0.5 text-[10px] text-red-500">
-                        {t.task.error}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {hasMoreTools && (
-              <button
-                onClick={() => setShowAllTools(!showAllTools)}
-                className="text-muted-foreground hover:text-foreground w-full py-2 text-center text-xs transition-colors"
-              >
-                {showAllTools
-                  ? t.common.showLess
-                  : tt('common.showMoreCount', {
-                      count: mcpTools.length - DEFAULT_VISIBLE_COUNT,
-                    })}
-              </button>
-            )}
-          </>
-        )}
-      </CollapsibleSection>
-
-      {/* 5. Changes Section — file diffs from agent-written snapshots */}
-      {taskId && (
-        <CollapsibleSection
-          title={t.task.changes ?? 'Changes'}
-          defaultExpanded={false}
-        >
-          <FileDiffViewer taskId={taskId} version={filesVersion} />
-        </CollapsibleSection>
-      )}
-
-      {/* 6. Trace Section — compact metrics summary */}
-      <CollapsibleSection
-        title={t.task.trace ?? 'Trace'}
-        defaultExpanded={false}
-      >
-        <TraceMetricsSummary summary={traceSummary} isLive={isRunning} />
-      </CollapsibleSection>
-
-      {/* 7. Documents Section */}
-      {taskId && (
-        <CollapsibleSection
-          title={
-            ((t.task as Record<string, unknown>).documents as string) ??
-            'Documents'
+        <button
+          type="button"
+          role="tab"
+          aria-selected={panel === 'activity'}
+          className={
+            panel === 'activity'
+              ? 'bg-accent text-foreground rounded-md px-2.5 py-1 text-sm font-medium'
+              : 'text-muted-foreground hover:text-foreground rounded-md px-2.5 py-1 text-sm'
           }
-          defaultExpanded={false}
+          onClick={() => setPanel('activity')}
         >
-          <DocumentPanel taskId={taskId} />
-        </CollapsibleSection>
-      )}
-
-      {/* 7. Skills Section */}
-      <CollapsibleSection title={t.task.skills} defaultExpanded={false}>
-        {loadingSkills ? (
-          <div className="text-muted-foreground flex items-center gap-2 py-2">
-            <AILoadingIndicator size="sm" />
-            <span className="text-sm">{t.common.loading}</span>
-          </div>
-        ) : usedSkillNames.size === 0 ? (
-          <EmptyState icon={Sparkles} description={t.task.noSkills} />
-        ) : skillsDirs.length === 0 ? (
-          // Show skill names only if skill files couldn't be loaded
-          <div className="max-h-[300px] space-y-1 overflow-y-auto">
-            {Array.from(usedSkillNames).map((skillName) => (
-              <div
-                key={skillName}
-                className="flex items-center gap-2 rounded-md px-2 py-1.5"
-              >
-                <Sparkles className="text-muted-foreground/60 size-3.5 shrink-0" />
-                <span className="text-foreground/80 truncate text-sm">
-                  {skillName}
-                </span>
-              </div>
-            ))}
-          </div>
+          {t.task.panelActivity}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={panel === 'files'}
+          className={
+            panel === 'files'
+              ? 'bg-accent text-foreground rounded-md px-2.5 py-1 text-sm font-medium'
+              : 'text-muted-foreground hover:text-foreground rounded-md px-2.5 py-1 text-sm'
+          }
+          onClick={() => setPanel('files')}
+        >
+          {t.task.panelFiles}
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        {panel === 'activity' ? (
+          <ActivityPanel
+            messages={messages}
+            sessionRoot={effectiveWorkingDir}
+            onOpenDiff={openDiff}
+          />
         ) : (
-          // Show skill files/content
-          <div className="max-h-[300px] space-y-0.5 overflow-y-auto">
-            {skillsDirs.map((dir) => (
-              <div key={dir.name}>
-                {dir.files.map((file) => (
-                  <FileTreeItem
-                    key={file.path}
-                    file={{ ...file, isExpanded: false }}
-                    sessionRoot={effectiveWorkingDir}
-                    onSelectFile={onSelectWorkingFile}
-                    onSelectArtifact={onSelectArtifact}
-                    activeFileLoadRef={activeFileLoadRef}
-                  />
-                ))}
-              </div>
-            ))}
+          <FilesPanel
+            outputArtifacts={outputArtifacts}
+            remainingArtifacts={remainingArtifacts}
+            selectedArtifact={selectedArtifact}
+            onSelectArtifact={onSelectArtifact}
+            outputFolderDir={outputFolderDir}
+            handleOpenFolder={handleOpenFolder}
+            hasWorkspaceContent={hasWorkspaceContent}
+            outputExpanded={outputExpanded}
+            setOutputExpanded={setOutputExpanded}
+            editedExpanded={editedExpanded}
+            setEditedExpanded={setEditedExpanded}
+            effectiveWorkingDir={effectiveWorkingDir}
+            loadingFiles={loadingFiles}
+            workingDirError={workingDirError}
+            workingFiles={workingFiles}
+            externalFolders={externalFolders}
+            onSelectWorkingFile={onSelectWorkingFile}
+            activeFileLoadRef={activeFileLoadRef}
+            getFolderName={getFolderName}
+          />
+        )}
+      </div>
+      <div className="border-border/50 shrink-0 border-t">
+        <button
+          type="button"
+          aria-expanded={detailsOpen}
+          className="hover:bg-accent/30 flex w-full items-center justify-between px-4 py-2.5 text-left"
+          onClick={() => setDetailsOverride(!detailsOpen)}
+        >
+          <span className="text-foreground text-sm font-medium">
+            {t.task.panelDetails}
+          </span>
+          {detailsOpen ? (
+            <ChevronDown className="text-muted-foreground size-4" />
+          ) : (
+            <ChevronRight className="text-muted-foreground size-4" />
+          )}
+        </button>
+        {detailsOpen && (
+          <div className="max-h-[50%] overflow-y-auto">
+            <DetailsPanel
+              mcpTools={mcpTools}
+              taskId={taskId}
+              filesVersion={filesVersion}
+              focusPath={focusPath}
+              traceSummary={traceSummary}
+              isRunning={isRunning}
+              loadingSkills={loadingSkills}
+              usedSkillNames={usedSkillNames}
+              skillsDirs={skillsDirs}
+              effectiveWorkingDir={effectiveWorkingDir}
+              onSelectWorkingFile={onSelectWorkingFile}
+              onSelectArtifact={onSelectArtifact}
+              activeFileLoadRef={activeFileLoadRef}
+            />
           </div>
         )}
-      </CollapsibleSection>
-
-      {/* Tool Preview Modal */}
-      {selectedTool && (
-        <ToolPreviewModal
-          tool={selectedTool}
-          onClose={() => setSelectedTool(null)}
-        />
-      )}
+      </div>
     </div>
   );
 }
