@@ -2106,6 +2106,23 @@ export default {
 
   // Permissions
   permissions: 'Permissions',
+  presetAskWhen: 'Quand dois-je vous demander ?',
+  presetPlan: 'Demander avant les étapes importantes',
+  presetPlanCaption: 'Attendre un plan avant de continuer.',
+  presetAsk: 'Ignorer le plan',
+  presetAskCaption: 'Commencer sans étape de plan.',
+  presetAuto: 'Approuver le plan',
+  presetAutoCaption: 'Continuer quand le plan est prêt.',
+  presetCustom: 'Personnalisé',
+  presetCustomCaption: 'Les règles d’outils ont été modifiées à la main.',
+  whereCodeRuns: 'Où le code s’exécute-t-il ?',
+  managePermissions: 'Gérer les permissions',
+  permissionTools: 'Outils',
+  permissionFolders: 'Dossiers',
+  permissionConnectors: 'Connecteurs',
+  connectedProviders: 'Fournisseurs connectés',
+  providerConnected: 'Connecté',
+  modelsAdvanced: 'Avancé',
   permissionRulesDescription:
     'Configurez quels outils sont automatiquement autorisés, refusés ou nécessitent une confirmation.',
   alwaysAllow: 'Toujours autoriser',

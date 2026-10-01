@@ -2085,6 +2085,23 @@ export default {
 
   // Permissões
   permissions: 'Permissões',
+  presetAskWhen: 'Quando devo perguntar?',
+  presetPlan: 'Perguntar antes de passos importantes',
+  presetPlanCaption: 'Esperar um plano antes de continuar.',
+  presetAsk: 'Pular o plano',
+  presetAskCaption: 'Começar sem uma etapa de plano.',
+  presetAuto: 'Aprovar o plano',
+  presetAutoCaption: 'Continuar quando o plano estiver pronto.',
+  presetCustom: 'Personalizado',
+  presetCustomCaption: 'As regras de ferramentas foram editadas à mão.',
+  whereCodeRuns: 'Onde o código é executado?',
+  managePermissions: 'Gerenciar permissões',
+  permissionTools: 'Ferramentas',
+  permissionFolders: 'Pastas',
+  permissionConnectors: 'Conectores',
+  connectedProviders: 'Provedores conectados',
+  providerConnected: 'Conectado',
+  modelsAdvanced: 'Avançado',
   permissionRulesDescription:
     'Configure quais ferramentas são automaticamente permitidas, negadas ou requerem confirmação.',
   alwaysAllow: 'Sempre permitir',

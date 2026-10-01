@@ -2012,6 +2012,23 @@ export default {
 
   // अनुमतियाँ
   permissions: 'अनुमतियाँ',
+  presetAskWhen: 'मुझे कब पूछना चाहिए?',
+  presetPlan: 'महत्वपूर्ण चरणों से पहले पूछें',
+  presetPlanCaption: 'जारी रखने से पहले योजना की प्रतीक्षा करें।',
+  presetAsk: 'योजना छोड़ें',
+  presetAskCaption: 'योजना चरण के बिना काम शुरू करें।',
+  presetAuto: 'योजना स्वीकृत करें',
+  presetAutoCaption: 'योजना तैयार होने पर जारी रखें।',
+  presetCustom: 'कस्टम',
+  presetCustomCaption: 'टूल नियम हाथ से बदले गए थे।',
+  whereCodeRuns: 'कोड कहाँ चलता है?',
+  managePermissions: 'अनुमतियाँ प्रबंधित करें',
+  permissionTools: 'टूल',
+  permissionFolders: 'फ़ोल्डर',
+  permissionConnectors: 'कनेक्टर',
+  connectedProviders: 'कनेक्टेड प्रदाता',
+  providerConnected: 'कनेक्टेड',
+  modelsAdvanced: 'उन्नत',
   permissionRulesDescription:
     'कॉन्फ़िगर करें कि कौन से उपकरण स्वचालित रूप से अनुमत, अस्वीकृत या पुष्टि की आवश्यकता वाले हैं।',
   alwaysAllow: 'हमेशा अनुमति दें',
