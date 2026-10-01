@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
+import { ScopingCard } from '@/components/ideas/ScopingCard';
 import {
   createMessage,
   createSession,
@@ -29,6 +30,7 @@ export function ChatDock({
   const pageContext = usePageContextValue();
   const [dismissedPayload, setDismissedPayload] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [scopeQuestions, setScopeQuestions] = useState<string[] | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const chip =
     pageContext && pageContext.payload !== dismissedPayload
@@ -49,8 +51,16 @@ export function ChatDock({
       const detail = event instanceof CustomEvent ? event.detail : undefined;
       if (typeof detail?.prompt === 'string') setDraft(detail.prompt);
     };
+    const onScope = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      if (Array.isArray(detail?.questions)) setScopeQuestions(detail.questions);
+    };
     window.addEventListener('ideas:prefill', onPrefill);
-    return () => window.removeEventListener('ideas:prefill', onPrefill);
+    window.addEventListener('automation:scope', onScope);
+    return () => {
+      window.removeEventListener('ideas:prefill', onPrefill);
+      window.removeEventListener('automation:scope', onScope);
+    };
   }, []);
 
   const send = async () => {
@@ -100,6 +110,16 @@ export function ChatDock({
           void send();
         }}
       >
+        {scopeQuestions ? (
+          <ScopingCard
+            title={t.task.dockTitle}
+            questions={scopeQuestions.slice(0, 3)}
+            onSubmit={(answers) => {
+              setDraft(answers.filter(Boolean).join('\n'));
+              setScopeQuestions(null);
+            }}
+          />
+        ) : null}
         {chip ? (
           <ContextChip
             label={chip.label}

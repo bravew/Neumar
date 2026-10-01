@@ -14,6 +14,7 @@ import {
 } from '@/components/common/async-list';
 import { ListSkeleton } from '@/components/common/route-skeleton';
 import { Button } from '@/components/ui/button';
+import { useSettingsValue } from '@/shared/db/settings';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type {
@@ -26,6 +27,7 @@ import { AutomationCard } from './AutomationCard';
 import { AutomationCreateDialog } from './AutomationCreateDialog';
 import { AutomationEmptyState } from './AutomationEmptyState';
 import { AutomationTemplateGallery } from './AutomationTemplateGallery';
+import { OutcomeAutomationLists } from './OutcomeAutomationLists';
 
 type FilterTab =
   | 'all'
@@ -69,6 +71,7 @@ export function AutomationList({
   onDelete,
 }: AutomationListProps) {
   const { t } = useLanguage();
+  const simpleShell = useSettingsValue().ui.simpleShell;
   const [createOpen, setCreateOpen] = useState(false);
   const [createInitialValues, setCreateInitialValues] = useState<
     Partial<CreateAutomationInput> | undefined
@@ -121,6 +124,16 @@ export function AutomationList({
       }),
     [activeFilter, sortedAutomations],
   );
+
+  if (simpleShell) {
+    return (
+      <OutcomeAutomationLists
+        automations={automations}
+        status={status}
+        onSelect={onSelect}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
