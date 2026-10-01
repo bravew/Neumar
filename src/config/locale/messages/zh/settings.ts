@@ -421,6 +421,10 @@ export default {
   advancedMode: '高级模式',
   advancedModeDescription:
     '解锁实验性功能，如组织视图和扩展代理控制。适合高级用户使用。',
+  simpleShell: '简洁界面',
+  simpleShellDescription:
+    '试用更简洁的布局，包括图标栏、停靠聊天和新的设置窗口。',
+  usageActivityOpens: '此设备上已打开“{name}”{count} 次。',
   artifactsV2: '实时制品（测试版）',
   artifactsV2Description:
     '在聊天旁边的沙箱实时预览中流式渲染智能体生成的 HTML、SVG、Mermaid 和 Markdown。',

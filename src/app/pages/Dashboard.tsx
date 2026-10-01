@@ -7,6 +7,7 @@ import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CostPanel } from '@/components/dashboard/CostPanel';
 import { TaskFlowChart } from '@/components/dashboard/TaskFlowChart';
 import { API_BASE_URL } from '@/config';
+import { recordUsageActivityOpen } from '@/shared/layout/usage-activity';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -25,9 +26,7 @@ interface DashboardStats {
 // ============================================================================
 
 export function DashboardPage() {
-  return (
-    <DashboardContent />
-  );
+  return <DashboardContent />;
 }
 
 // ============================================================================
@@ -37,6 +36,10 @@ export function DashboardPage() {
 function DashboardContent() {
   const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+
+  useEffect(() => {
+    recordUsageActivityOpen();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();

@@ -440,6 +440,10 @@ export default {
   advancedMode: 'उन्नत मोड',
   advancedModeDescription:
     'ऑर्ग व्यू और विस्तारित एजेंट नियंत्रण जैसी प्रयोगात्मक सुविधाएँ अनलॉक करें। पावर उपयोगकर्ताओं के लिए।',
+  simpleShell: 'सरल शेल',
+  simpleShellDescription:
+    'सरल लेआउट आज़माएँ, जिसमें आइकन रेल, डॉक किया चैट और नई सेटिंग्स विंडो शामिल है।',
+  usageActivityOpens: 'इस डिवाइस पर {name} {count} बार खोला गया है।',
   artifactsV2: 'लाइव आर्टिफैक्ट्स (बीटा)',
   artifactsV2Description:
     'एजेंट-निर्मित HTML, SVG, Mermaid और Markdown को चैट के साथ-साथ सैंडबॉक्स्ड लाइव प्रीव्यू में स्ट्रीम करें।',

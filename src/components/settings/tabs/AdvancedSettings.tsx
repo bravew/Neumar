@@ -6,6 +6,8 @@ import { Loader2, Power, RefreshCw } from 'lucide-react';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { Switch } from '../components/Switch';
+import type { SettingsType } from '../types';
+import { SimpleShellOptIn } from './SimpleShellOptIn';
 
 interface DaemonStatus {
   installed: boolean;
@@ -22,7 +24,25 @@ const DEFAULT_LABEL = 'ai.neuma.daemon';
 const SIDECAR_PATH =
   import.meta.env.VITE_NEUMA_SIDECAR_PATH || '/usr/local/bin/neumar-api';
 
-export function AdvancedSettings() {
+export function AdvancedSettings({
+  settings,
+  onSettingsChange,
+}: {
+  settings: SettingsType;
+  onSettingsChange: (settings: SettingsType) => void;
+}) {
+  return (
+    <div className="space-y-6 p-6">
+      <SimpleShellOptIn
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+      />
+      <DaemonSettings />
+    </div>
+  );
+}
+
+function DaemonSettings() {
   const { t } = useLanguage();
   const s = t.settings as Record<string, string>;
   const [status, setStatus] = useState<DaemonStatus | null>(null);
@@ -86,14 +106,14 @@ export function AdvancedSettings() {
 
   if (!isTauri) {
     return (
-      <div className="text-muted-foreground p-6 text-sm">
+      <div className="text-muted-foreground text-sm">
         {s.advancedDaemonDesktopOnly}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <header>
         <h2 className="text-foreground text-base font-semibold">
           {s.advancedRunInBackground}
