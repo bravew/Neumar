@@ -30,7 +30,7 @@ describe('automation sorting', () => {
             createdAt: '2026-05-25T00:00:00.000Z',
           }),
         ]}
-        loading={false}
+        status="ready"
         onSelect={vi.fn()}
         onCreate={vi.fn()}
         onToggle={vi.fn()}

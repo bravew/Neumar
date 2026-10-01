@@ -13,6 +13,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import * as Tabs from '@radix-ui/react-tabs';
 
+import type { AsyncListStatus } from '@/components/common/async-list';
 import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import {
   AssetsLibraryTab,
@@ -59,7 +60,7 @@ function LibraryContent() {
   const initialTab = searchParams.get('tab');
 
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [tasksStatus, setTasksStatus] = useState<AsyncListStatus>('loading');
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [assetsEnabled, setAssetsEnabled] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>(
@@ -124,14 +125,16 @@ function LibraryContent() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setIsLoading(true);
+      setTasksStatus('loading');
       try {
         const all = await getAllTasks();
-        if (!cancelled) setTasks(all);
+        if (!cancelled) {
+          setTasks(all);
+          setTasksStatus('ready');
+        }
       } catch (error) {
+        if (!cancelled) setTasksStatus('error');
         if (import.meta.env.DEV) console.error('Failed to load tasks:', error);
-      } finally {
-        if (!cancelled) setIsLoading(false);
       }
     })();
     return () => {
@@ -246,7 +249,7 @@ function LibraryContent() {
               <Tabs.Content value="tasks" className="outline-none">
                 <TasksTab
                   tasks={tasks}
-                  isLoading={isLoading}
+                  status={tasksStatus}
                   runningTaskIds={runningTaskIds}
                   onTasksChange={setTasks}
                   onToggleFavorite={handleToggleFavorite}

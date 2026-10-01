@@ -54,6 +54,7 @@ function AutomationContent() {
   const {
     automations,
     loading,
+    error,
     create,
     update,
     remove,
@@ -183,7 +184,7 @@ function AutomationContent() {
           ) : (
             <AutomationList
               automations={automations}
-              loading={loading}
+              status={loading ? 'loading' : error ? 'error' : 'ready'}
               onSelect={(a) => setSelectedAutomationId(a.id)}
               onCreate={handleCreate}
               onToggle={handleToggle}

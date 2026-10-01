@@ -10,6 +10,8 @@ import { useNavigate } from 'react-router-dom';
 
 import { Search } from 'lucide-react';
 
+import { AsyncList } from '@/components/common/async-list';
+import { ListSkeleton } from '@/components/common/route-skeleton';
 import {
   useAvailablePlugins,
   type AvailablePluginEntry,
@@ -255,17 +257,21 @@ export function MarketplaceAvailableView() {
         </div>
       ) : null}
 
-      {loading ? (
-        <p className="text-muted-foreground py-12 text-center text-sm">…</p>
-      ) : error ? (
-        <p className="text-destructive py-6 text-center text-sm" role="alert">
-          {error}
-        </p>
-      ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground py-12 text-center text-sm">
-          {t.plugins.empty.marketplace}
-        </p>
-      ) : (
+      <AsyncList
+        status={loading ? 'loading' : error ? 'error' : 'ready'}
+        empty={filtered.length === 0}
+        renderSkeleton={() => <ListSkeleton rows={4} />}
+        renderError={() => (
+          <p className="text-destructive py-6 text-center text-sm" role="alert">
+            {error}
+          </p>
+        )}
+        renderEmpty={() => (
+          <p className="text-muted-foreground py-12 text-center text-sm">
+            {t.plugins.empty.marketplace}
+          </p>
+        )}
+      >
         <>
           <p className="text-muted-foreground text-xs">
             {t.plugins.filters.results.replace('{n}', String(filtered.length))}
@@ -289,7 +295,7 @@ export function MarketplaceAvailableView() {
             )}
           />
         </>
-      )}
+      </AsyncList>
 
       <AvailablePluginDetailDialog
         entry={selected}

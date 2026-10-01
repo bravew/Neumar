@@ -15,13 +15,18 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 
 import {
+  AsyncList,
+  type AsyncListStatus,
+} from '@/components/common/async-list';
+import { ListSkeleton } from '@/components/common/route-skeleton';
+import {
   LibraryDeleteDialog,
   LibraryTaskRow,
   LibraryToolbar,
 } from '@/components/library';
 import type { FilterOption, SortOption } from '@/components/library';
 import { API_BASE_URL } from '@/config';
-import { DURATION, EASE, SkeletonShimmer } from '@/config/animation';
+import { DURATION, EASE } from '@/config/animation';
 import { APP_DATA_DIR } from '@/config/branding';
 import type { Task } from '@/shared/db';
 import { batchDeleteTasks, getTask } from '@/shared/db';
@@ -32,7 +37,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 
 interface TasksTabProps {
   tasks: Task[];
-  isLoading: boolean;
+  status: AsyncListStatus;
   runningTaskIds: string[];
   onTasksChange: (next: Task[]) => void;
   onToggleFavorite: (taskId: string, favorite: boolean) => void;
@@ -40,7 +45,7 @@ interface TasksTabProps {
 
 export function TasksTab({
   tasks,
-  isLoading,
+  status,
   runningTaskIds,
   onTasksChange,
   onToggleFavorite,
@@ -268,29 +273,42 @@ export function TasksTab({
         t={t}
       />
 
-      {isLoading ? (
-        <div className="py-12">
-          <SkeletonShimmer lines={5} className="mx-1" />
-        </div>
-      ) : filteredAndSortedTasks.length === 0 ? (
-        <motion.div
-          className="flex flex-col items-center justify-center py-20 text-center"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: DURATION.moderate, ease: EASE.out }}
-        >
-          <h3 className="text-foreground mb-2 text-lg font-medium">
-            {searchQuery || filterBy !== 'all'
-              ? t.library.noChatsFound
-              : t.library.noChatsYet}
-          </h3>
-          <p className="text-muted-foreground text-sm">
-            {searchQuery || filterBy !== 'all'
-              ? t.library.adjustSearch
-              : t.library.startNewTask}
+      <AsyncList
+        status={status}
+        empty={filteredAndSortedTasks.length === 0}
+        renderSkeleton={() => (
+          <div className="py-12">
+            <ListSkeleton rows={5} />
+          </div>
+        )}
+        renderError={() => (
+          <p
+            className="text-destructive py-12 text-center text-sm"
+            role="alert"
+          >
+            {t.nav.tasksLoadError}
           </p>
-        </motion.div>
-      ) : (
+        )}
+        renderEmpty={() => (
+          <motion.div
+            className="flex flex-col items-center justify-center py-20 text-center"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DURATION.moderate, ease: EASE.out }}
+          >
+            <h3 className="text-foreground mb-2 text-lg font-medium">
+              {searchQuery || filterBy !== 'all'
+                ? t.library.noChatsFound
+                : t.library.noChatsYet}
+            </h3>
+            <p className="text-muted-foreground text-sm">
+              {searchQuery || filterBy !== 'all'
+                ? t.library.adjustSearch
+                : t.library.startNewTask}
+            </p>
+          </motion.div>
+        )}
+      >
         <div className="border-border border-t">
           {filteredAndSortedTasks.map((task, index) => (
             <LibraryTaskRow
@@ -310,7 +328,7 @@ export function TasksTab({
             />
           ))}
         </div>
-      )}
+      </AsyncList>
 
       <LibraryDeleteDialog
         open={showDeleteConfirm}
