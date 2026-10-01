@@ -7,7 +7,7 @@
  * active) and forwards delete/favorite handlers down.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSearchParams } from 'react-router-dom';
 
@@ -35,6 +35,8 @@ import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { libraryTabRedirect } from './library-tabs';
+
+let libraryScrollTop = 0;
 
 const TAB_IDS = [
   'tasks',
@@ -67,6 +69,7 @@ function initialLibraryTab(
 
 function LibraryContent() {
   const { t } = useLanguage();
+  const libraryScrollRef = useRef<HTMLDivElement>(null);
   const simpleShell = useSettingsValue().ui.simpleShell;
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
@@ -76,6 +79,15 @@ function LibraryContent() {
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [assetsEnabled, setAssetsEnabled] = useState<boolean | null>(null);
   const activeTab = initialLibraryTab(initialTab, simpleShell);
+
+  useEffect(() => {
+    const element = libraryScrollRef.current;
+    if (!element) return;
+    element.scrollTop = libraryScrollTop;
+    return () => {
+      libraryScrollTop = element.scrollTop;
+    };
+  }, []);
 
   useEffect(() => {
     const redirect = libraryTabRedirect(initialTab, simpleShell);
@@ -273,7 +285,11 @@ function LibraryContent() {
             />
           </Tabs.List>
 
-          <div className="flex-1 overflow-y-auto">
+          <div
+            ref={libraryScrollRef}
+            data-testid="library-scroll"
+            className="flex-1 overflow-y-auto"
+          >
             <div
               className={cn(
                 'mx-auto w-full px-6 py-8',

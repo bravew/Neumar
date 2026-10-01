@@ -5,6 +5,7 @@ export default {
   tasksLoadError: 'Impossible de charger les tâches',
   automation: 'Automatisations',
   settings: 'Paramètres',
+  menu: 'Menu',
   logOut: 'Se déconnecter',
   search: 'Rechercher',
   searchPlaceholder: 'Rechercher des sessions passées...',

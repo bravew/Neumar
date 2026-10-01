@@ -5,6 +5,7 @@ export default {
   tasksLoadError: 'कार्य लोड नहीं हो सके',
   automation: 'स्वचालन',
   settings: 'सेटिंग्स',
+  menu: 'मेनू',
   logOut: 'लॉग आउट',
   search: 'खोजें',
   searchPlaceholder: 'पिछले सत्र खोजें...',

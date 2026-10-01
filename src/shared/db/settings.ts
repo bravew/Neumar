@@ -826,6 +826,8 @@ export interface Settings {
   // Client view state. Not synced. Sub-keys are merged in sanitizeSettings.
   ui: {
     simpleShell: boolean;
+    /** Flag-on rail state per destination. Not synced. */
+    panelState?: Record<string, { state: 'A' | 'B' | 'C'; restore: 'A' | 'B' }>;
   };
   artifactsV2: boolean; // Enable Phase-3 live artifacts + generative-UI pipeline
 }

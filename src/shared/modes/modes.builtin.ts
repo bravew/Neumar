@@ -196,6 +196,7 @@ const tasksMode: ModeDefinition = {
     /^\/org\//,
   ],
   shortcutSlot: 1,
+  railItem: { group: 'primary' },
   enabled: true,
   order: 10,
   sidebar: {
@@ -247,6 +248,7 @@ const designMode: ModeDefinition = {
   rootPath: '/design',
   matches: ['/design', /^\/design\//],
   shortcutSlot: 2,
+  railItem: { group: 'studios' },
   enabled: true,
   order: 20,
   sidebar: {
@@ -310,6 +312,7 @@ const videoMode: ModeDefinition = {
   rootPath: '/video',
   matches: ['/video', /^\/video\//],
   shortcutSlot: 5,
+  railItem: { group: 'studios' },
   enabled: true,
   order: 25,
   sidebar: {
@@ -352,6 +355,7 @@ const automateMode: ModeDefinition = {
   rootPath: '/automation',
   matches: ['/automation', /^\/automation\//],
   shortcutSlot: 3,
+  railItem: { group: 'primary' },
   enabled: true,
   order: 30,
   sidebar: {

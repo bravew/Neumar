@@ -5,6 +5,7 @@ export default {
   tasksLoadError: '无法加载任务',
   automation: '自动化',
   settings: '设置',
+  menu: '菜单',
   logOut: '退出登录',
   search: '搜索',
   searchPlaceholder: '搜索历史会话...',

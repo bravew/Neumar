@@ -39,6 +39,8 @@ export interface ModeDefinition {
   rootPath: string;
   matches: (RegExp | string)[];
   shortcutSlot?: number;
+  /** Where the mode appears on the flag-on rail. */
+  railItem?: { group: 'primary' | 'studios' };
   enabled: boolean;
   order: number;
   sidebar: {

@@ -4,8 +4,17 @@ import { Outlet, useNavigate, useParams } from 'react-router-dom';
 
 import { RouteViewTransition } from '@/app/RouteViewTransition';
 import { LeftSidebar, SidebarProvider } from '@/components/layout';
+import { AppRail } from '@/components/layout/rail/AppRail';
 import { ModeSlotShortcuts } from '@/components/layout/sidebar-shell/ModeSlotShortcuts';
 import { deleteTask, getTask, updateTask } from '@/shared/db';
+import { getSettings, useSettingsValue } from '@/shared/db/settings';
+import { useShortcut } from '@/shared/hotkeys/useShortcut';
+import {
+  cyclePanel,
+  defaultPanelRecord,
+  toggleFocus,
+  type PanelRecord,
+} from '@/shared/layout/panelState';
 import {
   subscribeToBackgroundTasks,
   type BackgroundTask,
@@ -21,6 +30,31 @@ export function AppShellLayout() {
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
 
   useEffect(() => subscribeToBackgroundTasks(setBackgroundTasks), []);
+
+  const simpleShell = useSettingsValue().ui.simpleShell;
+  const [panel, setPanel] = useState<PanelRecord>(() =>
+    defaultPanelRecord(
+      typeof window === 'undefined' ? 1280 : window.innerWidth,
+    ),
+  );
+
+  useEffect(() => {
+    const onCycle = () => setPanel((current) => cyclePanel(current));
+    window.addEventListener('shell:cycle-panel', onCycle);
+    return () => window.removeEventListener('shell:cycle-panel', onCycle);
+  }, []);
+
+  useShortcut({
+    id: 'shell.focus',
+    chord: 'mod+.',
+    scope: 'global',
+    descriptionKey: 'shortcuts.sidebarToggle.description',
+    group: 'navigation',
+    handler: () => {
+      if (!getSettings().ui.simpleShell) return;
+      setPanel((current) => toggleFocus(current));
+    },
+  });
 
   const runningTaskIds = useMemo(() => {
     const ids = new Set(threadRunning);
@@ -69,12 +103,15 @@ export function AppShellLayout() {
     <SidebarProvider>
       <ModeSlotShortcuts />
       <div className="bg-sidebar flex h-svh overflow-hidden">
-        <LeftSidebar
-          currentTaskId={taskId}
-          runningTaskIds={runningTaskIds}
-          onDeleteTask={onDeleteTask}
-          onToggleFavorite={onToggleFavorite}
-        />
+        {simpleShell && panel.state !== 'C' ? <AppRail /> : null}
+        {!simpleShell || panel.state === 'A' ? (
+          <LeftSidebar
+            currentTaskId={taskId}
+            runningTaskIds={runningTaskIds}
+            onDeleteTask={onDeleteTask}
+            onToggleFavorite={onToggleFavorite}
+          />
+        ) : null}
         <div className="flex min-h-0 min-w-0 flex-1">
           <RouteViewTransition>
             <Outlet />
