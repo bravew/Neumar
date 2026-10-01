@@ -18,8 +18,6 @@ import {
   ProfileDetailPage,
   ProjectDetailPage,
   ProjectsPage,
-  QuickStartWizardPage,
-  SetupPage,
   TaskDetailPage,
   TaskDetailV2Page,
   VideoAssetsLibraryPage,
@@ -32,6 +30,11 @@ import {
   VideoTemplatesSettingsPage,
 } from '@/app/route-preload';
 import { IdeasPage } from '@/components/ideas/IdeasPage';
+import {
+  QuickStartEntry,
+  SetupEntry,
+} from '@/components/onboarding/FirstRunEntries';
+import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 
 export const router = createBrowserRouter([
   {
@@ -239,7 +242,7 @@ export const router = createBrowserRouter([
             path: 'setup',
             element: (
               <RouteFallback shape="page" guard={false}>
-                <SetupPage />
+                <SetupEntry />
               </RouteFallback>
             ),
           },
@@ -247,7 +250,15 @@ export const router = createBrowserRouter([
             path: 'quickstart',
             element: (
               <RouteFallback shape="page" guard={false}>
-                <QuickStartWizardPage />
+                <QuickStartEntry />
+              </RouteFallback>
+            ),
+          },
+          {
+            path: 'onboarding',
+            element: (
+              <RouteFallback shape="page" guard={false}>
+                <OnboardingFlow />
               </RouteFallback>
             ),
           },
