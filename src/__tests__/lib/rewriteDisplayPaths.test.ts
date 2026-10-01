@@ -33,4 +33,26 @@ describe('rewriteDisplayPaths', () => {
     expect(rewritten).toContain(`cp ${root}/output/a.mp4 /tmp/a.mp4`);
     expect(rewritten).toContain('Then open output/b.mp4.');
   });
+
+  it('leaves tilde fences and unclosed backtick fences unchanged', () => {
+    const tilde = ['~~~bash', `cp ${root}/a /tmp/a`, '~~~'].join('\n');
+    expect(rewriteDisplayPaths(tilde, root)).toBe(tilde);
+
+    const unclosed = [
+      `Saved ${root}/output/b.mp4.`,
+      '```bash',
+      `cp ${root}/a /tmp/a`,
+    ].join('\n');
+    const rewritten = rewriteDisplayPaths(unclosed, root);
+    expect(rewritten).toContain('Saved output/b.mp4.');
+    expect(rewritten).toContain(`cp ${root}/a /tmp/a`);
+  });
+
+  it('does not rewrite a longer path or a link that merely contains the root', () => {
+    const outside = `Keep /archive${root}/file.txt.`;
+    expect(rewriteDisplayPaths(outside, root)).toBe(outside);
+
+    const link = `[report](https://example.com${root}/report.txt)`;
+    expect(rewriteDisplayPaths(link, root)).toBe(link);
+  });
 });

@@ -7,6 +7,10 @@ import { Virtuoso } from 'react-virtuoso';
 import type { Artifact } from '@/components/artifacts/types';
 import { ChatInput } from '@/components/shared/ChatInput';
 import {
+  enqueueEditedCommand,
+  flushEditedCommand,
+} from '@/components/task/edited-command-queue';
+import {
   groupMessages,
   renderGroupedItem,
   type GroupedItem,
@@ -376,11 +380,34 @@ export function TaskV2Thread({
     permissionRequests,
   ]);
 
+  const queuedEditRef = useRef<string | null>(null);
+  const sendEditedCommand = useCallback(
+    (text: string) => {
+      const next = enqueueEditedCommand(effectiveIsRunning, text);
+      if (next.deliver) {
+        handleSendMessage(next.deliver);
+        return;
+      }
+      queuedEditRef.current = next.queued;
+    },
+    [effectiveIsRunning, handleSendMessage],
+  );
+
+  useEffect(() => {
+    const delivery = flushEditedCommand(
+      effectiveIsRunning,
+      queuedEditRef.current,
+    );
+    if (!delivery.deliver) return;
+    queuedEditRef.current = null;
+    handleSendMessage(delivery.deliver);
+  }, [effectiveIsRunning, handleSendMessage]);
+
   return (
     <TaskThreadActions
       sessionRoot={workDir}
       respondToPermission={handlePermissionRespond}
-      sendMessage={handleSendMessage}
+      sendMessage={sendEditedCommand}
     >
       <div className="flex h-full min-w-0 flex-col overflow-hidden">
         <VirtuosoMessageList

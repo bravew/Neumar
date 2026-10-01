@@ -37,7 +37,9 @@ describe('IntentApprovalCard', () => {
     const respond = vi.fn();
     renderCard(respond);
 
-    expect(screen.getByText('output/run.sh')).toBeInTheDocument();
+    expect(
+      screen.getByText('/sessions/demo/output/run.sh'),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     expect(respond).toHaveBeenCalledWith('perm-1', 'allow');
   });
@@ -63,5 +65,40 @@ describe('IntentApprovalCard', () => {
 
     expect(respond).toHaveBeenCalledWith('perm-1', 'deny');
     expect(sendMessage).toHaveBeenCalledWith('ls output');
+  });
+
+  it('does not offer edit when the request has no command', () => {
+    renderWithProviders(
+      <TaskThreadActions respondToPermission={vi.fn()} sendMessage={vi.fn()}>
+        <IntentApprovalCard
+          permission={{
+            id: 'perm-2',
+            tool: 'Read',
+            description: 'Read a file',
+          }}
+        />
+      </TaskThreadActions>,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Edit' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Medium Risk')).toBeInTheDocument();
+  });
+
+  it('can leave edit mode without sending', () => {
+    const respond = vi.fn();
+    const sendMessage = vi.fn();
+    renderCard(respond, sendMessage);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Edit' }), {
+      target: { value: 'ls output' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(respond).toHaveBeenCalledWith('perm-1', 'allow');
   });
 });
