@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useNavigate } from 'react-router-dom';
+
 import { PanelLeft, PanelLeftOpen } from 'lucide-react';
 
 import ImageLogo from '@/assets/logo.png';
@@ -40,6 +42,7 @@ function LegacySidebar({
   onToggleFavorite,
   runningTaskIds = [],
 }: SidebarShellProps) {
+  const navigate = useNavigate();
   const { activeMode } = useMode();
   const { leftOpen, toggleLeft } = useSidebar();
   const { t } = useLanguage();
@@ -120,7 +123,13 @@ function LegacySidebar({
         )}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-4 pb-2">
-          <div className="flex min-w-0 items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            aria-label={t.nav.home}
+            title={t.nav.home}
+            className="-ml-1 flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 transition-opacity hover:opacity-80"
+          >
             <img
               src={ImageLogo}
               alt={APP_NAME}
@@ -129,7 +138,7 @@ function LegacySidebar({
             <span className="text-sidebar-foreground truncate font-mono text-lg font-medium tracking-wide">
               {APP_NAME}
             </span>
-          </div>
+          </button>
           <button
             type="button"
             onClick={toggleLeft}

@@ -16,6 +16,7 @@ export default {
   searchPastMonth: 'Past month',
   searchOlder: 'Older',
   recents: 'Recents',
+  home: 'Home',
   library: 'Library',
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',

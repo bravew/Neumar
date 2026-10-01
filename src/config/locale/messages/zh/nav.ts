@@ -16,6 +16,7 @@ export default {
   searchPastMonth: '近一月',
   searchOlder: '更早',
   recents: '最近',
+  home: '首页',
   library: '资料库',
   collapseSidebar: '折叠侧边栏',
   expandSidebar: '展开侧边栏',

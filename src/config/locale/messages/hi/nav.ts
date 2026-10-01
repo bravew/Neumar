@@ -16,6 +16,7 @@ export default {
   searchPastMonth: 'पिछला महीना',
   searchOlder: 'पुराना',
   recents: 'हाल के',
+  home: 'होम',
   library: 'लाइब्रेरी',
   collapseSidebar: 'साइडबार समेटें',
   expandSidebar: 'साइडबार फैलाएं',

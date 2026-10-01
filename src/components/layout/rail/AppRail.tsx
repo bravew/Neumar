@@ -8,7 +8,9 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 
+import ImageLogo from '@/assets/logo.png';
 import { SidebarFooter } from '@/components/layout/sidebar-shell/SidebarFooter';
+import { APP_NAME } from '@/config';
 import { ModeRegistry } from '@/shared/modes/ModeRegistry';
 import { useMode } from '@/shared/modes/useMode';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -49,6 +51,15 @@ export function AppRail() {
       aria-label={t.nav.menu}
       className="border-border flex w-14 shrink-0 flex-col items-center gap-2 border-r py-3"
     >
+      {/* Always Home, never the resumed task: the logo is the way out. */}
+      <RailItem
+        label={t.nav.home}
+        data-testid="rail-home-logo"
+        onSelect={() => navigate('/')}
+        className="mb-1"
+      >
+        <img src={ImageLogo} alt={APP_NAME} className="size-7 object-contain" />
+      </RailItem>
       {primary.map((mode) => {
         const Icon = ICONS[mode.id as keyof typeof ICONS] ?? Bot;
         return (
