@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { APP_NAME } from '@/config';
+import { useSetting } from '@/shared/db/settings';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type {
@@ -86,6 +87,7 @@ export function ProjectHeader({
 }) {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const simpleShell = useSetting('ui').simpleShell;
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsSaving, setInstructionsSaving] = useState(false);
   const canHandoff = project.outputs.length > 0 || designMdState.exists;
@@ -100,27 +102,32 @@ export function ProjectHeader({
   };
   return (
     <header className="border-border flex min-w-0 shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2.5">
-      <button
-        type="button"
-        onClick={() => navigate('/')}
-        aria-label={t.design.regularMode}
-        className="text-muted-foreground hover:bg-accent hover:text-foreground -ml-1 flex max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        <img
-          src={ImageLogo}
-          alt={APP_NAME}
-          className="size-5 shrink-0 object-contain"
-        />
-        <span className="text-foreground truncate text-sm font-semibold">
-          {APP_NAME}
-        </span>
-        <span className="text-muted-foreground text-sm">/</span>
-        <span className="text-foreground truncate text-sm font-medium">
-          {t.modes.design.label}
-        </span>
-      </button>
-      <span className="bg-border h-5 w-px shrink-0" aria-hidden />
+      {/* The simple shell's rail already leads home. */}
+      {simpleShell ? null : (
+        <>
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            aria-label={t.design.regularMode}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground -ml-1 flex max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            <img
+              src={ImageLogo}
+              alt={APP_NAME}
+              className="size-5 shrink-0 object-contain"
+            />
+            <span className="text-foreground truncate text-sm font-semibold">
+              {APP_NAME}
+            </span>
+            <span className="text-muted-foreground text-sm">/</span>
+            <span className="text-foreground truncate text-sm font-medium">
+              {t.modes.design.label}
+            </span>
+          </button>
+          <span className="bg-border h-5 w-px shrink-0" aria-hidden />
+        </>
+      )}
       <Button
         type="button"
         variant="ghost"

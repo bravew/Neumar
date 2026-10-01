@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { RouteViewTransition } from '@/app/RouteViewTransition';
 import { ChatDock } from '@/components/chat-dock/ChatDock';
 import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { AppRail } from '@/components/layout/rail/AppRail';
 import { ModeSlotShortcuts } from '@/components/layout/sidebar-shell/ModeSlotShortcuts';
+import { SidebarToggleShortcut } from '@/components/layout/sidebar-shell/SidebarToggleShortcut';
 import { deleteTask, getTask, updateTask } from '@/shared/db';
 import { getSettings, useSettingsValue } from '@/shared/db/settings';
 import { useShortcut } from '@/shared/hotkeys/useShortcut';
 import {
   cyclePanel,
+  defaultCanvasPanelRecord,
   defaultPanelRecord,
+  isCanvasPath,
+  isDesignPath,
   toggleFocus,
   type PanelRecord,
 } from '@/shared/layout/panelState';
@@ -24,8 +28,11 @@ import { deleteSessionFolder } from '@/shared/lib/session';
 import { useThreadStore } from '@/shared/stores/thread-store';
 import { selectRunningTaskIds } from '@/shared/stores/thread-store';
 
+type PanelKind = 'page' | 'canvas';
+
 export function AppShellLayout() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { taskId } = useParams();
   const threadRunning = useThreadStore(selectRunningTaskIds);
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
@@ -35,10 +42,23 @@ export function AppShellLayout() {
   const simpleShell = useSettingsValue().ui.simpleShell;
   const [dockOpen, setDockOpen] = useState(false);
   const [dockTaskId, setDockTaskId] = useState<string | null>(null);
-  const [panel, setPanel] = useState<PanelRecord>(() =>
-    defaultPanelRecord(
+  // Editors keep their own record so collapsing the panel for a canvas does
+  // not collapse it on ordinary pages, and the reverse.
+  const [panels, setPanels] = useState<Record<PanelKind, PanelRecord>>(() => ({
+    page: defaultPanelRecord(
       typeof window === 'undefined' ? 1280 : window.innerWidth,
     ),
+    canvas: defaultCanvasPanelRecord(),
+  }));
+  const panelKind: PanelKind = isCanvasPath(pathname) ? 'canvas' : 'page';
+  const panel = panels[panelKind];
+  const updatePanel = useCallback(
+    (update: (record: PanelRecord) => PanelRecord) =>
+      setPanels((current) => ({
+        ...current,
+        [panelKind]: update(current[panelKind]),
+      })),
+    [panelKind],
   );
 
   useEffect(() => {
@@ -66,10 +86,10 @@ export function AppShellLayout() {
   });
 
   useEffect(() => {
-    const onCycle = () => setPanel((current) => cyclePanel(current));
+    const onCycle = () => updatePanel(cyclePanel);
     window.addEventListener('shell:cycle-panel', onCycle);
     return () => window.removeEventListener('shell:cycle-panel', onCycle);
-  }, []);
+  }, [updatePanel]);
 
   useShortcut({
     id: 'shell.focus',
@@ -79,7 +99,7 @@ export function AppShellLayout() {
     group: 'navigation',
     handler: () => {
       if (!getSettings().ui.simpleShell) return;
-      setPanel((current) => toggleFocus(current));
+      updatePanel(toggleFocus);
     },
   });
 
@@ -126,9 +146,15 @@ export function AppShellLayout() {
     [],
   );
 
+  // Design Mode draws its own full-page layout under the legacy shell.
+  const showSidebar = simpleShell
+    ? panel.state === 'A'
+    : !isDesignPath(pathname);
+
   return (
     <SidebarProvider>
       <ModeSlotShortcuts />
+      <SidebarToggleShortcut onCyclePanel={() => updatePanel(cyclePanel)} />
       <div className="bg-sidebar flex h-svh overflow-hidden">
         {simpleShell && panel.state !== 'C' ? <AppRail /> : null}
         {simpleShell && dockOpen && panel.state !== 'C' ? (
@@ -137,7 +163,7 @@ export function AppShellLayout() {
             onTaskId={setDockTaskId}
             onClose={() => setDockOpen(false)}
           />
-        ) : !simpleShell || panel.state === 'A' ? (
+        ) : showSidebar ? (
           <LeftSidebar
             currentTaskId={taskId}
             runningTaskIds={runningTaskIds}

@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useNavigate } from 'react-router-dom';
-
 import { PanelLeft, PanelLeftOpen } from 'lucide-react';
 
 import ImageLogo from '@/assets/logo.png';
 import { useSidebar } from '@/components/layout/sidebar-context';
 import { APP_NAME } from '@/config';
-import { getSettings } from '@/shared/db/settings';
-import { useShortcut } from '@/shared/hotkeys/useShortcut';
+import { useSettingsValue } from '@/shared/db/settings';
 import { cn } from '@/shared/lib/utils';
 import { useMode } from '@/shared/modes/useMode';
 import { useLanguage } from '@/shared/providers/language-provider';
 
+import { ContextPanel } from './ContextPanel';
 import { ModeSwitcher } from './ModeSwitcher';
 import { SidebarFooter } from './SidebarFooter';
 import { SidebarHoverHotzone } from './SidebarHoverHotzone';
+import { SidebarPrimaryAction } from './SidebarPrimaryAction';
 import { SidebarRecents } from './SidebarRecents';
 import { SidebarSections } from './SidebarSections';
 
@@ -26,33 +25,26 @@ interface SidebarShellProps {
   runningTaskIds?: string[];
 }
 
-export function SidebarShell({
+export function SidebarShell(props: SidebarShellProps) {
+  const simpleShell = useSettingsValue().ui.simpleShell;
+  return simpleShell ? (
+    <ContextPanel {...props} />
+  ) : (
+    <LegacySidebar {...props} />
+  );
+}
+
+function LegacySidebar({
   currentTaskId,
   onDeleteTask,
   onToggleFavorite,
   runningTaskIds = [],
 }: SidebarShellProps) {
-  const navigate = useNavigate();
   const { activeMode } = useMode();
   const { leftOpen, toggleLeft } = useSidebar();
-  const { tt, t } = useLanguage();
+  const { t } = useLanguage();
   const [previewOpen, setPreviewOpen] = useState(false);
   const previewTimerRef = useRef<number | null>(null);
-
-  useShortcut({
-    id: 'sidebar.toggle',
-    chord: 'mod+b',
-    scope: 'global',
-    descriptionKey: 'shortcuts.sidebarToggle.description',
-    group: 'navigation',
-    handler: () => {
-      if (getSettings().ui.simpleShell) {
-        window.dispatchEvent(new CustomEvent('shell:cycle-panel'));
-        return;
-      }
-      toggleLeft();
-    },
-  });
 
   const clearPreviewTimer = useCallback(() => {
     if (previewTimerRef.current === null) return;
@@ -153,20 +145,7 @@ export function SidebarShell({
         </div>
 
         <div className="px-3 pb-2">
-          <button
-            type="button"
-            onClick={() =>
-              activeMode.sidebar.primaryAction.onSelect({
-                navigate,
-                openSettings: () =>
-                  window.dispatchEvent(new CustomEvent('open-settings')),
-                t,
-              })
-            }
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-9 w-full cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium transition-colors"
-          >
-            {tt(activeMode.sidebar.primaryAction.labelKey)}
-          </button>
+          <SidebarPrimaryAction />
         </div>
 
         <SidebarSections sections={activeMode.sidebar.sections} />

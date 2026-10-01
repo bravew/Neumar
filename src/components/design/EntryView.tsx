@@ -60,6 +60,7 @@ export function DesignEntryView() {
   );
   const designModeSettings =
     useSetting('designMode') ?? DEFAULT_DESIGN_MODE_SETTINGS;
+  const simpleShell = useSetting('ui').simpleShell;
   const [tab, setTab] = useState<EntryTab>('designs');
   const [previewTemplate, setPreviewTemplate] =
     useState<PromptTemplateSnapshot | null>(null);
@@ -238,26 +239,33 @@ export function DesignEntryView() {
       data-testid="design-entry-view"
     >
       <header className="border-border flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 pr-14">
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          aria-label={t.design.regularMode}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground -ml-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
-        >
-          <ArrowLeft className="size-4" />
-          <img
-            src={ImageLogo}
-            alt={APP_NAME}
-            className="size-5 shrink-0 object-contain"
-          />
-          <span className="text-foreground text-sm font-semibold">
-            {APP_NAME}
-          </span>
-          <span className="text-muted-foreground text-sm">/</span>
-          <span className="text-foreground text-sm font-medium">
+        {simpleShell ? (
+          // The rail already leads home, so the simple shell shows a title.
+          <h1 className="text-foreground px-1 text-sm font-semibold">
             {t.modes.design.label}
-          </span>
-        </button>
+          </h1>
+        ) : (
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            aria-label={t.design.regularMode}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground -ml-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            <img
+              src={ImageLogo}
+              alt={APP_NAME}
+              className="size-5 shrink-0 object-contain"
+            />
+            <span className="text-foreground text-sm font-semibold">
+              {APP_NAME}
+            </span>
+            <span className="text-muted-foreground text-sm">/</span>
+            <span className="text-foreground text-sm font-medium">
+              {t.modes.design.label}
+            </span>
+          </button>
+        )}
         <div className="flex items-center gap-2">
           <nav className="flex flex-wrap gap-1">
             {ENTRY_TABS.map((item) => (

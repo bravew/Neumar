@@ -93,7 +93,7 @@ export function DesignModeRoute() {
 
 function DesignShellLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-background flex h-screen flex-col overflow-hidden">
+    <div className="bg-background flex h-svh min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {children}
     </div>
   );

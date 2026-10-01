@@ -212,7 +212,7 @@ export function SetupGuard({ children }: SetupGuardProps) {
   // Loading state
   if (checking) {
     return (
-      <div className="bg-background flex min-h-svh items-center justify-center">
+      <div className="bg-background flex min-h-svh min-w-0 flex-1 items-center justify-center">
         <div className="flex flex-col items-center gap-8">
           <AILoadingIndicator size="xl" />
           <p className="text-muted-foreground text-base">

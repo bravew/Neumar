@@ -8,6 +8,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 
+import { SidebarFooter } from '@/components/layout/sidebar-shell/SidebarFooter';
 import { ModeRegistry } from '@/shared/modes/ModeRegistry';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -83,8 +84,9 @@ export function AppRail() {
           </RailItem>
         );
       })}
-      <div className="mt-auto">
+      <div className="mt-auto flex flex-col items-center gap-2">
         <RailMenu />
+        <SidebarFooter variant="collapsed" />
       </div>
     </nav>
   );

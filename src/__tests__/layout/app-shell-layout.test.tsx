@@ -25,6 +25,11 @@ vi.mock('@/components/layout', () => ({
   },
 }));
 
+// The stubbed SidebarProvider above has no context for the ⌘B shortcut.
+vi.mock('@/components/layout/sidebar-shell/SidebarToggleShortcut', () => ({
+  SidebarToggleShortcut: () => null,
+}));
+
 function GoLibrary() {
   const navigate = useNavigate();
   return (

@@ -174,6 +174,22 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: 'design',
+            element: (
+              <RouteFallback shape="page">
+                <DesignModePage />
+              </RouteFallback>
+            ),
+          },
+          {
+            path: 'design/:projectId',
+            element: (
+              <RouteFallback shape="page">
+                <DesignModePage />
+              </RouteFallback>
+            ),
+          },
+          {
             path: 'chat',
             element: (
               <RouteFallback shape="page">
@@ -222,22 +238,6 @@ export const router = createBrowserRouter([
       {
         element: <ChromelessLayout />,
         children: [
-          {
-            path: 'design',
-            element: (
-              <RouteFallback shape="page">
-                <DesignModePage />
-              </RouteFallback>
-            ),
-          },
-          {
-            path: 'design/:projectId',
-            element: (
-              <RouteFallback shape="page">
-                <DesignModePage />
-              </RouteFallback>
-            ),
-          },
           {
             path: 'setup',
             element: (

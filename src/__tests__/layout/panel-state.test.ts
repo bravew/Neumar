@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   cyclePanel,
   defaultPanelRecord,
+  isCanvasPath,
   toggleFocus,
   type PanelRecord,
 } from '@/shared/layout/panelState';
@@ -32,5 +33,18 @@ describe('panelState', () => {
       state: 'B',
       restore: 'B',
     });
+  });
+});
+
+describe('isCanvasPath', () => {
+  it('matches the Design and Video editors only', () => {
+    expect(isCanvasPath('/design/abc')).toBe(true);
+    expect(isCanvasPath('/video/abc')).toBe(true);
+    expect(isCanvasPath('/video/abc/timeline')).toBe(true);
+    expect(isCanvasPath('/design')).toBe(false);
+    expect(isCanvasPath('/video')).toBe(false);
+    expect(isCanvasPath('/video/settings/providers')).toBe(false);
+    expect(isCanvasPath('/video/library/assets')).toBe(false);
+    expect(isCanvasPath('/task/abc')).toBe(false);
   });
 });
