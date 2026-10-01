@@ -5,6 +5,7 @@ export default {
   tasksLoadError: "Couldn't load tasks",
   automation: 'Automations',
   settings: 'Settings',
+  menu: 'Menu',
   logOut: 'Log out',
   search: 'Search',
   searchPlaceholder: 'Search past sessions...',

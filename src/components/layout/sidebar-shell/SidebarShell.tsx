@@ -7,6 +7,7 @@ import { PanelLeft, PanelLeftOpen } from 'lucide-react';
 import ImageLogo from '@/assets/logo.png';
 import { useSidebar } from '@/components/layout/sidebar-context';
 import { APP_NAME } from '@/config';
+import { getSettings } from '@/shared/db/settings';
 import { useShortcut } from '@/shared/hotkeys/useShortcut';
 import { cn } from '@/shared/lib/utils';
 import { useMode } from '@/shared/modes/useMode';
@@ -44,7 +45,13 @@ export function SidebarShell({
     scope: 'global',
     descriptionKey: 'shortcuts.sidebarToggle.description',
     group: 'navigation',
-    handler: toggleLeft,
+    handler: () => {
+      if (getSettings().ui.simpleShell) {
+        window.dispatchEvent(new CustomEvent('shell:cycle-panel'));
+        return;
+      }
+      toggleLeft();
+    },
   });
 
   const clearPreviewTimer = useCallback(() => {
