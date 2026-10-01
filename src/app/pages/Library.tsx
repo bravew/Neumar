@@ -26,6 +26,7 @@ import { PublishHistory } from '@/components/publish';
 import { API_BASE_URL } from '@/config';
 import type { Task } from '@/shared/db';
 import { getAllTasks, updateTask } from '@/shared/db';
+import { useSettingsValue } from '@/shared/db/settings';
 import {
   subscribeToBackgroundTasks,
   type BackgroundTask,
@@ -33,9 +34,12 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
+import { libraryTabRedirect } from './library-tabs';
+
 const TAB_IDS = [
   'tasks',
   'assets',
+  'files',
   'plugins',
   'marketplace',
   'cloud-storage',
@@ -48,8 +52,22 @@ export function LibraryPage() {
   return <LibraryContent />;
 }
 
+function initialLibraryTab(
+  initialTab: string | null,
+  simpleShell: boolean,
+): TabId {
+  const redirect = libraryTabRedirect(initialTab, simpleShell);
+  if (redirect?.kind === 'tab') return redirect.tab;
+  if (redirect?.kind === 'settings') return 'tasks';
+  if (!simpleShell && initialTab === 'files') return 'tasks';
+  return TAB_IDS.includes(initialTab as TabId)
+    ? (initialTab as TabId)
+    : 'tasks';
+}
+
 function LibraryContent() {
   const { t } = useLanguage();
+  const simpleShell = useSettingsValue().ui.simpleShell;
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
 
@@ -57,9 +75,24 @@ function LibraryContent() {
   const [tasksStatus, setTasksStatus] = useState<AsyncListStatus>('loading');
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [assetsEnabled, setAssetsEnabled] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>(
-    TAB_IDS.includes(initialTab as TabId) ? (initialTab as TabId) : 'tasks',
-  );
+  const activeTab = initialLibraryTab(initialTab, simpleShell);
+
+  useEffect(() => {
+    const redirect = libraryTabRedirect(initialTab, simpleShell);
+    if (!redirect) return;
+    if (redirect.kind === 'settings') {
+      window.dispatchEvent(
+        new CustomEvent('open-settings', { detail: redirect.category }),
+      );
+    }
+    const nextTab = redirect.kind === 'tab' ? redirect.tab : 'tasks';
+    setSearchParams((current) => {
+      if (current.get('tab') === nextTab) return current;
+      const next = new URLSearchParams(current);
+      next.set('tab', nextTab);
+      return next;
+    });
+  }, [initialTab, setSearchParams, simpleShell]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -90,7 +123,6 @@ function LibraryContent() {
 
   useEffect(() => {
     if (assetsEnabled !== false || activeTab !== 'assets') return;
-    setActiveTab('tasks');
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.set('tab', 'tasks');
@@ -101,7 +133,6 @@ function LibraryContent() {
   const handleTabChange = useCallback(
     (value: string) => {
       const nextTab = value as TabId;
-      setActiveTab(nextTab);
       setSearchParams((current) => {
         const next = new URLSearchParams(current);
         next.set('tab', nextTab);
@@ -214,19 +245,25 @@ function LibraryContent() {
             {assetsEnabled === true ? (
               <TabTrigger value="assets" label={t.assets.tab} />
             ) : null}
-            <TabTrigger value="plugins" label={t.plugins.tabs.installed} />
-            <TabTrigger
-              value="marketplace"
-              label={t.plugins.tabs.marketplace}
-            />
-            <TabTrigger
-              value="cloud-storage"
-              label={t.cloudStorage.cloudStorageConnectorsTitle}
-            />
-            <TabTrigger
-              value="publish"
-              label={(t.publish as Record<string, string>).historyTab}
-            />
+            {simpleShell ? (
+              <TabTrigger value="files" label={t.library.files} />
+            ) : (
+              <>
+                <TabTrigger value="plugins" label={t.plugins.tabs.installed} />
+                <TabTrigger
+                  value="marketplace"
+                  label={t.plugins.tabs.marketplace}
+                />
+                <TabTrigger
+                  value="cloud-storage"
+                  label={t.cloudStorage.cloudStorageConnectorsTitle}
+                />
+                <TabTrigger
+                  value="publish"
+                  label={(t.publish as Record<string, string>).historyTab}
+                />
+              </>
+            )}
             <TabTrigger
               value="graph"
               label={
@@ -257,18 +294,26 @@ function LibraryContent() {
                   <AssetsLibraryTab />
                 </Tabs.Content>
               ) : null}
-              <Tabs.Content value="plugins" className="outline-none">
-                <InstalledPluginsTab />
-              </Tabs.Content>
-              <Tabs.Content value="marketplace" className="outline-none">
-                <MarketplaceTab />
-              </Tabs.Content>
-              <Tabs.Content value="cloud-storage" className="outline-none">
-                <CloudStorageLibraryTab />
-              </Tabs.Content>
-              <Tabs.Content value="publish" className="outline-none">
-                <PublishHistory />
-              </Tabs.Content>
+              {simpleShell ? (
+                <Tabs.Content value="files" className="outline-none">
+                  <CloudStorageLibraryTab />
+                </Tabs.Content>
+              ) : (
+                <>
+                  <Tabs.Content value="plugins" className="outline-none">
+                    <InstalledPluginsTab />
+                  </Tabs.Content>
+                  <Tabs.Content value="marketplace" className="outline-none">
+                    <MarketplaceTab />
+                  </Tabs.Content>
+                  <Tabs.Content value="cloud-storage" className="outline-none">
+                    <CloudStorageLibraryTab />
+                  </Tabs.Content>
+                  <Tabs.Content value="publish" className="outline-none">
+                    <PublishHistory />
+                  </Tabs.Content>
+                </>
+              )}
               <Tabs.Content value="graph" className="outline-none">
                 <GraphView />
               </Tabs.Content>
