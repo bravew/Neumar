@@ -63,3 +63,62 @@ test.describe('Settings', () => {
     }
   });
 });
+
+test.describe('Settings simple shell', () => {
+  test('changes the default model in two clicks', async ({ page }) => {
+    const providers = [
+      {
+        id: 'claude',
+        name: 'Anthropic Claude',
+        enabled: true,
+        apiKey: 'test-key',
+        baseUrl: 'https://api.anthropic.com',
+        models: ['claude-sonnet-5', 'claude-opus-5'],
+      },
+    ];
+    await page.route('**/db/settings', (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ui: JSON.stringify({ simpleShell: true }),
+          language: JSON.stringify('en-US'),
+          defaultProvider: JSON.stringify('default'),
+          defaultModel: JSON.stringify(''),
+          providers: JSON.stringify(providers),
+        }),
+      });
+    });
+    await page.addInitScript(() => {
+      const settings = JSON.parse(
+        window.localStorage.getItem('neumar_settings') || '{}',
+      ) as Record<string, unknown>;
+      settings.ui = { simpleShell: true };
+      settings.language = 'en-US';
+      settings.defaultProvider = 'default';
+      settings.defaultModel = '';
+      settings.providers = [
+        {
+          id: 'claude',
+          name: 'Anthropic Claude',
+          enabled: true,
+          apiKey: 'test-key',
+          baseUrl: 'https://api.anthropic.com',
+          models: ['claude-sonnet-5', 'claude-opus-5'],
+        },
+      ];
+      window.localStorage.setItem('neumar_settings', JSON.stringify(settings));
+    });
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await page.keyboard.press('Meta+,');
+    await expect(page.getByTestId('settings-modal')).toBeVisible();
+    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.getByTestId('default-model-claude-claude-opus-5').click();
+    await expect(
+      page.getByTestId('default-model-claude-claude-opus-5'),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+});

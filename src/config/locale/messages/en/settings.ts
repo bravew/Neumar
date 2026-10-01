@@ -2073,6 +2073,23 @@ export default {
 
   // Permissions
   permissions: 'Permissions',
+  presetAskWhen: 'When should I ask you?',
+  presetPlan: 'Ask before important steps',
+  presetPlanCaption: 'Wait for a plan before continuing.',
+  presetAsk: 'Skip the plan',
+  presetAskCaption: 'Start working without a plan step.',
+  presetAuto: 'Approve the plan',
+  presetAutoCaption: 'Continue when the plan is ready.',
+  presetCustom: 'Custom',
+  presetCustomCaption: 'Tool rules were edited by hand.',
+  whereCodeRuns: 'Where does code run?',
+  managePermissions: 'Manage permissions',
+  permissionTools: 'Tools',
+  permissionFolders: 'Folders',
+  permissionConnectors: 'Connectors',
+  connectedProviders: 'Connected providers',
+  providerConnected: 'Connected',
+  modelsAdvanced: 'Advanced',
   permissionRulesDescription:
     'Configure which tools are automatically allowed, denied, or require confirmation.',
   alwaysAllow: 'Always Allow',

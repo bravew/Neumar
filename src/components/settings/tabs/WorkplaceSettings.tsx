@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  FileText,
-  FolderInput,
-  FolderOpen,
-  Loader2,
-  Shield,
-  ShieldOff,
-} from 'lucide-react';
+import { FileText, FolderInput, FolderOpen, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { APP_SLUG } from '@/config/branding';
@@ -16,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { API_BASE_URL } from '../constants';
-import { SandboxProviderBadge } from '../sandbox/SandboxProviderBadge';
+import { SandboxModeGroup } from '../SandboxModeGroup';
 import type { WorkplaceSettingsProps } from '../types';
 import { useMigrateWorkspace } from './useMigrateWorkspace';
 
@@ -60,30 +53,6 @@ const openFolderInSystem = async (folderPath: string) => {
     }
   }
 };
-
-// Phase 7: enforcement reflects what the backend SandboxCapabilities reports.
-// 'reduced' for codex (shell wrap + out-of-sandbox package install paths still
-// open), 'none' for native (no OS-level boundary). Backend metadata is the
-// source of truth — these labels are static UI hints that the badge tooltips
-// and locale strings expand on.
-const sandboxOptions = [
-  {
-    id: 'codex',
-    icon: Shield,
-    nameKey: 'sandboxCodex',
-    descKey: 'sandboxCodexDescription',
-    enforcement: 'reduced' as const,
-    marketplaceEligible: false,
-  },
-  {
-    id: 'native',
-    icon: ShieldOff,
-    nameKey: 'sandboxNative',
-    descKey: 'sandboxNativeDescription',
-    enforcement: 'none' as const,
-    marketplaceEligible: false,
-  },
-];
 
 export function WorkplaceSettings({
   settings,
@@ -262,71 +231,10 @@ export function WorkplaceSettings({
         </p>
       </div>
 
-      {/* Default Sandbox */}
-      <div className="flex flex-col gap-2">
-        <label className="text-foreground block text-sm font-medium">
-          {t.settings.defaultSandbox}
-        </label>
-        <p className="text-muted-foreground text-xs">
-          {t.settings.defaultSandboxDescription}
-        </p>
-        <div className="grid max-w-md grid-cols-2 gap-2">
-          {sandboxOptions.map((option) => {
-            const Icon = option.icon;
-            const isSelected = settings.defaultSandboxProvider === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() =>
-                  onSettingsChange({
-                    ...settings,
-                    sandboxEnabled: true,
-                    defaultSandboxProvider: option.id,
-                  })
-                }
-                className={cn(
-                  'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
-                  isSelected
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:bg-accent',
-                )}
-              >
-                <Icon
-                  className={cn(
-                    'size-5 shrink-0',
-                    isSelected ? 'text-primary' : 'text-muted-foreground',
-                  )}
-                />
-                <div className="min-w-0">
-                  <div
-                    className={cn(
-                      'flex items-center gap-2 text-sm font-medium',
-                      isSelected ? 'text-primary' : 'text-foreground',
-                    )}
-                  >
-                    <span>
-                      {t.settings[option.nameKey as keyof typeof t.settings]}
-                    </span>
-                    <SandboxProviderBadge
-                      enforcement={option.enforcement}
-                      marketplaceEligible={option.marketplaceEligible}
-                    />
-                  </div>
-                  <div className="text-muted-foreground truncate text-xs">
-                    {t.settings[option.descKey as keyof typeof t.settings]}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        {settings.defaultSandboxProvider === 'native' && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
-            {(t.settings as Record<string, string>).sandboxNativeWarning}
-          </p>
-        )}
-      </div>
+      <SandboxModeGroup
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+      />
 
       {/* Working Directory */}
       <div className="flex flex-col gap-2">

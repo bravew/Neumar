@@ -7,6 +7,7 @@ import type { Settings as SettingsType } from '@/shared/db/settings';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
+import { ModelsAdvanced, ModelsPage } from './ModelsPage';
 import {
   CATEGORY_TO_LOCATION,
   resolveSettingsLocation,
@@ -14,6 +15,7 @@ import {
   settingsPage,
   type SettingsPageId,
 } from './navigation';
+import { PermissionsPage } from './PermissionsPage';
 import { SettingsDrillIn } from './primitives/SettingsDrillIn';
 import { SettingsContent } from './SettingsContent';
 import type { SettingsCategory } from './types';
@@ -97,7 +99,18 @@ export function SettingsShellV2({
             })}
           </div>
         </nav>
-        {location.drillIn ? (
+        {location.page === 'models' && location.drillIn === 'advanced' ? (
+          <SettingsDrillIn
+            title={labelFor(activeCategory)}
+            backLabel={labelFor(page.labelKey)}
+            onBack={() => onSelectCategory(page.homeCategory)}
+          >
+            <ModelsAdvanced
+              settings={settings}
+              onSettingsChange={onSettingsChange}
+            />
+          </SettingsDrillIn>
+        ) : location.drillIn ? (
           <SettingsDrillIn
             title={labelFor(activeCategory)}
             backLabel={labelFor(page.labelKey)}
@@ -118,12 +131,25 @@ export function SettingsShellV2({
             >
               {labelFor(page.labelKey)}
             </h2>
-            <SettingsContent
-              activeCategory={activeCategory}
-              settings={settings}
-              onSettingsChange={onSettingsChange}
-              defaultPaths={defaultPaths}
-            />
+            {location.page === 'permissions' ? (
+              <PermissionsPage
+                settings={settings}
+                onSettingsChange={onSettingsChange}
+              />
+            ) : location.page === 'models' ? (
+              <ModelsPage
+                settings={settings}
+                onSettingsChange={onSettingsChange}
+                onOpenAdvanced={() => onSelectCategory('agentRuntimes')}
+              />
+            ) : (
+              <SettingsContent
+                activeCategory={activeCategory}
+                settings={settings}
+                onSettingsChange={onSettingsChange}
+                defaultPaths={defaultPaths}
+              />
+            )}
           </div>
         )}
       </DialogContent>
