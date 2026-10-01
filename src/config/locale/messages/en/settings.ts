@@ -442,6 +442,10 @@ export default {
   advancedMode: 'Advanced Mode',
   advancedModeDescription:
     'Unlock experimental features like Org View and extended agent controls. Intended for power users.',
+  simpleShell: 'Simple shell',
+  simpleShellDescription:
+    'Try the simpler layout, with the icon rail, docked chat, and the new settings window.',
+  usageActivityOpens: '{name} has been opened {count} times on this device.',
   artifactsV2: 'Live Artifacts (Beta)',
   artifactsV2Description:
     'Stream agent-generated HTML, SVG, Mermaid, and Markdown into a sandboxed live preview alongside the chat.',

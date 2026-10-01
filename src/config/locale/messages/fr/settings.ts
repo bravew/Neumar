@@ -454,6 +454,10 @@ export default {
   advancedMode: 'Mode Avancé',
   advancedModeDescription:
     "Déverrouille les fonctionnalités expérimentales comme la Vue Organisation et les contrôles d'agent étendus. Destiné aux utilisateurs avancés.",
+  simpleShell: 'Interface simple',
+  simpleShellDescription:
+    'Essayez la mise en page plus simple, avec le rail d’icônes, le chat ancré et la nouvelle fenêtre de réglages.',
+  usageActivityOpens: '{name} a été ouvert {count} fois sur cet appareil.',
   artifactsV2: 'Artefacts en direct (Bêta)',
   artifactsV2Description:
     "Diffuse le HTML, SVG, Mermaid et Markdown générés par l'agent dans un aperçu en direct sandboxé à côté du chat.",

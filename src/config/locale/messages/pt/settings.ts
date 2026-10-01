@@ -448,6 +448,10 @@ export default {
   advancedMode: 'Modo Avançado',
   advancedModeDescription:
     'Desbloqueia recursos experimentais como a Visão da Organização e controles de agente estendidos. Destinado a usuários avançados.',
+  simpleShell: 'Interface simples',
+  simpleShellDescription:
+    'Experimente o layout mais simples, com a barra de ícones, o chat encaixado e a nova janela de configurações.',
+  usageActivityOpens: '{name} foi aberto {count} vezes neste dispositivo.',
   artifactsV2: 'Artefatos ao Vivo (Beta)',
   artifactsV2Description:
     'Transmita HTML, SVG, Mermaid e Markdown gerados pelo agente para uma pré-visualização ao vivo em sandbox ao lado do chat.',

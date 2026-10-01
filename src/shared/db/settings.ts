@@ -826,6 +826,8 @@ export interface Settings {
   // Client view state. Not synced. Sub-keys are merged in sanitizeSettings.
   ui: {
     simpleShell: boolean;
+    /** Local count of Usage & activity (Dashboard) opens. Not synced. */
+    usageActivityOpens?: number;
     /** Flag-on rail state per destination. Not synced. */
     panelState?: Record<string, { state: 'A' | 'B' | 'C'; restore: 'A' | 'B' }>;
     ideasFeedback?: Record<string, 'dismissed'>;
@@ -1555,6 +1557,7 @@ export const defaultSettings: Settings = {
   artifactsV2: false,
   ui: {
     simpleShell: false,
+    usageActivityOpens: 0,
   },
 };
 
