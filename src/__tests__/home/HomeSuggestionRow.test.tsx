@@ -65,7 +65,7 @@ describe('HomeSuggestionRow', () => {
     const labels = within(row)
       .getAllByRole('button')
       .map((button) => button.textContent);
-    expect(labels).toEqual(['Code', 'Write', 'Plan', 'More ideas']);
+    expect(labels).toEqual(['Code', 'Write', 'Plan']);
     expect(new Set(labels).size).toBe(labels.length);
     expect(screen.queryByRole('menuitem', { name: 'Analyze' })).toBeNull();
   });
