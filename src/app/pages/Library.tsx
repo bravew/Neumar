@@ -14,7 +14,6 @@ import { useSearchParams } from 'react-router-dom';
 import * as Tabs from '@radix-ui/react-tabs';
 
 import type { AsyncListStatus } from '@/components/common/async-list';
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import {
   AssetsLibraryTab,
   CloudStorageLibraryTab,
@@ -26,12 +25,11 @@ import { GraphView } from '@/components/library/GraphView';
 import { PublishHistory } from '@/components/publish';
 import { API_BASE_URL } from '@/config';
 import type { Task } from '@/shared/db';
-import { deleteTask, getAllTasks, getTask, updateTask } from '@/shared/db';
+import { getAllTasks, updateTask } from '@/shared/db';
 import {
   subscribeToBackgroundTasks,
   type BackgroundTask,
 } from '@/shared/lib/background-tasks';
-import { deleteSessionFolder } from '@/shared/lib/session';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -47,11 +45,7 @@ const TAB_IDS = [
 type TabId = (typeof TAB_IDS)[number];
 
 export function LibraryPage() {
-  return (
-    <SidebarProvider>
-      <LibraryContent />
-    </SidebarProvider>
-  );
+  return <LibraryContent />;
 }
 
 function LibraryContent() {
@@ -142,6 +136,31 @@ function LibraryContent() {
     };
   }, []);
 
+  useEffect(() => {
+    function onDeleted(event: Event) {
+      const taskId = (event as CustomEvent<string>).detail;
+      setTasks((prev) => prev.filter((task) => task.id !== taskId));
+    }
+    function onFavorite(event: Event) {
+      const detail = (
+        event as CustomEvent<{ taskId: string; favorite: boolean }>
+      ).detail;
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === detail.taskId
+            ? { ...task, favorite: detail.favorite }
+            : task,
+        ),
+      );
+    }
+    window.addEventListener('sidebar-task-deleted', onDeleted);
+    window.addEventListener('sidebar-task-favorite', onFavorite);
+    return () => {
+      window.removeEventListener('sidebar-task-deleted', onDeleted);
+      window.removeEventListener('sidebar-task-favorite', onFavorite);
+    };
+  }, []);
+
   // Reflect title updates emitted by other surfaces.
   useEffect(() => {
     function handleTitleUpdate(e: Event) {
@@ -162,22 +181,6 @@ function LibraryContent() {
     [backgroundTasks],
   );
 
-  const handleDeleteTask = useCallback(
-    async (taskId: string, deleteFolder?: boolean) => {
-      try {
-        const task = await getTask(taskId);
-        await deleteTask(taskId);
-        setTasks((prev) => prev.filter((x) => x.id !== taskId));
-        if (deleteFolder && task) {
-          await deleteSessionFolder(task.id, task.work_dir, task.session_id);
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to delete task:', error);
-      }
-    },
-    [],
-  );
-
   const handleToggleFavorite = useCallback(
     async (taskId: string, favorite: boolean) => {
       try {
@@ -194,15 +197,9 @@ function LibraryContent() {
 
   return (
     <div
-      className="bg-sidebar flex h-screen overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="library-page"
     >
-      <LeftSidebar
-        onDeleteTask={handleDeleteTask}
-        onToggleFavorite={handleToggleFavorite}
-        runningTaskIds={runningTaskIds}
-      />
-
       <main className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm">
         <Tabs.Root
           value={activeTab}

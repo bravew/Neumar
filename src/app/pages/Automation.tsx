@@ -11,31 +11,19 @@ import { useSearchParams } from 'react-router-dom';
 
 import { AutomationDetail } from '@/components/automation/AutomationDetail';
 import { AutomationList } from '@/components/automation/AutomationList';
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { API_BASE_URL } from '@/config';
-import { deleteTask, getTask, updateTask } from '@/shared/db';
 import { useAutomations } from '@/shared/hooks/useAutomation';
-import {
-  subscribeToBackgroundTasks,
-  type BackgroundTask,
-} from '@/shared/lib/background-tasks';
-import { deleteSessionFolder } from '@/shared/lib/session';
 import type {
   CreateAutomationInput,
   UpdateAutomationInput,
 } from '@/shared/types/automation';
 
 export function AutomationPage() {
-  return (
-    <SidebarProvider>
-      <AutomationContent />
-    </SidebarProvider>
-  );
+  return <AutomationContent />;
 }
 
 function AutomationContent() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [selectedAutomationId, setSelectedAutomationId] = useState<
     string | null
   >(null);
@@ -67,38 +55,6 @@ function AutomationContent() {
   const selectedAutomation = useMemo(
     () => automations.find((a) => a.id === selectedAutomationId) ?? null,
     [automations, selectedAutomationId],
-  );
-
-  // Subscribe to background tasks for sidebar
-  useEffect(() => {
-    const unsubscribe = subscribeToBackgroundTasks(setBackgroundTasks);
-    return unsubscribe;
-  }, []);
-
-  const handleDeleteTask = useCallback(
-    async (taskId: string, deleteFolder?: boolean) => {
-      try {
-        const task = await getTask(taskId);
-        await deleteTask(taskId);
-        if (deleteFolder && task) {
-          await deleteSessionFolder(task.id, task.work_dir, task.session_id);
-        }
-      } catch {
-        // Sidebar task deletion is non-critical
-      }
-    },
-    [],
-  );
-
-  const handleToggleFavorite = useCallback(
-    async (taskId: string, favorite: boolean) => {
-      try {
-        await updateTask(taskId, { favorite });
-      } catch {
-        // Sidebar favorite toggle is non-critical
-      }
-    },
-    [],
   );
 
   // Automation handlers — no selectedAutomation in deps, use ID-based approach
@@ -156,17 +112,9 @@ function AutomationContent() {
 
   return (
     <div
-      className="bg-sidebar flex h-screen overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="automation-page"
     >
-      <LeftSidebar
-        onDeleteTask={handleDeleteTask}
-        onToggleFavorite={handleToggleFavorite}
-        runningTaskIds={backgroundTasks
-          .filter((t) => t.isRunning)
-          .map((t) => t.taskId)}
-      />
-
       <div className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl shadow-sm">
         <div className="flex-1 overflow-auto p-6">
           {selectedAutomation ? (

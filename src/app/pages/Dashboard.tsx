@@ -6,7 +6,6 @@ import { motion } from 'motion/react';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CostPanel } from '@/components/dashboard/CostPanel';
 import { TaskFlowChart } from '@/components/dashboard/TaskFlowChart';
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { API_BASE_URL } from '@/config';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -27,9 +26,7 @@ interface DashboardStats {
 
 export function DashboardPage() {
   return (
-    <SidebarProvider>
-      <DashboardContent />
-    </SidebarProvider>
+    <DashboardContent />
   );
 }
 
@@ -52,10 +49,9 @@ function DashboardContent() {
 
   return (
     <div
-      className="bg-sidebar flex h-screen overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="dashboard-page"
     >
-      <LeftSidebar />
       <main className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm">
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-4xl px-6 py-8">

@@ -2,7 +2,6 @@ import { Navigate } from 'react-router-dom';
 
 import { MessageCircle } from 'lucide-react';
 
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { DEFAULT_MODES_SETTINGS, useSetting } from '@/shared/db/settings';
 import { useLanguage } from '@/shared/providers/language-provider';
 
@@ -16,9 +15,7 @@ export function ChatPlaceholderPage() {
   if (!modeSettings.chatEnabled) return <Navigate to="/" replace />;
 
   return (
-    <SidebarProvider>
-      <div className="bg-sidebar flex h-screen overflow-hidden">
-        <LeftSidebar />
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <main className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-2xl p-8 text-center shadow-sm">
           <div className="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-xl">
             <MessageCircle className="size-6" />
@@ -31,6 +28,5 @@ export function ChatPlaceholderPage() {
           </p>
         </main>
       </div>
-    </SidebarProvider>
   );
 }

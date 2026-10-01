@@ -9,7 +9,6 @@ import {
   type AsyncListStatus,
 } from '@/components/common/async-list';
 import { ListSkeleton } from '@/components/common/route-skeleton';
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { API_BASE_URL } from '@/config';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -183,9 +182,7 @@ export function ApprovalsPage() {
   );
 
   return (
-    <SidebarProvider>
-      <div className="flex h-svh overflow-hidden" data-testid="approvals-page">
-        <LeftSidebar />
+    <div className="flex h-svh overflow-hidden" data-testid="approvals-page">
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="border-border border-b px-6 py-4">
             <div className="flex items-center gap-2">
@@ -311,6 +308,5 @@ export function ApprovalsPage() {
           </div>
         </main>
       </div>
-    </SidebarProvider>
   );
 }

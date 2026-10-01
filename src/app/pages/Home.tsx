@@ -8,7 +8,6 @@ import { BackgroundTasksSection } from '@/components/home/BackgroundTasksSection
 import { BudgetBanner } from '@/components/home/BudgetBanner';
 import { HomeGreeting } from '@/components/home/HomeGreeting';
 import { HomeSuggestionRow } from '@/components/home/HomeSuggestionRow';
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { ActivePluginChip } from '@/components/plugins/ActivePluginChip';
 import { AvatarSvg } from '@/components/profiles/avatar-options';
 import { ChatInput, DEFAULT_MODEL_ID } from '@/components/shared/ChatInput';
@@ -27,7 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { AssistantTemplate } from '@/config/assistant-templates';
-import { createSession, deleteTask, getTask, updateTask } from '@/shared/db';
+import { createSession } from '@/shared/db';
 import {
   getSettingItem,
   getSettings,
@@ -41,11 +40,7 @@ import {
 } from '@/shared/hooks/useAgent';
 import { useAgentProfiles } from '@/shared/hooks/useAgentProfiles';
 import { useDispatch } from '@/shared/hooks/useDispatch';
-import {
-  subscribeToBackgroundTasks,
-  type BackgroundTask,
-} from '@/shared/lib/background-tasks';
-import { deleteSessionFolder, generateSessionId } from '@/shared/lib/session';
+import { generateSessionId } from '@/shared/lib/session';
 import { parseJsonArray } from '@/shared/lib/utils';
 import type { ChipDefinition } from '@/shared/modes/types';
 import { useMode } from '@/shared/modes/useMode';
@@ -53,11 +48,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 import { randomUUID } from '@/shared/utils/uuid';
 
 export function HomePage() {
-  return (
-    <SidebarProvider>
-      <HomeContent />
-    </SidebarProvider>
-  );
+  return <HomeContent />;
 }
 
 function HomeContent() {
@@ -75,7 +66,6 @@ function HomeContent() {
     preSelectProfileId?: string;
   } | null;
 
-  const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [workDirs, setWorkDirs] = useState<string[]>(
     projectState?.projectWorkspace ? [projectState.projectWorkspace] : [],
   );
@@ -180,47 +170,6 @@ function HomeContent() {
     setPrefillNonce((n) => n + 1);
     clearPluginSeed();
   }, [activePlugin, clearPluginSeed]);
-
-  // Subscribe to background tasks
-  useEffect(() => {
-    const unsubscribe = subscribeToBackgroundTasks(setBackgroundTasks);
-    return unsubscribe;
-  }, []);
-
-  // Handle task deletion — wrapped in useCallback since it's passed as a prop to LeftSidebar
-  const handleDeleteTask = useCallback(
-    async (taskId: string, deleteFolder?: boolean) => {
-      try {
-        // Get task info before deleting (to get session_id)
-        const task = await getTask(taskId);
-
-        // Delete task from database
-        await deleteTask(taskId);
-
-        // Delete session folder if requested (best-effort, errors are logged internally)
-        // Pass per-task work_dir so the correct folder is targeted
-        if (deleteFolder && task) {
-          await deleteSessionFolder(task.id, task.work_dir, task.session_id);
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to delete task:', error);
-      }
-    },
-    [],
-  );
-
-  // Handle favorite toggle — wrapped in useCallback so child components
-  // that are memoized (e.g. FileCard) don't re-render when unrelated state changes.
-  const handleToggleFavorite = useCallback(
-    async (taskId: string, favorite: boolean) => {
-      try {
-        await updateTask(taskId, { favorite });
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to update task:', error);
-      }
-    },
-    [],
-  );
 
   const handleSubmit = useCallback(
     async (
@@ -341,18 +290,9 @@ function HomeContent() {
 
   return (
     <div
-      className="bg-sidebar flex h-screen overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="home-page"
     >
-      {/* Left Sidebar */}
-      <LeftSidebar
-        onDeleteTask={handleDeleteTask}
-        onToggleFavorite={handleToggleFavorite}
-        runningTaskIds={backgroundTasks
-          .filter((t) => t.isRunning)
-          .map((t) => t.taskId)}
-      />
-
       {/* Main Content */}
       <div className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl shadow-sm">
         <BudgetBanner />
