@@ -7,10 +7,9 @@
 
 import { existsSync } from 'fs';
 import { mkdir, readFile, writeFile } from 'fs/promises';
-import { homedir } from 'os';
 import { join } from 'path';
 
-import { APP_DIR_NAME } from '@/config/constants';
+import { resolveAppDir } from '@/config/app-dir';
 
 import { createLogger } from '@/shared/utils/logger';
 
@@ -18,7 +17,7 @@ import type { LinearIssue } from '../linear';
 
 const logger = createLogger('SwarmTask');
 
-const TASKS_DIR = join(homedir(), APP_DIR_NAME, 'tasks');
+const TASKS_DIR = join(resolveAppDir(), 'tasks');
 
 // ============================================================================
 // Types

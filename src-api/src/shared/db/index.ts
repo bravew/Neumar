@@ -14,7 +14,7 @@ import { join } from 'path';
 
 import Database from 'better-sqlite3';
 
-import { APP_DATA_DIR } from '@/config/branding';
+import { resolveAppDir } from '@/config/app-dir';
 
 import { seedDefaultPricing } from '@/shared/services/pricing';
 import { createLogger } from '@/shared/utils/logger';
@@ -179,9 +179,8 @@ export function getDatabase(): Database.Database {
     }
   }
 
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  // APP_DATA_DIR already includes the leading dot (e.g., '.neumar')
-  const appDir = join(homeDir, APP_DATA_DIR);
+  // Honours NEUMAR_APP_DATA_DIR, so isolated runs get their own database.
+  const appDir = resolveAppDir();
   const dbPath = join(appDir, DB_FILE_NAME);
 
   logger.debug(`Opening database at: ${dbPath}`);

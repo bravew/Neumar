@@ -31,7 +31,7 @@ test.describe('Video Mode happy path', () => {
 
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Video projects' }),
+      page.getByRole('heading', { name: 'Video projects', exact: true }),
     ).toBeVisible();
 
     const configure = page.getByRole('button', { name: 'Configure' });

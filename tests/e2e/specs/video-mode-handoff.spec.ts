@@ -80,7 +80,7 @@ test.describe('Video mode agentic editing and handoff', () => {
     await page.goto('/video/');
     await page.waitForLoadState('domcontentloaded');
     await expect(
-      page.getByRole('heading', { name: 'Video projects' }),
+      page.getByRole('heading', { name: 'Video projects', exact: true }),
     ).toBeVisible();
 
     const browserWorkDir = await page.evaluate(() => {
@@ -280,7 +280,7 @@ test.describe('Video mode agentic editing and handoff', () => {
     await page.goto('/video/');
     await page.waitForLoadState('domcontentloaded');
     await expect(
-      page.getByRole('heading', { name: 'Video projects' }),
+      page.getByRole('heading', { name: 'Video projects', exact: true }),
     ).toBeVisible();
 
     const projectCard = page
@@ -595,8 +595,14 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** Mirrors the API's expandAppPath: `~/.neumar` follows NEUMAR_APP_DATA_DIR. */
 function expandHomePath(value: string | null): string | null {
   if (!value?.startsWith('~/')) return value;
+  const appDir = process.env.NEUMAR_APP_DATA_DIR;
+  if (appDir && value === '~/.neumar') return appDir;
+  if (appDir && value.startsWith('~/.neumar/')) {
+    return `${appDir}${value.slice('~/.neumar'.length)}`;
+  }
   return `${process.env.HOME}${value.slice(1)}`;
 }
 

@@ -11,10 +11,9 @@
  * not a service); no logger needed.
  */
 
-import { homedir } from 'os';
 import { join } from 'path';
 
-import { APP_DIR_NAME } from '@/config/constants';
+import { resolveAppDir } from '@/config/app-dir';
 
 import { createPlugin, type PluginTemplate } from '@/shared/plugins/scaffold';
 
@@ -39,7 +38,7 @@ function err(line: string): void {
 }
 
 function defaultDir(): string {
-  return join(homedir(), APP_DIR_NAME, 'plugins');
+  return join(resolveAppDir(), 'plugins');
 }
 
 function printUsageAndExit(code: number): never {

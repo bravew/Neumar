@@ -8,11 +8,10 @@
 
 import { existsSync } from 'fs';
 import { readdir, stat, writeFile } from 'fs/promises';
-import { homedir } from 'os';
 import { join } from 'path';
 
+import { resolveAppDir } from '@/config/app-dir';
 import { APP_DISPLAY_NAME } from '@/config/branding';
-import { APP_DIR_NAME } from '@/config/constants';
 
 import { createLogger } from '@/shared/utils/logger';
 
@@ -54,7 +53,7 @@ export async function generateWorktreeAliases(
   aliases.push('');
 
   // Analysis worktrees
-  const baseRepoDir = join(homedir(), APP_DIR_NAME, 'repos');
+  const baseRepoDir = join(resolveAppDir(), 'repos');
   if (existsSync(baseRepoDir)) {
     const owners = await readdir(baseRepoDir);
     let i = 0;
@@ -87,7 +86,7 @@ export async function generateWorktreeAliases(
 export async function updateShellAliases(sessionsDir: string): Promise<void> {
   const aliasContent = await generateWorktreeAliases(sessionsDir);
 
-  const aliasFile = join(homedir(), APP_DIR_NAME, 'worktree-aliases.sh');
+  const aliasFile = join(resolveAppDir(), 'worktree-aliases.sh');
   await writeFile(aliasFile, aliasContent);
 
   logger.info(`Updated worktree aliases: ${aliasFile}`);

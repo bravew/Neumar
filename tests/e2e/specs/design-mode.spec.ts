@@ -169,6 +169,13 @@ test.describe('DesignMode smoke', () => {
       settings.theme = 'dark';
       window.localStorage.setItem('neumar_settings', JSON.stringify(settings));
     });
+    // The surface filter lists the surfaces of existing designs and hides
+    // when there are none, so a fresh data directory needs one design.
+    const { project } = await apiPost<{ project: { id: string } }>(
+      '/design/projects',
+      { title: `E2E filter ${Date.now()}`, surface: 'prototype' },
+    );
+    createdProjectIds.push(project.id);
     await openDesignEntry(page);
     await expect(page.locator('html')).toHaveClass(/dark/);
     await expect(page.getByTestId('designs-search')).toBeVisible();

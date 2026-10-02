@@ -12,8 +12,8 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
+import { resolveAppDir } from '@/config/app-dir';
 import {
-  APP_DIR_NAME,
   CONFIG_FILE_NAME,
   MCP_CONFIG_FILE_NAME,
   SESSIONS_DIR_NAME,
@@ -26,10 +26,7 @@ import {
  */
 
 export function getAppDataDir(): string {
-  const override = process.env.NEUMAR_APP_DATA_DIR?.trim();
-  if (override) return override;
-  const home = os.homedir();
-  return path.join(home, APP_DIR_NAME);
+  return resolveAppDir();
 }
 
 /**

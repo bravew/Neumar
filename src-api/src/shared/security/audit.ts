@@ -14,17 +14,16 @@
 
 import { existsSync, mkdirSync } from 'fs';
 import { appendFile } from 'fs/promises';
-import { homedir } from 'os';
 import { join } from 'path';
 
-import { APP_DATA_DIR } from '@/config/branding';
+import { resolveAppDir } from '@/config/app-dir';
 
 import { getDatabase } from '@/shared/db';
 import { createLogger, redactValue } from '@/shared/utils/logger';
 
 const logger = createLogger('SecurityAudit');
 
-const SECURITY_DIR = join(homedir(), APP_DATA_DIR, 'security');
+const SECURITY_DIR = join(resolveAppDir(), 'security');
 const EVENTS_JSONL = join(SECURITY_DIR, 'events.jsonl');
 
 export type SecurityEventSeverity = 'info' | 'warn' | 'error' | 'critical';

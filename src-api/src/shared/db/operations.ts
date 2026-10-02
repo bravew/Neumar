@@ -5,11 +5,12 @@
  */
 
 import crypto from 'crypto';
-import { homedir } from 'os';
 
 import type Database from 'better-sqlite3';
 
 import type { RunMode } from '@/core/agent/runtime-state';
+
+import { expandAppPath } from '@/config/app-dir';
 
 import { getDatabase } from './index';
 import { hasColumn } from './migrations/utils';
@@ -876,8 +877,9 @@ export function getSetting(key: string): string | null {
   // Expand ~ for directory settings — path.resolve does NOT handle tilde
   // expansion, and in the Tauri sidecar cwd is '/' so resolve('~/foo')
   // becomes '/~/foo' which fails.
+  // `~/.<slug>` is the app data directory and follows NEUMAR_APP_DATA_DIR.
   if (key === 'workDir' && value.startsWith('~')) {
-    return value.replace('~', homedir());
+    return expandAppPath(value);
   }
   return value;
 }
