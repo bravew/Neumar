@@ -123,6 +123,17 @@ peerDependencyRules:
     # imports the current Anthropic SDK directly.
     '@anthropic-ai/sdk': '>=0.57.0 <1.0.0'
 
+auditConfig:
+  ignoreGhsas:
+    # node-forge <=1.4.0: RSA PKCS#1 v1.5 signature verification accepts
+    # extra DigestAlgorithm elements. No patched release exists (advisory
+    # first_patched_version is null; 1.4.0 is latest). The only path is
+    # src-api > @anthropic-ai/sandbox-runtime, which uses node-forge to
+    # generate keys and sign its MITM proxy CA and leaf certificates; it never
+    # verifies signatures. Remove when node-forge or sandbox-runtime ships a
+    # fix. Reviewed 2026-10-02.
+    - GHSA-86w9-cpqp-85rv
+
 minimumReleaseAgeExclude:
   - read-excel-file@9.3.10
   - '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.239'
