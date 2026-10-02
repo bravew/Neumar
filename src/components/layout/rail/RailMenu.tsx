@@ -15,35 +15,40 @@ import { API_BASE_URL } from '@/config';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { RailItem } from './RailItem';
+import { UsageActivitySheet } from './UsageActivitySheet';
 
 // Radix handles Escape, outside click, focus return, and arrow keys, so the
 // rail menu behaves like the other menus in the app.
 export function RailMenu() {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const [usageOpen, setUsageOpen] = useState(false);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <RailItem label={t.nav.menu}>
-          <Menu className="size-4" />
-        </RailItem>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="end" className="w-48">
-        <DropdownMenuItem onSelect={() => navigate('/ideas')}>
-          {t.ideas.title}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => navigate('/approvals')}>
-          {t.nav.approvals}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => navigate('/dashboard')}>
-          {t.nav.dashboard}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openSettings()}>
-          {t.nav.settings}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <RailItem label={t.nav.menu}>
+            <Menu className="size-4" />
+          </RailItem>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="right" align="end" className="w-48">
+          <DropdownMenuItem onSelect={() => navigate('/ideas')}>
+            {t.ideas.title}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate('/approvals')}>
+            {t.nav.approvals}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setUsageOpen(true)}>
+            {t.nav.dashboard}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => openSettings()}>
+            {t.nav.settings}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <UsageActivitySheet open={usageOpen} onOpenChange={setUsageOpen} />
+    </>
   );
 }
 
