@@ -18,6 +18,43 @@ async function collectEvents(messages: AgentMessage[]) {
 }
 
 describe('AGUIEmitter', () => {
+  it('sends a planning direct answer as an assistant reply (#163)', async () => {
+    const events = await collectEvents([
+      {
+        type: 'thinking',
+        content: '{"type": "direct_answer", "answer": "pong"}',
+      },
+      { type: 'direct_answer', content: 'pong' } as AgentMessage,
+    ]);
+    const start = events.find(
+      (event) => event.type === EventType.TEXT_MESSAGE_START,
+    ) as { messageId?: string; role?: string } | undefined;
+    expect(start?.role).toBe('assistant');
+    const content = events.find(
+      (event) => event.type === EventType.TEXT_MESSAGE_CONTENT,
+    ) as { messageId?: string; delta?: string } | undefined;
+    expect(content).toMatchObject({
+      messageId: start?.messageId,
+      delta: 'pong',
+    });
+    expect(
+      events.some(
+        (event) =>
+          event.type === EventType.TEXT_MESSAGE_END &&
+          (event as { messageId?: string }).messageId === start?.messageId,
+      ),
+    ).toBe(true);
+  });
+
+  it('ignores a content-less direct answer (skip-plan signal)', async () => {
+    const events = await collectEvents([
+      { type: 'direct_answer' } as AgentMessage,
+    ]);
+    expect(
+      events.some((event) => event.type === EventType.TEXT_MESSAGE_START),
+    ).toBe(false);
+  });
+
   it('emits a normalized turn budget on every result (P2-5)', async () => {
     const events = await collectEvents([
       {

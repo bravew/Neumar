@@ -383,9 +383,30 @@ export class AGUIEmitter {
       }
 
       case 'direct_answer': {
-        yield this.event<CustomEvent>(EventType.CUSTOM, {
-          name: 'direct_answer',
-          value: msg.content,
+        // A planner's direct answer is the reply itself. Send it as an
+        // assistant message: AG-UI clients render text messages, persistence
+        // stores them, and history replays them. As a CUSTOM event it was
+        // dropped by all three, leaving only the planner's raw JSON, which
+        // arrives as hidden reasoning. A content-less direct_answer is a
+        // skip-plan signal and has nothing to show.
+        if (!msg.content) break;
+        if (this.currentMessageId) {
+          yield this.event<TextMessageEndEvent>(EventType.TEXT_MESSAGE_END, {
+            messageId: this.currentMessageId,
+          });
+          this.currentMessageId = null;
+        }
+        const answerId = crypto.randomUUID();
+        yield this.event<TextMessageStartEvent>(EventType.TEXT_MESSAGE_START, {
+          messageId: answerId,
+          role: 'assistant',
+        });
+        yield this.event<TextMessageContentEvent>(
+          EventType.TEXT_MESSAGE_CONTENT,
+          { messageId: answerId, delta: msg.content },
+        );
+        yield this.event<TextMessageEndEvent>(EventType.TEXT_MESSAGE_END, {
+          messageId: answerId,
         });
         break;
       }
