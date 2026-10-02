@@ -15,6 +15,12 @@ import {
   useSetting,
 } from '@/shared/db/settings';
 
+import {
+  forgetModePathsContaining,
+  modeEntry,
+  pathMatches,
+  rememberModePath,
+} from './lastModePath';
 import { ModeRegistry } from './ModeRegistry';
 import type { ModeDefinition, ModeId } from './types';
 
@@ -28,11 +34,6 @@ interface ModeContextValue {
 }
 
 const ModeContext = createContext<ModeContextValue | undefined>(undefined);
-
-function pathMatches(pathname: string, pattern: RegExp | string): boolean {
-  if (typeof pattern === 'string') return pathname === pattern;
-  return pattern.test(pathname);
-}
 
 function modeMatchesPath(mode: ModeDefinition, pathname: string): boolean {
   return mode.matches.some((pattern) => pathMatches(pathname, pattern));
@@ -87,6 +88,27 @@ export function ModeProvider({ children }: { children: ReactNode }) {
     globalThis.localStorage?.removeItem?.(LEGACY_DESIGN_ENTRY_WIDTH_KEY);
   }, []);
 
+  // Remember where each mode was left. Only a path the mode really matches
+  // counts; the fallback mode must not claim unrelated pages.
+  useEffect(() => {
+    for (const mode of modes) {
+      if (modeMatchesPath(mode, location.pathname)) {
+        rememberModePath(mode, location);
+      }
+    }
+    // `location` changes identity on every navigation, including the
+    // replace that clears a sent prompt from router state.
+  }, [location, modes]);
+
+  useEffect(() => {
+    const onDeleted = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      if (typeof detail === 'string') forgetModePathsContaining(detail);
+    };
+    window.addEventListener('sidebar-task-deleted', onDeleted);
+    return () => window.removeEventListener('sidebar-task-deleted', onDeleted);
+  }, []);
+
   useEffect(() => {
     if (activeMode.enabled) {
       globalThis.localStorage?.setItem?.(LAST_ACTIVE_MODE_KEY, activeMode.id);
@@ -97,9 +119,10 @@ export function ModeProvider({ children }: { children: ReactNode }) {
     (id: ModeId) => {
       const mode = modes.find((entry) => entry.id === id);
       if (!mode) return;
-      navigate(mode.rootPath);
+      const entry = modeEntry(mode, location.pathname);
+      navigate(entry.to, { state: entry.state });
     },
-    [modes, navigate],
+    [location.pathname, modes, navigate],
   );
 
   const value = useMemo<ModeContextValue>(

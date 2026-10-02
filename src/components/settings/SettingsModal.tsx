@@ -22,6 +22,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 import { findNavItem } from './navigation';
 import { SettingsContent } from './SettingsContent';
 import { SettingsNav } from './SettingsNav';
+import { SettingsShellV2 } from './SettingsShellV2';
 import type { SettingsCategory } from './types';
 
 interface SettingsModalProps {
@@ -109,6 +110,20 @@ export function SettingsModal({
   const settingsLabels = t.settings as Record<string, string>;
   const activeItem = findNavItem(activeCategory);
 
+  if (settings.ui.simpleShell) {
+    return (
+      <SettingsShellV2
+        open={open}
+        onOpenChange={onOpenChange}
+        activeCategory={activeCategory}
+        onSelectCategory={setActiveCategory}
+        settings={settings}
+        onSettingsChange={handleSettingsChange}
+        defaultPaths={defaultPaths}
+      />
+    );
+  }
+
   // Portal to document.body so the modal escapes any ancestor containing
   // block (e.g. the sidebar's `view-transition-name`, which would otherwise
   // pin `position: fixed` to the sidebar's 288px width).
@@ -121,7 +136,7 @@ export function SettingsModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15, ease: 'easeOut' }}
+          transition={{ duration: 0.16, ease: [0, 0, 0.2, 1] }}
         >
           <div className="flex h-full min-h-0">
             <SettingsNav

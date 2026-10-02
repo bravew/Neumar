@@ -1,16 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { useLocation, useNavigate } from 'react-router-dom';
+
+import {
+  openSettings as dispatchOpenSettings,
+  SETTINGS_DISMISSED_EVENT,
+} from '@/components/settings/openSettings';
 
 export function useEntrySettingsPanel() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const panel = new URLSearchParams(location.search).get('panel');
-    setSettingsOpen(panel === 'settings');
+    if (panel === 'settings') dispatchOpenSettings('designMode');
   }, [location.search]);
+
+  useEffect(() => {
+    const onDismiss = () => {
+      const params = new URLSearchParams(location.search);
+      if (params.get('panel') !== 'settings') return;
+      params.delete('panel');
+      const search = params.toString();
+      navigate(
+        {
+          pathname: location.pathname,
+          search: search ? `?${search}` : '',
+          hash: location.hash,
+        },
+        { replace: true },
+      );
+    };
+    window.addEventListener(SETTINGS_DISMISSED_EVENT, onDismiss);
+    return () =>
+      window.removeEventListener(SETTINGS_DISMISSED_EVENT, onDismiss);
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   const openSettings = () => {
     const params = new URLSearchParams(location.search);
@@ -22,29 +46,9 @@ export function useEntrySettingsPanel() {
     });
   };
 
-  const onSettingsOpenChange = (open: boolean) => {
-    if (open) {
-      openSettings();
-      return;
-    }
-    const params = new URLSearchParams(location.search);
-    params.delete('panel');
-    const search = params.toString();
-    navigate(
-      {
-        pathname: location.pathname,
-        search: search ? `?${search}` : '',
-        hash: location.hash,
-      },
-      { replace: true },
-    );
-  };
-
   return {
     location,
     navigate,
-    settingsOpen,
     openSettings,
-    onSettingsOpenChange,
   };
 }

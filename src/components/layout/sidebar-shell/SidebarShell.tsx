@@ -7,28 +7,36 @@ import { PanelLeft, PanelLeftOpen } from 'lucide-react';
 import ImageLogo from '@/assets/logo.png';
 import { useSidebar } from '@/components/layout/sidebar-context';
 import { APP_NAME } from '@/config';
-import type { Task } from '@/shared/db';
-import { useShortcut } from '@/shared/hotkeys/useShortcut';
+import { useSettingsValue } from '@/shared/db/settings';
 import { cn } from '@/shared/lib/utils';
 import { useMode } from '@/shared/modes/useMode';
 import { useLanguage } from '@/shared/providers/language-provider';
 
+import { ContextPanel } from './ContextPanel';
 import { ModeSwitcher } from './ModeSwitcher';
 import { SidebarFooter } from './SidebarFooter';
 import { SidebarHoverHotzone } from './SidebarHoverHotzone';
+import { SidebarPrimaryAction } from './SidebarPrimaryAction';
 import { SidebarRecents } from './SidebarRecents';
 import { SidebarSections } from './SidebarSections';
 
 interface SidebarShellProps {
-  tasks: Task[];
   currentTaskId?: string;
   onDeleteTask?: (taskId: string, deleteFolder?: boolean) => void;
   onToggleFavorite?: (taskId: string, favorite: boolean) => void;
   runningTaskIds?: string[];
 }
 
-export function SidebarShell({
-  tasks,
+export function SidebarShell(props: SidebarShellProps) {
+  const simpleShell = useSettingsValue().ui.simpleShell;
+  return simpleShell ? (
+    <ContextPanel {...props} />
+  ) : (
+    <LegacySidebar {...props} />
+  );
+}
+
+function LegacySidebar({
   currentTaskId,
   onDeleteTask,
   onToggleFavorite,
@@ -37,18 +45,9 @@ export function SidebarShell({
   const navigate = useNavigate();
   const { activeMode } = useMode();
   const { leftOpen, toggleLeft } = useSidebar();
-  const { tt, t } = useLanguage();
+  const { t } = useLanguage();
   const [previewOpen, setPreviewOpen] = useState(false);
   const previewTimerRef = useRef<number | null>(null);
-
-  useShortcut({
-    id: 'sidebar.toggle',
-    chord: 'mod+b',
-    scope: 'global',
-    descriptionKey: 'shortcuts.sidebarToggle.description',
-    group: 'navigation',
-    handler: toggleLeft,
-  });
 
   const clearPreviewTimer = useCallback(() => {
     if (previewTimerRef.current === null) return;
@@ -124,7 +123,13 @@ export function SidebarShell({
         )}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-4 pb-2">
-          <div className="flex min-w-0 items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            aria-label={t.nav.home}
+            title={t.nav.home}
+            className="-ml-1 flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 transition-opacity hover:opacity-80"
+          >
             <img
               src={ImageLogo}
               alt={APP_NAME}
@@ -133,7 +138,7 @@ export function SidebarShell({
             <span className="text-sidebar-foreground truncate font-mono text-lg font-medium tracking-wide">
               {APP_NAME}
             </span>
-          </div>
+          </button>
           <button
             type="button"
             onClick={toggleLeft}
@@ -149,26 +154,12 @@ export function SidebarShell({
         </div>
 
         <div className="px-3 pb-2">
-          <button
-            type="button"
-            onClick={() =>
-              activeMode.sidebar.primaryAction.onSelect({
-                navigate,
-                openSettings: () =>
-                  window.dispatchEvent(new CustomEvent('open-settings')),
-                t,
-              })
-            }
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-9 w-full cursor-pointer items-center justify-center rounded-lg px-3 text-sm font-medium transition-colors"
-          >
-            {tt(activeMode.sidebar.primaryAction.labelKey)}
-          </button>
+          <SidebarPrimaryAction />
         </div>
 
         <SidebarSections sections={activeMode.sidebar.sections} />
         <div className="bg-sidebar-border/60 my-3 h-px shrink-0" />
         <SidebarRecents
-          tasks={tasks}
           currentTaskId={currentTaskId}
           runningTaskIds={runningTaskIds}
           onDeleteTask={onDeleteTask}

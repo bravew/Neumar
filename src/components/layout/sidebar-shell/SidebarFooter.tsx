@@ -1,51 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { FeedbackDialog } from '@/components/feedback/FeedbackDialog';
 import { UserAccountMenu } from '@/components/layout/sidebar';
-import { SettingsModal } from '@/components/settings';
-import type { SettingsCategory } from '@/components/settings/types';
-import type { UserProfile } from '@/shared/db/settings';
-import { getSettings } from '@/shared/db/settings';
+import { openSettings } from '@/components/settings/openSettings';
+import { useSettingsValue } from '@/shared/db/settings';
 import { useAuth } from '@/shared/hooks/useAuth';
 
-const DEFAULT_PROFILE: UserProfile = {
-  nickname: 'Guest',
-  avatar: '',
-  customInstructions: '',
-  responseStyle: 'auto',
-  tone: 'professional',
-  proactiveSuggestions: true,
-  codeStyle: 'auto',
-};
-
-export function SidebarFooter() {
+export function SidebarFooter({
+  variant = 'expanded',
+}: {
+  variant?: 'expanded' | 'collapsed';
+}) {
   const auth = useAuth();
-  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsCategory, setSettingsCategory] = useState<
-    SettingsCategory | undefined
-  >();
+  const profile = useSettingsValue().profile;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const siteConnection = auth.getConnection('site');
   const isSignedIn = auth.isConnected('site');
-
-  useEffect(() => {
-    if (settingsOpen) return;
-    setProfile(getSettings().profile);
-  }, [settingsOpen]);
-
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const category =
-        event instanceof CustomEvent && typeof event.detail === 'string'
-          ? event.detail
-          : undefined;
-      setSettingsCategory((category as SettingsCategory) || undefined);
-      setSettingsOpen(true);
-    };
-    window.addEventListener('open-settings', handler);
-    return () => window.removeEventListener('open-settings', handler);
-  }, []);
 
   const displayAvatar = isSignedIn
     ? siteConnection?.avatarUrl || profile.avatar
@@ -60,23 +30,15 @@ export function SidebarFooter() {
   return (
     <>
       <UserAccountMenu
-        variant="expanded"
+        variant={variant}
         displayAvatar={displayAvatar}
         displayName={displayName}
         displayEmail={isSignedIn ? siteConnection?.accountEmail : undefined}
         isSignedIn={isSignedIn}
-        onSettings={() => setSettingsOpen(true)}
+        onSettings={() => openSettings()}
         onFeedback={() => setFeedbackOpen(true)}
         onSignOut={() => auth.siteLogout()}
         onSignIn={() => auth.siteLogin()}
-      />
-      <SettingsModal
-        open={settingsOpen}
-        onOpenChange={(open) => {
-          setSettingsOpen(open);
-          if (!open) setSettingsCategory(undefined);
-        }}
-        initialCategory={settingsCategory}
       />
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </>

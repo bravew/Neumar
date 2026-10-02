@@ -8,7 +8,13 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Plus } from 'lucide-react';
 
+import {
+  AsyncList,
+  type AsyncListStatus,
+} from '@/components/common/async-list';
+import { ListSkeleton } from '@/components/common/route-skeleton';
 import { Button } from '@/components/ui/button';
+import { useSettingsValue } from '@/shared/db/settings';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type {
@@ -21,6 +27,7 @@ import { AutomationCard } from './AutomationCard';
 import { AutomationCreateDialog } from './AutomationCreateDialog';
 import { AutomationEmptyState } from './AutomationEmptyState';
 import { AutomationTemplateGallery } from './AutomationTemplateGallery';
+import { OutcomeAutomationLists } from './OutcomeAutomationLists';
 
 type FilterTab =
   | 'all'
@@ -31,7 +38,7 @@ type FilterTab =
 
 interface AutomationListProps {
   automations: Automation[];
-  loading: boolean;
+  status: AsyncListStatus;
   onSelect: (automation: Automation) => void;
   onCreate: (input: CreateAutomationInput) => Promise<void>;
   onToggle: (id: string, enabled: boolean) => void;
@@ -56,7 +63,7 @@ function createdAtMs(automation: Automation): number {
 
 export function AutomationList({
   automations,
-  loading,
+  status,
   onSelect,
   onCreate,
   onToggle,
@@ -64,6 +71,7 @@ export function AutomationList({
   onDelete,
 }: AutomationListProps) {
   const { t } = useLanguage();
+  const simpleShell = useSettingsValue().ui.simpleShell;
   const [createOpen, setCreateOpen] = useState(false);
   const [createInitialValues, setCreateInitialValues] = useState<
     Partial<CreateAutomationInput> | undefined
@@ -117,11 +125,13 @@ export function AutomationList({
     [activeFilter, sortedAutomations],
   );
 
-  if (loading) {
+  if (simpleShell) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="border-primary size-6 animate-spin rounded-full border-2 border-t-transparent" />
-      </div>
+      <OutcomeAutomationLists
+        automations={automations}
+        status={status}
+        onSelect={onSelect}
+      />
     );
   }
 
@@ -139,7 +149,7 @@ export function AutomationList({
       </div>
 
       {/* Filter Tabs */}
-      {automations.length > 0 && (
+      {automations.length > 0 && status === 'ready' && (
         <div className="flex flex-wrap gap-1 rounded-lg border p-1">
           {FILTER_TABS.map((tab) => (
             <button
@@ -161,32 +171,44 @@ export function AutomationList({
         </div>
       )}
 
-      {/* Template Gallery — shown when empty */}
-      {automations.length === 0 && (
-        <AutomationTemplateGallery onSelect={openWithTemplate} />
-      )}
-
-      {/* Content */}
-      {automations.length === 0 ? (
-        <AutomationEmptyState onCreate={openBlank} />
-      ) : filtered.length === 0 ? (
-        <div className="text-muted-foreground py-12 text-center text-sm">
-          {t.automation.noMatch}
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((automation) => (
-            <AutomationCard
-              key={automation.id}
-              automation={automation}
-              onClick={() => onSelect(automation)}
-              onToggle={(enabled) => onToggle(automation.id, enabled)}
-              onTrigger={() => onTrigger(automation.id)}
-              onDelete={() => onDelete(automation.id)}
-            />
-          ))}
-        </div>
-      )}
+      <AsyncList
+        status={status}
+        empty={automations.length === 0}
+        renderSkeleton={() => <ListSkeleton rows={3} />}
+        renderError={() => (
+          <p
+            className="text-destructive py-12 text-center text-sm"
+            role="alert"
+          >
+            {t.automation.errors.generic}
+          </p>
+        )}
+        renderEmpty={() => (
+          <>
+            <AutomationTemplateGallery onSelect={openWithTemplate} />
+            <AutomationEmptyState onCreate={openBlank} />
+          </>
+        )}
+      >
+        {filtered.length === 0 ? (
+          <div className="text-muted-foreground py-12 text-center text-sm">
+            {t.automation.noMatch}
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((automation) => (
+              <AutomationCard
+                key={automation.id}
+                automation={automation}
+                onClick={() => onSelect(automation)}
+                onToggle={(enabled) => onToggle(automation.id, enabled)}
+                onTrigger={() => onTrigger(automation.id)}
+                onDelete={() => onDelete(automation.id)}
+              />
+            ))}
+          </div>
+        )}
+      </AsyncList>
 
       {/* Create Dialog */}
       <AutomationCreateDialog

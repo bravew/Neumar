@@ -1,5 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+// Specs create and delete projects and write settings, so the API they
+// start runs on a throwaway data directory (#166). Set it once here; workers
+// inherit the environment, so they don't create their own. Reusing an API
+// that is already running (a dev server on your real data) is opt-in.
+const reuseApi = process.env.PLAYWRIGHT_REUSE_API === '1';
+if (!reuseApi && !process.env.NEUMAR_APP_DATA_DIR) {
+  process.env.NEUMAR_APP_DATA_DIR = mkdtempSync(join(tmpdir(), 'neumar-e2e-'));
+}
+
 const frontendUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3420';
 const frontendOrigin = new URL(frontendUrl).origin;
 
@@ -32,7 +45,9 @@ const webServer =
           command: 'node --import tsx --env-file-if-exists=.env src/index.ts',
           cwd: './src-api',
           url: 'http://127.0.0.1:5126/health',
-          reuseExistingServer: true,
+          // Off by default: a dev API on 5126 now fails the run with "port
+          // already used" instead of being driven against real data.
+          reuseExistingServer: reuseApi,
           env: { ...process.env, CI: 'true' },
           timeout: 30_000,
         },

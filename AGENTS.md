@@ -186,7 +186,9 @@ over `test/evals/**/*.eval.ts` only, and the real-server suite uses
 [vitest.e2e.config.ts](src-api/vitest.e2e.config.ts); browser tests use
 [playwright.config.ts](playwright.config.ts). `pnpm test:e2e` and
 `pnpm test:e2e:browser` lack the same prebuild hooks: build video IR first with
-`pnpm --filter @neumar/video-ir build` when needed.
+`pnpm --filter @neumar/video-ir build` when needed. Playwright starts its own API
+on a temporary `NEUMAR_APP_DATA_DIR`; if a dev API already holds port 5126 the run
+stops, unless `PLAYWRIGHT_REUSE_API=1`, which drives that server's real data.
 
 The exact `validate` command is in [package.json](package.json). It runs branding,
 frontend lint, locale/design/routing/dependency/plugin/skill consistency checks,
@@ -245,8 +247,10 @@ scans only `src/components/**/*.tsx`: default 350 lines, with existing ceilings 
   application database.
 - **MCP:** [shared/mcp/loader.ts](src-api/src/shared/mcp/loader.ts) loads the app's
   `mcp.json` via the app-data path helper. Its default is the brand-specific home
-  directory, with `NEUMAR_APP_DATA_DIR` override support in
-  [utils/paths.ts](src-api/src/shared/utils/paths.ts). Channel user configuration
+  directory. `NEUMAR_APP_DATA_DIR` moves all API data (database, logs, sessions,
+  design and video projects) through
+  [config/app-dir.ts](src-api/src/config/app-dir.ts); build new app-data paths
+  with `getAppDir()`, not `homedir()`. Channel user configuration
   can overlay it via `shared/mcp/per-user-loader.ts`. Do not assume automatic
   merging of Claude's `settings.json`; inspect the adapter's own loader separately.
 - **Channels:** `shared/channels/channel-manager.ts` loads Slack, Discord, Telegram,

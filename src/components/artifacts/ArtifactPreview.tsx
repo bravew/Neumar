@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 
+import { AskAboutThis } from '@/components/chat-dock/AskAboutThis';
 import { MermaidView } from '@/components/mermaid/MermaidView';
 import { VitePreview } from '@/components/task/VitePreview';
 import {
@@ -55,7 +56,6 @@ import {
 import { VideoPreview } from './VideoPreview';
 import { WebSearchPreview } from './WebSearchPreview';
 
-// Expandable text component for long content
 function ExpandableText({
   text,
   maxLength = 100,
@@ -522,12 +522,12 @@ export function ArtifactPreview({
         isFullscreen && 'fixed inset-0 z-50',
       )}
     >
-      {/* Header */}
       <div className="border-border/50 bg-muted/30 flex shrink-0 items-center justify-between border-b px-4 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="text-foreground truncate text-sm font-medium">
             {artifact.name}
           </span>
+          <AskAboutThis item={{ kind: 'artifact', name: artifact.name }} />
           <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase">
             {getFileExtension(artifact.name) || artifact.type}
           </span>

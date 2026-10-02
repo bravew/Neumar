@@ -49,10 +49,11 @@ overrides:
   # satisfied range, so the floor itself has to move.
   protobufjs: '^7.6.5'
   # CVE-2024-39338 (axios SSRF) — keep transitives on a patched minor.
-  # Raised floor to 1.18.1 2026-08-08 — 10 more advisories (DoS,
-  # prototype pollution, maxBodyLength/proxy bypasses) fixed at 1.18.0;
-  # same stale-resolution reason as protobufjs above.
-  axios: '^1.18.1'
+  # Raised floor to 1.20.0 2026-09-30 — high advisories through 1.19.0
+  # (ReDoS, prototype pollution, HTTP/2 DNS/proxy bypass, redirect SSRF)
+  # are fixed at 1.20.0. `pnpm install` does not re-resolve inside an
+  # already-satisfied range, so the floor itself has to move.
+  axios: '1.20.0'
   # workbox lineage required by vite-plugin-pwa; pin until plugin catches up.
   # Re-checked 2026-08-21 (G3) — no newer vite-plugin-pwa release yet.
   workbox-build: '^7.4.1'
@@ -122,6 +123,17 @@ peerDependencyRules:
     # imports the current Anthropic SDK directly.
     '@anthropic-ai/sdk': '>=0.57.0 <1.0.0'
 
+auditConfig:
+  ignoreGhsas:
+    # node-forge <=1.4.0: RSA PKCS#1 v1.5 signature verification accepts
+    # extra DigestAlgorithm elements. No patched release exists (advisory
+    # first_patched_version is null; 1.4.0 is latest). The only path is
+    # src-api > @anthropic-ai/sandbox-runtime, which uses node-forge to
+    # generate keys and sign its MITM proxy CA and leaf certificates; it never
+    # verifies signatures. Remove when node-forge or sandbox-runtime ships a
+    # fix. Reviewed 2026-10-02.
+    - GHSA-86w9-cpqp-85rv
+
 minimumReleaseAgeExclude:
   - read-excel-file@9.3.10
   - '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.3.239'
@@ -156,6 +168,7 @@ minimumReleaseAgeExclude:
   - '@tauri-apps/plugin-sql@2.5.0'
   - '@tauri-apps/plugin-stronghold@2.4.0'
   - '@tauri-apps/plugin-updater@2.13.0'
+  - axios@1.20.0
   - ws@8.22.0
   - react-resizable-panels@4.14.1
   - hyperframes@0.8.80

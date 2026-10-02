@@ -4,6 +4,11 @@ export default {
   // Categories
   account: 'Conta',
   general: 'Geral',
+  pageAgents: 'Agentes e habilidades',
+  pageChannels: 'Canais de mensagem',
+  pageSecureStore: 'Cofre seguro',
+  pageData: 'Controles de dados',
+  pageHelp: 'Ajuda e sobre',
   workplace: 'Workspace',
   model: 'Modelo',
   agentRuntimes: 'Runtimes do agente',
@@ -443,6 +448,10 @@ export default {
   advancedMode: 'Modo Avançado',
   advancedModeDescription:
     'Desbloqueia recursos experimentais como a Visão da Organização e controles de agente estendidos. Destinado a usuários avançados.',
+  simpleShell: 'Interface simples',
+  simpleShellDescription:
+    'Experimente o layout mais simples, com a barra de ícones, o chat encaixado e a nova janela de configurações.',
+  usageActivityOpens: '{name} foi aberto {count} vezes neste dispositivo.',
   artifactsV2: 'Artefatos ao Vivo (Beta)',
   artifactsV2Description:
     'Transmita HTML, SVG, Mermaid e Markdown gerados pelo agente para uma pré-visualização ao vivo em sandbox ao lado do chat.',
@@ -1393,6 +1402,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'Redefinir todas as configurações para os padrões — suas tarefas permanecem intactas.',
   dataClearAll: 'Limpar Tudo',
+  resetProduct: 'Redefinir {name}',
   dataClearAllDescription:
     'Excluir todas as tarefas, mensagens e configurações — uma redefinição completa.',
   dataClearTasksConfirm:
@@ -2080,6 +2090,23 @@ export default {
 
   // Permissões
   permissions: 'Permissões',
+  presetAskWhen: 'Quando devo perguntar?',
+  presetPlan: 'Perguntar antes de passos importantes',
+  presetPlanCaption: 'Esperar um plano antes de continuar.',
+  presetAsk: 'Pular o plano',
+  presetAskCaption: 'Começar sem uma etapa de plano.',
+  presetAuto: 'Aprovar o plano',
+  presetAutoCaption: 'Continuar quando o plano estiver pronto.',
+  presetCustom: 'Personalizado',
+  presetCustomCaption: 'As regras de ferramentas foram editadas à mão.',
+  whereCodeRuns: 'Onde o código é executado?',
+  managePermissions: 'Gerenciar permissões',
+  permissionTools: 'Ferramentas',
+  permissionFolders: 'Pastas',
+  permissionConnectors: 'Conectores',
+  connectedProviders: 'Provedores conectados',
+  providerConnected: 'Conectado',
+  modelsAdvanced: 'Avançado',
   permissionRulesDescription:
     'Configure quais ferramentas são automaticamente permitidas, negadas ou requerem confirmação.',
   alwaysAllow: 'Sempre permitir',

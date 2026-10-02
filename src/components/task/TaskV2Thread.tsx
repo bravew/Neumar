@@ -7,17 +7,21 @@ import { Virtuoso } from 'react-virtuoso';
 import type { Artifact } from '@/components/artifacts/types';
 import { ChatInput } from '@/components/shared/ChatInput';
 import {
+  enqueueEditedCommand,
+  flushEditedCommand,
+} from '@/components/task/edited-command-queue';
+import {
   groupMessages,
   renderGroupedItem,
   type GroupedItem,
   type GroupedItemRenderContext,
 } from '@/components/task/GroupedMessageList';
 import { appendOutputArtifactsItem } from '@/components/task/outputArtifactItems';
-import { PermissionDialog } from '@/components/task/PermissionDialog';
 import { RunErrorBubble } from '@/components/task/RunErrorBubble';
 import { RunTreeView } from '@/components/task/RunTreeView';
 import { StreamSignalBanner } from '@/components/task/StreamSignalBanner';
 import { SubAgentPanel } from '@/components/task/SubAgentPanel';
+import { TaskThreadActions } from '@/components/task/task-thread-actions';
 import {
   buildAgentPrompt,
   checkEmptyRun,
@@ -25,6 +29,10 @@ import {
   resolveAttachmentsForSubmit,
 } from '@/components/task/taskV2-submit-helpers';
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble';
+import {
+  appendPermissionItems,
+  injectBranchNav,
+} from '@/components/task/thread-items';
 import { createMessage } from '@/shared/db';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
 import { useAgentActions } from '@/shared/hooks/useAgentActions';
@@ -67,6 +75,7 @@ export function TaskV2Thread({
   workDir,
   additionalWorkDirs,
   allArtifacts,
+  promptPrefix,
 }: {
   attachmentMapRef?: React.RefObject<Map<string, MessageAttachment[]>>;
   taskId?: string;
@@ -81,6 +90,8 @@ export function TaskV2Thread({
   /** Additional workspace directories for multi-folder access */
   additionalWorkDirs?: string[];
   allArtifacts?: Artifact[];
+  /** Prepended to the next message only, then reported through `onUsed`. */
+  promptPrefix?: { text: string; onUsed: () => void };
 }) {
   const { agent } = useAgent();
   const { t } = useLanguage();
@@ -105,6 +116,9 @@ export function TaskV2Thread({
 
   const modelConfigRef = useRef(modelConfig);
   modelConfigRef.current = modelConfig;
+
+  const promptPrefixRef = useRef(promptPrefix);
+  promptPrefixRef.current = promptPrefix;
 
   // ── Extracted hooks ──
   const { runError, setRunError, clearRunError } = useRunError(
@@ -194,10 +208,12 @@ export function TaskV2Thread({
         workDirRef.current,
       );
 
+      const prefix = promptPrefixRef.current;
       const { prompt, imageBlocks } = buildAgentPrompt(
-        text,
+        prefix ? `${prefix.text}\n\n${text}` : text,
         resolvedAttachments,
       );
+      prefix?.onUsed();
 
       const msgId = randomUUID();
       if (resolvedAttachments && resolvedAttachments.length > 0) {
@@ -356,124 +372,115 @@ export function TaskV2Thread({
   // Build grouped items for Virtuoso, then inject branch-nav items at fork points
   const groupedItems = useMemo(() => {
     const items = groupMessages(messages, pendingPlan, isWaitingApproval);
-    if (!branchState?.branchMeta.length) {
-      return appendOutputArtifactsItem(items, allArtifacts);
-    }
+    const listed = !branchState?.branchMeta.length
+      ? appendOutputArtifactsItem(items, allArtifacts)
+      : appendOutputArtifactsItem(
+          injectBranchNav(items, branchState),
+          allArtifacts,
+        );
+    return appendPermissionItems(listed, permissionRequests);
+  }, [
+    messages,
+    pendingPlan,
+    isWaitingApproval,
+    branchState,
+    allArtifacts,
+    permissionRequests,
+  ]);
 
-    // Group branch metadata by fork point
-    const forkPointMap = new Map<
-      string | number,
-      { branches: typeof branchState.branchMeta; selectedIndex: number }
-    >();
-    for (const meta of branchState.branchMeta) {
-      const existing = forkPointMap.get(meta.forkPointId);
-      if (existing) {
-        existing.branches.push(meta);
-      } else {
-        forkPointMap.set(meta.forkPointId, {
-          branches: [meta],
-          selectedIndex: 0,
-        });
+  const queuedEditRef = useRef<string | null>(null);
+  const sendEditedCommand = useCallback(
+    (text: string) => {
+      const next = enqueueEditedCommand(effectiveIsRunning, text);
+      if (next.deliver) {
+        handleSendMessage(next.deliver);
+        return;
       }
-    }
+      queuedEditRef.current = next.queued;
+    },
+    [effectiveIsRunning, handleSendMessage],
+  );
 
-    // Inject branch-nav items after messages that are fork points
-    const result: GroupedItem[] = [];
-    for (const item of items) {
-      result.push(item);
-      if (item.type === 'message' && forkPointMap.has(item.msg.id)) {
-        const fork = forkPointMap.get(item.msg.id)!;
-        const allBranches = ['main', ...fork.branches.map((b) => b.branchId)];
-        const selectedBranchId =
-          branchState.branchSelections[item.msg.id] ?? 'main';
-        const currentIndex = Math.max(0, allBranches.indexOf(selectedBranchId));
-        result.push({
-          type: 'branch-nav',
-          key: `branch-nav-${item.msg.id}`,
-          forkPointId: item.msg.id,
-          branches: fork.branches,
-          currentIndex,
-          totalBranches: allBranches.length,
-        });
-      }
-    }
-    return appendOutputArtifactsItem(result, allArtifacts);
-  }, [messages, pendingPlan, isWaitingApproval, branchState, allArtifacts]);
+  useEffect(() => {
+    const delivery = flushEditedCommand(
+      effectiveIsRunning,
+      queuedEditRef.current,
+    );
+    if (!delivery.deliver) return;
+    queuedEditRef.current = null;
+    handleSendMessage(delivery.deliver);
+  }, [effectiveIsRunning, handleSendMessage]);
 
   return (
-    <div className="flex h-full min-w-0 flex-col overflow-hidden">
-      <VirtuosoMessageList
-        groupedItems={groupedItems}
-        messages={messages}
-        isRunning={effectiveIsRunning}
-        thinkingLabel={t.task.thinking}
-        attachmentMap={resolvedAttachmentMapRef.current}
-        allArtifacts={allArtifacts}
-        onSendMessage={handleSendMessage}
-        onApprovePlan={handleApprovePlan}
-        onRejectPlan={handleRejectPlan}
-        onCancelTool={effectiveIsRunning ? handleCancelTool : undefined}
-        onEditMessage={handleEditMessage}
-        onRegenerate={handleRegenerate}
-        onForkFromHere={handleForkFromHere}
-        onBranchNavigate={handleBranchNavigate}
-        scrollToBottomLabel={t.common.scrollToBottom}
-      />
-
-      {/* Permission dialogs, sub-agents, errors — outside virtualized list */}
-      {(permissionRequests.length > 0 || subAgents.length > 0 || runError) && (
-        <div className="mx-auto max-w-4xl px-4">
-          {permissionRequests.map((perm) => (
-            <PermissionDialog
-              key={perm.id}
-              permission={perm}
-              onRespond={handlePermissionRespond}
-              isResolved={perm.resolved}
-              resolvedDecision={perm.decision}
-            />
-          ))}
-
-          {subAgents.length > 0 && (
-            <SubAgentPanel
-              subAgents={subAgents}
-              onCancel={handleCancelSubAgent}
-            />
-          )}
-
-          {/* Persisted run tree (post-stream) — additive to the live SubAgentPanel above. */}
-          {taskId && <RunTreeView taskId={taskId} />}
-
-          {runError && (
-            <RunErrorBubble
-              errorLabel={t.task.agentError ?? 'Error'}
-              message={runError}
-              onDismiss={clearRunError}
-            />
-          )}
-        </div>
-      )}
-
-      {effectiveIsRunning && (
-        <div className="text-muted-foreground mx-auto flex max-w-4xl items-center gap-2 px-4 py-2 text-xs">
-          <span className="border-primary inline-block h-3 w-3 animate-spin rounded-full border-2 border-t-transparent" />
-          {!pendingPlan ? t.task.planning : t.task.runningEllipsis}
-        </div>
-      )}
-
-      <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-        <StreamSignalBanner key={taskId} agent={agent} taskId={taskId} />
-        <ChatInput
-          variant="reply"
+    <TaskThreadActions
+      sessionRoot={workDir}
+      respondToPermission={handlePermissionRespond}
+      sendMessage={sendEditedCommand}
+    >
+      <div className="flex h-full min-w-0 flex-col overflow-hidden">
+        <VirtuosoMessageList
+          groupedItems={groupedItems}
+          messages={messages}
           isRunning={effectiveIsRunning}
-          onSubmit={handleSubmit}
-          onStop={handleStop}
-          placeholder={t.task.continueConversation}
-          autoFocus
-          selectedModel={selectedModel}
-          onModelChange={onModelChange}
+          thinkingLabel={t.task.thinking}
+          attachmentMap={resolvedAttachmentMapRef.current}
+          allArtifacts={allArtifacts}
+          onSendMessage={handleSendMessage}
+          onApprovePlan={handleApprovePlan}
+          onRejectPlan={handleRejectPlan}
+          onCancelTool={effectiveIsRunning ? handleCancelTool : undefined}
+          onEditMessage={handleEditMessage}
+          onRegenerate={handleRegenerate}
+          onForkFromHere={handleForkFromHere}
+          onBranchNavigate={handleBranchNavigate}
+          scrollToBottomLabel={t.common.scrollToBottom}
         />
+
+        {/* Permission dialogs, sub-agents, errors — outside virtualized list */}
+        {(subAgents.length > 0 || runError) && (
+          <div className="mx-auto max-w-4xl px-4">
+            {subAgents.length > 0 && (
+              <SubAgentPanel
+                subAgents={subAgents}
+                onCancel={handleCancelSubAgent}
+              />
+            )}
+
+            {/* Persisted run tree (post-stream) — additive to the live SubAgentPanel above. */}
+            {taskId && <RunTreeView taskId={taskId} />}
+
+            {runError && (
+              <RunErrorBubble
+                errorLabel={t.task.agentError ?? 'Error'}
+                message={runError}
+                onDismiss={clearRunError}
+              />
+            )}
+          </div>
+        )}
+
+        {effectiveIsRunning && (
+          <div className="text-muted-foreground mx-auto flex max-w-4xl items-center gap-2 px-4 py-2 text-xs">
+            <span className="border-primary inline-block h-3 w-3 animate-spin rounded-full border-2 border-t-transparent" />
+            {!pendingPlan ? t.task.planning : t.task.runningEllipsis}
+          </div>
+        )}
+
+        <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+          <StreamSignalBanner key={taskId} agent={agent} taskId={taskId} />
+          <ChatInput
+            variant="reply"
+            isRunning={effectiveIsRunning}
+            onSubmit={handleSubmit}
+            onStop={handleStop}
+            placeholder={t.task.continueConversation}
+            autoFocus
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+          />
+        </div>
       </div>
-    </div>
+    </TaskThreadActions>
   );
 }
 

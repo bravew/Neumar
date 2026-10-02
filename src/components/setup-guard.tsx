@@ -13,9 +13,14 @@ import { useNavigate } from 'react-router-dom';
 
 import { OnboardingPage } from '@/app/pages/Onboarding';
 import { SetupPage } from '@/app/pages/Setup';
+import { resolveFirstRun } from '@/components/onboarding/first-run-route';
 import { AILoadingIndicator } from '@/components/ui/AILoadingIndicator';
 import { API_BASE_URL } from '@/config';
-import { getSettingItem, ONBOARDING_VERSION } from '@/shared/db/settings';
+import {
+  getSettingItem,
+  ONBOARDING_VERSION,
+  useSettingsValue,
+} from '@/shared/db/settings';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 interface SetupGuardProps {
@@ -134,9 +139,19 @@ export function markQuickstartDone() {
   cachedQuickstartDone = true;
 }
 
+/**
+ * For flows that finish onboarding outside SetupGuard (the `/onboarding`
+ * route). Without it the guard keeps its cached `false` and sends the user
+ * straight back into the flow.
+ */
+export function markOnboardingDone() {
+  cachedOnboardingDone = true;
+}
+
 export function SetupGuard({ children }: SetupGuardProps) {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const simpleShell = useSettingsValue().ui.simpleShell;
   const [checking, setChecking] = useState(true);
   const [installed, setInstalled] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(true); // default true to avoid flash
@@ -160,9 +175,21 @@ export function SetupGuard({ children }: SetupGuardProps) {
         setOnboardingDone(isDone);
 
         // If onboarding done but quickstart not, redirect
-        if (isDone && !quickstartDone) {
+        if (simpleShell) {
+          const destination = resolveFirstRun({
+            cliInstalled: isInstalled,
+            onboardingCompleted: isDone,
+            onboardingVersionMatches: isDone,
+            quickstartCompleted: quickstartDone,
+          });
+          if (destination.kind === 'onboarding') {
+            navigate(`/onboarding?step=${destination.step}`, { replace: true });
+          }
+        } else if (isDone && !quickstartDone) {
           navigate('/quickstart', { replace: true });
         }
+      } else if (simpleShell) {
+        navigate('/onboarding?step=install', { replace: true });
       }
 
       setChecking(false);
@@ -173,7 +200,7 @@ export function SetupGuard({ children }: SetupGuardProps) {
     return () => {
       mounted = false;
     };
-  }, [navigate]);
+  }, [navigate, simpleShell]);
 
   const handleOnboardingComplete = useCallback(() => {
     cachedOnboardingDone = true;
@@ -185,7 +212,7 @@ export function SetupGuard({ children }: SetupGuardProps) {
   // Loading state
   if (checking) {
     return (
-      <div className="bg-background flex min-h-svh items-center justify-center">
+      <div className="bg-background flex min-h-svh min-w-0 flex-1 items-center justify-center">
         <div className="flex flex-col items-center gap-8">
           <AILoadingIndicator size="xl" />
           <p className="text-muted-foreground text-base">
@@ -196,26 +223,50 @@ export function SetupGuard({ children }: SetupGuardProps) {
     );
   }
 
+  if (!checking && simpleShell && !installed) return null;
+
   // Not installed - show SetupPage with skip callback
   if (!installed) {
     return (
-      <SetupPage
-        onSkip={async () => {
-          // Check onboarding BEFORE setting installed to avoid a flash
-          // where children render briefly while onboarding check is pending
-          const isDone = await checkOnboardingCompleted();
-          setOnboardingDone(isDone);
-          setInstalled(true);
-        }}
-      />
+      <FirstRunLayer>
+        <SetupPage
+          onSkip={async () => {
+            // Check onboarding BEFORE setting installed to avoid a flash
+            // where children render briefly while onboarding check is pending
+            const isDone = await checkOnboardingCompleted();
+            setOnboardingDone(isDone);
+            setInstalled(true);
+          }}
+        />
+      </FirstRunLayer>
     );
   }
 
   // Dependencies OK but onboarding not completed - show onboarding
   if (!onboardingDone) {
-    return <OnboardingPage onComplete={handleOnboardingComplete} />;
+    return (
+      <FirstRunLayer>
+        <OnboardingPage onComplete={handleOnboardingComplete} />
+      </FirstRunLayer>
+    );
   }
 
   // All good
   return <>{children}</>;
+}
+
+/**
+ * The guard renders inside the routed page, which sits in the app shell. A
+ * first run owns the whole window, so it covers the shell instead of
+ * squeezing into the page region beside the sidebar.
+ */
+function FirstRunLayer({ children }: { children: ReactNode }) {
+  return (
+    <div
+      data-testid="first-run-layer"
+      className="bg-background fixed inset-0 z-50 overflow-y-auto"
+    >
+      {children}
+    </div>
+  );
 }

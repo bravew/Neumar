@@ -33,11 +33,23 @@ export function TaskInput() {
   const { messages, isRunning, runAgent, stopAgent, setSessionInfo } =
     useAgent();
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
+  const [prefill, setPrefill] = useState('');
 
   useEffect(() => {
     const handler = () => setComposerFocusNonce((n) => n + 1);
+    const onPrefill = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      if (typeof detail?.prompt === 'string') {
+        setPrefill(detail.prompt);
+        setComposerFocusNonce((n) => n + 1);
+      }
+    };
     window.addEventListener('tasks:focus-composer', handler);
-    return () => window.removeEventListener('tasks:focus-composer', handler);
+    window.addEventListener('ideas:prefill', onPrefill);
+    return () => {
+      window.removeEventListener('tasks:focus-composer', handler);
+      window.removeEventListener('ideas:prefill', onPrefill);
+    };
   }, []);
 
   // Build quick actions from i18n — memoized to avoid re-creating on every render
@@ -123,6 +135,8 @@ export function TaskInput() {
       <ChatInput
         key={composerFocusNonce}
         autoFocus={composerFocusNonce > 0}
+        initialValue={prefill}
+        initialValueNonce={composerFocusNonce}
         variant="home"
         placeholder={t.home.inputPlaceholder}
         isRunning={isRunning}

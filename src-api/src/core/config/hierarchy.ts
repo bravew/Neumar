@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { resolveAppDir } from '@/config/app-dir';
 import { APP_DATA_DIR } from '@/config/branding';
 
 import { getSetting } from '@/shared/db/operations';
@@ -39,7 +39,7 @@ export class ConfigHierarchy {
     this.layers.clear();
 
     // 1. User: ~/.<slug>/settings.json
-    const userPath = join(homedir(), APP_DATA_DIR, 'settings.json');
+    const userPath = join(resolveAppDir(), 'settings.json');
     this.loadFile('user', userPath);
 
     // 2. Project: {workDir}/.<slug>/settings.json

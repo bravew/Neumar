@@ -6,7 +6,6 @@ import { Clapperboard, FileCode2, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { CreativeIntentEntry } from '@/components/creative/CreativeIntentEntry';
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
 import { ActivePluginChip } from '@/components/plugins/ActivePluginChip';
 import {
   NewVideoProjectForm,
@@ -285,11 +284,8 @@ export function VideoModeRoute() {
   };
 
   return (
-    <SidebarProvider>
-      <div className="bg-sidebar flex h-screen overflow-hidden">
-        <div className="hidden md:block">
-          <LeftSidebar tasks={[]} />
-        </div>
+    <>
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <main className="bg-background flex min-w-0 flex-1 flex-col overflow-hidden shadow-sm md:my-2 md:mr-2 md:rounded-2xl">
           <section className="flex flex-1 flex-col overflow-auto px-4 py-5 sm:px-6 sm:py-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -418,6 +414,6 @@ export function VideoModeRoute() {
         }}
         onConfirm={() => void confirmDelete()}
       />
-    </SidebarProvider>
+    </>
   );
 }

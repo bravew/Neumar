@@ -75,7 +75,6 @@ export function DesignProjectView({
   const [chatPanelWidth, setChatPanelWidth] = useStoredChatPanelWidth(
     project.id,
   );
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [chatSidebarTab, setChatSidebarTab] =
     useState<ProjectChatSidebarTab>('chat');
   const openProjectFile = useProjectFileNavigation();
@@ -152,7 +151,6 @@ export function DesignProjectView({
     promptAvailable: Boolean(resolved.system || resolved.user),
     setPromptDrawer,
     setDebugOpen,
-    setSettingsOpen,
     onRouteDebug: loadDebugSnapshot,
   });
 
@@ -453,9 +451,7 @@ export function DesignProjectView({
         debugSnapshot={debugSnapshot}
         debugLoading={debugLoading}
         debugError={debugError}
-        settingsOpen={settingsOpen}
         onClosePanel={() => setRoutePanel(null)}
-        onSettingsOpenChange={(open) => setRoutePanel(open ? 'settings' : null)}
       />
     </div>
   );

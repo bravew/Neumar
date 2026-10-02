@@ -22,7 +22,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { APP_DATA_DIR } from '@/config/branding';
+import { resolveAppDir } from '@/config/app-dir';
 
 import { logUsage } from '@/shared/services/usage-logger';
 import { createLogger } from '@/shared/utils/logger';
@@ -189,8 +189,7 @@ let loadingPhase:
  * automatically on first use to ~/.<slug>/cache/embeddings/.
  */
 function getModelCacheDir(): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  const cacheDir = join(homeDir, APP_DATA_DIR, 'cache', 'embeddings');
+  const cacheDir = join(resolveAppDir(), 'cache', 'embeddings');
   mkdirSync(cacheDir, { recursive: true });
   return cacheDir;
 }

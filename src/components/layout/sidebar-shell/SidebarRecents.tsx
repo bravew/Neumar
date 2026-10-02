@@ -1,16 +1,20 @@
 import { useState } from 'react';
 
+import { useParams } from 'react-router-dom';
+
 import { Search } from 'lucide-react';
 
-import type { Task } from '@/shared/db';
 import { useMode } from '@/shared/modes/useMode';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { DesignRecents } from './recents/DesignRecents';
 import { TasksRecents } from './recents/TasksRecents';
+import { VideoRecents } from './recents/VideoRecents';
+import { useSidebarTasks } from './useSidebarTasks';
+
+const RECENTS_MODES = new Set(['tasks', 'design', 'video']);
 
 interface SidebarRecentsProps {
-  tasks: Task[];
   currentTaskId?: string;
   runningTaskIds: string[];
   onDeleteTask?: (taskId: string, deleteFolder?: boolean) => void;
@@ -18,15 +22,19 @@ interface SidebarRecentsProps {
 }
 
 export function SidebarRecents({
-  tasks,
   currentTaskId,
   runningTaskIds,
   onDeleteTask,
   onToggleFavorite,
 }: SidebarRecentsProps) {
   const { activeMode } = useMode();
+  const { projectId } = useParams();
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
+  const { tasks, status, removeTask, setTaskFavorite } = useSidebarTasks();
+
+  // A mode without a recents source would only ever show a false empty.
+  if (!RECENTS_MODES.has(activeMode.id)) return null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-3">
@@ -46,20 +54,25 @@ export function SidebarRecents({
       </label>
       <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto">
         {activeMode.id === 'design' ? (
-          <DesignRecents searchQuery={searchQuery} activeId={currentTaskId} />
-        ) : activeMode.id === 'tasks' ? (
+          <DesignRecents searchQuery={searchQuery} activeId={projectId} />
+        ) : activeMode.id === 'video' ? (
+          <VideoRecents searchQuery={searchQuery} activeId={projectId} />
+        ) : (
           <TasksRecents
             tasks={tasks}
+            status={status}
             currentTaskId={currentTaskId}
             runningTaskIds={runningTaskIds}
             searchQuery={searchQuery}
-            onDeleteTask={onDeleteTask}
-            onToggleFavorite={onToggleFavorite}
+            onDeleteTask={(taskId, deleteFolder) => {
+              removeTask(taskId);
+              onDeleteTask?.(taskId, deleteFolder);
+            }}
+            onToggleFavorite={(taskId, favorite) => {
+              setTaskFavorite(taskId, favorite);
+              onToggleFavorite?.(taskId, favorite);
+            }}
           />
-        ) : (
-          <p className="text-sidebar-foreground/50 px-2 py-2 text-xs">
-            {t.nav.noRecentItems}
-          </p>
         )}
       </div>
     </div>

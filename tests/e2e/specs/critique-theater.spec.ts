@@ -34,7 +34,7 @@ test.describe('Critique Theater', () => {
       createdProjectIds.push(projectId);
 
       await page.goto(`/design/${projectId}`);
-      await page.getByRole('button', { name: /^design jury$/i }).click();
+      await runDesignJury(page);
 
       const theater = page.getByTestId('critique-theater-mount');
       await expect(theater).toBeVisible();
@@ -57,12 +57,17 @@ test.describe('Critique Theater', () => {
     createdProjectIds.push(projectId);
 
     await page.goto(`/design/${projectId}`);
-    await page.getByRole('button', { name: /^design jury$/i }).click();
+    await runDesignJury(page);
 
     await expect(page.getByTestId('critique-theater-mount')).toBeVisible();
     await expect(page.getByText('Interrupted')).toBeVisible();
   });
 });
+
+async function runDesignJury(page: Page) {
+  await page.getByRole('button', { name: /^more actions$/i }).click();
+  await page.getByRole('menuitem', { name: /^design jury$/i }).click();
+}
 
 async function seedSettings(page: Page) {
   await page.addInitScript(() => {
@@ -87,7 +92,7 @@ async function createProject() {
     '/design/projects',
     {
       title,
-      surface: 'document',
+      surface: 'image',
       intent: 'other',
       brief: { prompt: 'Critique theater browser fixture.' },
     },
@@ -104,6 +109,22 @@ async function mockJuryApi(page: Page, fixture: 'happy' | 'interrupt') {
   );
   const events = await fs.readFile(fixturePath, 'utf8');
 
+  await page.route('**/design/critique/rollout', async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        rollout: {
+          phase: 'GA',
+          rolloutPhase: 'GA',
+          userOverride: 'auto',
+          promotedAt: {},
+          canPromote: false,
+          canRollback: true,
+        },
+      }),
+    });
+  });
   await page.route('**/design/design-jury/status', async (route) => {
     await route.fulfill({
       status: 200,

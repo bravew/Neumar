@@ -45,8 +45,9 @@ test.describe('Library Page', () => {
     await page.waitForLoadState('networkidle');
 
     // Should show task titles
-    await expect(page.getByText('Build a calculator')).toBeVisible();
-    await expect(page.getByText('Write tests')).toBeVisible();
+    const list = page.getByRole('main');
+    await expect(list.getByText('Build a calculator')).toBeVisible();
+    await expect(list.getByText('Write tests')).toBeVisible();
   });
 
   test('clicking a task navigates to task detail', async ({ page }) => {
@@ -75,7 +76,7 @@ test.describe('Library Page', () => {
     );
 
     // Click the first task
-    await page.getByText('Build a calculator').click();
+    await page.getByRole('main').getByText('Build a calculator').click();
 
     // Should navigate to task detail
     await page.waitForURL(/\/task/, { timeout: 5_000 });
@@ -151,5 +152,26 @@ test.describe('Library Page', () => {
 
     await expect(page.getByText('clip.mp4')).toBeVisible();
     await expect(page.getByText('By Avery on OpenVerse')).toBeVisible();
+  });
+
+  test('simple shell sends legacy library tabs to their new homes', async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const settings = JSON.parse(
+        window.localStorage.getItem('neumar_settings') || '{}',
+      ) as Record<string, unknown>;
+      settings.ui = { simpleShell: true };
+      settings.language = 'en-US';
+      window.localStorage.setItem('neumar_settings', JSON.stringify(settings));
+    });
+
+    await page.goto('/library?tab=cloud-storage');
+    await expect(page.getByTestId('library-tab-files')).toBeVisible();
+    await expect(page.getByTestId('library-tab-plugins')).toHaveCount(0);
+
+    await page.goto('/library?tab=plugins');
+    await expect(page.getByTestId('settings-modal')).toBeVisible();
+    await expect(page.getByTestId('library-tab-plugins')).toHaveCount(0);
   });
 });

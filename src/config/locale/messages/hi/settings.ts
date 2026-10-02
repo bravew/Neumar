@@ -4,6 +4,11 @@ export default {
   // Categories
   account: 'खाता',
   general: 'सामान्य',
+  pageAgents: 'एजेंट और कौशल',
+  pageChannels: 'मैसेजिंग चैनल',
+  pageSecureStore: 'सुरक्षित भंडार',
+  pageData: 'डेटा नियंत्रण',
+  pageHelp: 'मदद और परिचय',
   workplace: 'वर्कस्पेस',
   model: 'मॉडल',
   agentRuntimes: 'एजेंट रनटाइम',
@@ -435,6 +440,10 @@ export default {
   advancedMode: 'उन्नत मोड',
   advancedModeDescription:
     'ऑर्ग व्यू और विस्तारित एजेंट नियंत्रण जैसी प्रयोगात्मक सुविधाएँ अनलॉक करें। पावर उपयोगकर्ताओं के लिए।',
+  simpleShell: 'सरल शेल',
+  simpleShellDescription:
+    'सरल लेआउट आज़माएँ, जिसमें आइकन रेल, डॉक किया चैट और नई सेटिंग्स विंडो शामिल है।',
+  usageActivityOpens: 'इस डिवाइस पर {name} {count} बार खोला गया है।',
   artifactsV2: 'लाइव आर्टिफैक्ट्स (बीटा)',
   artifactsV2Description:
     'एजेंट-निर्मित HTML, SVG, Mermaid और Markdown को चैट के साथ-साथ सैंडबॉक्स्ड लाइव प्रीव्यू में स्ट्रीम करें।',
@@ -1352,6 +1361,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'सभी सेटिंग्स डिफ़ॉल्ट पर रीसेट करें — आपके कार्य बरकरार रहेंगे।',
   dataClearAll: 'सब कुछ साफ़ करें',
+  resetProduct: '{name} रीसेट करें',
   dataClearAllDescription: 'सभी कार्य, संदेश और सेटिंग्स हटाएँ — एक पूर्ण रीसेट।',
   dataClearTasksConfirm:
     'क्या आप वाकई सभी कार्य और संदेश हटाना चाहते हैं? यह पूर्ववत नहीं किया जा सकता।',
@@ -2007,6 +2017,23 @@ export default {
 
   // अनुमतियाँ
   permissions: 'अनुमतियाँ',
+  presetAskWhen: 'मुझे कब पूछना चाहिए?',
+  presetPlan: 'महत्वपूर्ण चरणों से पहले पूछें',
+  presetPlanCaption: 'जारी रखने से पहले योजना की प्रतीक्षा करें।',
+  presetAsk: 'योजना छोड़ें',
+  presetAskCaption: 'योजना चरण के बिना काम शुरू करें।',
+  presetAuto: 'योजना स्वीकृत करें',
+  presetAutoCaption: 'योजना तैयार होने पर जारी रखें।',
+  presetCustom: 'कस्टम',
+  presetCustomCaption: 'टूल नियम हाथ से बदले गए थे।',
+  whereCodeRuns: 'कोड कहाँ चलता है?',
+  managePermissions: 'अनुमतियाँ प्रबंधित करें',
+  permissionTools: 'टूल',
+  permissionFolders: 'फ़ोल्डर',
+  permissionConnectors: 'कनेक्टर',
+  connectedProviders: 'कनेक्टेड प्रदाता',
+  providerConnected: 'कनेक्टेड',
+  modelsAdvanced: 'उन्नत',
   permissionRulesDescription:
     'कॉन्फ़िगर करें कि कौन से उपकरण स्वचालित रूप से अनुमत, अस्वीकृत या पुष्टि की आवश्यकता वाले हैं।',
   alwaysAllow: 'हमेशा अनुमति दें',

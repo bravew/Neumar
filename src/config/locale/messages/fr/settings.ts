@@ -4,6 +4,11 @@ export default {
   // Catégories
   account: 'Compte',
   general: 'Général',
+  pageAgents: 'Agents et compétences',
+  pageChannels: 'Canaux de messagerie',
+  pageSecureStore: 'Coffre sécurisé',
+  pageData: 'Contrôles des données',
+  pageHelp: 'Aide et à propos',
   workplace: 'Espace de travail',
   model: 'Modèle',
   agentRuntimes: 'Runtimes d’agent',
@@ -449,6 +454,10 @@ export default {
   advancedMode: 'Mode Avancé',
   advancedModeDescription:
     "Déverrouille les fonctionnalités expérimentales comme la Vue Organisation et les contrôles d'agent étendus. Destiné aux utilisateurs avancés.",
+  simpleShell: 'Interface simple',
+  simpleShellDescription:
+    'Essayez la mise en page plus simple, avec le rail d’icônes, le chat ancré et la nouvelle fenêtre de réglages.',
+  usageActivityOpens: '{name} a été ouvert {count} fois sur cet appareil.',
   artifactsV2: 'Artefacts en direct (Bêta)',
   artifactsV2Description:
     "Diffuse le HTML, SVG, Mermaid et Markdown générés par l'agent dans un aperçu en direct sandboxé à côté du chat.",
@@ -1404,6 +1413,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'Réinitialiser tous les paramètres — vos tâches restent intactes.',
   dataClearAll: 'Tout effacer',
+  resetProduct: 'Réinitialiser {name}',
   dataClearAllDescription:
     'Supprimer toutes les tâches, messages et paramètres — une réinitialisation complète.',
   dataClearTasksConfirm:
@@ -2101,6 +2111,23 @@ export default {
 
   // Permissions
   permissions: 'Permissions',
+  presetAskWhen: 'Quand dois-je vous demander ?',
+  presetPlan: 'Demander avant les étapes importantes',
+  presetPlanCaption: 'Attendre un plan avant de continuer.',
+  presetAsk: 'Ignorer le plan',
+  presetAskCaption: 'Commencer sans étape de plan.',
+  presetAuto: 'Approuver le plan',
+  presetAutoCaption: 'Continuer quand le plan est prêt.',
+  presetCustom: 'Personnalisé',
+  presetCustomCaption: 'Les règles d’outils ont été modifiées à la main.',
+  whereCodeRuns: 'Où le code s’exécute-t-il ?',
+  managePermissions: 'Gérer les permissions',
+  permissionTools: 'Outils',
+  permissionFolders: 'Dossiers',
+  permissionConnectors: 'Connecteurs',
+  connectedProviders: 'Fournisseurs connectés',
+  providerConnected: 'Connecté',
+  modelsAdvanced: 'Avancé',
   permissionRulesDescription:
     'Configurez quels outils sont automatiquement autorisés, refusés ou nécessitent une confirmation.',
   alwaysAllow: 'Toujours autoriser',

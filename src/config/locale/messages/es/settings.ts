@@ -4,6 +4,11 @@ export default {
   // Categorías
   account: 'Cuenta',
   general: 'General',
+  pageAgents: 'Agentes y habilidades',
+  pageChannels: 'Canales de mensajería',
+  pageSecureStore: 'Almacén seguro',
+  pageData: 'Controles de datos',
+  pageHelp: 'Ayuda y acerca de',
   workplace: 'Espacio de trabajo',
   model: 'Modelo',
   agentRuntimes: 'Runtimes de agente',
@@ -445,6 +450,10 @@ export default {
   advancedMode: 'Modo Avanzado',
   advancedModeDescription:
     'Desbloquea funciones experimentales como la Vista de Organización y controles de agente extendidos. Para usuarios avanzados.',
+  simpleShell: 'Interfaz simple',
+  simpleShellDescription:
+    'Prueba el diseño más simple, con la barra de iconos, el chat acoplado y la nueva ventana de ajustes.',
+  usageActivityOpens: '{name} se ha abierto {count} veces en este dispositivo.',
   artifactsV2: 'Artefactos en Vivo (Beta)',
   artifactsV2Description:
     'Transmite HTML, SVG, Mermaid y Markdown generados por el agente a una vista previa en vivo en sandbox junto al chat.',
@@ -1396,6 +1405,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'Restablecer toda la configuración — tus tareas se mantienen.',
   dataClearAll: 'Borrar todo',
+  resetProduct: 'Restablecer {name}',
   dataClearAllDescription:
     'Eliminar todas las tareas, mensajes y configuraciones — un reinicio completo.',
   dataClearTasksConfirm:
@@ -2090,6 +2100,23 @@ export default {
 
   // Permisos
   permissions: 'Permisos',
+  presetAskWhen: '¿Cuándo debo preguntarte?',
+  presetPlan: 'Preguntar antes de pasos importantes',
+  presetPlanCaption: 'Esperar un plan antes de continuar.',
+  presetAsk: 'Omitir el plan',
+  presetAskCaption: 'Empezar sin un paso de plan.',
+  presetAuto: 'Aprobar el plan',
+  presetAutoCaption: 'Continuar cuando el plan esté listo.',
+  presetCustom: 'Personalizado',
+  presetCustomCaption: 'Las reglas de herramientas se editaron a mano.',
+  whereCodeRuns: '¿Dónde se ejecuta el código?',
+  managePermissions: 'Gestionar permisos',
+  permissionTools: 'Herramientas',
+  permissionFolders: 'Carpetas',
+  permissionConnectors: 'Conectores',
+  connectedProviders: 'Proveedores conectados',
+  providerConnected: 'Conectado',
+  modelsAdvanced: 'Avanzado',
   permissionRulesDescription:
     'Configure qué herramientas se permiten, deniegan o requieren confirmación automáticamente.',
   alwaysAllow: 'Permitir siempre',

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Ghost, MessageSquareHeart, Settings, Sparkles } from 'lucide-react';
 
 import { FeedbackDialog } from '@/components/feedback/FeedbackDialog';
-import { SettingsModal } from '@/components/settings';
+import { openSettings } from '@/components/settings/openSettings';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +17,6 @@ import { useLanguage } from '@/shared/providers/language-provider';
 export function HelpTrigger() {
   const { tt } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useShortcut({
@@ -46,7 +45,7 @@ export function HelpTrigger() {
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem
               className="cursor-pointer gap-2"
-              onSelect={() => setSettingsOpen(true)}
+              onSelect={() => openSettings()}
             >
               <Settings className="size-4" />
               {tt('composer.help.settings')}
@@ -74,7 +73,6 @@ export function HelpTrigger() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </>
   );

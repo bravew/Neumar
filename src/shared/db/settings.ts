@@ -823,6 +823,16 @@ export interface Settings {
 
   // Feature flags
   advancedMode: boolean; // Enable advanced/experimental features (Org View, etc.)
+  // Client view state. Not synced. Sub-keys are merged in sanitizeSettings.
+  ui: {
+    simpleShell: boolean;
+    /** Local count of Usage & activity (Dashboard) opens. Not synced. */
+    usageActivityOpens?: number;
+    /** Flag-on rail state per destination. Not synced. */
+    panelState?: Record<string, { state: 'A' | 'B' | 'C'; restore: 'A' | 'B' }>;
+    /** Ideas gallery feedback: `dismissed` hides, `more` ranks first. */
+    ideasFeedback?: Record<string, 'dismissed' | 'more'>;
+  };
   artifactsV2: boolean; // Enable Phase-3 live artifacts + generative-UI pipeline
 }
 
@@ -1546,6 +1556,10 @@ export const defaultSettings: Settings = {
   },
   advancedMode: false,
   artifactsV2: false,
+  ui: {
+    simpleShell: false,
+    usageActivityOpens: 0,
+  },
 };
 
 const DB_NAME = `sqlite:${APP_DB_NAME}`;
@@ -1640,6 +1654,9 @@ async function loadSettingsFromBackend(): Promise<Partial<Settings> | null> {
     const partial: Partial<Settings> = {};
 
     for (const [key, value] of Object.entries(data)) {
+      // The table also holds standalone flags (first-run state); only keys
+      // that belong on Settings may be merged into it.
+      if (!Object.hasOwn(defaultSettings, key)) continue;
       try {
         (partial as Record<string, unknown>)[key] = JSON.parse(value);
       } catch {
@@ -1661,9 +1678,15 @@ function sanitizeSettings(settings: Settings): Settings {
   } as Settings['connectors'] & { platformV2?: unknown };
   delete connectors.platformV2;
 
+  const ui = {
+    ...defaultSettings.ui,
+    ...settings.ui,
+  };
+
   return {
     ...settings,
     connectors,
+    ui,
   };
 }
 
@@ -1692,6 +1715,13 @@ function isTauriSync(): boolean {
 
 // In-memory cache for settings
 let settingsCache: Settings | null = null;
+
+/**
+ * False when this client loaded defaults for synced keys without being able
+ * to consult the server. The startup sync then stays off, so a fresh client
+ * can't replace the server's settings with defaults (#165).
+ */
+let startupSyncSafe = true;
 
 // Tauri database instance
 let db: Awaited<
@@ -1875,9 +1905,30 @@ export async function getSettingsAsync(): Promise<Settings> {
   try {
     const stored = localStorage.getItem(`${APP_SLUG}_settings`);
     if (stored) {
+      const storedSettings = JSON.parse(stored) as Partial<Settings>;
+      // A synced key this client never stored would otherwise load as a
+      // default and be pushed over the server's value at startup. Take the
+      // server's value for those keys instead (#165).
+      const missingSyncedKeys = BACKEND_SYNCED_KEYS.filter(
+        (key) => !Object.hasOwn(storedSettings, key),
+      );
+      let serverValues: Partial<Settings> = {};
+      if (missingSyncedKeys.length > 0) {
+        const backendSettings = await loadSettingsFromBackend();
+        if (backendSettings) {
+          serverValues = Object.fromEntries(
+            missingSyncedKeys
+              .filter((key) => Object.hasOwn(backendSettings, key))
+              .map((key) => [key, backendSettings[key]]),
+          ) as Partial<Settings>;
+        } else {
+          startupSyncSafe = false;
+        }
+      }
       const loadedSettings = sanitizeSettings({
         ...defaultSettings,
-        ...JSON.parse(stored),
+        ...serverValues,
+        ...storedSettings,
       });
       loadedSettings.providers = migrateProviders(loadedSettings.providers);
       loadedSettings.providers = await mergeProviderKeys(
@@ -1917,6 +1968,9 @@ export async function getSettingsAsync(): Promise<Settings> {
   console.warn(
     '[Settings] No saved settings found in database, localStorage, or backend. Using defaults.',
   );
+  // An unreachable server is indistinguishable from an empty one here, so
+  // these defaults must not be pushed over it at startup.
+  startupSyncSafe = false;
   settingsCache = defaultSettings;
   return defaultSettings;
 }
@@ -1952,7 +2006,10 @@ export function getSettings(): Settings {
 }
 
 // Save settings to database (async version)
-export async function saveSettingsAsync(settings: Settings): Promise<void> {
+export async function saveSettingsAsync(
+  settings: Settings,
+  options: { syncBackend?: boolean } = {},
+): Promise<void> {
   const sanitizedSettings = sanitizeSettings(settings);
   settingsCache = sanitizedSettings;
 
@@ -1991,6 +2048,7 @@ export async function saveSettingsAsync(settings: Settings): Promise<void> {
   }
 
   // Sync critical settings to backend API (fire-and-forget)
+  if (options.syncBackend === false) return;
   syncCriticalSettingsToBackend(sanitizedSettings).catch(() => {
     // Silently ignore — backend may not be available
   });
@@ -2082,8 +2140,8 @@ export async function initializeSettings(): Promise<Settings> {
 
   // Persist to DB if any settings were migrated/fixed
   if (dirty) {
-    await saveSettingsAsync(settings);
-  } else {
+    await saveSettingsAsync(settings, { syncBackend: startupSyncSafe });
+  } else if (startupSyncSafe) {
     // Even when no local changes, always sync critical settings to the backend
     // API on startup. This ensures the backend DB has the latest provider
     // configs (API keys, model lists) even if it was cleared or restarted.
@@ -2091,6 +2149,10 @@ export async function initializeSettings(): Promise<Settings> {
       // Backend may not be available yet — will be synced on next settings save
     });
   }
+
+  // Each read copies a client-only first-run flag to the API, so another
+  // client of the same data neither onboards nor seeds the demo again.
+  void Promise.allSettled([...SERVER_BACKED_KEYS].map(getSettingItem));
 
   return settings;
 }
@@ -2372,6 +2434,66 @@ export const FIRST_RUN_COMPLETED_AT_KEY = 'firstRunCompletedAt';
 export const DEMO_SEEDED_AT_KEY = 'demoSeededAt';
 
 /**
+ * First-run flags describe the local API's data (its tasks, demo task, and
+ * profiles), not one client. Keeping a copy there means a new browser
+ * profile, an incognito window, or a reset desktop webview does not onboard
+ * again, or seed the demo again, on top of existing data.
+ */
+const SERVER_BACKED_KEYS = new Set([
+  'onboardingCompleted',
+  'onboardingVersion',
+  'quickstart_step',
+  FIRST_RUN_COMPLETED_AT_KEY,
+  DEMO_SEEDED_AT_KEY,
+]);
+
+/** Keys already copied to the API this session, so the backfill runs once. */
+const serverBackedSynced = new Set<string>();
+
+async function saveServerBackedItem(key: string, value: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/db/settings/${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // Plain string, the same format backup-import writes for these keys.
+      body: JSON.stringify({ value }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.ok) serverBackedSynced.add(key);
+  } catch {
+    // The API may be down; the client copy still holds the value.
+  }
+}
+
+async function loadServerBackedItem(key: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/db/settings/${key}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      !('value' in body) ||
+      typeof body.value !== 'string'
+    ) {
+      return null;
+    }
+    // The API's getSetting already unwraps JSON-quoted strings.
+    serverBackedSynced.add(key);
+    return body.value;
+  } catch {
+    return null;
+  }
+}
+
+/** Test-only: forgets which keys were copied to the API. */
+export function resetServerBackedSyncForTests(): void {
+  serverBackedSynced.clear();
+}
+
+/**
  * Save a single setting item (for simple key-value flags)
  */
 export async function saveSettingItem(
@@ -2397,12 +2519,36 @@ export async function saveSettingItem(
   } catch (error) {
     console.error(`[Settings] Failed to save ${key} to localStorage:`, error);
   }
+
+  if (SERVER_BACKED_KEYS.has(key)) await saveServerBackedItem(key, value);
 }
 
 /**
  * Get a single setting item
  */
 export async function getSettingItem(key: string): Promise<string | null> {
+  const local = await getClientSettingItem(key);
+  if (!SERVER_BACKED_KEYS.has(key)) return local;
+
+  if (local !== null) {
+    // Installs from before the API kept these flags: copy once so other
+    // clients of the same data see them.
+    if (!serverBackedSynced.has(key)) void saveServerBackedItem(key, local);
+    return local;
+  }
+
+  const remote = await loadServerBackedItem(key);
+  if (remote !== null) {
+    try {
+      localStorage.setItem(`${APP_SLUG}_${key}`, remote);
+    } catch {
+      // Ignore; the API copy is authoritative for the next read.
+    }
+  }
+  return remote;
+}
+
+async function getClientSettingItem(key: string): Promise<string | null> {
   const database = await getDatabase();
 
   if (database) {

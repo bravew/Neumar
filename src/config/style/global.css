@@ -330,6 +330,25 @@ pre {
   }
 }
 
+@keyframes settings-drill-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+:root {
+  --motion-fast: 120ms;
+  --motion-base: 160ms;
+  --motion-slow: 220ms;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+}
+
 /* Smooth cross-fade for task/page transitions (React Router viewTransition) */
 ::view-transition-old(root) {
   animation: vt-fade-out 180ms ease-in forwards;
@@ -385,11 +404,14 @@ pre {
 }
 
 ::view-transition-old(.page-fade) {
-  animation: vt-fade-out 180ms ease-in forwards;
+  animation: vt-fade-out var(--motion-fast) var(--ease-in) forwards;
 }
 
 ::view-transition-new(.page-fade) {
-  animation: vt-fade-in 180ms ease-out forwards;
+  /* `both` keeps the incoming page at opacity 0 during the delay. `forwards`
+     alone leaves it at 1 until the animation starts, so both pages are visible. */
+  animation: vt-fade-in var(--motion-base) var(--ease-out) var(--motion-fast)
+    both;
 }
 
 /* Right-sidebar panel show/hide (RightSidebarPanelTransition) */

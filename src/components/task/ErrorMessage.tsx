@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Link } from 'react-router-dom';
 
@@ -6,7 +6,7 @@ import { APP_DATA_DIR, APP_SLUG } from '@/config/branding';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
-import { SettingsModal } from '../settings/SettingsModal';
+import { openSettings as dispatchOpenSettings } from '../settings/openSettings';
 
 // Reusable status icon — avoids duplicating the same SVG in every error variant
 export function StatusIcon({ variant }: { variant: 'warning' | 'error' }) {
@@ -62,13 +62,12 @@ export function ErrorMessage({
   subtype?: string;
 }) {
   const { t } = useLanguage();
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Fallback to i18n-localized "Unknown error" when the caller passes an
   // empty or nullish message (e.g. an error row persisted without content).
   const resolvedMessage = message || t.task.agentUnknownError;
 
-  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const openSettings = useCallback(() => dispatchOpenSettings('model'), []);
 
   // Map well-known error markers to { text, linkText } — memoized so the
   // object is only recreated when translations change, not on every render.
@@ -129,11 +128,6 @@ export function ErrorMessage({
             </div>
           </div>
         </div>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          initialCategory="model"
-        />
       </>
     );
   }
@@ -151,11 +145,6 @@ export function ErrorMessage({
             onOpenSettings={openSettings}
           />
         </div>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          initialCategory="model"
-        />
       </>
     );
   }
@@ -209,11 +198,6 @@ export function ErrorMessage({
             onOpenSettings={openSettings}
           />
         </div>
-        <SettingsModal
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          initialCategory="model"
-        />
       </>
     );
   }

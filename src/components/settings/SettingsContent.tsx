@@ -193,7 +193,12 @@ export function SettingsContent({
 
         {activeCategory === 'data' && <DataSettings />}
 
-        {activeCategory === 'advanced' && <AdvancedSettings />}
+        {activeCategory === 'advanced' && (
+          <AdvancedSettings
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+          />
+        )}
 
         {activeCategory === 'about' && <AboutSettings />}
 

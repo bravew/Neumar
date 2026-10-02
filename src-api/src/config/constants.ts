@@ -12,6 +12,8 @@ import { join, resolve } from 'path';
 
 import { DEFAULT_CLAUDE_MODEL } from '@/core/agent/claude-models';
 
+import { resolveAppDir } from '@/config/app-dir';
+
 import { getSetting } from '@/shared/db/operations';
 
 import {
@@ -178,7 +180,7 @@ export function getHomeDir(): string {
 
 /** Get application data directory (e.g., ~/.<slug>) */
 export function getAppDir(): string {
-  return join(homedir(), APP_DIR_NAME);
+  return resolveAppDir();
 }
 
 /** Get Claude Code directory */

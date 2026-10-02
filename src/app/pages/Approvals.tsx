@@ -4,7 +4,11 @@ import { ClipboardCheck } from 'lucide-react';
 
 import { ApprovalCard } from '@/components/approval/ApprovalCard';
 import type { RiskLevel } from '@/components/approval/RiskBadge';
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
+import {
+  AsyncList,
+  type AsyncListStatus,
+} from '@/components/common/async-list';
+import { ListSkeleton } from '@/components/common/route-skeleton';
 import { API_BASE_URL } from '@/config';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -25,12 +29,24 @@ interface Approval {
 
 type Tab = 'pending' | 'history';
 
+/** History failures must not hide live pending cards from the SSE stream. */
+export function approvalsListStatus(
+  tab: Tab,
+  pendingReady: boolean,
+  historyStatus: AsyncListStatus,
+): AsyncListStatus {
+  if (tab === 'history') return historyStatus;
+  return pendingReady ? 'ready' : 'loading';
+}
+
 export function ApprovalsPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<Tab>('pending');
   const [pending, setPending] = useState<Approval[]>([]);
   const [history, setHistory] = useState<Approval[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [pendingReady, setPendingReady] = useState(false);
+  const [historyStatus, setHistoryStatus] =
+    useState<AsyncListStatus>('loading');
   // Resume tokens echo back at decide time for risk-gated approvals;
   // kept out of `pending` so they don't leak through state-shape consumers.
   const resumeTokensRef = useRef<Map<string, string>>(new Map());
@@ -48,20 +64,27 @@ export function ApprovalsPage() {
       const rejected = rejectedRes.ok
         ? ((await rejectedRes.json()) as { approvals: Approval[] }).approvals
         : [];
+      if (signal?.aborted) return;
+      if (!approvedRes.ok && !rejectedRes.ok) {
+        setHistoryStatus('error');
+        return;
+      }
+      setHistoryStatus('ready');
       setHistory(
         [...approved, ...rejected].sort((a, b) =>
           b.created_at.localeCompare(a.created_at),
         ),
       );
-    } catch {
-      // ignore abort
+    } catch (error) {
+      if (signal?.aborted) return;
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      setHistoryStatus('error');
     }
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    fetchHistory(controller.signal).finally(() => setLoading(false));
+    void fetchHistory(controller.signal);
 
     // EventSource auto-reconnects on transient drops; the server replays
     // `snapshot` on each connect, so reconciliation stays correct.
@@ -80,6 +103,7 @@ export function ApprovalsPage() {
       if (!data) return;
       const approvals = data.approvals ?? [];
       setPending(approvals);
+      setPendingReady(true);
       // Drop tokens for approvals decided/expired during disconnect — the
       // map would otherwise grow unbounded across reconnects.
       const live = new Set(approvals.map((a) => a.id));
@@ -158,62 +182,72 @@ export function ApprovalsPage() {
   );
 
   return (
-    <SidebarProvider>
-      <div className="flex h-svh overflow-hidden" data-testid="approvals-page">
-        <LeftSidebar tasks={[]} />
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="border-border border-b px-6 py-4">
-            <div className="flex items-center gap-2">
-              <ClipboardCheck className="text-primary size-5" />
-              <h1 className="text-foreground text-lg font-semibold">
-                {t.approvals?.title ?? 'Approvals'}
-              </h1>
-              {pending.length > 0 && (
-                <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-medium">
-                  {pending.length}
-                </span>
-              )}
-            </div>
-            <div className="mt-3 flex gap-1">
-              {(['pending', 'history'] as Tab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    'rounded-md px-3 py-1.5 text-sm transition-colors',
-                    activeTab === tab
-                      ? 'bg-accent text-accent-foreground font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                  )}
-                >
-                  {tab === 'pending'
-                    ? (t.approvals?.pending ?? 'Pending')
-                    : (t.approvals?.history ?? 'History')}
-                  {tab === 'pending' && pending.length > 0 && (
-                    <span className="ml-1.5 text-xs opacity-70">
-                      ({pending.length})
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            {decideError && (
-              <div
-                role="alert"
-                className="mb-3 max-w-2xl rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
-              >
-                {decideError}
-              </div>
+    <div className="flex h-svh overflow-hidden" data-testid="approvals-page">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="border-border border-b px-6 py-4">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="text-primary size-5" />
+            <h1 className="text-foreground text-lg font-semibold">
+              {t.approvals?.title ?? 'Approvals'}
+            </h1>
+            {pending.length > 0 && (
+              <span className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-medium">
+                {pending.length}
+              </span>
             )}
-            {loading ? (
-              <div className="text-muted-foreground flex items-center justify-center py-12 text-sm">
-                {t.approvals?.loading ?? 'Loading...'}
-              </div>
-            ) : activeTab === 'pending' ? (
-              pending.length === 0 ? (
+          </div>
+          <div className="mt-3 flex gap-1">
+            {(['pending', 'history'] as Tab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm transition-colors',
+                  activeTab === tab
+                    ? 'bg-accent text-accent-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                )}
+              >
+                {tab === 'pending'
+                  ? (t.approvals?.pending ?? 'Pending')
+                  : (t.approvals?.history ?? 'History')}
+                {tab === 'pending' && pending.length > 0 && (
+                  <span className="ml-1.5 text-xs opacity-70">
+                    ({pending.length})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {decideError && (
+            <div
+              role="alert"
+              className="mb-3 max-w-2xl rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+            >
+              {decideError}
+            </div>
+          )}
+          <AsyncList
+            status={approvalsListStatus(activeTab, pendingReady, historyStatus)}
+            empty={
+              activeTab === 'pending'
+                ? pending.length === 0
+                : history.length === 0
+            }
+            renderSkeleton={() => <ListSkeleton rows={3} />}
+            renderError={() => (
+              <p
+                className="text-destructive py-12 text-center text-sm"
+                role="alert"
+              >
+                {t.common.error}
+              </p>
+            )}
+            renderEmpty={() =>
+              activeTab === 'pending' ? (
                 <div className="text-muted-foreground flex flex-col items-center justify-center gap-3 py-16">
                   <ClipboardCheck className="size-10 opacity-30" />
                   <p className="text-sm">
@@ -221,20 +255,22 @@ export function ApprovalsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="max-w-2xl space-y-3">
-                  {pending.map((a) => (
-                    <ApprovalCard
-                      key={a.id}
-                      approval={a}
-                      resumeToken={resumeTokensRef.current.get(a.id)}
-                      onDecide={handleDecide}
-                    />
-                  ))}
+                <div className="text-muted-foreground flex items-center justify-center py-16 text-sm">
+                  {t.approvals?.noHistory ?? 'No history yet'}
                 </div>
               )
-            ) : history.length === 0 ? (
-              <div className="text-muted-foreground flex items-center justify-center py-16 text-sm">
-                {t.approvals?.noHistory ?? 'No history yet'}
+            }
+          >
+            {activeTab === 'pending' ? (
+              <div className="max-w-2xl space-y-3">
+                {pending.map((a) => (
+                  <ApprovalCard
+                    key={a.id}
+                    approval={a}
+                    resumeToken={resumeTokensRef.current.get(a.id)}
+                    onDecide={handleDecide}
+                  />
+                ))}
               </div>
             ) : (
               <div className="max-w-2xl space-y-3">
@@ -262,9 +298,9 @@ export function ApprovalsPage() {
                 ))}
               </div>
             )}
-          </div>
-        </main>
-      </div>
-    </SidebarProvider>
+          </AsyncList>
+        </div>
+      </main>
+    </div>
   );
 }

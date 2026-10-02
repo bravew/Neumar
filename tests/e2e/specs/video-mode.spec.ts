@@ -31,7 +31,7 @@ test.describe('Video Mode happy path', () => {
 
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Video projects' }),
+      page.getByRole('heading', { name: 'Video projects', exact: true }),
     ).toBeVisible();
 
     const configure = page.getByRole('button', { name: 'Configure' });
@@ -63,7 +63,9 @@ test.describe('Video Mode happy path', () => {
     if (id) createdProjectIds.push(id);
 
     // The editor header shows the project name once the project loads.
-    await expect(page.getByRole('heading', { name })).toBeVisible({
+    await expect(
+      page.getByRole('button', { name: 'Rename video project' }),
+    ).toHaveText(name, {
       timeout: 30_000,
     });
     await expect(page.getByText('Something went wrong')).not.toBeVisible();
@@ -73,6 +75,8 @@ test.describe('Video Mode happy path', () => {
     context,
     page,
   }) => {
+    // The assets panel collapses below its 220px minimum on narrower windows.
+    await page.setViewportSize({ width: 1920, height: 1080 });
     const assetEventRequests: string[] = [];
     let fileDialogRequests = 0;
     let folderDialogRequests = 0;

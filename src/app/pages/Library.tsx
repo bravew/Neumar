@@ -7,13 +7,14 @@
  * active) and forwards delete/favorite handlers down.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSearchParams } from 'react-router-dom';
 
 import * as Tabs from '@radix-ui/react-tabs';
 
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
+import { useRegisterPageContext } from '@/components/chat-dock/usePageContext';
+import type { AsyncListStatus } from '@/components/common/async-list';
 import {
   AssetsLibraryTab,
   CloudStorageLibraryTab,
@@ -25,18 +26,23 @@ import { GraphView } from '@/components/library/GraphView';
 import { PublishHistory } from '@/components/publish';
 import { API_BASE_URL } from '@/config';
 import type { Task } from '@/shared/db';
-import { deleteTask, getAllTasks, getTask, updateTask } from '@/shared/db';
+import { getAllTasks, updateTask } from '@/shared/db';
+import { useSettingsValue } from '@/shared/db/settings';
 import {
   subscribeToBackgroundTasks,
   type BackgroundTask,
 } from '@/shared/lib/background-tasks';
-import { deleteSessionFolder } from '@/shared/lib/session';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
+
+import { libraryTabRedirect } from './library-tabs';
+
+let libraryScrollTop = 0;
 
 const TAB_IDS = [
   'tasks',
   'assets',
+  'files',
   'plugins',
   'marketplace',
   'cloud-storage',
@@ -46,25 +52,63 @@ const TAB_IDS = [
 type TabId = (typeof TAB_IDS)[number];
 
 export function LibraryPage() {
-  return (
-    <SidebarProvider>
-      <LibraryContent />
-    </SidebarProvider>
-  );
+  return <LibraryContent />;
+}
+
+function initialLibraryTab(
+  initialTab: string | null,
+  simpleShell: boolean,
+): TabId {
+  const redirect = libraryTabRedirect(initialTab, simpleShell);
+  if (redirect?.kind === 'tab') return redirect.tab;
+  if (redirect?.kind === 'settings') return 'tasks';
+  if (!simpleShell && initialTab === 'files') return 'tasks';
+  return TAB_IDS.includes(initialTab as TabId)
+    ? (initialTab as TabId)
+    : 'tasks';
 }
 
 function LibraryContent() {
   const { t } = useLanguage();
+  const libraryScrollRef = useRef<HTMLDivElement>(null);
+  const simpleShell = useSettingsValue().ui.simpleShell;
+  useRegisterPageContext(
+    simpleShell ? { label: 'Library', payload: 'Looking at: Library' } : null,
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
 
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [tasksStatus, setTasksStatus] = useState<AsyncListStatus>('loading');
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [assetsEnabled, setAssetsEnabled] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>(
-    TAB_IDS.includes(initialTab as TabId) ? (initialTab as TabId) : 'tasks',
-  );
+  const activeTab = initialLibraryTab(initialTab, simpleShell);
+
+  useEffect(() => {
+    const element = libraryScrollRef.current;
+    if (!element) return;
+    element.scrollTop = libraryScrollTop;
+    return () => {
+      libraryScrollTop = element.scrollTop;
+    };
+  }, []);
+
+  useEffect(() => {
+    const redirect = libraryTabRedirect(initialTab, simpleShell);
+    if (!redirect) return;
+    if (redirect.kind === 'settings') {
+      window.dispatchEvent(
+        new CustomEvent('open-settings', { detail: redirect.category }),
+      );
+    }
+    const nextTab = redirect.kind === 'tab' ? redirect.tab : 'tasks';
+    setSearchParams((current) => {
+      if (current.get('tab') === nextTab) return current;
+      const next = new URLSearchParams(current);
+      next.set('tab', nextTab);
+      return next;
+    });
+  }, [initialTab, setSearchParams, simpleShell]);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -95,7 +139,6 @@ function LibraryContent() {
 
   useEffect(() => {
     if (assetsEnabled !== false || activeTab !== 'assets') return;
-    setActiveTab('tasks');
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.set('tab', 'tasks');
@@ -106,7 +149,6 @@ function LibraryContent() {
   const handleTabChange = useCallback(
     (value: string) => {
       const nextTab = value as TabId;
-      setActiveTab(nextTab);
       setSearchParams((current) => {
         const next = new URLSearchParams(current);
         next.set('tab', nextTab);
@@ -124,18 +166,45 @@ function LibraryContent() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setIsLoading(true);
+      setTasksStatus('loading');
       try {
         const all = await getAllTasks();
-        if (!cancelled) setTasks(all);
+        if (!cancelled) {
+          setTasks(all);
+          setTasksStatus('ready');
+        }
       } catch (error) {
+        if (!cancelled) setTasksStatus('error');
         if (import.meta.env.DEV) console.error('Failed to load tasks:', error);
-      } finally {
-        if (!cancelled) setIsLoading(false);
       }
     })();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function onDeleted(event: Event) {
+      const taskId = (event as CustomEvent<string>).detail;
+      setTasks((prev) => prev.filter((task) => task.id !== taskId));
+    }
+    function onFavorite(event: Event) {
+      const detail = (
+        event as CustomEvent<{ taskId: string; favorite: boolean }>
+      ).detail;
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === detail.taskId
+            ? { ...task, favorite: detail.favorite }
+            : task,
+        ),
+      );
+    }
+    window.addEventListener('sidebar-task-deleted', onDeleted);
+    window.addEventListener('sidebar-task-favorite', onFavorite);
+    return () => {
+      window.removeEventListener('sidebar-task-deleted', onDeleted);
+      window.removeEventListener('sidebar-task-favorite', onFavorite);
     };
   }, []);
 
@@ -159,22 +228,6 @@ function LibraryContent() {
     [backgroundTasks],
   );
 
-  const handleDeleteTask = useCallback(
-    async (taskId: string, deleteFolder?: boolean) => {
-      try {
-        const task = await getTask(taskId);
-        await deleteTask(taskId);
-        setTasks((prev) => prev.filter((x) => x.id !== taskId));
-        if (deleteFolder && task) {
-          await deleteSessionFolder(task.id, task.work_dir, task.session_id);
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to delete task:', error);
-      }
-    },
-    [],
-  );
-
   const handleToggleFavorite = useCallback(
     async (taskId: string, favorite: boolean) => {
       try {
@@ -191,16 +244,9 @@ function LibraryContent() {
 
   return (
     <div
-      className="bg-sidebar flex h-screen overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="library-page"
     >
-      <LeftSidebar
-        tasks={tasks}
-        onDeleteTask={handleDeleteTask}
-        onToggleFavorite={handleToggleFavorite}
-        runningTaskIds={runningTaskIds}
-      />
-
       <main className="bg-background my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-l-2xl shadow-sm">
         <Tabs.Root
           value={activeTab}
@@ -215,19 +261,25 @@ function LibraryContent() {
             {assetsEnabled === true ? (
               <TabTrigger value="assets" label={t.assets.tab} />
             ) : null}
-            <TabTrigger value="plugins" label={t.plugins.tabs.installed} />
-            <TabTrigger
-              value="marketplace"
-              label={t.plugins.tabs.marketplace}
-            />
-            <TabTrigger
-              value="cloud-storage"
-              label={t.cloudStorage.cloudStorageConnectorsTitle}
-            />
-            <TabTrigger
-              value="publish"
-              label={(t.publish as Record<string, string>).historyTab}
-            />
+            {simpleShell ? (
+              <TabTrigger value="files" label={t.library.files} />
+            ) : (
+              <>
+                <TabTrigger value="plugins" label={t.plugins.tabs.installed} />
+                <TabTrigger
+                  value="marketplace"
+                  label={t.plugins.tabs.marketplace}
+                />
+                <TabTrigger
+                  value="cloud-storage"
+                  label={t.cloudStorage.cloudStorageConnectorsTitle}
+                />
+                <TabTrigger
+                  value="publish"
+                  label={(t.publish as Record<string, string>).historyTab}
+                />
+              </>
+            )}
             <TabTrigger
               value="graph"
               label={
@@ -237,7 +289,11 @@ function LibraryContent() {
             />
           </Tabs.List>
 
-          <div className="flex-1 overflow-y-auto">
+          <div
+            ref={libraryScrollRef}
+            data-testid="library-scroll"
+            className="flex-1 overflow-y-auto"
+          >
             <div
               className={cn(
                 'mx-auto w-full px-6 py-8',
@@ -247,7 +303,7 @@ function LibraryContent() {
               <Tabs.Content value="tasks" className="outline-none">
                 <TasksTab
                   tasks={tasks}
-                  isLoading={isLoading}
+                  status={tasksStatus}
                   runningTaskIds={runningTaskIds}
                   onTasksChange={setTasks}
                   onToggleFavorite={handleToggleFavorite}
@@ -258,18 +314,26 @@ function LibraryContent() {
                   <AssetsLibraryTab />
                 </Tabs.Content>
               ) : null}
-              <Tabs.Content value="plugins" className="outline-none">
-                <InstalledPluginsTab />
-              </Tabs.Content>
-              <Tabs.Content value="marketplace" className="outline-none">
-                <MarketplaceTab />
-              </Tabs.Content>
-              <Tabs.Content value="cloud-storage" className="outline-none">
-                <CloudStorageLibraryTab />
-              </Tabs.Content>
-              <Tabs.Content value="publish" className="outline-none">
-                <PublishHistory />
-              </Tabs.Content>
+              {simpleShell ? (
+                <Tabs.Content value="files" className="outline-none">
+                  <CloudStorageLibraryTab />
+                </Tabs.Content>
+              ) : (
+                <>
+                  <Tabs.Content value="plugins" className="outline-none">
+                    <InstalledPluginsTab />
+                  </Tabs.Content>
+                  <Tabs.Content value="marketplace" className="outline-none">
+                    <MarketplaceTab />
+                  </Tabs.Content>
+                  <Tabs.Content value="cloud-storage" className="outline-none">
+                    <CloudStorageLibraryTab />
+                  </Tabs.Content>
+                  <Tabs.Content value="publish" className="outline-none">
+                    <PublishHistory />
+                  </Tabs.Content>
+                </>
+              )}
               <Tabs.Content value="graph" className="outline-none">
                 <GraphView />
               </Tabs.Content>

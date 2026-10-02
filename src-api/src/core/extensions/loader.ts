@@ -1,10 +1,9 @@
 import fs from 'fs/promises';
-import { homedir } from 'os';
 import { join } from 'path';
 
 import { z } from 'zod';
 
-import { APP_DATA_DIR } from '@/config/branding';
+import { resolveAppDir } from '@/config/app-dir';
 
 import { createLogger } from '@/shared/utils/logger';
 
@@ -52,7 +51,7 @@ const ManifestSchema = z.object({
 });
 
 export async function scanExtensions(): Promise<void> {
-  const extensionsDir = join(homedir(), APP_DATA_DIR, 'extensions');
+  const extensionsDir = join(resolveAppDir(), 'extensions');
 
   let entries: string[];
   try {

@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-import { APP_DATA_DIR } from '@/config/branding';
+import { resolveAppDir } from '@/config/app-dir';
 
 import { createLogger } from '@/shared/utils/logger';
 
@@ -18,8 +18,7 @@ const logger = createLogger('GatewayConfig');
 let cachedConfig: GatewayConfig | null = null;
 
 function getConfigPath(): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-  return join(homeDir, APP_DATA_DIR, 'gateway.json');
+  return join(resolveAppDir(), 'gateway.json');
 }
 
 /**

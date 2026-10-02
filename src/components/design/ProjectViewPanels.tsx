@@ -1,4 +1,3 @@
-import { SettingsModal } from '@/components/settings';
 import type { DesignDebugSnapshot } from '@/shared/types/design-mode';
 
 import { DesignDebugDrawer } from './DesignDebugDrawer';
@@ -11,9 +10,7 @@ export function ProjectViewPanels({
   debugSnapshot,
   debugLoading,
   debugError,
-  settingsOpen,
   onClosePanel,
-  onSettingsOpenChange,
 }: {
   promptDrawer: boolean;
   resolved: { system: string; user: string };
@@ -21,9 +18,7 @@ export function ProjectViewPanels({
   debugSnapshot: DesignDebugSnapshot | null;
   debugLoading: boolean;
   debugError: string | null;
-  settingsOpen: boolean;
   onClosePanel: () => void;
-  onSettingsOpenChange: (open: boolean) => void;
 }) {
   return (
     <>
@@ -42,11 +37,6 @@ export function ProjectViewPanels({
           onClose={onClosePanel}
         />
       )}
-      <SettingsModal
-        open={settingsOpen}
-        onOpenChange={onSettingsOpenChange}
-        initialCategory="designMode"
-      />
     </>
   );
 }

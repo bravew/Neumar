@@ -4,6 +4,11 @@ export default {
   // Categories
   account: 'Account',
   general: 'General',
+  pageAgents: 'Agents & skills',
+  pageChannels: 'Messaging channels',
+  pageSecureStore: 'Secure store',
+  pageData: 'Data controls',
+  pageHelp: 'Help & about',
   workplace: 'Workspace',
   model: 'Model',
   agentRuntimes: 'Agent Runtimes',
@@ -437,6 +442,10 @@ export default {
   advancedMode: 'Advanced Mode',
   advancedModeDescription:
     'Unlock experimental features like Org View and extended agent controls. Intended for power users.',
+  simpleShell: 'Simple shell',
+  simpleShellDescription:
+    'Try the simpler layout, with the icon rail, docked chat, and the new settings window.',
+  usageActivityOpens: '{name} has been opened {count} times on this device.',
   artifactsV2: 'Live Artifacts (Beta)',
   artifactsV2Description:
     'Stream agent-generated HTML, SVG, Mermaid, and Markdown into a sandboxed live preview alongside the chat.',
@@ -1375,6 +1384,7 @@ export default {
   dataClearSettingsOnlyDescription:
     'Reset all settings to defaults — your tasks stay intact.',
   dataClearAll: 'Clear Everything',
+  resetProduct: 'Reset {name}',
   dataClearAllDescription:
     'Delete all tasks, messages, and settings — a complete reset.',
   dataClearTasksConfirm:
@@ -2068,6 +2078,23 @@ export default {
 
   // Permissions
   permissions: 'Permissions',
+  presetAskWhen: 'When should I ask you?',
+  presetPlan: 'Ask before important steps',
+  presetPlanCaption: 'Wait for a plan before continuing.',
+  presetAsk: 'Skip the plan',
+  presetAskCaption: 'Start working without a plan step.',
+  presetAuto: 'Approve the plan',
+  presetAutoCaption: 'Continue when the plan is ready.',
+  presetCustom: 'Custom',
+  presetCustomCaption: 'Tool rules were edited by hand.',
+  whereCodeRuns: 'Where does code run?',
+  managePermissions: 'Manage permissions',
+  permissionTools: 'Tools',
+  permissionFolders: 'Folders',
+  permissionConnectors: 'Connectors',
+  connectedProviders: 'Connected providers',
+  providerConnected: 'Connected',
+  modelsAdvanced: 'Advanced',
   permissionRulesDescription:
     'Configure which tools are automatically allowed, denied, or require confirmation.',
   alwaysAllow: 'Always Allow',

@@ -9,6 +9,8 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
+import { AsyncList } from '@/components/common/async-list';
+import { ListSkeleton } from '@/components/common/route-skeleton';
 import {
   useInstalledPlugins,
   usePluginActions,
@@ -95,90 +97,91 @@ export function InstalledPluginsTab() {
     }
   };
 
-  if (loading) {
-    return <p className="text-muted-foreground py-12 text-center text-sm">…</p>;
-  }
-  if (error) {
-    return (
-      <p className="text-destructive py-6 text-center text-sm" role="alert">
-        {error}
-      </p>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      {actionError ? (
-        <p className="text-destructive text-xs" role="alert">
-          {actionError}
+    <AsyncList
+      status={loading ? 'loading' : error ? 'error' : 'ready'}
+      empty={false}
+      renderSkeleton={() => <ListSkeleton rows={4} />}
+      renderEmpty={() => null}
+      renderError={() => (
+        <p className="text-destructive py-6 text-center text-sm" role="alert">
+          {error}
         </p>
-      ) : null}
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium">
-            {t.plugins.sections.installed}
-          </h3>
-          <span className="text-muted-foreground text-xs">
-            {installed.length}
-          </span>
-        </div>
-        {installed.length === 0 ? (
-          <p className="text-muted-foreground py-6 text-center text-sm">
-            {t.plugins.empty.installed}
+      )}
+    >
+      <div className="flex flex-col gap-6">
+        {actionError ? (
+          <p className="text-destructive text-xs" role="alert">
+            {actionError}
           </p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {installed.map((plugin) => (
-              <PluginCard
-                key={plugin.id}
-                variant="installed"
-                item={{
-                  id: plugin.id,
-                  name: plugin.name,
-                  displayName: plugin.manifest?.displayName,
-                  version: plugin.version,
-                  description: plugin.manifest?.description ?? plugin.name,
-                  scope: plugin.scope,
-                  signatureOk: plugin.signatureOk,
-                  enabled: plugin.enabled,
-                }}
-                primaryActionLabel={
-                  plugin.enabled
-                    ? t.plugins.actions.disable
-                    : t.plugins.actions.enable
-                }
-                secondaryActionLabel={t.plugins.actions.uninstall}
-                onPrimaryAction={() => handleToggle(plugin)}
-                onSecondaryAction={() => handleUninstall(plugin)}
-                onSelect={() => setSelected(plugin)}
-              />
-            ))}
+        ) : null}
+
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium">
+              {t.plugins.sections.installed}
+            </h3>
+            <span className="text-muted-foreground text-xs">
+              {installed.length}
+            </span>
           </div>
-        )}
-      </section>
+          {installed.length === 0 ? (
+            <p className="text-muted-foreground py-6 text-center text-sm">
+              {t.plugins.empty.installed}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {installed.map((plugin) => (
+                <PluginCard
+                  key={plugin.id}
+                  variant="installed"
+                  item={{
+                    id: plugin.id,
+                    name: plugin.name,
+                    displayName: plugin.manifest?.displayName,
+                    version: plugin.version,
+                    description: plugin.manifest?.description ?? plugin.name,
+                    scope: plugin.scope,
+                    signatureOk: plugin.signatureOk,
+                    enabled: plugin.enabled,
+                  }}
+                  primaryActionLabel={
+                    plugin.enabled
+                      ? t.plugins.actions.disable
+                      : t.plugins.actions.enable
+                  }
+                  secondaryActionLabel={t.plugins.actions.uninstall}
+                  onPrimaryAction={() => handleToggle(plugin)}
+                  onSecondaryAction={() => handleUninstall(plugin)}
+                  onSelect={() => setSelected(plugin)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
 
-      {builtin.length > 0 ? (
-        <BuiltinPluginsSection
-          plugins={builtin}
-          onToggle={handleToggle}
-          onUse={handleUse}
-          onSelect={setSelected}
+        {builtin.length > 0 ? (
+          <BuiltinPluginsSection
+            plugins={builtin}
+            onToggle={handleToggle}
+            onUse={handleUse}
+            onSelect={setSelected}
+          />
+        ) : null}
+
+        <InstalledPluginDetailDialog
+          open={!!selected}
+          onOpenChange={(o) => !o && setSelected(null)}
+          plugin={selected}
+          onEnableToggle={() => selected && handleToggle(selected)}
+          onUse={selected ? () => handleUse(selected) : undefined}
+          onUninstall={
+            selected && selected.scope !== 'bundled'
+              ? () => selected && handleUninstall(selected)
+              : undefined
+          }
         />
-      ) : null}
-
-      <InstalledPluginDetailDialog
-        open={!!selected}
-        onOpenChange={(o) => !o && setSelected(null)}
-        plugin={selected}
-        onEnableToggle={() => selected && handleToggle(selected)}
-        onUse={selected ? () => handleUse(selected) : undefined}
-        onUninstall={
-          selected && selected.scope !== 'bundled'
-            ? () => selected && handleUninstall(selected)
-            : undefined
-        }
-      />
-    </div>
+      </div>
+    </AsyncList>
   );
 }

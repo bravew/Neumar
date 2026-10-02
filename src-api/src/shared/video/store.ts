@@ -7,13 +7,13 @@ import {
   readdirSync,
 } from 'node:fs';
 import fs from 'node:fs/promises';
-import { homedir } from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline as streamPipeline } from 'node:stream/promises';
 
 import type { TimelineOp } from '@neumar/video-ir';
 
+import { resolveAppDir } from '@/config/app-dir';
 import { APP_DATA_DIR } from '@/config/branding';
 
 import { getDatabase } from '@/shared/db';
@@ -300,7 +300,7 @@ export function getVideoProjectRoot(projectId: string): string {
   const candidateRoots = uniqueResolvedRoots([
     storedRoot,
     workspaceRoot,
-    path.join(homedir(), APP_DATA_DIR),
+    resolveAppDir(),
     ...mountedWorkspaceCandidates(),
   ]);
   const existingRoot = candidateRoots.find((root) =>

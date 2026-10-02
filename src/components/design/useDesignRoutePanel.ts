@@ -7,6 +7,11 @@ import {
 
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import {
+  openSettings,
+  SETTINGS_DISMISSED_EVENT,
+} from '@/components/settings/openSettings';
+
 type DesignRoutePanel = 'prompt' | 'debug' | 'settings';
 
 export function useDesignRoutePanel({
@@ -14,14 +19,12 @@ export function useDesignRoutePanel({
   promptAvailable,
   setPromptDrawer,
   setDebugOpen,
-  setSettingsOpen,
   onRouteDebug,
 }: {
   debugOpen: boolean;
   promptAvailable: boolean;
   setPromptDrawer: Dispatch<SetStateAction<boolean>>;
   setDebugOpen: Dispatch<SetStateAction<boolean>>;
-  setSettingsOpen: Dispatch<SetStateAction<boolean>>;
   onRouteDebug: () => void | Promise<void>;
 }) {
   const location = useLocation();
@@ -57,7 +60,6 @@ export function useDesignRoutePanel({
     } else {
       setDebugOpen(false);
     }
-    setSettingsOpen(routePanel === 'settings');
   }, [
     debugOpen,
     onRouteDebug,
@@ -65,8 +67,22 @@ export function useDesignRoutePanel({
     routePanel,
     setDebugOpen,
     setPromptDrawer,
-    setSettingsOpen,
   ]);
+
+  useEffect(() => {
+    if (routePanel !== 'settings') return;
+    openSettings('designMode');
+  }, [routePanel]);
+
+  useEffect(() => {
+    const onDismiss = () => {
+      if (routePanel !== 'settings') return;
+      setRoutePanel(null);
+    };
+    window.addEventListener(SETTINGS_DISMISSED_EVENT, onDismiss);
+    return () =>
+      window.removeEventListener(SETTINGS_DISMISSED_EVENT, onDismiss);
+  }, [routePanel, setRoutePanel]);
 
   return setRoutePanel;
 }

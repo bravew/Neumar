@@ -13,7 +13,9 @@ test.describe('Navigation', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     // Should show the chat input (home page signature element)
-    await expect(page.getByPlaceholder(/type a message/i)).toBeVisible();
+    await expect(
+      page.getByTestId('home-composer-frame').getByRole('textbox'),
+    ).toBeVisible();
   });
 
   test('invalid route shows error page', async ({ page }) => {

@@ -15,8 +15,6 @@ import { Panel, Group as PanelGroup } from 'react-resizable-panels';
 import { LiveArtifactPanel } from '@/components/artifacts/live';
 import type { Artifact } from '@/components/artifacts/types';
 import { getArtifactTypeFromExt } from '@/components/artifacts/utils';
-import { SidebarProvider } from '@/components/layout';
-import { LeftSidebar } from '@/components/layout/left-sidebar';
 import { InitialMessageSender } from '@/components/task/InitialMessageSender';
 import type {
   LocationState,
@@ -63,8 +61,7 @@ const PREVIEW_SIZE_KEY = 'task-v2-preview-size';
  */
 export function TaskDetailV2Page() {
   const { taskId } = useParams<{ taskId: string }>();
-  const { allTasks, handleDeleteTask, handleToggleFavorite, addTask } =
-    useV2TaskLoader(taskId);
+  const { addTask } = useV2TaskLoader(taskId);
   const runningTaskIds = useThreadStore(selectRunningTaskIds);
 
   const location = useLocation();
@@ -416,142 +413,133 @@ export function TaskDetailV2Page() {
     `Task ${taskId.slice(0, 8)}`;
 
   return (
-    <SidebarProvider>
-      <AgUiProvider key={taskId} threadId={taskId} isNewTask={hasPrompt}>
-        <InitialMessageSender
-          taskId={taskId}
-          addTask={addTask}
-          onAttachMessage={handleAttachMessage}
-          modelConfig={modelConfig}
-        />
-        <div className="bg-sidebar flex h-svh overflow-hidden">
-          <LeftSidebar
-            tasks={allTasks}
-            currentTaskId={taskId}
-            onDeleteTask={handleDeleteTask}
-            onToggleFavorite={handleToggleFavorite}
-            runningTaskIds={runningTaskIds}
+    <AgUiProvider key={taskId} threadId={taskId} isNewTask={hasPrompt}>
+      <InitialMessageSender
+        taskId={taskId}
+        addTask={addTask}
+        onAttachMessage={handleAttachMessage}
+        modelConfig={modelConfig}
+      />
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl shadow-sm">
+          {/* ── Header ── */}
+          <TaskV2Header
+            title={displayTitle}
+            isRunning={isTaskRunning}
+            isRightSidebarVisible={isRightSidebarVisible}
+            onToggleRightSidebar={() =>
+              startTransition(() => setIsRightSidebarVisible((v) => !v))
+            }
+            profileInfo={profileInfo}
           />
-          <div className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl shadow-sm">
-            {/* ── Header ── */}
-            <TaskV2Header
-              title={displayTitle}
-              isRunning={isTaskRunning}
-              isRightSidebarVisible={isRightSidebarVisible}
-              onToggleRightSidebar={() =>
-                startTransition(() => setIsRightSidebarVisible((v) => !v))
-              }
-              profileInfo={profileInfo}
-            />
 
-            {/* ── Content area ── */}
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-              {/* ── Main area: chat + optional preview (resizable) ── */}
-              <PanelGroup
-                key={isPreviewVisible ? 'split' : 'chat-only'}
-                orientation="horizontal"
-                className="h-full min-w-0 flex-1"
+          {/* ── Content area ── */}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {/* ── Main area: chat + optional preview (resizable) ── */}
+            <PanelGroup
+              key={isPreviewVisible ? 'split' : 'chat-only'}
+              orientation="horizontal"
+              className="h-full min-w-0 flex-1"
+            >
+              <Panel
+                id="chat"
+                defaultSize={
+                  isPreviewVisible ? 100 - savedPreviewSize.current : 100
+                }
+                minSize={35}
+                className="min-w-0 overflow-hidden"
               >
+                <TaskV2Thread
+                  attachmentMapRef={attachmentMapRef}
+                  taskId={taskId}
+                  historyMessages={historyMessages}
+                  modelConfig={modelConfig}
+                  onSubmitRef={submitRef}
+                  selectedModel={modelId}
+                  onModelChange={setModelId}
+                  workDir={taskWorkDir}
+                  additionalWorkDirs={taskAdditionalDirs}
+                  allArtifacts={artifacts}
+                />
+              </Panel>
+
+              {isPreviewVisible && <ResizeHandle id="chat-preview-handle" />}
+              {isPreviewVisible && (
                 <Panel
-                  id="chat"
-                  defaultSize={
-                    isPreviewVisible ? 100 - savedPreviewSize.current : 100
-                  }
-                  minSize={35}
-                  className="min-w-0 overflow-hidden"
+                  id="preview"
+                  defaultSize={savedPreviewSize.current}
+                  minSize={15}
+                  onResize={handlePreviewResize}
+                  className="flex min-w-0 flex-col overflow-hidden"
                 >
-                  <TaskV2Thread
-                    attachmentMapRef={attachmentMapRef}
-                    taskId={taskId}
-                    historyMessages={historyMessages}
-                    modelConfig={modelConfig}
-                    onSubmitRef={submitRef}
-                    selectedModel={modelId}
-                    onModelChange={setModelId}
-                    workDir={taskWorkDir}
-                    additionalWorkDirs={taskAdditionalDirs}
-                    allArtifacts={artifacts}
-                  />
-                </Panel>
-
-                {isPreviewVisible && <ResizeHandle id="chat-preview-handle" />}
-                {isPreviewVisible && (
-                  <Panel
-                    id="preview"
-                    defaultSize={savedPreviewSize.current}
-                    minSize={15}
-                    onResize={handlePreviewResize}
-                    className="flex min-w-0 flex-col overflow-hidden"
+                  <motion.div
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={SPRING.gentle}
+                    className="flex h-full flex-col"
                   >
-                    <motion.div
-                      initial={{ opacity: 0, x: 24 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={SPRING.gentle}
-                      className="flex h-full flex-col"
-                    >
-                      {showLiveArtifacts && taskId ? (
-                        <LiveArtifactPanel
-                          taskId={taskId}
-                          isRunning={isTaskRunning}
-                          onClose={() => setIsPreviewVisible(false)}
-                          className="h-full"
-                        />
-                      ) : (
-                        <WorkspacePanel
-                          artifact={selectedArtifact}
-                          allArtifacts={artifacts}
-                          versions={mediaVersions}
-                          context={workspaceContext}
-                          onClose={() => {
-                            setIsPreviewVisible(false);
-                            setSelectedArtifact(null);
-                          }}
-                          onSelectVersion={handleSelectVersion}
-                          onSendMessage={handleWorkspaceMessage}
-                          livePreviewUrl={livePreviewUrl}
-                          livePreviewStatus={livePreviewStatus}
-                          livePreviewError={livePreviewError}
-                          onStartLivePreview={() => {
-                            const workDir =
-                              selectedArtifact?.path?.split('/sessions/')[0] ||
-                              '';
-                            handleStartLivePreview(workDir);
-                          }}
-                          onStopLivePreview={handleStopLivePreview}
-                          workDir={taskWorkDir}
-                          onSelectFile={handleFileSelect}
-                          diffs={workspaceDiffs}
-                          messages={v1Messages}
-                          isRunning={isTaskRunning}
-                          taskId={taskId}
-                        />
-                      )}
-                    </motion.div>
-                  </Panel>
-                )}
-              </PanelGroup>
-
-              {/* ── Right sidebar: fixed-width, show/hide ── */}
-              {isRightSidebarVisible && (
-                <RightSidebarPanelTransition>
-                  <div className="border-border/40 flex h-full w-72 shrink-0 flex-col overflow-hidden border-l">
-                    <RightSidebar
-                      messages={v1Messages}
-                      artifacts={artifacts}
-                      selectedArtifact={selectedArtifact}
-                      onSelectArtifact={handleSelectArtifact}
-                      workingDir={taskWorkDir}
-                      taskId={taskId}
-                      filesVersion={artifacts.length}
-                      isRunning={isTaskRunning}
-                    />
-                  </div>
-                </RightSidebarPanelTransition>
+                    {showLiveArtifacts && taskId ? (
+                      <LiveArtifactPanel
+                        taskId={taskId}
+                        isRunning={isTaskRunning}
+                        onClose={() => setIsPreviewVisible(false)}
+                        className="h-full"
+                      />
+                    ) : (
+                      <WorkspacePanel
+                        artifact={selectedArtifact}
+                        allArtifacts={artifacts}
+                        versions={mediaVersions}
+                        context={workspaceContext}
+                        onClose={() => {
+                          setIsPreviewVisible(false);
+                          setSelectedArtifact(null);
+                        }}
+                        onSelectVersion={handleSelectVersion}
+                        onSendMessage={handleWorkspaceMessage}
+                        livePreviewUrl={livePreviewUrl}
+                        livePreviewStatus={livePreviewStatus}
+                        livePreviewError={livePreviewError}
+                        onStartLivePreview={() => {
+                          const workDir =
+                            selectedArtifact?.path?.split('/sessions/')[0] ||
+                            '';
+                          handleStartLivePreview(workDir);
+                        }}
+                        onStopLivePreview={handleStopLivePreview}
+                        workDir={taskWorkDir}
+                        onSelectFile={handleFileSelect}
+                        diffs={workspaceDiffs}
+                        messages={v1Messages}
+                        isRunning={isTaskRunning}
+                        taskId={taskId}
+                      />
+                    )}
+                  </motion.div>
+                </Panel>
               )}
-            </div>
+            </PanelGroup>
+
+            {/* ── Right sidebar: fixed-width, show/hide ── */}
+            {isRightSidebarVisible && (
+              <RightSidebarPanelTransition>
+                <div className="border-border/40 flex h-full w-72 shrink-0 flex-col overflow-hidden border-l">
+                  <RightSidebar
+                    messages={v1Messages}
+                    artifacts={artifacts}
+                    selectedArtifact={selectedArtifact}
+                    onSelectArtifact={handleSelectArtifact}
+                    workingDir={taskWorkDir}
+                    taskId={taskId}
+                    filesVersion={artifacts.length}
+                    isRunning={isTaskRunning}
+                  />
+                </div>
+              </RightSidebarPanelTransition>
+            )}
           </div>
         </div>
-      </AgUiProvider>
-    </SidebarProvider>
+      </div>
+    </AgUiProvider>
   );
 }

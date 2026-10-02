@@ -12,16 +12,16 @@
 
 import { appendFileSync, existsSync, mkdirSync } from 'fs';
 import { appendFile, readdir, stat, unlink } from 'fs/promises';
-import { homedir } from 'os';
 import { join } from 'path';
 
-import { APP_DATA_DIR, APP_SLUG } from '@/config/branding';
+import { resolveAppDir } from '@/config/app-dir';
+import { APP_SLUG } from '@/config/branding';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const LOG_DIR = join(homedir(), APP_DATA_DIR, 'logs');
+const LOG_DIR = join(resolveAppDir(), 'logs');
 const MAX_RETENTION_DAYS = 14;
 function isConsoleEnabled(): boolean {
   if (process.env.MCP_STDIO === '1') return false;

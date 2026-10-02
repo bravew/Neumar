@@ -1,8 +1,7 @@
 import { readFile } from 'fs/promises';
-import { homedir } from 'os';
 import path from 'path';
 
-import { APP_DATA_DIR } from '@/config/branding';
+import { resolveAppDir } from '@/config/app-dir';
 
 import type { ConnectorCatalogDefinition } from '@/shared/connectors/catalog';
 import { writeJsonAtomic } from '@/shared/services/design-mode/fs';
@@ -19,8 +18,7 @@ export interface ComposioCatalogCachePayload {
 export class ComposioCatalogCache {
   constructor(
     readonly filePath = path.join(
-      homedir(),
-      APP_DATA_DIR,
+      resolveAppDir(),
       'connectors',
       'composio-catalog-cache.json',
     ),

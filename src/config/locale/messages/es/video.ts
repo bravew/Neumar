@@ -2064,6 +2064,15 @@ export default {
     file: 'Archivo',
     symlink: 'Enlace',
     other: 'Otro',
+    previewFailed: 'No se pudo previsualizar {name}.',
+    saveFailed: 'No se pudo guardar {name}.',
+    previewUnavailable:
+      'La vista previa no está disponible para este tipo de archivo.',
+    edit: 'Editar',
+    cancel: 'Cancelar',
+    save: 'Guardar',
+    saving: 'Guardando...',
+    openFile: 'Abrir {name}',
   },
   sources: {
     title: 'Fuentes',

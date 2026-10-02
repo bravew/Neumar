@@ -3,14 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { BookTemplate, ChevronDown, User, X as XIcon } from 'lucide-react';
-import { motion } from 'motion/react';
 
 import { BackgroundTasksSection } from '@/components/home/BackgroundTasksSection';
 import { BudgetBanner } from '@/components/home/BudgetBanner';
 import { HomeGreeting } from '@/components/home/HomeGreeting';
-import { QuickActions } from '@/components/home/QuickActions';
-import { StarterChips } from '@/components/home/StarterChips';
-import { LeftSidebar, SidebarProvider } from '@/components/layout';
+import { HomeSuggestionRow } from '@/components/home/HomeSuggestionRow';
 import { ActivePluginChip } from '@/components/plugins/ActivePluginChip';
 import { AvatarSvg } from '@/components/profiles/avatar-options';
 import { ChatInput, DEFAULT_MODEL_ID } from '@/components/shared/ChatInput';
@@ -28,16 +25,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DURATION, EASE, STAGGER } from '@/config/animation';
 import type { AssistantTemplate } from '@/config/assistant-templates';
-import type { Task } from '@/shared/db';
-import {
-  createSession,
-  deleteTask,
-  getAllTasks,
-  getTask,
-  updateTask,
-} from '@/shared/db';
+import { createSession } from '@/shared/db';
 import {
   getSettingItem,
   getSettings,
@@ -51,11 +40,8 @@ import {
 } from '@/shared/hooks/useAgent';
 import { useAgentProfiles } from '@/shared/hooks/useAgentProfiles';
 import { useDispatch } from '@/shared/hooks/useDispatch';
-import {
-  subscribeToBackgroundTasks,
-  type BackgroundTask,
-} from '@/shared/lib/background-tasks';
-import { deleteSessionFolder, generateSessionId } from '@/shared/lib/session';
+import { useComposerPrefill } from '@/shared/ideas/prefill';
+import { generateSessionId } from '@/shared/lib/session';
 import { parseJsonArray } from '@/shared/lib/utils';
 import type { ChipDefinition } from '@/shared/modes/types';
 import { useMode } from '@/shared/modes/useMode';
@@ -63,11 +49,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 import { randomUUID } from '@/shared/utils/uuid';
 
 export function HomePage() {
-  return (
-    <SidebarProvider>
-      <HomeContent />
-    </SidebarProvider>
-  );
+  return <HomeContent />;
 }
 
 function HomeContent() {
@@ -85,8 +67,6 @@ function HomeContent() {
     preSelectProfileId?: string;
   } | null;
 
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [workDirs, setWorkDirs] = useState<string[]>(
     projectState?.projectWorkspace ? [projectState.projectWorkspace] : [],
   );
@@ -95,6 +75,11 @@ function HomeContent() {
   );
   const [prefillValue, setPrefillValue] = useState('');
   const [prefillNonce, setPrefillNonce] = useState(0);
+  const prefillComposer = (prompt: string) => {
+    setPrefillValue(prompt);
+    setPrefillNonce((n) => n + 1);
+  };
+  useComposerPrefill(prefillComposer);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const { profiles } = useAgentProfiles('active');
@@ -191,64 +176,6 @@ function HomeContent() {
     setPrefillNonce((n) => n + 1);
     clearPluginSeed();
   }, [activePlugin, clearPluginSeed]);
-
-  // Subscribe to background tasks
-  useEffect(() => {
-    const unsubscribe = subscribeToBackgroundTasks(setBackgroundTasks);
-    return unsubscribe;
-  }, []);
-
-  // Load tasks for sidebar
-  useEffect(() => {
-    async function loadTasks() {
-      try {
-        const allTasks = await getAllTasks();
-        setTasks(allTasks);
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to load tasks:', error);
-      }
-    }
-    loadTasks();
-  }, []);
-
-  // Handle task deletion — wrapped in useCallback since it's passed as a prop to LeftSidebar
-  const handleDeleteTask = useCallback(
-    async (taskId: string, deleteFolder?: boolean) => {
-      try {
-        // Get task info before deleting (to get session_id)
-        const task = await getTask(taskId);
-
-        // Delete task from database
-        await deleteTask(taskId);
-        setTasks((prev) => prev.filter((t) => t.id !== taskId));
-
-        // Delete session folder if requested (best-effort, errors are logged internally)
-        // Pass per-task work_dir so the correct folder is targeted
-        if (deleteFolder && task) {
-          await deleteSessionFolder(task.id, task.work_dir, task.session_id);
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to delete task:', error);
-      }
-    },
-    [],
-  );
-
-  // Handle favorite toggle — wrapped in useCallback so child components
-  // that are memoized (e.g. FileCard) don't re-render when unrelated state changes.
-  const handleToggleFavorite = useCallback(
-    async (taskId: string, favorite: boolean) => {
-      try {
-        await updateTask(taskId, { favorite });
-        setTasks((prev) =>
-          prev.map((t) => (t.id === taskId ? { ...t, favorite } : t)),
-        );
-      } catch (error) {
-        if (import.meta.env.DEV) console.error('Failed to update task:', error);
-      }
-    },
-    [],
-  );
 
   const handleSubmit = useCallback(
     async (
@@ -369,19 +296,9 @@ function HomeContent() {
 
   return (
     <div
-      className="bg-sidebar flex h-screen overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="home-page"
     >
-      {/* Left Sidebar */}
-      <LeftSidebar
-        tasks={tasks}
-        onDeleteTask={handleDeleteTask}
-        onToggleFavorite={handleToggleFavorite}
-        runningTaskIds={backgroundTasks
-          .filter((t) => t.isRunning)
-          .map((t) => t.taskId)}
-      />
-
       {/* Main Content */}
       <div className="bg-background my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl shadow-sm">
         <BudgetBanner />
@@ -389,42 +306,13 @@ function HomeContent() {
         <div className="flex flex-1 flex-col items-center justify-center overflow-auto px-4 py-6">
           <ParallelTaskDashboard />
           <BackgroundTasksSection />
-          <motion.div
-            className="flex w-full max-w-2xl flex-col items-center gap-6"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: {},
-              visible: {
-                transition: { staggerChildren: STAGGER.slow },
-              },
-            }}
-          >
-            <motion.div
-              className="text-center"
-              variants={{
-                hidden: { opacity: 0 },
-                visible: {
-                  opacity: 1,
-                  transition: { duration: DURATION.slow, ease: EASE.out },
-                },
-              }}
-            >
+          <div className="flex w-full max-w-2xl flex-col items-center gap-6">
+            <div className="text-center">
               <HomeGreeting />
-            </motion.div>
+            </div>
 
-            {/* Input Box — slides up after title */}
-            <motion.div
-              className="w-full"
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: {
-                  opacity: 1,
-                  y: 0,
-                  transition: { duration: DURATION.moderate, ease: EASE.out },
-                },
-              }}
-            >
+            {/* Composer frame is static so the first paint is never blank. */}
+            <div className="w-full" data-testid="home-composer-frame">
               {/* Project context badge */}
               {projectState?.projectName && (
                 <div className="bg-accent/50 border-border mb-2 flex items-center gap-2 self-start rounded-lg border px-3 py-1.5 text-sm">
@@ -468,12 +356,11 @@ function HomeContent() {
                 initialSkills={profileSkills}
               />
 
-              <div className="mt-3">
-                <StarterChips
-                  chips={activeMode.composer?.starterChips ?? []}
-                  onSelect={handleStarterChip}
-                />
-              </div>
+              <HomeSuggestionRow
+                chips={activeMode.composer?.starterChips ?? []}
+                onSelectChip={handleStarterChip}
+                onSelectPrompt={prefillComposer}
+              />
 
               {/* Agent profile + Template row */}
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
@@ -552,32 +439,8 @@ function HomeContent() {
                   {t.templates.startWithTemplate}
                 </button>
               </div>
-            </motion.div>
-
-            {/* Quick action categories — below chat input */}
-            <motion.div
-              className="w-full"
-              variants={{
-                hidden: { opacity: 0, y: 16 },
-                visible: {
-                  opacity: 1,
-                  y: 0,
-                  transition: {
-                    duration: DURATION.moderate,
-                    ease: EASE.out,
-                    delay: STAGGER.slow * 4,
-                  },
-                },
-              }}
-            >
-              <QuickActions
-                onSelectPrompt={(prompt) => {
-                  setPrefillValue(prompt);
-                  setPrefillNonce((n) => n + 1);
-                }}
-              />
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </div>
       </div>
 
