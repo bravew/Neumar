@@ -1716,6 +1716,13 @@ function isTauriSync(): boolean {
 // In-memory cache for settings
 let settingsCache: Settings | null = null;
 
+/**
+ * False when this client loaded defaults for synced keys without being able
+ * to consult the server. The startup sync then stays off, so a fresh client
+ * can't replace the server's settings with defaults (#165).
+ */
+let startupSyncSafe = true;
+
 // Tauri database instance
 let db: Awaited<
   ReturnType<typeof import('@tauri-apps/plugin-sql').default.load>
@@ -1898,9 +1905,30 @@ export async function getSettingsAsync(): Promise<Settings> {
   try {
     const stored = localStorage.getItem(`${APP_SLUG}_settings`);
     if (stored) {
+      const storedSettings = JSON.parse(stored) as Partial<Settings>;
+      // A synced key this client never stored would otherwise load as a
+      // default and be pushed over the server's value at startup. Take the
+      // server's value for those keys instead (#165).
+      const missingSyncedKeys = BACKEND_SYNCED_KEYS.filter(
+        (key) => !Object.hasOwn(storedSettings, key),
+      );
+      let serverValues: Partial<Settings> = {};
+      if (missingSyncedKeys.length > 0) {
+        const backendSettings = await loadSettingsFromBackend();
+        if (backendSettings) {
+          serverValues = Object.fromEntries(
+            missingSyncedKeys
+              .filter((key) => Object.hasOwn(backendSettings, key))
+              .map((key) => [key, backendSettings[key]]),
+          ) as Partial<Settings>;
+        } else {
+          startupSyncSafe = false;
+        }
+      }
       const loadedSettings = sanitizeSettings({
         ...defaultSettings,
-        ...JSON.parse(stored),
+        ...serverValues,
+        ...storedSettings,
       });
       loadedSettings.providers = migrateProviders(loadedSettings.providers);
       loadedSettings.providers = await mergeProviderKeys(
@@ -1940,6 +1968,9 @@ export async function getSettingsAsync(): Promise<Settings> {
   console.warn(
     '[Settings] No saved settings found in database, localStorage, or backend. Using defaults.',
   );
+  // An unreachable server is indistinguishable from an empty one here, so
+  // these defaults must not be pushed over it at startup.
+  startupSyncSafe = false;
   settingsCache = defaultSettings;
   return defaultSettings;
 }
@@ -1975,7 +2006,10 @@ export function getSettings(): Settings {
 }
 
 // Save settings to database (async version)
-export async function saveSettingsAsync(settings: Settings): Promise<void> {
+export async function saveSettingsAsync(
+  settings: Settings,
+  options: { syncBackend?: boolean } = {},
+): Promise<void> {
   const sanitizedSettings = sanitizeSettings(settings);
   settingsCache = sanitizedSettings;
 
@@ -2014,6 +2048,7 @@ export async function saveSettingsAsync(settings: Settings): Promise<void> {
   }
 
   // Sync critical settings to backend API (fire-and-forget)
+  if (options.syncBackend === false) return;
   syncCriticalSettingsToBackend(sanitizedSettings).catch(() => {
     // Silently ignore — backend may not be available
   });
@@ -2105,8 +2140,8 @@ export async function initializeSettings(): Promise<Settings> {
 
   // Persist to DB if any settings were migrated/fixed
   if (dirty) {
-    await saveSettingsAsync(settings);
-  } else {
+    await saveSettingsAsync(settings, { syncBackend: startupSyncSafe });
+  } else if (startupSyncSafe) {
     // Even when no local changes, always sync critical settings to the backend
     // API on startup. This ensures the backend DB has the latest provider
     // configs (API keys, model lists) even if it was cleared or restarted.
