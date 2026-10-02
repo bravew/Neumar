@@ -8,7 +8,10 @@ export function ContextChip({
   removeLabel: string;
 }) {
   return (
-    <span className="bg-muted inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs">
+    <span
+      data-testid="dock-context-chip"
+      className="bg-muted inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs"
+    >
       <span>{label}</span>
       <button
         type="button"

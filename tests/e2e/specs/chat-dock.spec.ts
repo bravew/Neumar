@@ -16,9 +16,11 @@ test.describe('Chat dock', () => {
     await page.waitForLoadState('networkidle');
     await pressMod(page, 'j');
     await expect(page.getByTestId('chat-dock')).toBeVisible();
-    await expect(
-      page.getByTestId('chat-dock').getByText('Library'),
-    ).toBeVisible();
+    // The dock opens on the latest session, whose messages may also say
+    // "Library", so check the context chip itself.
+    await expect(page.getByTestId('dock-context-chip')).toContainText(
+      'Library',
+    );
     await page
       .getByTestId('app-rail')
       .getByRole('button', { name: 'Tasks' })
