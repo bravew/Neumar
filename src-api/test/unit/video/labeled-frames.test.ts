@@ -15,9 +15,12 @@ const FIXTURE = fileURLToPath(
 
 describe('buildLabeledGrid', () => {
   let workDir: string;
+  let mediaPath: string;
 
   beforeEach(async () => {
     workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'labeled-frames-'));
+    mediaPath = path.join(workDir, 'source.mp4');
+    await fs.copyFile(FIXTURE, mediaPath);
   });
 
   afterEach(async () => {
@@ -28,7 +31,7 @@ describe('buildLabeledGrid', () => {
   it('paginates, places labels below the picture, and refuses overwrite', async () => {
     const destinationDir = path.join(workDir, 'grids');
     const result = await buildLabeledGrid({
-      mediaPath: FIXTURE,
+      mediaPath,
       workDir,
       destinationDir,
       filePrefix: 'page',
@@ -52,7 +55,7 @@ describe('buildLabeledGrid', () => {
 
     await expect(
       buildLabeledGrid({
-        mediaPath: FIXTURE,
+        mediaPath,
         workDir,
         destinationDir,
         filePrefix: 'page',
@@ -70,7 +73,7 @@ describe('buildLabeledGrid', () => {
     vi.spyOn(fs, 'rename').mockRejectedValueOnce(new Error('rename failed'));
     await expect(
       buildLabeledGrid({
-        mediaPath: FIXTURE,
+        mediaPath,
         workDir,
         destinationDir,
         filePrefix: 'fail',
