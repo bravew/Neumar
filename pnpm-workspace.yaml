@@ -125,6 +125,13 @@ peerDependencyRules:
 
 auditConfig:
   ignoreGhsas:
+    # braces <=3.0.3: deeply nested patterns can exhaust the call stack. No
+    # patched release exists (advisory first_patched_version is null; 3.0.3 is
+    # latest). The only production-audit paths are Remotion/Tailwind build
+    # tooling in src-video, which receives repository-owned glob patterns, not
+    # runtime or user-supplied patterns. Remove when braces publishes a fix.
+    # Reviewed 2026-10-02.
+    - GHSA-vfj7-8cjw-p6xm
     # node-forge <=1.4.0: RSA PKCS#1 v1.5 signature verification accepts
     # extra DigestAlgorithm elements. No patched release exists (advisory
     # first_patched_version is null; 1.4.0 is latest). The only path is
