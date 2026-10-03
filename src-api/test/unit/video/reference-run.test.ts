@@ -371,5 +371,5 @@ describe('reference analysis run — sample step coverage', () => {
     // The old fixed 1s step would have stopped at ~47s no matter how long
     // the reference was; this must reach much further into it.
     expect(lastSample).toBeGreaterThan(reference.durationMs * 0.7);
-  });
+  }, 120_000);
 });

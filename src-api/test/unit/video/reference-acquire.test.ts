@@ -49,12 +49,15 @@ async function stubDownloader(
 
 describe('acquireReference', () => {
   let workDir: string;
+  let workspaceFixture: string;
 
   beforeEach(async () => {
     closeDatabase();
     workDir = await fs.mkdtemp(
       path.join(os.tmpdir(), 'video-reference-acquire-'),
     );
+    workspaceFixture = path.join(workDir, 'workspace-source.mp4');
+    await fs.copyFile(FIXTURE, workspaceFixture);
     vi.stubEnv('NEUMA_VIDEO_WORKDIR', workDir);
   });
 
@@ -101,7 +104,7 @@ describe('acquireReference', () => {
     const workspace = await acquireReference(project.id, {
       origin: 'workspace-path',
       studyAcknowledged: true,
-      filePath: FIXTURE,
+      filePath: workspaceFixture,
       label: 'Workspace still',
     });
     const linked = await acquireReference(project.id, {

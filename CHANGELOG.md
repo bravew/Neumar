@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 
+## 26.10.1 — 2026-10-02
+
+### Added
+- **ux**: simple-by-default shell, settings, and first-run (#155)
+
 ## 26.9.10 — 2026-09-30
 
 ### Added
