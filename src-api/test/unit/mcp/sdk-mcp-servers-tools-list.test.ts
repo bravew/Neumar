@@ -40,6 +40,7 @@ import { createCloudStorageMediaMcpServer } from '@/shared/mcp/cloud-storage-med
 import { createConnectorsMcpServer } from '@/shared/mcp/connectors-server';
 import { createDropboxMcpServer } from '@/shared/mcp/dropbox-server';
 import { createFFmpegMcpServer } from '@/shared/mcp/ffmpeg-server';
+import { createFfmpegSkillMcpServer } from '@/shared/mcp/ffmpeg-skill-server';
 import {
   ALL_GOOGLE_TOOL_NAMES,
   createGoogleMcpServer,
@@ -92,6 +93,7 @@ const FACTORIES: Record<string, () => McpSdkServerConfigWithInstance> = {
     }),
   'dropbox-server.ts': () => createDropboxMcpServer(),
   'ffmpeg-server.ts': () => createFFmpegMcpServer(),
+  'ffmpeg-skill-server.ts': () => createFfmpegSkillMcpServer(),
   'google-server.ts': () => createGoogleMcpServer(ALL_GOOGLE_SCOPES),
   'linear-server.ts': () => createLinearMcpServer(),
   'media-server.ts': () => createMediaMcpServer(),
