@@ -34,7 +34,11 @@ interface UseAgentDockSubmitInput {
   /** Reference open in the Analyze video panel, carried as turn context. */
   referenceId?: string | null;
   selectedScene: VideoStoryboardScene | null;
-  sendMessage: (content: string, context: AgentDockContext) => void;
+  sendMessage: (
+    content: string,
+    context: AgentDockContext,
+    pinnedSkills?: string[],
+  ) => void;
   setDraft: (value: string) => void;
   transcriptSelection?: VideoTranscriptSelectionContext | null;
 }
@@ -59,7 +63,7 @@ export function useAgentDockSubmit({
   useEffect(() => () => ingestAbortRef.current?.abort(), []);
 
   return useCallback(
-    async (content: string, files: File[]) => {
+    async (content: string, files: File[], pinnedSkills?: string[]) => {
       setDraft('');
       let prompt = content;
       const projectAssetIds = assetContextAssets.map((asset) => asset.id);
@@ -101,16 +105,20 @@ export function useAgentDockSubmit({
         ingestController.signal,
       );
       if (ingestController.signal.aborted) return;
-      sendMessage(prompt, {
-        selectedSceneId: selectedScene?.id,
-        aspectRatio,
-        step: activeStep,
-        transcriptSelection: transcriptSelection ?? undefined,
-        editorSelection,
-        projectAssetIds:
-          projectAssetIds.length > 0 ? projectAssetIds : undefined,
-        referenceId: referenceId ?? undefined,
-      });
+      sendMessage(
+        prompt,
+        {
+          selectedSceneId: selectedScene?.id,
+          aspectRatio,
+          step: activeStep,
+          transcriptSelection: transcriptSelection ?? undefined,
+          editorSelection,
+          projectAssetIds:
+            projectAssetIds.length > 0 ? projectAssetIds : undefined,
+          referenceId: referenceId ?? undefined,
+        },
+        pinnedSkills,
+      );
       if (projectAssetIds.length > 0) onClearAssetContext?.();
     },
     [

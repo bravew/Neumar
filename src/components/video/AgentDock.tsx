@@ -197,7 +197,9 @@ export function AgentDock({
   const sendFromChatInput = (
     content: string,
     attachments?: MessageAttachment[],
-  ) => sendWithAttachments(content, attachmentFiles(attachments));
+    _mcp?: string[],
+    pinnedSkills?: string[],
+  ) => sendWithAttachments(content, attachmentFiles(attachments), pinnedSkills);
 
   const {
     journalBusyId,

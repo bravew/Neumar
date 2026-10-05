@@ -104,4 +104,24 @@ describe('DesignMode chat loop (runDesignChat)', () => {
     expect(isChatSurface('video')).toBe(false);
     expect(isChatSurface('audio')).toBe(false);
   });
+
+  it('gates an ffmpeg skill selection on a provider that cannot run it', async () => {
+    const { runDesignChat } =
+      await import('@/shared/services/design-mode/chat');
+    const msgs = await collect(
+      runDesignChat('p1', {
+        prompt: 'Process this clip with the ffmpeg skill',
+        provider: 'mock',
+        model: 'hello-read-edit',
+        pinnedSkills: ['ffmpeg'],
+      }),
+    );
+    expect(msgs[0]).toMatchObject({ type: 'error' });
+    expect((msgs[0] as { type: string; message?: string }).message).toContain(
+      'not available',
+    );
+    expect(msgs.at(-1)).toMatchObject({ type: 'done' });
+    // The capability gate returns before the agent runs.
+    expect(msgs.some((m) => m.type === 'tool_use')).toBe(false);
+  });
 });

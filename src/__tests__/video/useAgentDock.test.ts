@@ -172,6 +172,50 @@ describe('normalizeAgentActionPayload', () => {
   });
 });
 
+describe('supplemental skill selection handoff', () => {
+  it('threads pinned skills into the nested runContext.supplementalSkillIds', async () => {
+    const bodies: Array<{ runContext?: { supplementalSkillIds?: string[] } }> =
+      [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const target = String(url);
+        if (target.endsWith('/agent') && init?.method === 'POST') {
+          bodies.push(JSON.parse(String(init.body ?? '{}')));
+          return new Response(sseFrame('agui', { type: 'RUN_FINISHED' }), {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          });
+        }
+        return new Response(JSON.stringify({ messages: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const { result } = renderHook(() => useAgentDock({ projectId: 'p1' }), {
+      wrapper: strictModeWrapper,
+    });
+
+    await act(async () => {
+      await result.current.sendMessage(
+        'Cut this clip',
+        { aspectRatio: '16:9' },
+        ['ffmpeg', 'video-editing'],
+      );
+    });
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    // The nested array is the field the server reads; it must carry the actual
+    // selection (not the legacy empty `[]` the composer used to send).
+    expect(bodies[0]?.runContext?.supplementalSkillIds).toEqual([
+      'ffmpeg',
+      'video-editing',
+    ]);
+  });
+});
+
 describe('plugin flow context carryover', () => {
   it('carries the plugin gate onto the approval turn, then clears it', async () => {
     const bodies: Array<{ context?: Record<string, unknown> }> = [];

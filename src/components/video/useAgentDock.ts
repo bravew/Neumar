@@ -451,7 +451,11 @@ export function useAgentDock({ projectId }: UseAgentDockOptions) {
   );
 
   const sendMessage = useCallback(
-    async (content: string, context: AgentDockContext) => {
+    async (
+      content: string,
+      context: AgentDockContext,
+      pinnedSkills?: string[],
+    ) => {
       const trimmed = content.trim();
       if (!trimmed) return;
       // A new turn invalidates the previous turn's stop reason.
@@ -518,7 +522,7 @@ export function useAgentDock({ projectId }: UseAgentDockOptions) {
                 conversationId: null,
                 clientRequestId: streamId,
                 messageId: userMessageId,
-                supplementalSkillIds: [],
+                supplementalSkillIds: pinnedSkills ?? [],
               } satisfies RunContextEnvelopeDto,
               ...(conversation.length > 0 ? { messages: conversation } : {}),
               context: effectiveContext,

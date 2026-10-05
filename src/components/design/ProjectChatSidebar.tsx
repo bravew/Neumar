@@ -5,10 +5,12 @@ import { useLocation } from 'react-router-dom';
 import { FileText, Send, Square } from 'lucide-react';
 
 import type { ModelOption } from '@/components/shared/ChatInput.types';
+import { SkillSelector } from '@/components/shared/SkillSelector';
 import { Button } from '@/components/ui/button';
 import type { PromptLibrarySample } from '@/shared/design/prompt-library-types';
 import type { AgentQuestion } from '@/shared/hooks/agent-types';
 import type { DesignChatTurn } from '@/shared/hooks/useDesignChat';
+import { useSkills } from '@/shared/hooks/useSkills';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type {
@@ -92,7 +94,7 @@ export function ProjectChatSidebar({
   onMessageChange: (message: string) => void;
   onRemoveQueuedSend: (id: string) => void;
   onSampleSelected: (sample: PromptLibrarySample) => void;
-  onSend: () => void;
+  onSend: (skills?: string[]) => void;
   onSendQueuedNow: (id: string) => void;
   onProjectFileOpen?: (path: string) => void;
   onAnswerQuestion: (text: string) => void;
@@ -105,6 +107,15 @@ export function ProjectChatSidebar({
     useState<ProjectChatSidebarTab>('chat');
   const currentActiveTab = activeTab ?? fallbackActiveTab;
   const setActiveTab = onActiveTabChange ?? setFallbackActiveTab;
+  // Composer utility skills (e.g. ffmpeg) pinned to the next chat message.
+  const { skills: availableSkills } = useSkills();
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const toggleSkill = (slug: string) =>
+    setSelectedSkills((prev) =>
+      prev.includes(slug)
+        ? prev.filter((entry) => entry !== slug)
+        : [...prev, slug],
+    );
   // Artifact the chat edits — shown as a composer context chip (Open Design).
   const openFile = new URLSearchParams(useLocation().search).get('file');
   const activeArtifactFile =
@@ -231,7 +242,8 @@ export function ProjectChatSidebar({
               !isComposingRef.current
             ) {
               event.preventDefault();
-              onSend();
+              onSend(selectedSkills);
+              setSelectedSkills([]);
             }
           }}
           placeholder={t.design.composerPlaceholder}
@@ -249,19 +261,30 @@ export function ProjectChatSidebar({
           </div>
         )}
         <div className="flex items-center justify-between gap-2">
-          {chatLoopActive && chatModelId && onChatModelChange ? (
-            <DesignComposerControls
-              modelId={chatModelId}
-              modelOptions={chatModelOptions}
-              onModelChange={onChatModelChange}
-              project={project}
-              onProjectChange={onProjectChange}
-            />
-          ) : (
-            <span className="text-muted-foreground text-xs">
-              {t.design.composerHint}
-            </span>
-          )}
+          <div className="flex min-w-0 items-center gap-2">
+            {chatLoopActive && (
+              <SkillSelector
+                skills={availableSkills}
+                selected={selectedSkills}
+                onToggle={toggleSkill}
+                disabled={sending}
+                compact
+              />
+            )}
+            {chatLoopActive && chatModelId && onChatModelChange ? (
+              <DesignComposerControls
+                modelId={chatModelId}
+                modelOptions={chatModelOptions}
+                onModelChange={onChatModelChange}
+                project={project}
+                onProjectChange={onProjectChange}
+              />
+            ) : (
+              <span className="text-muted-foreground text-xs">
+                {t.design.composerHint}
+              </span>
+            )}
+          </div>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -278,7 +301,10 @@ export function ProjectChatSidebar({
               size="icon-sm"
               aria-label={t.design.send}
               disabled={sending}
-              onClick={onSend}
+              onClick={() => {
+                onSend(selectedSkills);
+                setSelectedSkills([]);
+              }}
             >
               <Send className="size-4" />
             </Button>

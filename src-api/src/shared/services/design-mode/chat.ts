@@ -41,6 +41,8 @@ import type {
   DesignProject,
   DesignSurface,
 } from '@/shared/services/design-mode/types';
+import { prepareFfmpegSkillAttachment } from '@/shared/services/ffmpeg-skill/attach';
+import { withSessionContext } from '@/shared/services/session-context';
 import { createLogger } from '@/shared/utils/logger';
 
 const logger = createLogger('DesignChat');
@@ -415,25 +417,61 @@ export async function* runDesignChat(
     workDir: root,
   });
 
+  // Attach the managed ffmpeg skill for providers that can reach it, and gate
+  // unsupported providers with a clear capability message. `disableUserMcp`
+  // below only suppresses user integrations — this explicitly attached
+  // first-party server still mounts.
+  const ffmpegAttachment = await prepareFfmpegSkillAttachment({
+    provider,
+    pinnedSkills: options.pinnedSkills,
+    systemContext: '',
+    sessionContext: {
+      workDir: root,
+      sessionId: options.sessionId,
+      designProjectId: projectId,
+    },
+  });
+  if (ffmpegAttachment.capabilityMessage) {
+    yield { type: 'error', message: ffmpegAttachment.capabilityMessage };
+    yield { type: 'done' };
+    return;
+  }
+
   // A design build is self-contained: it writes `index.html` (CDN deps only)
   // and reads nothing external, so it needs none of the user's MCP servers.
   // Skipping them (`disableUserMcp`) removes the dominant time-to-first-token
   // latency and the failure mode where the spawned CLI hangs indefinitely
   // waiting on a slow/unreachable user MCP server's `initialize` handshake.
   const abortController = options.abortController ?? new AbortController();
-  const stream = withToolResultLoopGuard(
-    agent.run(prompt, {
-      runMode: 'design',
+  const stream = withSessionContext(
+    {
+      workDir: root,
       sessionId: options.sessionId,
-      conversation: options.messages,
-      cwd: root,
-      userWorkspaceDir: root,
-      allowWorkspaceWrite: true,
-      abortController,
-      disableUserMcp: true,
-      pinnedSkills: options.pinnedSkills,
-      maxTurns: DESIGN_CHAT_MAX_TURNS,
-    }),
+      designProjectId: projectId,
+    },
+    withToolResultLoopGuard(
+      agent.run(prompt, {
+        runMode: 'design',
+        sessionId: options.sessionId,
+        conversation: options.messages,
+        cwd: root,
+        userWorkspaceDir: root,
+        allowWorkspaceWrite: true,
+        abortController,
+        disableUserMcp: true,
+        pinnedSkills: options.pinnedSkills,
+        maxTurns: DESIGN_CHAT_MAX_TURNS,
+        ...(ffmpegAttachment.systemContext
+          ? { systemContext: ffmpegAttachment.systemContext }
+          : {}),
+        ...(ffmpegAttachment.inProcessMcpServers
+          ? { inProcessMcpServers: ffmpegAttachment.inProcessMcpServers }
+          : {}),
+        ...(ffmpegAttachment.bridgeInProcessServers
+          ? { bridgeInProcessServers: ffmpegAttachment.bridgeInProcessServers }
+          : {}),
+      }),
+    ),
   );
 
   // First-token watchdog (backstop): abort if the run produces nothing within

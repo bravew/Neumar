@@ -22,6 +22,7 @@ import {
   resolvePython,
   resolveSkillRuntime,
 } from '@/shared/services/ffmpeg-skill';
+import { publishFfmpegSkillArtifact } from '@/shared/services/ffmpeg-skill/handoff';
 import { createLogger } from '@/shared/utils/logger';
 
 const logger = createLogger('FfmpegSkillMcp');
@@ -125,9 +126,10 @@ export const ffmpegSkillTools = [
           args,
           preview,
         });
+        const published = await publishFfmpegSkillArtifact(result, toolName);
         return textResult(
-          JSON.stringify(result, null, 2),
-          result.status !== 'completed',
+          JSON.stringify(published, null, 2),
+          published.status !== 'completed',
         );
       } catch (error) {
         return failure(error);

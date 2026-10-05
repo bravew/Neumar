@@ -361,9 +361,13 @@ export function useDesignChat(
   }, [projectId]);
 
   const send = useCallback(
-    async (prompt: string, opts?: { provider?: string; model?: string }) => {
+    async (
+      prompt: string,
+      opts?: { provider?: string; model?: string; skills?: string[] },
+    ) => {
       const trimmed = prompt.trim();
       if (!trimmed || sending) return;
+      const { skills, ...restOpts } = opts ?? {};
       // Forward the prior transcript as conversation history so the agent (whose
       // runs are otherwise stateless) keeps the brief + its discovery questions
       // + answers in context across turns.
@@ -412,9 +416,9 @@ export function useDesignChat(
                 conversationId: null,
                 clientRequestId: randomUUID(),
                 messageId: userMessageId,
-                supplementalSkillIds: [],
+                supplementalSkillIds: skills ?? [],
               } satisfies RunContextEnvelopeDto,
-              ...opts,
+              ...restOpts,
             }),
             signal: controller.signal,
           },
