@@ -87,6 +87,7 @@ describe('ffmpegSkillCapabilityMessage', () => {
     expect(ffmpegSkillCapabilityMessage('claude')).toBeNull();
     expect(ffmpegSkillCapabilityMessage('codex')).toBeNull();
     expect(ffmpegSkillCapabilityMessage('cursor-agent')).toBeNull();
+    expect(ffmpegSkillCapabilityMessage('kimi')).toBeNull();
   });
 
   it('names the supported providers for an unsupported one', () => {
@@ -95,6 +96,7 @@ describe('ffmpegSkillCapabilityMessage', () => {
     expect(message).toContain('Claude');
     expect(message).toContain('Codex');
     expect(message).toContain('Cursor Agent');
+    expect(message).toContain('Kimi');
   });
 });
 

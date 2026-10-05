@@ -21,7 +21,7 @@ Runtime requirements are installed on the API host: Python 3.9+ (standard librar
 MCP server name: `ffmpeg-skill` (lowercase letters, digits, and hyphens). Tool names use underscores because the server name cannot:
 
 - `ffmpeg_skill_catalog` lists the pinned 42 tools, their `ffmpeg-skill/<name>` ids, roles, and which structured arguments the host currently accepts. Read it before naming an operation. It does not inject 42 schemas.
-- `ffmpeg_skill_check` reports whether the API host can run one named tool: installed Python, ffmpeg, ffprobe, and the filters or encoders that tool requires. It does not install anything.
+- `ffmpeg_skill_check` takes no arguments. It reports the installed Python, ffmpeg, and ffprobe and whether the host is ready. It does not check per-tool filters or encoders: a missing one surfaces as a `missing_tool` failure from `ffmpeg_skill_execute`. It does not install anything.
 - `ffmpeg_skill_execute` takes one contract tool name plus validated structured arguments. The host maps those arguments with the pinned contract (`contract/contract.json`): property `cli` spellings, `mcp.argument_exceptions`, and `input_schema.positional`. There is no second flag list. Unknown keys are rejected.
 
 This is not the upstream `mcp/server.py` process, and it is not the native `ffmpeg` MCP server.

@@ -121,10 +121,13 @@ async function ffprobe(filePath: string): Promise<FfprobeDocument> {
   return JSON.parse(stdout) as FfprobeDocument;
 }
 
-async function makeSource(workDir: string): Promise<string> {
+async function makeSource(
+  workDir: string,
+  name = 'source.mp4',
+): Promise<string> {
   // Intra-only (GOP 1) so a lossless stream-copy cut lands on frame boundaries
   // and the requested range can be asserted precisely.
-  const source = path.join(workDir, 'source.mp4');
+  const source = path.join(workDir, name);
   await ffmpeg([
     '-y',
     '-f',
@@ -237,6 +240,30 @@ mediaDescribe('managed FFmpeg skill media correctness', () => {
     const video = doc.streams.find((stream) => stream.codec_type === 'video');
     expect(video?.width).toBe(320);
     expect(video?.height).toBe(240);
+  });
+
+  it('handles a non-ASCII source filename through probe and cut', async () => {
+    const workDir = makeWorkDir();
+    const source = await makeSource(workDir, '影片.mp4');
+    const before = sha256Of(source);
+
+    const probe = await runWithSessionContext({ workDir }, () =>
+      executeSkillOperation({ tool: 'probe', args: { inputs: [source] } }),
+    );
+    expect(probe.status).toBe('completed');
+    const probeFacts = probeDetails(probe.details);
+    expect(probeFacts.video?.width).toBe(1280);
+
+    const cut = await runWithSessionContext({ workDir }, () =>
+      executeSkillOperation({
+        tool: 'cut',
+        args: { input: source, start: '0', duration: '1' },
+      }),
+    );
+    expect(cut.status).toBe('completed');
+    expect(cut.artifactCreated).toBe(true);
+    expect(cut.artifact?.path).toBeTruthy();
+    expect(sha256Of(source)).toBe(before);
   });
 
   it('loudness measure-only reports a real finite measurement', async () => {

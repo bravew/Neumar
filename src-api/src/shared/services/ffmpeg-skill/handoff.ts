@@ -92,7 +92,7 @@ export function ffmpegSkillCapabilityMessage(
   if (ffmpegSkillTransportFor(provider) !== 'unsupported') return null;
   return (
     `The ffmpeg skill is not available on the ${provider ?? 'selected'} provider. ` +
-    'Managed FFmpeg operations are supported on Claude, Codex, and Cursor Agent. ' +
+    'Managed FFmpeg operations are supported on Claude, Codex, Cursor Agent, and Kimi. ' +
     'Switch to one of those providers to use the ffmpeg skill.'
   );
 }
