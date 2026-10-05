@@ -2013,6 +2013,10 @@ export default {
   advancedKickstart: '重新启动',
   advancedRecentSidecarLogs: '最近的 sidecar 日志（最后 100 行）',
   advancedNoLogs: '（无日志）',
+  attachmentUploadLimit: '附件上传上限',
+  attachmentUploadLimitDescription:
+    '可上传到对话的最大文件大小，单位 MB（1–4096）。通过桌面版文件选择器选择的文件会直接读取原文件，不会上传。',
+  attachmentUploadLimitUnit: 'MB',
   advancedDaemonDesktopOnly: '守护进程模式仅在桌面应用中可用。',
   gatewayAdapters: '网关适配器',
   gatewayAdaptersDescriptionPrefix:

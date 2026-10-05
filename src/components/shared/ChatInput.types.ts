@@ -132,13 +132,17 @@ export interface ChatInputProps {
   placeholder?: string;
   /** Whether the agent is running */
   isRunning?: boolean;
-  /** Callback when submitting with text, attachments, MCP server mentions, and pinned skills */
+  /**
+   * Callback when submitting with text, attachments, MCP server mentions, and
+   * pinned skills. Resolve `false` when the message was not sent so the
+   * composer restores the draft.
+   */
   onSubmit: (
     text: string,
     attachments?: MessageAttachment[],
     mentionedMcpServers?: string[],
     pinnedSkills?: string[],
-  ) => Promise<void>;
+  ) => Promise<void | boolean>;
   /** Callback when stop button is clicked */
   onStop?: () => void;
   /** Variant: 'home' for larger home page style, 'reply' for compact reply style */
@@ -185,13 +189,14 @@ export interface ChatInputProps {
   initialMcpServers?: string[];
   /** Pre-selected skills (e.g., from agent profile) */
   initialSkills?: string[];
-  /** Callback for "Dispatch" (background execution) — home variant only */
+  /** Callback for "Dispatch" (background execution) — home variant only.
+   *  Resolve `false` when nothing was dispatched, as with `onSubmit`. */
   onDispatch?: (
     text: string,
     attachments?: MessageAttachment[],
     mentionedMcpServers?: string[],
     pinnedSkills?: string[],
-  ) => Promise<void>;
+  ) => Promise<void | boolean>;
 }
 
 export function expandSearchSlashCommand(text: string): string {
@@ -217,6 +222,10 @@ export const TEXTAREA_MIN_HEIGHT_REPLY = 20;
 
 // Generate unique ID for attachments
 export const generateId = () => `attachment_${randomUUID()}`;
+
+/** Default `accept` list for the composer's attachment picker. */
+export const DEFAULT_ATTACHMENT_ACCEPT =
+  'image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.md,.json,.csv,.xlsx,.xls,.pptx,.ppt';
 
 export const IMAGE_EXTS = [
   'png',

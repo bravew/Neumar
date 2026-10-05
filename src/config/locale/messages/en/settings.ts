@@ -2132,6 +2132,10 @@ export default {
   advancedKickstart: 'Kickstart',
   advancedRecentSidecarLogs: 'Recent sidecar logs (last 100 lines)',
   advancedNoLogs: '(no logs)',
+  attachmentUploadLimit: 'Attachment upload limit',
+  attachmentUploadLimitDescription:
+    'Largest file you can upload to a chat, in MB (1–4096). Files selected with the desktop file picker are read in place and are not uploaded.',
+  attachmentUploadLimitUnit: 'MB',
   advancedDaemonDesktopOnly:
     'Daemon mode is only available in the desktop app.',
   gatewayAdapters: 'Gateway adapters',

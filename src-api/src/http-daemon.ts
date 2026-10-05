@@ -1,7 +1,6 @@
 import { serve } from '@hono/node-server';
 import type { ServerType } from '@hono/node-server';
 import { Hono } from 'hono';
-import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
 
 import {
@@ -85,6 +84,7 @@ import * as automationEngine from '@/shared/automation/engine';
 import { getChannelManager } from '@/shared/channels/channel-manager';
 // Plugin classes are now dynamically loaded by ChannelManager.loadAndStartAll()
 import { closeDatabase, getDatabase } from '@/shared/db';
+import { requestBodyLimit } from '@/shared/http/body-limit';
 import { configureGlobalFetchProxyFromEnv } from '@/shared/http/proxy-dispatcher';
 import {
   drainRequests,
@@ -193,19 +193,8 @@ app.use('*', corsMiddleware);
 app.use('*', requestTrackerMiddleware);
 app.use('*', jwtMiddleware);
 
-// Body size limits: 100MB for agent routes (base64-encoded image attachments
-// inflate ~33%, so 6 × 2.4MB raw ≈ 19MB wire), 10MB for everything else.
-const AGENT_BODY_LIMIT = 100 * 1024 * 1024;
-const VIDEO_BODY_LIMIT = 500 * 1024 * 1024;
-const DEFAULT_BODY_LIMIT = 10 * 1024 * 1024;
-app.use('*', (c, next) => {
-  const limit = c.req.path.startsWith('/agent')
-    ? AGENT_BODY_LIMIT
-    : c.req.path.startsWith('/video')
-      ? VIDEO_BODY_LIMIT
-      : DEFAULT_BODY_LIMIT;
-  return bodyLimit({ maxSize: limit })(c, next);
-});
+// Body size limits per route; chat attachment uploads follow the user setting.
+app.use('*', requestBodyLimit);
 
 // Routes
 app.route('/health', healthRoutes);

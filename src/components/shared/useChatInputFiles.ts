@@ -17,6 +17,7 @@ import {
   isFolderAlwaysAllowed,
 } from '@/shared/lib/folder-permissions';
 import { grantFileReadAccess } from '@/shared/lib/tauri-scope';
+import { useLanguage } from '@/shared/providers/language-provider';
 import type { PermissionDialogResult } from '@/shared/types/folder-permissions';
 
 import type { Attachment, AttachmentSourceContext } from './ChatInput.types';
@@ -32,6 +33,7 @@ import {
   isVideoFile,
   VIDEO_EXTS,
 } from './ChatInput.types';
+import { pickLocalFilePaths } from './native-file-picker';
 
 /**
  * Extract absolute file paths from HTML5 DataTransfer text data.
@@ -76,6 +78,8 @@ export interface UseChatInputFilesOptions {
   effectiveWorkDirsRef: React.RefObject<string[]>;
   handleWorkDirsChange: (folders: string[]) => void;
   acceptsFile?: (file: File) => boolean;
+  /** When set, the attach button opens the OS dialog with this filter. */
+  nativePickerAccept?: string;
 }
 
 export function useChatInputFiles({
@@ -83,7 +87,9 @@ export function useChatInputFiles({
   effectiveWorkDirsRef,
   handleWorkDirsChange,
   acceptsFile,
+  nativePickerAccept,
 }: UseChatInputFilesOptions) {
+  const { t } = useLanguage();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [pendingDropFolders, setPendingDropFolders] = useState<string[]>([]);
@@ -99,7 +105,7 @@ export function useChatInputFiles({
       await grantFileReadAccess(paths);
       const newAttachments: Attachment[] = [];
       for (const p of paths) {
-        const name = p.split('/').pop() || p;
+        const name = p.split(/[\\/]/).pop() || p;
         const ext = name.split('.').pop()?.toLowerCase() || '';
         const isImage = IMAGE_EXTS.includes(ext);
         const type = isImage
@@ -225,9 +231,22 @@ export function useChatInputFiles({
     [addFiles],
   );
 
-  const openFilePicker = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
+  const openFilePicker = useCallback(async () => {
+    if (nativePickerAccept === undefined) {
+      fileInputRef.current?.click();
+      return;
+    }
+    try {
+      const paths = await pickLocalFilePaths(
+        nativePickerAccept,
+        t.home.addFilesOrPhotos,
+      );
+      if (paths.length > 0) await addFilePaths(paths);
+    } catch (err) {
+      console.error('[ChatInput] Native file dialog failed:', err);
+      fileInputRef.current?.click();
+    }
+  }, [nativePickerAccept, t.home.addFilesOrPhotos, addFilePaths]);
 
   // ── Folder drag-drop permission ──
   const grantDroppedFolder = useCallback(
@@ -400,8 +419,8 @@ export function useChatInputFiles({
         const textData = e.dataTransfer.getData('text/plain');
         const paths = extractFilePathsFromTextData(uriList, textData);
         // Logged in production too — when Finder drops fall through to the
-        // File-object fallback, the file gets uploaded as multipart and is
-        // subject to the backend's in-memory size cap. Surfacing this drop
+        // File-object fallback, the file is uploaded and is subject to the
+        // attachment upload limit. Surfacing this drop
         // diagnostic is the fastest way to triage "agent didn't see my file"
         // reports without forcing a dev rebuild.
         console.warn('[ChatInput] HTML5 drop in Tauri:', {
@@ -427,10 +446,9 @@ export function useChatInputFiles({
         }
 
         // Fallback: Finder drops may provide File objects without text URIs.
-        // The submit path will upload via /files/attachment-save (multipart),
-        // which means the file has to fit the in-memory cap. For large
-        // videos, ask the user to use the file picker (which goes through
-        // the path-based copy branch and supports 4 GB).
+        // The submit path streams them to /files/attachment-save, so they
+        // must fit the configurable upload limit. The attach button picks by
+        // path instead and reads the file in place.
         if (e.dataTransfer.files.length > 0) {
           await addFiles(e.dataTransfer.files);
         }

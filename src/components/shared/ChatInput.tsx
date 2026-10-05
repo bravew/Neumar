@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/utils';
 
 import { isImeCompositionKeyEvent } from './chat-input-keyboard';
 import type { ChatInputProps } from './ChatInput.types';
-import { expandSearchSlashCommand } from './ChatInput.types';
+import { DEFAULT_ATTACHMENT_ACCEPT, inTauri } from './ChatInput.types';
 import { ChatInputActions } from './ChatInputActions';
 import { ChatInputAttachmentDialogs } from './ChatInputAttachmentDialogs';
 import { AttachmentPreview, DragOverlay } from './ChatInputAttachments';
@@ -16,6 +16,7 @@ import { SlashCommandMenu } from './SlashCommandMenu';
 import { useAssetCatalogAttachment } from './useAssetCatalogAttachment';
 import { useChatInputFiles } from './useChatInputFiles';
 import { useChatInputState } from './useChatInputState';
+import { useChatInputSubmit } from './useChatInputSubmit';
 import { useCloudStorageAttachment } from './useCloudStorageAttachment';
 import {
   useComposerModelShortcut,
@@ -69,6 +70,8 @@ export function ChatInput({
     [onWorkDirsChangeProp, onWorkDirChange],
   );
 
+  const attachmentAccept =
+    attachmentPolicy?.accept ?? DEFAULT_ATTACHMENT_ACCEPT;
   const effectiveWorkDirsRef = useRef(effectiveWorkDirs);
   effectiveWorkDirsRef.current = effectiveWorkDirs;
 
@@ -95,6 +98,10 @@ export function ChatInput({
     effectiveWorkDirsRef,
     handleWorkDirsChange,
     acceptsFile: attachmentPolicy?.acceptsFile,
+    // Desktop: pick by path so files are read in place, not uploaded.
+    // Callers that need the bytes (preserveAttachmentFiles) keep the input.
+    nativePickerAccept:
+      inTauri && !preserveAttachmentFiles ? attachmentAccept : undefined,
   });
 
   const {
@@ -173,53 +180,24 @@ export function ChatInput({
         : partialText
       : value;
 
-  const collectAndClear = () => {
-    const text = expandSearchSlashCommand(value.trim());
-    if (
-      (!text && attachments.length === 0 && !hasExternalSubmitContext) ||
-      disabled
-    )
-      return null;
-    const messageAttachments = convertToMessageAttachments(attachments);
-    const mcpMentions = selectedMcp.length > 0 ? [...selectedMcp] : undefined;
-    const pinned = selectedSkills.length > 0 ? [...selectedSkills] : undefined;
-    setValue('');
-    setAttachments([]);
-    setSelectedMcp([]);
-    setSelectedSkills([]);
-    return { text, messageAttachments, mcpMentions, pinned };
-  };
-
-  const handleSubmit = async () => {
-    if (isListening) {
-      pttActiveRef.current = false;
-      stopListening();
-    }
-    const input = collectAndClear();
-    if (input)
-      await onSubmit(
-        input.text,
-        input.messageAttachments,
-        input.mcpMentions,
-        input.pinned,
-      );
-  };
-
-  const handleDispatch = async () => {
-    if (!onDispatch) return;
-    if (isListening) {
-      pttActiveRef.current = false;
-      stopListening();
-    }
-    const input = collectAndClear();
-    if (input)
-      await onDispatch(
-        input.text,
-        input.messageAttachments,
-        input.mcpMentions,
-        input.pinned,
-      );
-  };
+  const { handleSubmit, handleDispatch } = useChatInputSubmit({
+    value,
+    setValue,
+    attachments,
+    setAttachments,
+    selectedMcp,
+    setSelectedMcp,
+    selectedSkills,
+    setSelectedSkills,
+    convertToMessageAttachments,
+    hasExternalSubmitContext,
+    disabled,
+    isListening,
+    stopListening,
+    pttActiveRef,
+    onSubmit,
+    onDispatch,
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const composingKey = isComposingRef.current || isImeCompositionKeyEvent(e);
@@ -315,10 +293,7 @@ export function ChatInput({
           ref={fileInputRef}
           type="file"
           multiple
-          accept={
-            attachmentPolicy?.accept ??
-            'image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.md,.json,.csv,.xlsx,.xls,.pptx,.ppt'
-          }
+          accept={attachmentAccept}
           onChange={handleFileChange}
           className="hidden"
         />

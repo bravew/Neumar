@@ -403,6 +403,10 @@ export default {
   runningEllipsis: 'En cours…',
   agentError: 'Erreur',
   agentUnknownError: 'Erreur inconnue',
+  attachmentUploadFailed:
+    "Impossible de joindre {name} : le message n'a pas été envoyé. {reason}",
+  attachmentTooLarge:
+    "{name} dépasse la limite d'envoi de {limit} Mo : le message n'a pas été envoyé. Augmentez la limite dans Paramètres → Avancé, ou joignez le fichier depuis l'application de bureau pour qu'il soit lu sur place.",
   agentRunFailed:
     "L'exécution de l'agent s'est terminée sans réponse. Vérifiez la configuration du modèle ou réessayez.",
 

@@ -2156,6 +2156,10 @@ export default {
   advancedKickstart: 'Reiniciar',
   advancedRecentSidecarLogs: 'Logs recientes del sidecar (últimas 100 líneas)',
   advancedNoLogs: '(sin logs)',
+  attachmentUploadLimit: 'Límite de subida de adjuntos',
+  attachmentUploadLimitDescription:
+    'Tamaño máximo de archivo que puedes subir a un chat, en MB (1–4096). Los archivos seleccionados con el selector de la app de escritorio se leen en su ubicación y no se suben.',
+  attachmentUploadLimitUnit: 'MB',
   advancedDaemonDesktopOnly:
     'El modo demonio solo está disponible en la app de escritorio.',
   gatewayAdapters: 'Adaptadores de gateway',

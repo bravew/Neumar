@@ -9,6 +9,8 @@ import { exec, execFile } from 'child_process';
 import { constants as fsConstants } from 'fs';
 import * as fs from 'fs/promises';
 import { createReadStream, statSync } from 'node:fs';
+import { Readable, Transform } from 'node:stream';
+import { pipeline as streamPipeline } from 'node:stream/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -28,6 +30,7 @@ import {
 } from '@/config/constants';
 
 import { getSetting } from '@/shared/db/operations';
+import { getAttachmentUploadLimitBytes } from '@/shared/http/body-limit';
 import { trustedLocalPolicy } from '@/shared/network-policy/schema';
 import { detectBinaries } from '@/shared/services/ffmpeg';
 import { loadSkillFromDir } from '@/shared/skills/loader';
@@ -618,10 +621,6 @@ files.post('/read-binary', async (c) => {
   }
 });
 
-/** Max attachment size for in-memory multipart uploads (250 MB). The browser
- *  has to read the file into memory for FormData, so this stays moderate. */
-const MAX_ATTACHMENT_SIZE = 250 * 1024 * 1024;
-
 /** Max attachment size when copying from an existing on-disk path (4 GB).
  *  fs.copyFile streams without loading into memory, so the only real limit
  *  is filesystem free space. A 4 GB cap still protects against runaway
@@ -644,14 +643,29 @@ const attachmentCopySchema = z.object({
   name: z.string().optional(),
 });
 
-/** Schema for the non-file fields of the multipart upload branch. */
-const attachmentUploadFieldsSchema = z.object({
+/** Schema for the query parameters of the streamed upload branch. */
+const attachmentUploadQuerySchema = z.object({
   taskId: z
     .string()
     .min(1)
     .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid taskId'),
   workDir: z.string().optional(),
+  name: z.string().min(1),
 });
+
+class AttachmentTooLargeError extends Error {}
+
+/** Pass-through stream that fails once more than `limit` bytes flow through. */
+function byteLimitStream(limit: number): Transform {
+  let received = 0;
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      received += chunk.length;
+      if (received > limit) callback(new AttachmentTooLargeError());
+      else callback(null, chunk);
+    },
+  });
+}
 
 /**
  * Resolve the session attachments directory for a task.
@@ -704,9 +718,11 @@ function safeAttachmentName(name: string): string {
 /**
  * Persist a chat attachment into its task's session folder.
  *
- * Two shapes, mirroring /files/video-thumbnail:
- *   - multipart/form-data with `file`, `taskId`, optional `workDir`
- *     → streams the uploaded binary to `session-{taskId}/attachments/`
+ * Two shapes:
+ *   - raw file body (e.g. application/octet-stream) with `taskId`, `name`,
+ *     optional `workDir` query params → streams the binary to
+ *     `session-{taskId}/attachments/`, capped by the user's
+ *     `attachmentUploadLimitMb` setting
  *   - application/json `{ taskId, sourcePath, workDir?, name? }`
  *     → copies the existing on-disk file into the session folder
  *
@@ -760,10 +776,10 @@ files.post('/attachment-save', async (c) => {
       return c.json({ path: destPath });
     }
 
-    const form = await c.req.parseBody();
-    const parsed = attachmentUploadFieldsSchema.safeParse({
-      taskId: form['taskId'],
-      workDir: form['workDir'],
+    const parsed = attachmentUploadQuerySchema.safeParse({
+      taskId: c.req.query('taskId'),
+      workDir: c.req.query('workDir'),
+      name: c.req.query('name'),
     });
     if (!parsed.success) {
       return c.json(
@@ -771,25 +787,44 @@ files.post('/attachment-save', async (c) => {
         400,
       );
     }
-    const { taskId, workDir } = parsed.data;
+    const { taskId, workDir, name } = parsed.data;
 
     const resolved = resolveAttachmentsDir(taskId, workDir);
     if ('error' in resolved)
       return c.json({ error: resolved.error }, resolved.status);
 
-    const fileEntry = form['file'];
-    if (!fileEntry || typeof fileEntry === 'string') {
-      return c.json({ error: 'file part required' }, 400);
-    }
-    const file = fileEntry as File;
-    if (file.size > MAX_ATTACHMENT_SIZE) {
-      return c.json({ error: 'File too large' }, 413);
-    }
+    const body = c.req.raw.body;
+    if (!body) return c.json({ error: 'file body required' }, 400);
+
+    // The global middleware checks Content-Length without buffering; the
+    // counting stream also covers chunked bodies without one.
+    const limitBytes = getAttachmentUploadLimitBytes();
     await fs.mkdir(resolved.dir, { recursive: true });
     const prefix = crypto.randomUUID().replace(/-/g, '').slice(0, 8);
-    const safeName = safeAttachmentName(file.name || 'attachment');
-    const destPath = path.join(resolved.dir, `${prefix}_${safeName}`);
-    await fs.writeFile(destPath, Buffer.from(await file.arrayBuffer()));
+    const destPath = path.join(
+      resolved.dir,
+      `${prefix}_${safeAttachmentName(name)}`,
+    );
+    // Exclusive open happens before cleanup takes ownership of the path.
+    // A collision must never delete an attachment created by another request.
+    const file = await fs.open(destPath, 'wx');
+    try {
+      // Stream to disk: gigabyte videos must not be buffered in memory.
+      await streamPipeline(
+        Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]),
+        byteLimitStream(limitBytes),
+        file.createWriteStream(),
+      );
+    } catch (err) {
+      await file.close();
+      await fs.rm(destPath, { force: true });
+      if (err instanceof AttachmentTooLargeError) {
+        return c.json({ error: 'File too large', limitBytes }, 413);
+      }
+      throw err;
+    } finally {
+      await file.close();
+    }
     return c.json({ path: destPath });
   } catch (err) {
     return c.json(

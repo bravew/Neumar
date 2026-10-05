@@ -14,6 +14,10 @@ import { ChatInput, DEFAULT_MODEL_ID } from '@/components/shared/ChatInput';
 import { TemplateGallery } from '@/components/shared/TemplateGallery';
 import { ParallelTaskDashboard } from '@/components/task/ParallelTaskDashboard';
 import {
+  notifyAttachmentFailures,
+  resolveAttachmentsForSubmit,
+} from '@/components/task/taskV2-submit-helpers';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -206,6 +210,17 @@ function HomeContent() {
       const pSkills = profileSkills ?? [];
       const mergedSkills = [...new Set([...pSkills, ...(pinnedSkills || [])])];
 
+      // Stage attachments before leaving Home: the File objects can't be
+      // recovered after navigation, and a failure must keep the draft here
+      // (`false` tells ChatInput to restore it) instead of sending without it.
+      const taskId = randomUUID();
+      const staged = await resolveAttachmentsForSubmit(
+        attachments,
+        taskId,
+        workDirs[0],
+      );
+      if (notifyAttachmentFailures(staged.failures, tt)) return false;
+
       // Create a new session
       const sessionId = generateSessionId(finalPrompt);
       try {
@@ -215,15 +230,12 @@ function HomeContent() {
           console.error('[Home] Failed to create session:', error);
       }
 
-      // Generate task ID and navigate with attachments
-      const taskId = randomUUID();
-
       navigate(`/task-v2/${taskId}`, {
         state: {
           prompt: finalPrompt,
           sessionId,
           taskIndex: 1,
-          attachments,
+          attachments: staged.attachments,
           workDir: workDirs[0] ?? undefined,
           additionalWorkDirs:
             workDirs.length > 1 ? workDirs.slice(1) : undefined,
@@ -251,6 +263,7 @@ function HomeContent() {
     },
     [
       navigate,
+      tt,
       workDirs,
       selectedModel,
       projectState?.projectId,

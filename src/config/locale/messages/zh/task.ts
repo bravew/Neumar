@@ -408,6 +408,9 @@ export default {
   runningEllipsis: '运行中…',
   agentError: '错误',
   agentUnknownError: '未知错误',
+  attachmentUploadFailed: '无法附加 {name}，消息未发送。{reason}',
+  attachmentTooLarge:
+    '{name} 超过了 {limit} MB 的上传上限，消息未发送。请在 设置 → 高级 中提高上限，或在桌面版中附加该文件以直接读取原文件。',
   agentRunFailed: '代理运行完成但没有响应。请检查模型配置或重试。',
 
   // V2 组件

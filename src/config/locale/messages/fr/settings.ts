@@ -2166,6 +2166,10 @@ export default {
   advancedKickstart: 'Redémarrer',
   advancedRecentSidecarLogs: 'Logs sidecar récents (100 dernières lignes)',
   advancedNoLogs: '(aucun log)',
+  attachmentUploadLimit: "Limite d'envoi des pièces jointes",
+  attachmentUploadLimitDescription:
+    "Taille maximale d'un fichier envoyé dans une conversation, en Mo (1–4096). Les fichiers sélectionnés avec le sélecteur de l'application de bureau sont lus sur place et ne sont pas envoyés.",
+  attachmentUploadLimitUnit: 'Mo',
   advancedDaemonDesktopOnly:
     "Le mode daemon n'est disponible que dans l'application desktop.",
   gatewayAdapters: 'Adaptateurs gateway',

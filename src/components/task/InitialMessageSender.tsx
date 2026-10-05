@@ -7,6 +7,7 @@ import { useAgent, useCopilotKit } from '@copilotkit/react-core/v2';
 import {
   buildAgentPrompt,
   deriveAttachmentDirs,
+  notifyAttachmentFailures,
   resolveAttachmentsForSubmit,
 } from '@/components/task/taskV2-submit-helpers';
 import {
@@ -19,6 +20,7 @@ import {
 } from '@/shared/db';
 import type { Message, Task } from '@/shared/db';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
+import { useLanguage } from '@/shared/providers/language-provider';
 import { randomUUID } from '@/shared/utils/uuid';
 
 export interface ProfileDisplayInfo {
@@ -119,6 +121,7 @@ export function InitialMessageSender({
 }) {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
+  const { tt } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const startedRef = useRef(false);
@@ -255,14 +258,19 @@ export function InitialMessageSender({
         }
       }
 
-      // File-picker / paste attachments arrive with no `path`. Persist them
-      // to the session folder first so buildAgentPrompt can include them in
-      // the [ATTACHED FILES …] prefix.
-      const resolvedAttachments = await resolveAttachmentsForSubmit(
+      // Home stages attachments before navigating; anything still path-less
+      // is persisted here so buildAgentPrompt can list it. Never run the
+      // agent on a prompt whose attachment went missing.
+      const staged = await resolveAttachmentsForSubmit(
         attachments,
         taskId,
         taskWorkDir,
       );
+      if (notifyAttachmentFailures(staged.failures, tt)) {
+        clearInitialNavigationState();
+        return;
+      }
+      const resolvedAttachments = staged.attachments;
 
       if (resolvedAttachments && resolvedAttachments.length > 0) {
         onAttachMessage?.(msgId, resolvedAttachments);
@@ -325,6 +333,7 @@ export function InitialMessageSender({
     taskId,
     onAttachMessage,
     modelConfig,
+    tt,
   ]);
 
   // Phase 3 moved to TaskDetailV2Page — loads history into state prop

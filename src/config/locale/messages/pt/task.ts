@@ -409,6 +409,10 @@ export default {
   runningEllipsis: 'Executando…',
   agentError: 'Erro',
   agentUnknownError: 'Erro desconhecido',
+  attachmentUploadFailed:
+    'Não foi possível anexar {name}, então a mensagem não foi enviada. {reason}',
+  attachmentTooLarge:
+    '{name} é maior que o limite de envio de {limit} MB, então a mensagem não foi enviada. Aumente o limite em Configurações → Avançado ou anexe o arquivo pelo app de desktop para que ele seja lido no local.',
   agentRunFailed:
     'A execução do agente foi concluída sem resposta. Verifique a configuração do modelo ou tente novamente.',
 

@@ -653,6 +653,11 @@ export const DEFAULT_PUBLISH_DESTINATIONS: Record<
   },
 };
 
+/** Mirrors the API's clamp in src-api/src/shared/http/body-limit.ts. */
+export const DEFAULT_ATTACHMENT_UPLOAD_LIMIT_MB = 1024;
+export const MIN_ATTACHMENT_UPLOAD_LIMIT_MB = 1;
+export const MAX_ATTACHMENT_UPLOAD_LIMIT_MB = 4096;
+
 export const DEFAULT_PUBLISH_SETTINGS: PublishSettingsConfig = {
   enabled: false,
   rcloneBridgeEnabled: false,
@@ -762,6 +767,10 @@ export interface Settings {
   // Conversation History settings
   maxConversationTurns: number; // Maximum conversation turns to keep in history (default: 20)
   maxHistoryTokens: number; // Maximum tokens for conversation history (default: 2000)
+
+  // Largest chat attachment the API accepts as an upload, in MB (default: 1024).
+  // Path-backed desktop attachments are read in place and are not uploaded.
+  attachmentUploadLimitMb: number;
 
   // Connector settings
   linearEnabled: boolean;
@@ -1482,6 +1491,7 @@ export const defaultSettings: Settings = {
   modelRouting: {}, // Empty = all task types use the global defaultProvider + defaultModel
   maxConversationTurns: 20, // Default: 20 conversation turns
   maxHistoryTokens: 2000, // Default: 2000 tokens for history
+  attachmentUploadLimitMb: DEFAULT_ATTACHMENT_UPLOAD_LIMIT_MB,
   linearEnabled: false,
   slackEnabled: false,
   connectors: {
@@ -1585,6 +1595,7 @@ const BACKEND_SYNCED_KEYS: (keyof Settings)[] = [
   'defaultAgentRuntime',
   'maxConversationTurns',
   'maxHistoryTokens',
+  'attachmentUploadLimitMb',
   'mcpEnabled',
   'mcpUserDirEnabled',
   'mcpAppDirEnabled',

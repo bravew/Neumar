@@ -2146,6 +2146,10 @@ export default {
   advancedKickstart: 'Reiniciar',
   advancedRecentSidecarLogs: 'Logs recentes do sidecar (últimas 100 linhas)',
   advancedNoLogs: '(sem logs)',
+  attachmentUploadLimit: 'Limite de envio de anexos',
+  attachmentUploadLimitDescription:
+    'Tamanho máximo de arquivo que você pode enviar para um chat, em MB (1–4096). Arquivos selecionados pelo seletor do app de desktop são lidos no local e não são enviados.',
+  attachmentUploadLimitUnit: 'MB',
   advancedDaemonDesktopOnly: 'O modo daemon só está disponível no app desktop.',
   gatewayAdapters: 'Adaptadores de gateway',
   gatewayAdaptersDescriptionPrefix:

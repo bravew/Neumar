@@ -318,6 +318,32 @@ function isInsideDir(filePath: string, dir: string): boolean {
 }
 
 /**
+ * Maximum time we'll wait on `/files/attachment-save` before giving up and
+ * falling back to the Tauri fs path. Bounds the user-visible stall if the
+ * API server hangs — the user's submit should never be blocked indefinitely
+ * by attachment bookkeeping. Uploads get extra time in proportion to size.
+ */
+const BACKEND_ATTACHMENT_TIMEOUT_MS = 60_000;
+/** Slowest local upload rate we budget for when sizing the upload timeout. */
+const MIN_UPLOAD_BYTES_PER_MS = 10 * 1024; // ≈10 MB/s
+
+/** Why an attachment could not be staged; surfaced to the user on submit. */
+export type AttachmentStagingFailure = { id: string; name: string } & (
+  | { reason: 'too_large'; limitBytes?: number }
+  | { reason: 'error'; message: string }
+);
+
+type BackendSaveResult =
+  | { ok: true; path: string }
+  | {
+      ok: false;
+      /** HTTP status when the backend answered; absent when unreachable. */
+      status?: number;
+      message: string;
+      limitBytes?: number;
+    };
+
+/**
  * Persist an attachment via the backend's `/files/attachment-save` endpoint.
  *
  * Used whenever the user's workDir lives outside Tauri's static fs scope
@@ -325,37 +351,39 @@ function isInsideDir(filePath: string, dir: string): boolean {
  * unrestricted filesystem access and writes directly to
  * `${workDir}/sessions/session-${taskId}/attachments/`.
  *
- * Accepts either an in-memory `File` (multipart upload) or an existing
- * absolute `sourcePath` (server-side copy). Returns the resolved disk path
- * of the saved attachment, or null on failure.
+ * Accepts either an in-memory `File` (streamed as the raw request body, up to
+ * the user's `attachmentUploadLimitMb`) or an existing absolute `sourcePath`
+ * (server-side copy).
  */
-/**
- * Maximum time we'll wait on `/files/attachment-save` before giving up and
- * falling back to the Tauri fs path. Chosen to cover a 100 MB upload on a
- * slow disk but still bound the user-visible stall if the API server hangs —
- * the user's submit should never be blocked indefinitely by attachment
- * bookkeeping.
- */
-const BACKEND_ATTACHMENT_TIMEOUT_MS = 60_000;
-
 async function persistAttachmentViaBackend(
   args: {
     taskId: string;
     workDir?: string;
     name?: string;
   } & ({ file: File } | { sourcePath: string }),
-): Promise<string | null> {
-  const signal = AbortSignal.timeout(BACKEND_ATTACHMENT_TIMEOUT_MS);
+): Promise<BackendSaveResult> {
+  const timeoutMs =
+    'file' in args
+      ? Math.max(
+          BACKEND_ATTACHMENT_TIMEOUT_MS,
+          Math.ceil(args.file.size / MIN_UPLOAD_BYTES_PER_MS),
+        )
+      : BACKEND_ATTACHMENT_TIMEOUT_MS;
+  const signal = AbortSignal.timeout(timeoutMs);
   try {
     let res: Response;
     if ('file' in args) {
-      const form = new FormData();
-      form.append('taskId', args.taskId);
-      if (args.workDir) form.append('workDir', args.workDir);
-      form.append('file', args.file, args.name ?? args.file.name);
-      res = await fetch(`${API_BASE_URL}/files/attachment-save`, {
+      const query = new URLSearchParams({
+        taskId: args.taskId,
+        name: args.name ?? args.file.name,
+      });
+      if (args.workDir) query.set('workDir', args.workDir);
+      // Send the File itself as the body so the browser streams it from disk
+      // instead of copying it into memory the way FormData would.
+      res = await fetch(`${API_BASE_URL}/files/attachment-save?${query}`, {
         method: 'POST',
-        body: form,
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: args.file,
         signal,
       });
     } else {
@@ -372,24 +400,48 @@ async function persistAttachmentViaBackend(
       });
     }
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      // Surface in production — a 413 here is exactly how large video drops
-      // silently lose their [ATTACHED FILES …] prefix (the resolver falls
-      // through to a path-less attachment, buildAgentPrompt drops it, and
-      // the agent only sees the bare user text).
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        limitBytes?: number;
+      };
       console.error(
         '[Attachments] Backend attachment-save failed:',
         res.status,
         body,
       );
-      return null;
+      return {
+        ok: false,
+        status: res.status,
+        message: body.error || `HTTP ${res.status}`,
+        limitBytes: body.limitBytes,
+      };
     }
     const data = (await res.json()) as { path?: string };
-    return data.path ?? null;
+    return data.path
+      ? { ok: true, path: data.path }
+      : { ok: false, status: res.status, message: 'No path returned' };
   } catch (err) {
     console.error('[Attachments] Backend attachment-save threw:', err);
-    return null;
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : String(err),
+    };
   }
+}
+
+function toStagingFailure(
+  { id, name }: MessageAttachment,
+  result: Extract<BackendSaveResult, { ok: false }> | null,
+): AttachmentStagingFailure {
+  if (result?.status === 413) {
+    return { id, name, reason: 'too_large', limitBytes: result.limitBytes };
+  }
+  return {
+    id,
+    name,
+    reason: 'error',
+    message: result?.message ?? 'Could not save the attachment',
+  };
 }
 
 /**
@@ -418,6 +470,8 @@ async function persistAttachmentViaBackend(
 export interface ResolveAttachmentsContext {
   taskId?: string;
   workDir?: string;
+  /** Called for each in-memory attachment that could not be saved to disk. */
+  onFailure?: (failure: AttachmentStagingFailure) => void;
 }
 
 export async function resolveFileAttachments(
@@ -432,31 +486,36 @@ export async function resolveFileAttachments(
   const resolveOne = async (
     a: MessageAttachment,
   ): Promise<AttachmentReference | null> => {
-    if (a.path && !a.data) {
-      const alreadyAccessible =
-        isInsideDir(a.path, sessionFolder) ||
-        (workDir != null && isInsideDir(a.path, workDir));
-      if (alreadyAccessible) {
-        return {
-          id: a.id,
-          type: a.type,
-          name: a.name,
-          path: a.path,
-          mimeType: a.mimeType,
-          sourceContext: a.sourceContext,
-        };
-      }
+    // Already staged (e.g. by Home before navigating) or inside the
+    // workspace: the agent can read it in place, whether or not the
+    // attachment also carries inline preview data.
+    const alreadyAccessible =
+      !!a.path &&
+      (isInsideDir(a.path, sessionFolder) ||
+        (workDir != null && isInsideDir(a.path, workDir)));
+    if (a.path && alreadyAccessible) {
+      return {
+        id: a.id,
+        type: a.type,
+        name: a.name,
+        path: a.path,
+        mimeType: a.mimeType,
+        sourceContext: a.sourceContext,
+      };
+    }
 
+    if (a.path && !a.data) {
       // Prefer the backend — its fs access isn't bound by Tauri's scope
       // allowlist, so it works when the session folder lives outside $HOME.
       let destPath: string | null = null;
       if (taskId) {
-        destPath = await persistAttachmentViaBackend({
+        const saved = await persistAttachmentViaBackend({
           taskId,
           workDir: effectiveWorkDir,
           sourcePath: a.path,
           name: a.name,
         });
+        if (saved.ok) destPath = saved.path;
       }
       if (!destPath) {
         destPath = await copyPathViaTauri(sessionFolder, a);
@@ -483,15 +542,21 @@ export async function resolveFileAttachments(
 
     if (!a.data && a.file) {
       let savedPath: string | null = null;
+      let backendFailure: Extract<BackendSaveResult, { ok: false }> | null =
+        null;
       if (taskId) {
-        savedPath = await persistAttachmentViaBackend({
+        const saved = await persistAttachmentViaBackend({
           taskId,
           workDir: effectiveWorkDir,
           file: a.file,
           name: a.name,
         });
+        if (saved.ok) savedPath = saved.path;
+        else backendFailure = saved;
       }
-      if (!savedPath) {
+      // A 413 is the user's configured upload limit; writing the file through
+      // the Tauri fs plugin instead would silently bypass it.
+      if (!savedPath && backendFailure?.status !== 413) {
         try {
           savedPath = await saveFileObjectToFolder(
             sessionFolder,
@@ -504,16 +569,18 @@ export async function resolveFileAttachments(
           savedPath = null;
         }
       }
-      return savedPath
-        ? {
-            id: a.id,
-            type: a.type,
-            name: a.name,
-            path: savedPath,
-            mimeType: a.mimeType,
-            sourceContext: a.sourceContext,
-          }
-        : null;
+      if (!savedPath) {
+        ctx?.onFailure?.(toStagingFailure(a, backendFailure));
+        return null;
+      }
+      return {
+        id: a.id,
+        type: a.type,
+        name: a.name,
+        path: savedPath,
+        mimeType: a.mimeType,
+        sourceContext: a.sourceContext,
+      };
     }
 
     if (a.data && a.data.length > 0) {
@@ -521,25 +588,32 @@ export async function resolveFileAttachments(
       // drives outside Tauri's fs scope. Fall back to the Tauri path only
       // if the backend is unavailable.
       let savedPath: string | null = null;
+      let backendFailure: Extract<BackendSaveResult, { ok: false }> | null =
+        null;
       if (taskId) {
-        savedPath = await persistAttachmentViaBackend({
+        const saved = await persistAttachmentViaBackend({
           taskId,
           workDir: effectiveWorkDir,
           file: base64ToFile(a.data, a.name, a.mimeType),
           name: a.name,
         });
+        if (saved.ok) savedPath = saved.path;
+        else backendFailure = saved;
       }
-      if (!savedPath) savedPath = await saveAttachmentToFile(sessionFolder, a);
-      return savedPath
-        ? {
-            id: a.id,
-            type: a.type,
-            name: a.name,
-            path: savedPath,
-            mimeType: a.mimeType,
-            sourceContext: a.sourceContext,
-          }
-        : null;
+      if (!savedPath && backendFailure?.status !== 413)
+        savedPath = await saveAttachmentToFile(sessionFolder, a);
+      if (!savedPath) {
+        ctx?.onFailure?.(toStagingFailure(a, backendFailure));
+        return null;
+      }
+      return {
+        id: a.id,
+        type: a.type,
+        name: a.name,
+        path: savedPath,
+        mimeType: a.mimeType,
+        sourceContext: a.sourceContext,
+      };
     }
 
     return null;
