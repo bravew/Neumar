@@ -19,11 +19,7 @@ const PIN = {
   appName: 'ffmpeg',
   modes: ['task', 'design', 'video'],
   server: 'ffmpeg-skill',
-  tools: [
-    'ffmpeg_skill_catalog',
-    'ffmpeg_skill_check',
-    'ffmpeg_skill_execute',
-  ],
+  tools: ['ffmpeg_skill_catalog', 'ffmpeg_skill_check', 'ffmpeg_skill_execute'],
 };
 
 const REQUIRED = [
@@ -70,7 +66,8 @@ function listFiles(directory, prefix = '') {
     }
     const relativePath = prefix + entry.name;
     const fullPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) found.push(...listFiles(fullPath, `${relativePath}/`));
+    if (entry.isDirectory())
+      found.push(...listFiles(fullPath, `${relativePath}/`));
     else if (entry.isFile()) found.push(relativePath);
     else fail(`Payload contains a non-file entry: ${relativePath}`);
   }
@@ -140,7 +137,8 @@ function localLinks(markdown) {
 
 function assertPayload(files, hashes) {
   for (const required of REQUIRED) {
-    if (!files.includes(required)) fail(`Missing required payload file: ${required}`);
+    if (!files.includes(required))
+      fail(`Missing required payload file: ${required}`);
   }
   const hashed = [...hashes.keys()];
   assertSorted(hashed, 'payload-hashes.txt');
@@ -155,7 +153,9 @@ function assertPayload(files, hashes) {
   for (const [file, expectedHash] of hashes) {
     const actual = sha256(file);
     if (actual !== expectedHash) {
-      fail(`Hash drifted for ${file}. Expected ${expectedHash}, got ${actual}.`);
+      fail(
+        `Hash drifted for ${file}. Expected ${expectedHash}, got ${actual}.`,
+      );
     }
   }
 }
@@ -171,20 +171,33 @@ function publicScripts(files) {
 function assertContract(files) {
   const contract = JSON.parse(read('contract/contract.json'));
   if (contract.contract_version !== PIN.contractVersion) {
-    fail(`Contract version is ${contract.contract_version}, pin is ${PIN.contractVersion}.`);
+    fail(
+      `Contract version is ${contract.contract_version}, pin is ${PIN.contractVersion}.`,
+    );
   }
-  if (contract.skill?.id !== PIN.packageName || contract.skill?.version !== PIN.version) {
+  if (
+    contract.skill?.id !== PIN.packageName ||
+    contract.skill?.version !== PIN.version
+  ) {
     fail('Contract skill id or version does not match the pin.');
   }
-  if (!Array.isArray(contract.tools) || contract.tools.length !== PIN.toolCount) {
-    fail(`Contract has ${contract.tools?.length ?? 0} tools; pin requires ${PIN.toolCount}.`);
+  if (
+    !Array.isArray(contract.tools) ||
+    contract.tools.length !== PIN.toolCount
+  ) {
+    fail(
+      `Contract has ${contract.tools?.length ?? 0} tools; pin requires ${PIN.toolCount}.`,
+    );
   }
   const names = contract.tools.map((tool) => tool?.name);
-  if (names.some((name) => typeof name !== 'string' || !PUBLIC_TOOL.test(name))) {
+  if (
+    names.some((name) => typeof name !== 'string' || !PUBLIC_TOOL.test(name))
+  ) {
     fail('Contract contains a tool without a public script name.');
   }
   const sorted = [...names].sort();
-  if (new Set(sorted).size !== sorted.length) fail('Contract tool names are not unique.');
+  if (new Set(sorted).size !== sorted.length)
+    fail('Contract tool names are not unique.');
   const scripts = publicScripts(files);
   if (sorted.join('\n') !== scripts.join('\n')) {
     fail('Contract tool names do not match scripts/*.py public tools.');
@@ -196,7 +209,8 @@ function assertContract(files) {
     if (tool.executable !== `scripts/${tool.name}.py`) {
       fail(`Tool ${tool.name} points at ${tool.executable}.`);
     }
-    if (!files.includes(tool.executable)) fail(`Missing executable ${tool.executable}.`);
+    if (!files.includes(tool.executable))
+      fail(`Missing executable ${tool.executable}.`);
     const schema = tool.input_schema;
     if (schema?.type !== 'object' || schema.additionalProperties !== false) {
       fail(`Tool ${tool.name} has no closed object input schema.`);
@@ -207,8 +221,10 @@ function assertContract(files) {
     for (const [key, property] of Object.entries(schema.properties)) {
       const cli = property?.cli;
       const positional = cli === 'positional';
-      const flags = Array.isArray(cli) && cli.every((flag) => typeof flag === 'string');
-      if (!positional && !flags) fail(`Tool ${tool.name} argument ${key} has no CLI spelling.`);
+      const flags =
+        Array.isArray(cli) && cli.every((flag) => typeof flag === 'string');
+      if (!positional && !flags)
+        fail(`Tool ${tool.name} argument ${key} has no CLI spelling.`);
     }
     if (!Array.isArray(tool.mcp?.positional)) {
       fail(`Tool ${tool.name} has no MCP positional map.`);
@@ -219,10 +235,16 @@ function assertContract(files) {
 function assertSkill() {
   const skill = frontmatter(read('SKILL.md'));
   if (skill.fields.name !== PIN.appName) {
-    fail(`SKILL.md name is ${skill.fields.name}; app name must stay ${PIN.appName}.`);
+    fail(
+      `SKILL.md name is ${skill.fields.name}; app name must stay ${PIN.appName}.`,
+    );
   }
   const description = skill.fields.description;
-  if (typeof description !== 'string' || description.length < 1 || description.length > 1024) {
+  if (
+    typeof description !== 'string' ||
+    description.length < 1 ||
+    description.length > 1024
+  ) {
     fail('SKILL.md description is missing or longer than 1024 characters.');
   }
   if (JSON.stringify(skill.fields.modes) !== JSON.stringify(PIN.modes)) {
@@ -287,7 +309,10 @@ export function checkFfmpegSkillDrift() {
   return PIN;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   if (process.argv.includes('--self-test')) {
     const original = fs.readFileSync;
     fs.readFileSync = (file, encoding) => {

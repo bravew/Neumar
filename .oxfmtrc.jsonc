@@ -43,6 +43,9 @@
     // Machine-generated acceptance reports. The harness that writes them owns
     // their shape; reformatting only makes the next run dirty the tree again.
     "dev-doc/**/evidence/**",
+    // Vendored upstream payload pinned by contract/payload-hashes.txt. Any
+    // reformat changes the bytes and fails the drift check.
+    "skills/ffmpeg/**",
     "src-api",
     "src-tauri",
     "src-site",
