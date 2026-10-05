@@ -7,7 +7,8 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { loadAllSkills } from '@/shared/plugins';
 import { findSkill, type LoadedSkill } from '@/shared/skills/loader';
@@ -16,9 +17,6 @@ import { FfmpegSkillError } from './errors';
 
 export const CONTRACT_VERSION = '1.0';
 export const EXPECTED_TOOL_COUNT = 42;
-
-/** Repo payload, used only when the skill loader cannot see the skill. */
-const REPO_SKILL_DIR = join(__dirname, '../../../../../skills/ffmpeg');
 
 export interface ContractProperty {
   type: 'string' | 'boolean' | 'integer' | 'number' | 'array';
@@ -92,7 +90,10 @@ export async function resolveFfmpegSkillDir(): Promise<string> {
   const skills = await loadAllSkills({ watch: false });
   const found = findSkill(skills as LoadedSkill[], 'ffmpeg');
   if (found) return found.path;
-  return REPO_SKILL_DIR;
+  return join(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../../skills/ffmpeg',
+  );
 }
 
 export async function loadFfmpegContract(): Promise<LoadedFfmpegContract> {

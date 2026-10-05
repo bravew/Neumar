@@ -12,10 +12,12 @@
  * find `ffmpeg`, keeping the resolution deterministic on developer machines
  * that already have an installed copy.
  */
+import { execFile } from 'node:child_process';
 import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -100,6 +102,36 @@ async function buildBundle(layout: 'up' | 'direct'): Promise<string> {
 }
 
 describe('packaged ffmpeg skill resource layout', () => {
+  it('loads the repository contract under the Node ESM runtime used by dev:api', async () => {
+    const apiDir = join(REPO_FFMPEG_SKILL, '..', '..', 'src-api');
+    const contractUrl = new URL(
+      '../../../src/shared/services/ffmpeg-skill/contract.ts',
+      import.meta.url,
+    ).href;
+    const { stdout } = await promisify(execFile)(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        '--input-type=module',
+        '--eval',
+        `import assert from 'node:assert/strict';
+const { loadFfmpegContract } = await import(${JSON.stringify(contractUrl)});
+const loaded = await loadFfmpegContract();
+assert.equal(loaded.skillDir, ${JSON.stringify(REPO_FFMPEG_SKILL)});
+assert.equal(loaded.tools.size, 42);
+process.stdout.write('ESM contract loaded');`,
+      ],
+      {
+        cwd: apiDir,
+        env: { ...process.env, NEUMAR_BUNDLED_SKILLS_DIR: '' },
+        timeout: 15_000,
+      },
+    );
+
+    expect(stdout).toContain('ESM contract loaded');
+  });
+
   it('resolves the skill and its contract from the _up_/skills layout', async () => {
     const bundle = await buildBundle('up');
     process.env.RESOURCES_DIR = bundle;
