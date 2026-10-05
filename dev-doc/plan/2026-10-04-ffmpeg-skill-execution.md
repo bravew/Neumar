@@ -23,7 +23,7 @@ The installed ffmpeg build (`/opt/homebrew/Cellar/ffmpeg/9.0.2`) omits four opti
 | #171 | Committed `728f4a85` | 48 service tests (`ffmpeg-skill-policy`, `ffmpeg-skill-runner`, `ffmpeg-skill-server`, `sdk-mcp-servers-tools-list`); API `tsc --noEmit` exit 0. |
 | #172 | Committed `f98a8ad6` | 66 API tests (attach, agent-tools, video-codex-bridge, design-chat, task/design-apply) + 6 frontend `useAgentDock`; API/API-test + frontend typechecks; disk-backed video publication. |
 | #173 | Committed `4b3f5f5a` | 19 tests (attach + real-media smoke), 67 across the full ffmpeg-skill group; API typecheck; diff-check. Upstream conformance: contract 139/152, all 464/580, every failure a host ffmpeg capability gap (below). |
-| #174 | Pending | Installed-resource smoke, support documentation, final gate and PR. |
+| #174 | Committed `f5f3709d`, `75f16f3a` | 38 tests across layout (`_up_/skills` and `skills` under a temporary `RESOURCES_DIR`), runtime discovery, executor aliases, attach, and real-media smoke including a non-ASCII filename; API typecheck and lint; drift check after the SKILL.md wording fix. `pnpm test:fast` 380 frontend files / 1634 tests and 586 API files / 3747 tests (7 skipped) pass. `pnpm validate` fails only at root `format:check` on the five pre-existing untracked files listed above; API `format:check` and `check:component-size`, which follow it, pass when run directly. Not verified: Linux, Windows, and a packaged GUI build. |
 
 ## Verification policy
 
