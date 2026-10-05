@@ -14,7 +14,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { closeDatabase, getDatabase } from '@/shared/db';
-import { createSession, createTask } from '@/shared/db/operations';
+import { createSession, createTask, saveSetting } from '@/shared/db/operations';
+import { getProjectDir } from '@/shared/services/design-mode/fs';
+import {
+  createDesignProject,
+  getDesignProject,
+} from '@/shared/services/design-mode/projects';
 import { prepareFfmpegSkillAttachment } from '@/shared/services/ffmpeg-skill/attach';
 import {
   appendFfmpegSkillContext,
@@ -292,6 +297,138 @@ describe('publishFfmpegSkillArtifact', () => {
       true,
     );
     expect(existsSync(artifactPath)).toBe(false);
+  });
+
+  it('attributes a produced artifact to the bound design project and nowhere else', async () => {
+    const staging = await makeTempDir('neumar-ffmpeg-skill-design-');
+    const artifactPath = join(staging, 'cut.mp4');
+    await writeFile(artifactPath, 'FAKE MP4 BYTES');
+    const workDir = await makeTempDir('neumar-design-work-');
+    saveSetting('workDir', workDir);
+
+    const project = await createDesignProject({
+      title: 'skill-design',
+      surface: 'prototype',
+      workspaceRoot: workDir,
+    });
+
+    const result = completedResult('cut', artifactPath, {});
+    const published = await runWithSessionContext(
+      { workDir, designProjectId: project.id },
+      () => publishFfmpegSkillArtifact(result, 'cut'),
+    );
+
+    expect(published.status).toBe('completed');
+    expect(published.artifact?.path).toBeTruthy();
+
+    const after = await getDesignProject(project.id);
+    expect(after.outputs).toHaveLength(1);
+    expect(after.outputs[0]?.path).toBe(published.artifact?.path);
+    expect(after.outputs[0]?.provider).toBe('ffmpeg-skill');
+
+    // The authorized reference exists inside the project; the staging dir is gone.
+    expect(
+      existsSync(
+        join(getProjectDir(project.id), published.artifact?.path ?? ''),
+      ),
+    ).toBe(true);
+    expect(existsSync(artifactPath)).toBe(false);
+
+    // And nowhere else: no task file row was created for the design output.
+    const row = getDatabase()
+      .prepare('SELECT id FROM files WHERE path = ?')
+      .get(join(getProjectDir(project.id), published.artifact?.path ?? ''));
+    expect(row).toBeUndefined();
+  });
+
+  it('routes publication exclusively to the bound owner across task, design, and video', async () => {
+    const workDir = await makeTempDir('neumar-isolation-work-');
+    saveSetting('workDir', workDir);
+    vi.stubEnv('NEUMA_VIDEO_WORKDIR', workDir);
+
+    // Task owner
+    const sessionId = `session-${randomUUID()}`;
+    const taskId = `task-${randomUUID()}`;
+    createSession({ id: sessionId, prompt: 'isolate output' });
+    createTask({
+      id: taskId,
+      session_id: sessionId,
+      task_index: 0,
+      prompt: 'isolate output',
+      work_dir: workDir,
+    });
+
+    // Design owner
+    const design = await createDesignProject({
+      title: 'iso-design',
+      surface: 'prototype',
+      workspaceRoot: workDir,
+    });
+
+    // Video owner
+    const video = await createProject({
+      name: 'iso-video',
+      template: 'slideshow',
+    });
+
+    const publish = async (
+      ctx: { workDir: string } & Record<string, string | undefined>,
+      tool: string,
+    ) => {
+      const staging = await makeTempDir('neumar-ffmpeg-skill-iso-');
+      const artifactPath = join(staging, `${tool}.mp4`);
+      await writeFile(artifactPath, 'ISOLATION MP4 BYTES');
+      return runWithSessionContext(ctx, () =>
+        publishFfmpegSkillArtifact(
+          completedResult(tool, artifactPath, {}),
+          tool,
+        ),
+      );
+    };
+
+    // Task context: reference lands only in the task's files row.
+    const taskPublished = await publish({ workDir, sessionId, taskId }, 'cut');
+    const taskRow = getDatabase()
+      .prepare('SELECT task_id, path FROM files WHERE task_id = ?')
+      .get(taskId) as { task_id: string; path: string } | undefined;
+    expect(taskRow?.path).toBe(taskPublished.artifact?.path);
+    expect((await getDesignProject(design.id)).outputs).toHaveLength(0);
+    expect((await getProject(video.id)).assets).toHaveLength(0);
+
+    // Design context: reference lands only in the design project's outputs.
+    const designPublished = await publish(
+      { workDir, designProjectId: design.id },
+      'fit',
+    );
+    const designOutputs = (await getDesignProject(design.id)).outputs;
+    expect(designOutputs).toHaveLength(1);
+    expect(designOutputs[0]?.path).toBe(designPublished.artifact?.path);
+    expect(
+      getDatabase()
+        .prepare('SELECT id FROM files WHERE path = ?')
+        .get(designPublished.artifact?.path ?? ''),
+    ).toBeUndefined();
+    expect(
+      getDatabase()
+        .prepare('SELECT COUNT(*) AS c FROM files WHERE task_id = ?')
+        .get(taskId) as { c: number },
+    ).toEqual({ c: 1 });
+    expect((await getProject(video.id)).assets).toHaveLength(0);
+
+    // Video context: reference lands only in the video project's assets.
+    const videoPublished = await publish(
+      { workDir, videoProjectId: video.id },
+      'crop',
+    );
+    const videoAssets = (await getProject(video.id)).assets;
+    expect(videoAssets).toHaveLength(1);
+    expect(videoAssets[0]?.path).toBe(videoPublished.artifact?.path);
+    expect(
+      getDatabase()
+        .prepare('SELECT COUNT(*) AS c FROM files WHERE task_id = ?')
+        .get(taskId) as { c: number },
+    ).toEqual({ c: 1 });
+    expect((await getDesignProject(design.id)).outputs).toHaveLength(1);
   });
 });
 
