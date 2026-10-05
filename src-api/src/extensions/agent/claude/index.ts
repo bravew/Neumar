@@ -4662,9 +4662,15 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
         // messages — simpler, more reliable, matches the official SDK usage pattern.
         const queryOptions: Options = {
           cwd: sessionCwd,
+          // Runtime model discovery reads user settings, including gateway
+          // credentials and URLs. Keep that connection for CLI-auth planning;
+          // explicitly configured API credentials retain isolated settings.
           ...(supportsSettingSources(claudeCodePath)
-            ? { settingSources: [] as ('user' | 'project')[] }
+            ? { settingSources: this.config.apiKey ? [] : ['user'] }
             : {}),
+          // Planning loads provider settings without starting external MCP servers.
+          strictMcpConfig: true,
+          mcpServers: {},
           // `tools: []` disables all built-in tools (passes --tools "").
           // `allowedTools: []` only controls auto-permission, NOT tool availability.
           tools: [],
