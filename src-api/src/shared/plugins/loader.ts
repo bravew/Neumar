@@ -20,6 +20,7 @@ import type { RunMode } from '@/core/agent/runtime-state';
 
 import {
   getAppDir,
+  getAppSkillsDir,
   getBundledSkillsDir,
   getClaudeSkillsDir,
 } from '@/config/constants';
@@ -334,24 +335,49 @@ function resolveContainedPath(
   return candidate;
 }
 
-/** Synthesize a `legacy` plugin from a bare `~/.claude/skills/<name>/` dir. */
-async function loadLegacyBareSkill(
+/**
+ * Synthesize one plugin from a bare `<skills>/<name>/SKILL.md` directory.
+ * `plugin` stays null and the public name stays the bare identity, so a
+ * bundled skill such as `ffmpeg` is not renamed to `ffmpeg:ffmpeg`.
+ */
+async function loadBareSkill(
   skillDir: string,
+  scope: PluginScope,
 ): Promise<LoadedPlugin | null> {
   const skill = await loadSkillFromDir(null, skillDir);
   if (!skill) return null;
   const manifest: PluginManifest = {
-    name: 'legacy',
+    name: skill.bareName,
     version: '0.0.0',
-    description: `Legacy skill discovered at ${skillDir}`,
+    description: `Bare skill discovered at ${skillDir}`,
     skills: '.',
   };
   return {
     manifest,
-    scope: 'legacy',
+    scope,
     path: skillDir,
     skills: [skill],
   };
+}
+
+/**
+ * Real plugins merge by manifest name. Bare skills merge by identity in a
+ * separate key so `ffmpeg` cannot displace, or be displaced by, a plugin
+ * whose manifest happens to be named `ffmpeg`.
+ */
+function pluginMergeKey(plugin: LoadedPlugin): string {
+  const bare = plugin.skills[0];
+  if (bare?.plugin === null && plugin.skills.length === 1) {
+    return `bare:${bare.bareName}`;
+  }
+  return `plugin:${plugin.manifest.name}`;
+}
+
+/** Synthesize a `legacy` plugin from a bare `~/.claude/skills/<name>/` dir. */
+async function loadLegacyBareSkill(
+  skillDir: string,
+): Promise<LoadedPlugin | null> {
+  return loadBareSkill(skillDir, 'legacy');
 }
 
 /**
@@ -360,10 +386,15 @@ async function loadLegacyBareSkill(
  * category (e.g. `plugins/builtin/video-templates/`) and its immediate
  * children are scanned instead. Category names carry no meaning and nesting
  * stops at one level.
+ *
+ * `bareSkills` additionally admits a first-level directory that is itself a
+ * skill (`SKILL.md`, no plugin manifest). That is how `skills/ffmpeg` stays
+ * the identity `ffmpeg`. A category directory is never also a bare skill.
  */
 export async function loadPluginsFromRoot(
   rootDir: string,
   scope: PluginScope,
+  options: { bareSkills?: boolean } = {},
 ): Promise<LoadedPlugin[]> {
   const dirs = await listChildDirs(rootDir);
   const loaded = await Promise.all(
@@ -373,6 +404,10 @@ export async function loadPluginsFromRoot(
       if (await readManifestFile(dir)) {
         // Manifest present but invalid — already logged; not a category dir.
         return [];
+      }
+      if (options.bareSkills) {
+        const bare = await loadBareSkill(dir, scope);
+        if (bare) return [bare];
       }
       const children = await listChildDirs(dir);
       const nested = await Promise.all(
@@ -532,14 +567,21 @@ export async function loadPlugins(
   }
   await ensurePluginHotReload(config);
 
-  const tiers: { scope: PluginScope; root: string | null }[] = [
+  const tiers: {
+    scope: PluginScope;
+    root: string | null;
+    bareSkills?: boolean;
+  }[] = [
     // Repo-shipped builtin plugins sit at the lowest priority so every other
     // tier can override them by name.
     { scope: 'bundled', root: resolveBuiltinPluginRoot() },
+    // Bare skills shipped with the app (`skills/ffmpeg`) and their app-data
+    // copy. A later tier with the same bare identity replaces these.
+    { scope: 'bundled', root: getBundledSkillsDir(), bareSkills: true },
+    { scope: 'user', root: getAppSkillsDir(), bareSkills: true },
     { scope: 'project', root: config.projectDir ?? null },
     { scope: 'user', root: join(getAppDir(), 'plugins') },
     { scope: 'marketplace', root: join(getAppDir(), 'marketplace') },
-    { scope: 'bundled', root: getBundledSkillsDir() },
   ];
 
   // Walk all tiers in parallel, merge respecting cascade priority (later
@@ -547,7 +589,11 @@ export async function loadPlugins(
   const [tierResults, legacy] = await Promise.all([
     Promise.all(
       tiers.map((t) =>
-        t.root ? loadPluginsFromRoot(t.root, t.scope) : Promise.resolve([]),
+        t.root
+          ? loadPluginsFromRoot(t.root, t.scope, {
+              bareSkills: t.bareSkills,
+            })
+          : Promise.resolve([]),
       ),
     ),
     loadLegacySkills(),
@@ -556,19 +602,31 @@ export async function loadPlugins(
   const byName = new Map<string, LoadedPlugin>();
   for (const plugins of tierResults) {
     for (const plugin of plugins) {
-      const existing = byName.get(plugin.manifest.name);
+      const key = pluginMergeKey(plugin);
+      const existing = byName.get(key);
       if (existing) {
         logger.warn(
           `Plugin name collision: '${plugin.manifest.name}' — ${existing.scope} (${existing.path}) overridden by ${plugin.scope} (${plugin.path})`,
         );
       }
-      byName.set(plugin.manifest.name, plugin);
+      byName.set(key, plugin);
     }
   }
+  // An explicit ~/.claude/skills install is the highest bare-skill tier: it
+  // replaces a bundled or app-data skill of the same identity and does not
+  // add a second copy. Its key is separate from real plugin names, so it
+  // cannot hide a plugin that happens to use the same manifest name.
   for (const plugin of legacy) {
-    if (!byName.has(plugin.skills[0]?.bareName ?? '')) {
-      byName.set(`legacy:${plugin.skills[0]?.bareName ?? plugin.path}`, plugin);
+    const bareName = plugin.skills[0]?.bareName;
+    if (!bareName) continue;
+    const key = pluginMergeKey(plugin);
+    const existing = byName.get(key);
+    if (existing) {
+      logger.warn(
+        `Plugin name collision: '${bareName}' — ${existing.scope} (${existing.path}) overridden by legacy (${plugin.path})`,
+      );
     }
+    byName.set(key, plugin);
   }
 
   return Array.from(byName.values());

@@ -1,17 +1,27 @@
 #!/usr/bin/env node
 
 /**
- * Sync built-in skills (currently: video-editing) from the repo's `skills/`
- * directory into the app data dir (`~/.<slug>/skills/`) so they are
- * resolvable by `pinnedSkills: [...]` at runtime.
+ * Sync built-in skills from the repo's `skills/` directory into the app data
+ * skills directory so they are resolvable by `pinnedSkills: [...]` at runtime.
  *
- * Without this, the SKILL.md loader logs "Pinned skill not found" and the
- * agent runs without its editing knowledge.
+ * The destination follows `NEUMAR_APP_DATA_DIR` when it is set, matching the
+ * API daemon. Otherwise it is `~/.<slug>/skills/` from branding.json.
  *
- * Wired into `predev:api` and `prebuild`. Safe to re-run (only overwrites
- * older or differently-sized files).
+ * A destination file is written only when its bytes differ from the source.
+ * Equal-size edits are therefore updated. A file whose content already matches
+ * is left untouched, so a repeated run is a no-op.
+ *
+ * User-owned overrides are preserved by not deleting anything this script did
+ * not just compare: a destination file that differs is overwritten with the
+ * bundled source (that is the development sync), and files that exist only in
+ * the destination are left in place. Removing stale bundled-owned files is
+ * deferred; there is no separate ownership inventory in this release.
+ *
+ * Wired into `predev:api` and `prebuild`. Does not install into provider
+ * global skill directories such as `~/.claude/skills`.
  */
 
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -39,16 +49,25 @@ function readSlug() {
   return '.claude';
 }
 
+function resolveTargetSkillsDir() {
+  const override = process.env.NEUMAR_APP_DATA_DIR?.trim();
+  const appDir = override || join(homedir(), readSlug());
+  return join(appDir, 'skills');
+}
+
+function sameContent(src, dst) {
+  const source = readFileSync(src);
+  const destination = readFileSync(dst);
+  if (source.length !== destination.length) return false;
+  const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+  return hash(source) === hash(destination);
+}
+
 function copyTree(src, dst) {
   const stats = statSync(src);
   if (!stats.isDirectory()) {
     mkdirSync(dirname(dst), { recursive: true });
-    if (existsSync(dst)) {
-      const existing = statSync(dst);
-      if (existing.size === stats.size && existing.mtimeMs >= stats.mtimeMs) {
-        return false;
-      }
-    }
+    if (existsSync(dst) && sameContent(src, dst)) return false;
     writeFileSync(dst, readFileSync(src));
     return true;
   }
@@ -66,7 +85,7 @@ function main() {
     console.log('[sync-skills] no skills/ directory in repo, skipping');
     return;
   }
-  const targetSkillsDir = join(homedir(), readSlug(), 'skills');
+  const targetSkillsDir = resolveTargetSkillsDir();
   mkdirSync(targetSkillsDir, { recursive: true });
 
   const entries = readdirSync(repoSkills);

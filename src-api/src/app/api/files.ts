@@ -533,6 +533,9 @@ files.get('/list-skills', async (c) => {
     category?: string;
     icon?: string;
   }[] = [];
+  // Later roots override earlier ones, so bundled, app-data, and an explicit
+  // ~/.claude install of the same identity appear once.
+  const bySlug = new Map<string, (typeof skills)[number]>();
 
   for (const dir of skillsDirs) {
     try {
@@ -544,9 +547,10 @@ files.get('/list-skills', async (c) => {
         const loaded = await loadSkillFromDir(skillDir);
         if (!loaded) continue;
 
-        skills.push({
+        const slug = loaded.bareName || entry.name;
+        bySlug.set(slug, {
           name: loaded.metadata.name || entry.name,
-          slug: entry.name,
+          slug,
           description: loaded.metadata.description,
           source: dir.name,
           trigger: loaded.metadata.trigger,
@@ -558,6 +562,7 @@ files.get('/list-skills', async (c) => {
       // Directory doesn't exist or isn't accessible
     }
   }
+  skills.push(...bySlug.values());
 
   return c.json({ success: true, skills });
 });

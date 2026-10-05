@@ -10,9 +10,6 @@
  * Adapters receive a pre-resolved string via AgentOptions.systemContext.
  */
 
-import fs from 'node:fs/promises';
-import path from 'node:path';
-
 import { z } from 'zod';
 
 import { getUserPreferencesInstruction } from '@/core/agent/base';
@@ -32,7 +29,7 @@ import {
   isSearchEnabled,
   listProviders,
 } from '@/shared/services/search';
-import { getSkillsPath } from '@/shared/skills/loader';
+import { resolveExistingSkillSlugs } from '@/shared/skills/loader';
 import { createLogger } from '@/shared/utils/logger';
 import { sanitizeProfileText } from '@/shared/utils/sanitize';
 
@@ -294,32 +291,23 @@ export async function resolveAgentContext(
                   `Profile "${profile.name}" allowed skills: (none)`,
                 );
               } else {
-                // Validate slugs by checking skill directory existence (lightweight, no file loading)
-                const skillsDir = getSkillsPath();
-                // Filter out non-string or path-traversal slugs before filesystem access
+                // A slug must be a single safe segment, then exist under a
+                // discovered skill root (bundled, app-data, or ~/.claude).
+                // The regex stays the traversal guard; roots are not joined
+                // from the stored value.
                 const slugs = (parsed as string[]).filter(
                   (s) => typeof s === 'string' && /^[a-z0-9_-]+$/i.test(s),
                 );
-                const results = await Promise.allSettled(
-                  slugs.map((slug) =>
-                    fs.access(path.join(skillsDir, slug, 'SKILL.md')),
-                  ),
-                );
-                const validated: string[] = [];
-                const stale: string[] = [];
-                for (let i = 0; i < slugs.length; i++) {
-                  (results[i]!.status === 'fulfilled' ? validated : stale).push(
-                    slugs[i]!,
-                  );
-                }
-                if (stale.length > 0) {
+                const { found, missing } =
+                  await resolveExistingSkillSlugs(slugs);
+                if (missing.length > 0) {
                   logger.debug(
-                    `Profile "${profile.name}" dropped ${stale.length} stale skill slug(s): ${stale.join(', ')}`,
+                    `Profile "${profile.name}" dropped ${missing.length} stale skill slug(s): ${missing.join(', ')}`,
                   );
                 }
-                profileAllowedSkills = validated;
+                profileAllowedSkills = found;
                 logger.debug(
-                  `Profile "${profile.name}" allowed skills: ${validated.length > 0 ? validated.join(', ') : '(none)'}`,
+                  `Profile "${profile.name}" allowed skills: ${found.length > 0 ? found.join(', ') : '(none)'}`,
                 );
               }
             }
