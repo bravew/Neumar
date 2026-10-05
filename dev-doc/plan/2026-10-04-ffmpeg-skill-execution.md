@@ -17,7 +17,7 @@ The development plan is [2026-10-04-ffmpeg-skill-replacement.md](2026-10-04-ffmp
 | #169 | Committed `8a0217c8` | `pnpm check:ffmpeg-skill`, `--self-test`, `node --check`; 42 tools, closed schemas, CLI spellings, provenance and inventory drift. |
 | #170 | Committed `26de3c0f` | 15 loader/discovery tests (`plugins/loader`, `core/agent/run-context`, `sync-builtin-skills`). |
 | #171 | Committed `728f4a85` | 48 service tests (`ffmpeg-skill-policy`, `ffmpeg-skill-runner`, `ffmpeg-skill-server`, `sdk-mcp-servers-tools-list`); API `tsc --noEmit` exit 0. |
-| #172 | In progress | Mode selections, provider transports, output attribution. |
+| #172 | Committed `f98a8ad6` | 66 API tests (attach, agent-tools, video-codex-bridge, design-chat, task/design-apply) + 6 frontend `useAgentDock`; API/API-test + frontend typechecks; disk-backed video publication. |
 | #173 | Pending | Media property and cross-mode regression suite. |
 | #174 | Pending | Installed-resource smoke, support documentation, final gate and PR. |
 
