@@ -236,6 +236,7 @@ export function skillProcessEnv(runtime: SkillRuntime): NodeJS.ProcessEnv {
     PATH: path,
     FFMPEG_PATH: runtime.ffmpegPath,
     FFPROBE_PATH: runtime.ffprobePath,
+    PYTHONDONTWRITEBYTECODE: '1',
     SystemRoot: process.env.SystemRoot,
     TEMP: process.env.TEMP,
     TMP: process.env.TMP,
