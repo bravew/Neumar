@@ -48,6 +48,7 @@ import { useSubAgents } from '@/shared/hooks/useSubAgents';
 import { useThreadSync } from '@/shared/hooks/useThreadSync';
 import { useV2FileExtraction } from '@/shared/hooks/useV2FileExtraction';
 import { toAgentSeedMessages } from '@/shared/lib/message-tree';
+import { selectThreadMessages } from '@/shared/lib/thread-messages';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { useBranchStore } from '@/shared/stores/branch-store';
 import {
@@ -167,13 +168,12 @@ export function TaskV2Thread({
   const hydrationState = useThreadHydration(taskId);
   const messages = useMemo(
     () =>
-      hydrationState === 'pending'
-        ? []
-        : agentMessages.length > 0
-          ? agentMessages
-          : cachedMessages.length > 0
-            ? cachedMessages
-            : ((historyMessages ?? []) as AGUIMessage[]),
+      selectThreadMessages(
+        hydrationState,
+        agentMessages,
+        cachedMessages,
+        historyMessages ?? [],
+      ),
     [agentMessages, cachedMessages, historyMessages, hydrationState],
   );
 

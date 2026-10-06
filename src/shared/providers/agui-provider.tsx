@@ -172,12 +172,13 @@ function AgUiProviderInner({
     }
 
     const ctrl = new AbortController();
+    const signal = AbortSignal.any([ctrl.signal, AbortSignal.timeout(30_000)]);
     setHydrationState(threadId, 'pending');
 
     (async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/ag-ui/history/${threadId}`, {
-          signal: ctrl.signal,
+          signal,
         });
         if (!res.ok) {
           if (!ctrl.signal.aborted) {
@@ -192,9 +193,8 @@ function AgUiProviderInner({
           }
           return;
         }
-        const files =
-          history.files ?? (await fetchTaskFiles(threadId, ctrl.signal));
-        if (ctrl.signal.aborted) return;
+        const files = history.files ?? (await fetchTaskFiles(threadId, signal));
+        signal.throwIfAborted();
 
         agent.setMessages(
           history.messages as Parameters<typeof agent.setMessages>[0],
@@ -202,8 +202,10 @@ function AgUiProviderInner({
         hydrateFromDB(threadId, history.messages, history.isRunning, {
           files,
         });
-      } catch (error) {
-        if (!ctrl.signal.aborted && (error as Error).name !== 'AbortError') {
+      } catch {
+        // Cleanup cancels an obsolete thread. A request timeout must release
+        // its pending state so saved history remains usable.
+        if (!ctrl.signal.aborted) {
           setHydrationState(threadId, 'error');
         }
       }
