@@ -2,16 +2,28 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AttachByPathDialog } from '@/components/shared/AttachByPathDialog';
+import type { AttachmentFilePickerProps } from '@/components/shared/AttachmentFilePicker';
 import type { LocalPathResult } from '@/components/shared/useChatInputFiles';
 
 vi.mock('@/shared/providers/language-provider', () => ({
   useLanguage: () => ({
     t: {
+      home: {
+        addFilesOrPhotos: 'Attach files or images',
+      },
+      common: {
+        done: 'Done',
+      },
       task: {
-        attachByPathTitle: 'Attach a file by path',
+        attachByPath: 'Attach by path',
         attachByPathDescription: 'Enter the full path',
         attachByPathPlaceholder: '/Users/you/clip.mp4',
         attachByPathSubmit: 'Attach',
+        attachmentDropHere: 'Drag and drop files here',
+        attachmentBrowse: 'Browse files',
+        attachmentSelectedCount: 'Selected',
+        attachmentDesktopHint: 'Pick a file',
+        attachmentUploadHint: 'Upload up to {limit} MB',
       },
     },
     tt: (key: string, params?: Record<string, string>) =>
@@ -19,10 +31,26 @@ vi.mock('@/shared/providers/language-provider', () => ({
   }),
 }));
 
+const filePicker: AttachmentFilePickerProps = {
+  fileInputRef: { current: null },
+  accept: '',
+  onFileChange: () => {},
+  onDrop: async () => {},
+  openFilePicker: () => {},
+  nativePicker: false,
+  count: 0,
+};
+
 function setup(onAttach: (paths: string[]) => Promise<LocalPathResult[]>) {
   const onOpenChange = vi.fn();
   render(
-    <AttachByPathDialog open onOpenChange={onOpenChange} onAttach={onAttach} />,
+    <AttachByPathDialog
+      open
+      onOpenChange={onOpenChange}
+      onAttach={onAttach}
+      filePicker={filePicker}
+      uploadLimitMb={1024}
+    />,
   );
   const input = screen.getByTestId('attach-by-path-input');
   return { onOpenChange, input };

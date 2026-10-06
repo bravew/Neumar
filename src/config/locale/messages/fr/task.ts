@@ -423,6 +423,13 @@ export default {
     "Ce champ n'accepte pas le type de fichier de {path}.",
   attachmentTooLargeLocal:
     "{name} dépasse la limite d'envoi de {limit} Mo : le message n'a pas été envoyé. Joignez-le par son chemin pour qu'il soit lu sur place, ou augmentez la limite dans Paramètres → Avancé.",
+  attachmentDropHere: 'Glissez-déposez les fichiers ici',
+  attachmentBrowse: 'Parcourir les fichiers',
+  attachmentSelectedCount: '{count} sélectionnés',
+  attachmentDesktopHint:
+    'Choisissez un fichier ou déposez des fichiers ici. Ils sont lus sur place et jamais envoyés.',
+  attachmentUploadHint:
+    'Choisissez ou déposez des fichiers à joindre. Chaque fichier peut faire jusqu’à {limit} Mo ; les plus gros peuvent être joints par leur chemin.',
   agentRunFailed:
     "L'exécution de l'agent s'est terminée sans réponse. Vérifiez la configuration du modèle ou réessayez.",
 

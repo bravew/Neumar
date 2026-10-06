@@ -2,6 +2,7 @@ import { AssetCatalogPickerDialog } from '@/components/assets/AssetCatalogPicker
 import type { PermissionDialogResult } from '@/shared/types/folder-permissions';
 
 import { AttachByPathDialog } from './AttachByPathDialog';
+import type { AttachmentFilePickerProps } from './AttachmentFilePicker';
 import {
   CloudStorageAssetPicker,
   type CloudStoragePickerItem,
@@ -19,6 +20,8 @@ interface ChatInputAttachmentDialogsProps {
   setAssetCatalogOpen: (open: boolean) => void;
   setAttachByPathOpen: (open: boolean) => void;
   onAttachByPath: (paths: string[]) => Promise<LocalPathResult[]>;
+  filePicker: AttachmentFilePickerProps;
+  uploadLimitMb: number;
   onDropFolderDialogResult: (result: PermissionDialogResult) => void;
   onCloudSelect: (items: CloudStoragePickerItem[]) => void;
   onAssetCatalogSelect: (assetIds: string[]) => Promise<void>;
@@ -34,6 +37,8 @@ export function ChatInputAttachmentDialogs({
   setAssetCatalogOpen,
   setAttachByPathOpen,
   onAttachByPath,
+  filePicker,
+  uploadLimitMb,
   onDropFolderDialogResult,
   onCloudSelect,
   onAssetCatalogSelect,
@@ -61,6 +66,8 @@ export function ChatInputAttachmentDialogs({
         open={attachByPathOpen}
         onOpenChange={setAttachByPathOpen}
         onAttach={onAttachByPath}
+        filePicker={filePicker}
+        uploadLimitMb={uploadLimitMb}
       />
     </>
   );

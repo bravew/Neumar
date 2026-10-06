@@ -422,6 +422,13 @@ export default {
   attachByPathNotAccepted: 'Este campo no admite el tipo de archivo de {path}.',
   attachmentTooLargeLocal:
     '{name} supera el límite de subida de {limit} MB, así que el mensaje no se envió. Adjúntalo por su ruta para leerlo en su ubicación, o aumenta el límite en Configuración → Avanzado.',
+  attachmentDropHere: 'Arrastra y suelta archivos aquí',
+  attachmentBrowse: 'Explorar archivos',
+  attachmentSelectedCount: '{count} seleccionados',
+  attachmentDesktopHint:
+    'Elige un archivo o suelta archivos aquí. Se leen donde están y nunca se suben.',
+  attachmentUploadHint:
+    'Elige o suelta archivos para adjuntarlos. Cada archivo puede tener hasta {limit} MB; los más grandes se pueden adjuntar por ruta.',
   agentRunFailed:
     'La ejecución del agente finalizó sin respuesta. Verifica la configuración del modelo o inténtalo de nuevo.',
 

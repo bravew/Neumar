@@ -427,6 +427,13 @@ export default {
   attachByPathNotAccepted: 'Este campo não aceita o tipo de arquivo de {path}.',
   attachmentTooLargeLocal:
     '{name} é maior que o limite de envio de {limit} MB, então a mensagem não foi enviada. Anexe-o pelo caminho para que seja lido no local, ou aumente o limite em Configurações → Avançado.',
+  attachmentDropHere: 'Arraste e solte os arquivos aqui',
+  attachmentBrowse: 'Procurar arquivos',
+  attachmentSelectedCount: '{count} selecionados',
+  attachmentDesktopHint:
+    'Escolha um arquivo ou solte arquivos aqui. Eles são lidos no local e nunca enviados.',
+  attachmentUploadHint:
+    'Escolha ou solte arquivos para anexar. Cada arquivo pode ter até {limit} MB; arquivos maiores podem ser anexados pelo caminho.',
   agentRunFailed:
     'A execução do agente foi concluída sem resposta. Verifique a configuração do modelo ou tente novamente.',
 

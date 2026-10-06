@@ -437,6 +437,13 @@ export default {
     'This input does not accept the file type of {path}.',
   attachmentTooLargeLocal:
     '{name} is larger than the {limit} MB upload limit, so the message was not sent. Attach it by its path so it is read in place, or raise the limit in Settings → Advanced.',
+  attachmentDropHere: 'Drag and drop files here',
+  attachmentBrowse: 'Browse files',
+  attachmentSelectedCount: '{count} selected',
+  attachmentDesktopHint:
+    'Pick a file, or drop files here. Files are read where they are and never uploaded.',
+  attachmentUploadHint:
+    'Pick or drop files to attach them. Each file may be up to {limit} MB; larger files can be attached by path.',
   agentRunFailed:
     'The agent run completed without a response. Check the model configuration or try again.',
 

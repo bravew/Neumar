@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { AnimatePresence } from 'motion/react';
 
-import { canAttachLocalPaths } from '@/shared/lib/local-path';
 import { cn } from '@/shared/lib/utils';
 
 import { isImeCompositionKeyEvent } from './chat-input-keyboard';
@@ -293,15 +292,6 @@ export function ChatInput({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept={attachmentAccept}
-          onChange={handleFileChange}
-          className="hidden"
-        />
-
         {beforeInput ? <div className="mb-2">{beforeInput}</div> : null}
         <AttachmentPreview
           attachments={attachments}
@@ -344,12 +334,9 @@ export function ChatInput({
           isRunning={isRunning}
           disabled={disabled}
           canSubmit={canSubmit}
-          openFilePicker={openFilePicker}
+          openFilePicker={() => setAttachByPathOpen(true)}
           openCloudStoragePicker={() => setCloudPickerOpen(true)}
           openAssetCatalogPicker={() => setAssetCatalogOpen(true)}
-          openAttachByPath={
-            canAttachLocalPaths() ? () => setAttachByPathOpen(true) : undefined
-          }
           addFilesLabel={t.home.addFilesOrPhotos}
           addCloudStorageLabel={t.cloudStorage.cloudStoragePickerLabel}
           addAssetCatalogLabel={t.assets.browseCatalog}
@@ -398,6 +385,16 @@ export function ChatInput({
         setAssetCatalogOpen={setAssetCatalogOpen}
         setAttachByPathOpen={setAttachByPathOpen}
         onAttachByPath={attachLocalPaths}
+        filePicker={{
+          fileInputRef,
+          accept: attachmentAccept,
+          onFileChange: handleFileChange,
+          onDrop: handleDrop,
+          openFilePicker,
+          nativePicker: inTauri && !preserveAttachmentFiles,
+          count: attachments.length,
+        }}
+        uploadLimitMb={currentSettings.attachmentUploadLimitMb}
         onDropFolderDialogResult={handleDropFolderDialogResult}
         onCloudSelect={(items) => void handleCloudStorageSelect(items)}
         onAssetCatalogSelect={handleAssetCatalogSelect}

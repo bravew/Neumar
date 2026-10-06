@@ -1,4 +1,4 @@
-import { FileSymlink, Image, Library, Paperclip, Plus } from 'lucide-react';
+import { Image, Library, Paperclip, Plus } from 'lucide-react';
 
 import {
   DropdownMenu,
@@ -14,12 +14,9 @@ interface ChatInputAttachmentMenuProps {
   openFilePicker: () => void;
   openCloudStoragePicker: () => void;
   openAssetCatalogPicker: () => void;
-  /** Shown when the local API can read a typed path in place. */
-  openAttachByPath?: () => void;
   addFilesLabel: string;
   addCloudStorageLabel: string;
   addAssetCatalogLabel: string;
-  addByPathLabel?: string;
   allowCloudStorage?: boolean;
   allowAssetCatalog?: boolean;
 }
@@ -30,11 +27,9 @@ export function ChatInputAttachmentMenu({
   openFilePicker,
   openCloudStoragePicker,
   openAssetCatalogPicker,
-  openAttachByPath,
   addFilesLabel,
   addCloudStorageLabel,
   addAssetCatalogLabel,
-  addByPathLabel,
   allowCloudStorage = true,
   allowAssetCatalog = true,
 }: ChatInputAttachmentMenuProps) {
@@ -59,15 +54,6 @@ export function ChatInputAttachmentMenu({
           <Paperclip className="size-4" />
           <span>{addFilesLabel}</span>
         </DropdownMenuItem>
-        {openAttachByPath ? (
-          <DropdownMenuItem
-            onSelect={openAttachByPath}
-            className="cursor-pointer gap-3 py-2.5"
-          >
-            <FileSymlink className="size-4" />
-            <span>{addByPathLabel}</span>
-          </DropdownMenuItem>
-        ) : null}
         {allowCloudStorage ? (
           <DropdownMenuItem
             onSelect={openCloudStoragePicker}
