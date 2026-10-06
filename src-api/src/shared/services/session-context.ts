@@ -24,6 +24,10 @@ export interface SessionContext {
   userCredentials?: Record<string, string>;
   /** Active Video Mode project id for request-scoped video MCP tools. */
   videoProjectId?: string;
+  /** Active Design Mode project id, for attributing generated artifacts. */
+  designProjectId?: string;
+  /** Task id the run belongs to, for attributing generated artifacts. */
+  taskId?: string;
   /** Currently selected Video Mode scene id, if the UI supplied one. */
   selectedSceneId?: string;
   /** Active Video Mode aspect ratio, e.g. "16:9" or "9:16". */

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  VIDEO_ALLOWED_TOOLS,
+  VIDEO_DISALLOWED_TOOLS,
+} from '@/extensions/agent/video/index';
+import {
+  buildVideoToolClassifications,
+  getVideoToolCapabilityMetadata,
+} from '@/extensions/agent/video/permissions';
+
+import {
   applyProjectDiff,
   applyVideoAgentTool,
   redoVideoAgentJournalEntry,
@@ -1598,5 +1607,34 @@ describe('setOverlayControls agent tool', () => {
         args: { clipId: 'clip-overlay-1', patch: { presetId: null } },
       }),
     ).toThrow(/not a valid vivid overlay payload/);
+  });
+});
+
+describe('video ffmpeg-skill tool wiring', () => {
+  it('classifies managed ffmpeg-skill tools as read/read/write', () => {
+    const classifications = buildVideoToolClassifications();
+    expect(classifications['mcp__ffmpeg-skill__ffmpeg_skill_catalog']).toBe(
+      'read',
+    );
+    expect(classifications['mcp__ffmpeg-skill__ffmpeg_skill_check']).toBe(
+      'read',
+    );
+    expect(classifications['mcp__ffmpeg-skill__ffmpeg_skill_execute']).toBe(
+      'write',
+    );
+    expect(
+      getVideoToolCapabilityMetadata('mcp__ffmpeg-skill__ffmpeg_skill_execute')
+        .classification,
+    ).toBe('write');
+  });
+
+  it('keeps the managed skill allowlisted and Bash/Write/Edit denied', () => {
+    // The managed ffmpeg-skill surface is part of the first-party video
+    // toolset (like native ffmpeg), while raw shell/write/edit remain denied.
+    expect(VIDEO_ALLOWED_TOOLS).toContain('mcp__ffmpeg-skill__*');
+    expect(VIDEO_ALLOWED_TOOLS).toContain('mcp__ffmpeg__*');
+    expect(VIDEO_DISALLOWED_TOOLS).toContain('Bash');
+    expect(VIDEO_DISALLOWED_TOOLS).toContain('Write');
+    expect(VIDEO_DISALLOWED_TOOLS).toContain('Edit');
   });
 });

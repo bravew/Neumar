@@ -403,6 +403,33 @@ export default {
   runningEllipsis: 'En cours…',
   agentError: 'Erreur',
   agentUnknownError: 'Erreur inconnue',
+  attachmentUploadFailed:
+    "Impossible de joindre {name} : le message n'a pas été envoyé. {reason}",
+  attachmentTooLarge:
+    "{name} dépasse la limite d'envoi de {limit} Mo : le message n'a pas été envoyé. Augmentez la limite dans Paramètres → Avancé, ou joignez le fichier depuis l'application de bureau pour qu'il soit lu sur place.",
+  attachByPath: 'Joindre par chemin',
+  attachByPathTitle: 'Joindre un fichier par son chemin',
+  attachByPathDescription:
+    "Saisissez le chemin complet d'un fichier de cet ordinateur. Il est lu sur place et jamais envoyé, donc la limite d'envoi ne s'applique pas.",
+  attachByPathPlaceholder: '/Users/vous/Movies/clip.mp4',
+  attachByPathSubmit: 'Joindre',
+  attachByPathNotFound: 'Fichier introuvable : {path}',
+  attachByPathNotFile: "{path} n'est pas un fichier.",
+  attachByPathDenied:
+    "{path} se trouve hors des emplacements que l'application peut lire.",
+  attachByPathUnreachable:
+    'Impossible de joindre le service local pour vérifier ce chemin.',
+  attachByPathNotAccepted:
+    "Ce champ n'accepte pas le type de fichier de {path}.",
+  attachmentTooLargeLocal:
+    "{name} dépasse la limite d'envoi de {limit} Mo : le message n'a pas été envoyé. Joignez-le par son chemin pour qu'il soit lu sur place, ou augmentez la limite dans Paramètres → Avancé.",
+  attachmentDropHere: 'Glissez-déposez les fichiers ici',
+  attachmentBrowse: 'Parcourir les fichiers',
+  attachmentSelectedCount: '{count} sélectionnés',
+  attachmentDesktopHint:
+    'Choisissez un fichier ou déposez des fichiers ici. Ils sont lus sur place et jamais envoyés.',
+  attachmentUploadHint:
+    'Choisissez ou déposez des fichiers à joindre. Chaque fichier peut faire jusqu’à {limit} Mo ; les plus gros peuvent être joints par leur chemin.',
   agentRunFailed:
     "L'exécution de l'agent s'est terminée sans réponse. Vérifiez la configuration du modèle ou réessayez.",
 

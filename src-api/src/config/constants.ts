@@ -198,20 +198,40 @@ export function getClaudeSkillsDir(): string {
   return join(getClaudeDir(), SKILLS_DIR_NAME);
 }
 
-/** Get all skills directories to search */
+/** Get all skills directories to search.
+ *  Order is lowest priority first: a later root with the same identity wins,
+ *  matching the runtime loader (bundled < app-data < ~/.claude/skills).
+ */
 export function getAllSkillsDirs(): { name: string; path: string }[] {
-  return [
+  const dirs: { name: string; path: string }[] = [];
+  const bundled = getBundledSkillsDir();
+  if (bundled) dirs.push({ name: 'bundled', path: bundled });
+  dirs.push(
     { name: 'app', path: getAppSkillsDir() },
     { name: 'claude', path: getClaudeSkillsDir() },
-  ];
+  );
+  return dirs;
 }
 
 /** Cached resolved bundled skills directory */
 let resolvedBundledSkillsDir: string | null | undefined;
 
+/** Test-only: drop the memoized bundled skills directory. */
+export function resetBundledSkillsDirCache(): void {
+  resolvedBundledSkillsDir = undefined;
+}
+
 /** Get bundled skills directory (shipped with the app) */
 export function getBundledSkillsDir(): string | null {
   if (resolvedBundledSkillsDir !== undefined) return resolvedBundledSkillsDir;
+
+  // Tests point this at a fixture. An empty value means "no bundled skills",
+  // which keeps a temp project root from also loading the repo skills/ tree.
+  if (process.env.NEUMAR_BUNDLED_SKILLS_DIR !== undefined) {
+    const override = process.env.NEUMAR_BUNDLED_SKILLS_DIR.trim();
+    resolvedBundledSkillsDir = override || null;
+    return resolvedBundledSkillsDir;
+  }
 
   // Production: Tauri passes RESOURCES_DIR; ../skills/**/* maps to _up_/skills/
   const resourcesDir = process.env.RESOURCES_DIR;

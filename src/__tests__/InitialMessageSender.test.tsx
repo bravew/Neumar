@@ -37,6 +37,21 @@ vi.mock('@copilotkit/react-core/v2', () => ({
   }),
 }));
 
+const toastMocks = vi.hoisted(() => ({ error: vi.fn() }));
+
+vi.mock('sonner', () => ({ toast: toastMocks }));
+
+vi.mock('@/shared/providers/language-provider', () => ({
+  useLanguage: () => ({
+    tt: (key: string, params?: Record<string, string | number>) =>
+      `${key}:${params?.name ?? ''}`,
+  }),
+}));
+
+vi.mock('@/shared/lib/session', () => ({
+  computeSessionFolder: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock('@/shared/db', () => ({
   createMessage: vi.fn(),
   createSession: vi.fn(),
@@ -120,6 +135,33 @@ describe('InitialMessageSender', () => {
     renderSender();
     await waitFor(() => expect(agentMocks.addMessage).toHaveBeenCalledTimes(1));
     expect(agentMocks.runAgent).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not run the agent when an attachment cannot be staged', async () => {
+    vi.mocked(getTask).mockResolvedValueOnce(null);
+
+    renderSender({
+      ...defaultLocationState,
+      attachments: [
+        {
+          id: 'att-1',
+          type: 'file',
+          name: 'clip.mp4',
+          data: '',
+          mimeType: 'video/mp4',
+        },
+      ],
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('location-state')).toHaveTextContent('null'),
+    );
+
+    expect(toastMocks.error).toHaveBeenCalledWith(
+      'task.attachmentUploadFailed:clip.mp4',
+    );
+    expect(createMessage).not.toHaveBeenCalled();
+    expect(agentMocks.runAgent).not.toHaveBeenCalled();
   });
 
   it('does not resend when the existing task is already running', async () => {

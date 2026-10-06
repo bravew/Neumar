@@ -108,17 +108,31 @@ export function TaskDetailV2Page() {
   // and tool-result messages. The lightweight one in InitialMessageSender
   // keeps only prose, which left replayed threads as a wall of narration with
   // no tool calls to group.
-  const [historyMessages, setHistoryMessages] = useState<AGUIMessage[]>([]);
-  // V1-format messages for RightSidebar (tools, skills, output extraction)
-  const [v1Messages, setV1Messages] = useState<AgentMessage[]>([]);
+  const [history, setHistory] = useState<{
+    taskId: string;
+    messages: AGUIMessage[];
+    v1Messages: AgentMessage[];
+  } | null>(null);
+  // A previous task's response may finish after a sidebar switch. Keep its
+  // snapshot scoped to that task instead of exposing it to the new thread.
+  const historyMessages =
+    history && history.taskId === taskId ? history.messages : [];
+  const v1Messages =
+    history && history.taskId === taskId ? history.v1Messages : [];
   const hasPrompt = !!(location.state as LocationState | null)?.prompt;
+  const historyTaskIdRef = useRef(taskId);
+  historyTaskIdRef.current = taskId;
 
   const loadDbMessages = useCallback(() => {
     if (!taskId) return;
     getMessagesByTaskId(taskId)
       .then((dbMsgs) => {
-        setHistoryMessages(dbMessagesToAGUI(dbMsgs));
-        setV1Messages(dbMsgs.map(mapDbMessageToAgentMessage));
+        if (historyTaskIdRef.current !== taskId) return;
+        setHistory({
+          taskId,
+          messages: dbMessagesToAGUI(dbMsgs),
+          v1Messages: dbMsgs.map(mapDbMessageToAgentMessage),
+        });
 
         // Restore attachment previews from persisted messages.
         // ID must match what dbMessagesToAGUI produces for this message.
@@ -141,8 +155,7 @@ export function TaskDetailV2Page() {
 
   useEffect(() => {
     if (!taskId || hasPrompt) {
-      setHistoryMessages([]);
-      setV1Messages([]);
+      setHistory(null);
       return;
     }
     loadDbMessages();

@@ -26,6 +26,7 @@ import {
   buildAgentPrompt,
   checkEmptyRun,
   deriveAttachmentDirs,
+  notifyAttachmentFailures,
   resolveAttachmentsForSubmit,
 } from '@/components/task/taskV2-submit-helpers';
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble';
@@ -47,6 +48,7 @@ import { useSubAgents } from '@/shared/hooks/useSubAgents';
 import { useThreadSync } from '@/shared/hooks/useThreadSync';
 import { useV2FileExtraction } from '@/shared/hooks/useV2FileExtraction';
 import { toAgentSeedMessages } from '@/shared/lib/message-tree';
+import { selectThreadMessages } from '@/shared/lib/thread-messages';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { useBranchStore } from '@/shared/stores/branch-store';
 import {
@@ -94,7 +96,7 @@ export function TaskV2Thread({
   promptPrefix?: { text: string; onUsed: () => void };
 }) {
   const { agent } = useAgent();
-  const { t } = useLanguage();
+  const { t, tt } = useLanguage();
   useThreadSync(taskId);
 
   // Declare agentRef early — used by error handlers and watchdog below.
@@ -121,7 +123,7 @@ export function TaskV2Thread({
   promptPrefixRef.current = promptPrefix;
 
   // ── Extracted hooks ──
-  const { runError, setRunError, clearRunError } = useRunError(
+  const { runError, runErrorRef, setRunError, clearRunError } = useRunError(
     taskId,
     agent,
     t.task.agentRunFailed,
@@ -144,7 +146,13 @@ export function TaskV2Thread({
 
   const { forceRender } = useAgentSync(agent);
 
-  usePostRunEffects(taskId, agent, planRejectedRef, setPendingPlan);
+  usePostRunEffects(
+    taskId,
+    agent,
+    planRejectedRef,
+    setPendingPlan,
+    runErrorRef,
+  );
 
   // Track attachments per message ID (AG-UI messages don't carry attachment data).
   // Uses external ref from parent (shared with InitialMessageSender) if provided.
@@ -160,19 +168,16 @@ export function TaskV2Thread({
   const hydrationState = useThreadHydration(taskId);
   const messages = useMemo(
     () =>
-      hydrationState === 'pending'
-        ? []
-        : agentMessages.length > 0
-          ? agentMessages
-          : cachedMessages.length > 0
-            ? cachedMessages
-            : ((historyMessages ?? []) as AGUIMessage[]),
+      selectThreadMessages(
+        hydrationState,
+        agentMessages,
+        cachedMessages,
+        historyMessages ?? [],
+      ),
     [agentMessages, cachedMessages, historyMessages, hydrationState],
   );
 
   // Bridge ChatInput's onSubmit to CopilotKit headless agent.
-  // Desktop app — files are on disk, so we just pass paths in the prompt.
-  // The agent can read/view them directly via tool use.
   const handleSubmit = useCallback(
     async (
       text: string,
@@ -181,7 +186,7 @@ export function TaskV2Thread({
       pinnedSkills?: string[],
     ) => {
       const a = agentRef.current;
-      if (!text.trim() || a.isRunning) return;
+      if ((!text.trim() && !attachments?.length) || a.isRunning) return false;
 
       // Don't let a prior run's error banner linger onto this new send.
       clearRunError();
@@ -200,13 +205,15 @@ export function TaskV2Thread({
       }
 
       // Persist File-object attachments to disk before the submit so the
-      // agent receives `att.path` in the prompt prefix. Fail open if the
-      // session folder can't be resolved — the send should still go through.
-      const resolvedAttachments = await resolveAttachmentsForSubmit(
+      // agent receives `att.path` in the prompt prefix. A file the agent
+      // could not see blocks the send; `false` restores the composer draft.
+      const staged = await resolveAttachmentsForSubmit(
         attachments,
         taskIdRef.current,
         workDirRef.current,
       );
+      if (notifyAttachmentFailures(staged.failures, tt)) return false;
+      const resolvedAttachments = staged.attachments;
 
       const prefix = promptPrefixRef.current;
       const { prompt, imageBlocks } = buildAgentPrompt(
@@ -292,6 +299,7 @@ export function TaskV2Thread({
     [
       resolvedAttachmentMapRef,
       t.task.agentRunFailed,
+      tt,
       setRunError,
       clearRunError,
     ],

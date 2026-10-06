@@ -74,7 +74,7 @@ export function ProjectWorkspaceSplit({
   onMessageChange: (message: string) => void;
   onRemoveQueuedSend: (id: string) => void;
   onSampleSelected: (sample: PromptLibrarySample) => void;
-  onSend: () => void;
+  onSend: (skills?: string[]) => void;
   onSendQueuedNow: (id: string) => void;
   onProjectFileOpen: (path: string) => void;
   onAnswerQuestion: (text: string) => void;

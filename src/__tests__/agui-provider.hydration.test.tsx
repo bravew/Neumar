@@ -57,6 +57,41 @@ describe('AgUiProvider history hydration', () => {
     vi.unstubAllGlobals();
   });
 
+  it('releases pending hydration when the history request times out', async () => {
+    const timeout = new AbortController();
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(timeout.signal);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_input, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            const signal = init.signal!;
+            signal.addEventListener('abort', () => reject(signal.reason), {
+              once: true,
+            });
+          }),
+      ),
+    );
+
+    try {
+      render(<AgUiProvider threadId="slow-task">slow</AgUiProvider>);
+      expect(
+        useThreadStore.getState().threads['slow-task']?.hydrationState,
+      ).toBe('pending');
+      await act(async () => {
+        timeout.abort(new DOMException('History timed out', 'TimeoutError'));
+      });
+      expect(
+        useThreadStore.getState().threads['slow-task']?.hydrationState,
+      ).toBe('error');
+      expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+    } finally {
+      timeoutSpy.mockRestore();
+    }
+  });
+
   it('ignores an older history response that finishes after a task switch', async () => {
     const oldJson = deferred<ReturnType<typeof historyResponse>>();
     const fetchMock = vi.fn((input: string | URL | Request) => {

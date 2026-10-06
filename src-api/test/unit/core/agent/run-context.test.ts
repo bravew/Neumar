@@ -1,4 +1,11 @@
-import { mkdtemp, mkdir, realpath, rm, symlink } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,10 +17,14 @@ import {
   validateSupplementalSkills,
 } from '@/core/agent/run-context';
 
+import { resetBundledSkillsDirCache } from '@/config/constants';
+
 import { getDatabase } from '@/shared/db';
 import {
+  createAgentProfile,
   createSession,
   createTask,
+  deleteAgentProfile,
   deleteTask,
   setSetting,
 } from '@/shared/db/operations';
@@ -181,5 +192,43 @@ describe('run context boundary', () => {
       resolveRunContext({ mode: 'task', ownerKey: taskId }),
     ).rejects.toMatchObject({ status: 409 });
     await rm(outsideRoot, { recursive: true, force: true });
+  });
+
+  it('keeps a profile default skill found only in the bundled root', async () => {
+    const bundled = await mkdtemp(join(tmpdir(), 'neuma-profile-skills-'));
+    await mkdir(join(bundled, 'ffmpeg'), { recursive: true });
+    await writeFile(
+      join(bundled, 'ffmpeg', 'SKILL.md'),
+      '---\nname: ffmpeg\ndescription: bundled\n---\n\nbody\n',
+    );
+    const profileId = `profile-${crypto.randomUUID()}`;
+    createAgentProfile({
+      id: profileId,
+      name: 'FFmpeg profile',
+      default_skills: JSON.stringify(['ffmpeg', '../ffmpeg', 'not-a-skill']),
+    });
+    const originalBundled = process.env.NEUMAR_BUNDLED_SKILLS_DIR;
+    process.env.NEUMAR_BUNDLED_SKILLS_DIR = bundled;
+    resetBundledSkillsDirCache();
+
+    try {
+      const { resolveAgentContext } =
+        await import('@/core/agent/context-resolver');
+      const resolved = await resolveAgentContext({
+        prompt: 'cut this',
+        sessionId,
+        agentProfileId: profileId,
+      });
+      expect(resolved.profileAllowedSkills).toEqual(['ffmpeg']);
+    } finally {
+      if (originalBundled === undefined) {
+        delete process.env.NEUMAR_BUNDLED_SKILLS_DIR;
+      } else {
+        process.env.NEUMAR_BUNDLED_SKILLS_DIR = originalBundled;
+      }
+      resetBundledSkillsDirCache();
+      deleteAgentProfile(profileId);
+      await rm(bundled, { recursive: true, force: true });
+    }
   });
 });

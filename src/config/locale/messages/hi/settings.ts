@@ -2070,6 +2070,10 @@ export default {
   advancedKickstart: 'रीस्टार्ट करें',
   advancedRecentSidecarLogs: 'हाल के sidecar logs (आखिरी 100 लाइनें)',
   advancedNoLogs: '(कोई logs नहीं)',
+  attachmentUploadLimit: 'अटैचमेंट अपलोड सीमा',
+  attachmentUploadLimitDescription:
+    'चैट में अपलोड की जा सकने वाली सबसे बड़ी फ़ाइल, MB में (1–4096)। डेस्कटॉप फ़ाइल पिकर से चुनी गई फ़ाइलें अपनी जगह से पढ़ी जाती हैं और अपलोड नहीं होतीं।',
+  attachmentUploadLimitUnit: 'MB',
   advancedDaemonDesktopOnly: 'Daemon mode केवल desktop app में उपलब्ध है।',
   gatewayAdapters: 'Gateway adapters',
   gatewayAdaptersDescriptionPrefix:

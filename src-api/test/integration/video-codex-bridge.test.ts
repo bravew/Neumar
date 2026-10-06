@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { mcpBridgeRoutes } from '@/app/api/mcp-bridge';
 
+import { createFFmpegMcpServer } from '@/shared/mcp/ffmpeg-server';
+import { createFfmpegSkillMcpServer } from '@/shared/mcp/ffmpeg-skill-server';
 import {
   __resetInProcessBridgeForTests,
   mintInProcessBridgeToken,
@@ -25,7 +27,11 @@ function app(): Hono {
 }
 
 function rpc(token: string, body: unknown) {
-  return app().request('/mcp/bridge/inproc/video-edit', {
+  return rpcServer(token, 'video-edit', body);
+}
+
+function rpcServer(token: string, serverName: string, body: unknown) {
+  return app().request(`/mcp/bridge/inproc/${serverName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -80,4 +86,61 @@ describe('Codex-on-Video bridge (CP7 plumbing)', () => {
     expect(toolNames).toContain('video_analyze_assets');
     expect(toolNames.length).toBeGreaterThan(5);
   });
+
+  it('lists the managed ffmpeg-skill tools through the loopback bridge', async () => {
+    const token = mintInProcessBridgeToken({
+      name: 'ffmpeg-skill',
+      sessionId: 'codex-run',
+      // Exactly how the video agent bridges it for Codex.
+      createServer: () => createFfmpegSkillMcpServer().instance,
+    });
+
+    const toolNames = await listTools(token, 'ffmpeg-skill');
+
+    // The three managed tools are the only ffmpeg-skill surface.
+    expect(toolNames).toEqual(
+      expect.arrayContaining([
+        'ffmpeg_skill_catalog',
+        'ffmpeg_skill_check',
+        'ffmpeg_skill_execute',
+      ]),
+    );
+  });
+
+  it('keeps native ffmpeg tools on the native ffmpeg server', async () => {
+    const token = mintInProcessBridgeToken({
+      name: 'ffmpeg',
+      sessionId: 'codex-run',
+      createServer: () => createFFmpegMcpServer().instance,
+    });
+
+    const toolNames = await listTools(token, 'ffmpeg');
+
+    // Native ffmpeg tools remain intact; the managed skill tools are separate.
+    expect(toolNames).toContain('ffmpeg_probe');
+    expect(toolNames).toContain('ffmpeg_trim');
+    expect(toolNames).not.toContain('ffmpeg_skill_catalog');
+  });
 });
+
+async function listTools(token: string, serverName: string): Promise<string[]> {
+  await rpcServer(token, serverName, {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'codex', version: '1.0.0' },
+    },
+  });
+  const res = await rpcServer(token, serverName, {
+    jsonrpc: '2.0',
+    id: 2,
+    method: 'tools/list',
+    params: {},
+  });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  return body.result.tools.map((t: { name: string }) => t.name);
+}

@@ -577,6 +577,12 @@ export class CodexAgent extends BaseAgent {
         sessionId: session.id,
         channelContext: options?.channelContext,
         locale: options?.locale ?? options?.channelContext?.locale,
+        // Project-scoped in-process servers (e.g. Video Mode tools, the managed
+        // ffmpeg skill) the caller wants reachable from the Codex CLI over the
+        // loopback bridge. execute() forwards these; the direct run must too.
+        inProcessServers: options?.bridgeInProcessServers,
+        // Honor disablePolicyServers the same way execute() does.
+        ...(options?.disablePolicyServers ? { connectors: [] } : {}),
       });
 
       // Context MUST be prepended — Codex SDK has no systemPrompt param.
@@ -725,6 +731,8 @@ export class CodexAgent extends BaseAgent {
           sessionId: session.id,
           channelContext: options?.channelContext,
           locale: options?.locale ?? options?.channelContext?.locale,
+          inProcessServers: options?.bridgeInProcessServers,
+          ...(options?.disablePolicyServers ? { connectors: [] } : {}),
         });
         const codex = createCodexClient(this.config, bridge);
         const thread = createCodexThread(

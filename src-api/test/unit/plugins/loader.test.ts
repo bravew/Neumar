@@ -2,7 +2,9 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { resetBundledSkillsDirCache } from '@/config/constants';
 
 import {
   getPluginLoaderGeneration,
@@ -32,7 +34,20 @@ async function createTempPluginRoot(): Promise<string> {
 }
 
 describe('plugin loader', () => {
+  const originalBundled = process.env.NEUMAR_BUNDLED_SKILLS_DIR;
+
+  beforeEach(() => {
+    process.env.NEUMAR_BUNDLED_SKILLS_DIR = '';
+    resetBundledSkillsDirCache();
+  });
+
   afterEach(async () => {
+    if (originalBundled === undefined) {
+      delete process.env.NEUMAR_BUNDLED_SKILLS_DIR;
+    } else {
+      process.env.NEUMAR_BUNDLED_SKILLS_DIR = originalBundled;
+    }
+    resetBundledSkillsDirCache();
     await stopPluginHotReload();
     await Promise.all(
       tempDirs
@@ -251,6 +266,83 @@ Body
     );
     expect(escapePlugin).toBeDefined();
     expect(escapePlugin?.skills).toEqual([]);
+  });
+
+  it('loads a bare bundled skill once and lets a higher tier replace it', async () => {
+    const bundled = await mkdtemp(join(tmpdir(), 'neuma-bare-bundled-'));
+    const app = await mkdtemp(join(tmpdir(), 'neuma-bare-app-'));
+    const claude = await mkdtemp(join(tmpdir(), 'neuma-bare-claude-'));
+    tempDirs.push(bundled, app, claude);
+
+    async function writeBare(
+      root: string,
+      name: string,
+      body: string,
+      modes: string,
+    ) {
+      const dir = join(root, name);
+      await mkdir(join(dir, 'scripts'), { recursive: true });
+      await writeFile(join(dir, 'scripts', 'cut.py'), `# ${body}\n`);
+      await writeFile(
+        join(dir, 'SKILL.md'),
+        `---
+name: ${name}
+description: ${body}
+modes:
+${modes}
+---
+
+${body}
+`,
+      );
+    }
+
+    await writeBare(
+      bundled,
+      'ffmpeg',
+      'bundled ffmpeg',
+      '  - task\n  - design\n  - video',
+    );
+    await writeBare(bundled, 'other', 'bundled other', '  - task');
+    await writeBare(join(app, 'skills'), 'ffmpeg', 'app ffmpeg', '  - task');
+    await writeBare(
+      join(claude, '.claude', 'skills'),
+      'other',
+      'claude other',
+      '  - video',
+    );
+
+    process.env.NEUMAR_BUNDLED_SKILLS_DIR = bundled;
+    process.env.NEUMAR_APP_DATA_DIR = app;
+    resetBundledSkillsDirCache();
+    const home = process.env.HOME;
+    process.env.HOME = claude;
+
+    try {
+      const skills = await loadAllSkills({ watch: false });
+      const ffmpeg = skills.filter((skill) => skill.bareName === 'ffmpeg');
+      const other = skills.filter((skill) => skill.bareName === 'other');
+
+      expect(ffmpeg).toHaveLength(1);
+      expect(ffmpeg[0]).toMatchObject({
+        name: 'ffmpeg',
+        bareName: 'ffmpeg',
+        plugin: null,
+        path: join(app, 'skills', 'ffmpeg'),
+        metadata: { modes: ['task'] },
+      });
+      expect(other).toHaveLength(1);
+      expect(other[0]).toMatchObject({
+        name: 'other',
+        plugin: null,
+        path: join(claude, '.claude', 'skills', 'other'),
+        metadata: { modes: ['video'] },
+      });
+    } finally {
+      if (home === undefined) delete process.env.HOME;
+      else process.env.HOME = home;
+      delete process.env.NEUMAR_APP_DATA_DIR;
+    }
   });
 
   it('invalidates loader generation when watched skill files change', async () => {

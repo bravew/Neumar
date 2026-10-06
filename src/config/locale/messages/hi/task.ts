@@ -405,6 +405,30 @@ export default {
   runningEllipsis: 'चल रहा है…',
   agentError: 'त्रुटि',
   agentUnknownError: 'अज्ञात त्रुटि',
+  attachmentUploadFailed:
+    '{name} अटैच नहीं हो सकी, इसलिए संदेश नहीं भेजा गया। {reason}',
+  attachmentTooLarge:
+    '{name} {limit} MB की अपलोड सीमा से बड़ी है, इसलिए संदेश नहीं भेजा गया। सेटिंग्स → उन्नत में सीमा बढ़ाएँ, या डेस्कटॉप ऐप से फ़ाइल अटैच करें ताकि वह अपनी जगह से पढ़ी जाए।',
+  attachByPath: 'पाथ से अटैच करें',
+  attachByPathTitle: 'पाथ से फ़ाइल अटैच करें',
+  attachByPathDescription:
+    'इस कंप्यूटर की किसी फ़ाइल का पूरा पाथ दर्ज करें। फ़ाइल अपनी जगह से पढ़ी जाती है, अपलोड नहीं होती, इसलिए अपलोड सीमा लागू नहीं होती।',
+  attachByPathPlaceholder: '/Users/you/Movies/clip.mp4',
+  attachByPathSubmit: 'अटैच करें',
+  attachByPathNotFound: 'फ़ाइल नहीं मिली: {path}',
+  attachByPathNotFile: '{path} फ़ाइल नहीं है।',
+  attachByPathDenied: '{path} उन स्थानों से बाहर है जिन्हें ऐप पढ़ सकता है।',
+  attachByPathUnreachable: 'उस पाथ की जाँच के लिए स्थानीय सेवा से संपर्क नहीं हो सका।',
+  attachByPathNotAccepted: 'यह इनपुट {path} का फ़ाइल प्रकार स्वीकार नहीं करता।',
+  attachmentTooLargeLocal:
+    '{name} {limit} MB की अपलोड सीमा से बड़ी है, इसलिए संदेश नहीं भेजा गया। उसे पाथ से अटैच करें ताकि वह अपनी जगह से पढ़ी जाए, या सेटिंग्स → उन्नत में सीमा बढ़ाएँ।',
+  attachmentDropHere: 'फ़ाइलें यहाँ खींचकर छोड़ें',
+  attachmentBrowse: 'फ़ाइलें ब्राउज़ करें',
+  attachmentSelectedCount: '{count} चुने गए',
+  attachmentDesktopHint:
+    'कोई फ़ाइल चुनें या यहाँ छोड़ें। फ़ाइलें अपनी जगह से पढ़ी जाती हैं, अपलोड नहीं होतीं।',
+  attachmentUploadHint:
+    'अटैच करने के लिए फ़ाइलें चुनें या छोड़ें। हर फ़ाइल अधिकतम {limit} MB तक हो सकती है; बड़ी फ़ाइलें पाथ से अटैच की जा सकती हैं।',
   agentRunFailed:
     'एजेंट रन बिना प्रतिक्रिया के पूरा हुआ। मॉडल कॉन्फ़िगरेशन जांचें या पुनः प्रयास करें।',
 

@@ -43,6 +43,7 @@ import { DEFAULT_AGENT_PROVIDER } from '@/config/constants';
 
 import { updateTask } from '@/shared/db/operations';
 import { applyTaskPlugin } from '@/shared/plugins';
+import { prepareFfmpegSkillAttachment } from '@/shared/services/ffmpeg-skill/attach';
 import {
   autoCapture,
   type MemoryScope,
@@ -544,6 +545,20 @@ export async function* runExecutionPhase(
     taskId,
   });
 
+  const ffmpegAttachment = await prepareFfmpegSkillAttachment({
+    provider: agent.provider,
+    pinnedSkills: taskPluginContext.pinnedSkills,
+    systemContext: taskPluginContext.systemContext,
+    sessionContext: workDir
+      ? { workDir, sessionId: session.id, taskId }
+      : undefined,
+  });
+  if (ffmpegAttachment.capabilityMessage) {
+    yield { type: 'error', message: ffmpegAttachment.capabilityMessage };
+    yield { type: 'done' };
+    return;
+  }
+
   const stream = withToolResultLoopGuard(
     agent.execute({
       planId,
@@ -563,7 +578,13 @@ export async function* runExecutionPhase(
       additionalUserDirs,
       pinnedSkills: taskPluginContext.pinnedSkills,
       conversation,
-      systemContext: taskPluginContext.systemContext,
+      systemContext: ffmpegAttachment.systemContext,
+      ...(ffmpegAttachment.inProcessMcpServers
+        ? { inProcessMcpServers: ffmpegAttachment.inProcessMcpServers }
+        : {}),
+      ...(ffmpegAttachment.bridgeInProcessServers
+        ? { bridgeInProcessServers: ffmpegAttachment.bridgeInProcessServers }
+        : {}),
       resolvedContext,
       autoApprove,
       thinkingConfig: effectiveThinking,
@@ -771,6 +792,20 @@ export async function* runAgent(
     taskId,
   });
 
+  const ffmpegAttachment = await prepareFfmpegSkillAttachment({
+    provider: agent.provider,
+    pinnedSkills: taskPluginContext.pinnedSkills,
+    systemContext: taskPluginContext.systemContext,
+    sessionContext: workDir
+      ? { workDir, sessionId: session.id, taskId }
+      : undefined,
+  });
+  if (ffmpegAttachment.capabilityMessage) {
+    yield { type: 'error', message: ffmpegAttachment.capabilityMessage };
+    yield { type: 'done' };
+    return;
+  }
+
   const runOptions = {
     sessionId: session.id,
     conversation,
@@ -786,7 +821,13 @@ export async function* runAgent(
     allowWorkspaceWrite,
     additionalUserDirs,
     pinnedSkills: taskPluginContext.pinnedSkills,
-    systemContext: taskPluginContext.systemContext,
+    systemContext: ffmpegAttachment.systemContext,
+    ...(ffmpegAttachment.inProcessMcpServers
+      ? { inProcessMcpServers: ffmpegAttachment.inProcessMcpServers }
+      : {}),
+    ...(ffmpegAttachment.bridgeInProcessServers
+      ? { bridgeInProcessServers: ffmpegAttachment.bridgeInProcessServers }
+      : {}),
     resolvedContext,
     agentProfileId,
     channelContext,

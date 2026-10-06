@@ -33,6 +33,10 @@ import {
   createBrollTools,
 } from '@/shared/mcp/broll-server';
 import { createFFmpegMcpServer, ffmpegTools } from '@/shared/mcp/ffmpeg-server';
+import {
+  createFfmpegSkillMcpServer,
+  ffmpegSkillTools,
+} from '@/shared/mcp/ffmpeg-skill-server';
 import { createMediaMcpServer, mediaTools } from '@/shared/mcp/media-server';
 import {
   createVideoEditServer,
@@ -79,7 +83,7 @@ import {
 
 import { VIDEO_AGENT_SYSTEM_PROMPT } from './system-prompt';
 
-const VIDEO_ALLOWED_TOOLS = [
+export const VIDEO_ALLOWED_TOOLS = [
   'mcp__video-edit__*',
   'mcp__assets__*',
   'mcp__media__media_generate_image',
@@ -87,6 +91,7 @@ const VIDEO_ALLOWED_TOOLS = [
   'mcp__media__media_check_video',
   'mcp__media__media_list_capabilities',
   'mcp__ffmpeg__*',
+  'mcp__ffmpeg-skill__*',
   'WebSearch',
   'WebFetch',
   // Skills (canvas-design, video-editing, etc.) read their own SKILL.md and
@@ -94,7 +99,7 @@ const VIDEO_ALLOWED_TOOLS = [
   'Read',
 ] as const;
 
-const VIDEO_DISALLOWED_TOOLS = [
+export const VIDEO_DISALLOWED_TOOLS = [
   'Bash',
   'Write',
   'Edit',
@@ -207,6 +212,7 @@ export class VideoAgent extends BaseAgent {
         : []),
       { serverName: 'media', tools: mediaTools },
       { serverName: 'ffmpeg', tools: ffmpegTools },
+      { serverName: 'ffmpeg-skill', tools: ffmpegSkillTools },
       ...(youtubeCapabilityGranted
         ? [{ serverName: 'broll', tools: brollTools }]
         : []),
@@ -217,6 +223,7 @@ export class VideoAgent extends BaseAgent {
       ...(assetsCatalogEnabled ? ['assets'] : []),
       'media',
       'ffmpeg',
+      'ffmpeg-skill',
       ...(youtubeCapabilityGranted ? ['broll'] : []),
     ];
     const allowedTools = pluginGate
@@ -251,6 +258,11 @@ export class VideoAgent extends BaseAgent {
             ffmpegTools,
             pluginGate,
           ),
+          ...filterMcpToolDefinitionsForVideoPluginRun(
+            'ffmpeg-skill',
+            ffmpegSkillTools,
+            pluginGate,
+          ),
           ...(youtubeCapabilityGranted
             ? filterMcpToolDefinitionsForVideoPluginRun(
                 'broll',
@@ -264,6 +276,7 @@ export class VideoAgent extends BaseAgent {
           ...(assetsCatalogEnabled ? assetsTools : []),
           ...mediaTools,
           ...ffmpegTools,
+          ...ffmpegSkillTools,
         ];
     const appliedPluginSnapshot = pluginGate
       ? createVideoPluginRunSnapshot(pluginGate, {
@@ -327,6 +340,7 @@ export class VideoAgent extends BaseAgent {
         : {}),
       media: () => createMediaMcpServer(),
       ffmpeg: () => createFFmpegMcpServer(),
+      'ffmpeg-skill': () => createFfmpegSkillMcpServer(),
       ...(youtubeCapabilityGranted
         ? {
             broll: () =>

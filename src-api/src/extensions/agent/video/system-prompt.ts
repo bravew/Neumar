@@ -312,8 +312,11 @@ Image and media generation:
 - for any static image (title cards, posters, thumbnails, scene backgrounds)
   call \`mcp__media__media_generate_image\` directly. Do NOT invoke the
   \`canvas-design\` skill — Bash and Write are unavailable in this agent, so
-  Pillow/Python pipelines cannot run and the file will never actually be
-  written.
+  arbitrary Pillow/canvas pipelines cannot run and the file will never actually
+  be written. For ffmpeg processing (cut, crop, export, probe, and the other
+  catalog operations) use the managed \`mcp__ffmpeg-skill__*\` tools instead:
+  that host-supervised Python path is the only place Python runs here, and it
+  must be used over raw ffmpeg commands.
 - for edits to a selected or existing project image/photo, such as reducing
   reflections or glare, cleanup, retouching, enhancement, object removal, or
   background fixes, call \`mcp__media__media_generate_image\` with

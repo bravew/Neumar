@@ -1,9 +1,19 @@
+import { toast } from 'sonner';
+
 import { API_BASE_URL } from '@/config';
+import { getSettings } from '@/shared/db/settings';
 import { prependAttachmentSourceContext } from '@/shared/hooks/agent-attachment-context';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
-import { resolveFileAttachments } from '@/shared/lib/attachments';
+import {
+  type AttachmentReference,
+  type AttachmentStagingFailure,
+  resolveFileAttachments,
+} from '@/shared/lib/attachments';
+import {
+  canAttachLocalPaths,
+  requestAttachByPath,
+} from '@/shared/lib/local-path';
 import { computeSessionFolder } from '@/shared/lib/session';
-import { isTauriRuntime } from '@/shared/utils/tauri';
 
 /** Parent directory of an absolute path. Handles both POSIX (`/`) and
  *  Windows (`\`) separators since Tauri drops surface native OS paths.
@@ -37,115 +47,179 @@ export function deriveAttachmentDirs(
   return [...dirs];
 }
 
+/** Outcome of staging attachments before a submit. */
+export interface ResolvedSubmitAttachments {
+  attachments: MessageAttachment[] | undefined;
+  /** Attachments the agent would not see; the caller must not send. */
+  failures: AttachmentStagingFailure[];
+}
+
+/** An image with inline data still reaches the model via `imageBlocks`. */
+function reachesAgentWithoutPath(a: MessageAttachment): boolean {
+  return a.type === 'image' && !!a.data;
+}
+
 /**
  * Resolve user-supplied attachments to disk-backed references before
  * submission.
  *
- * **Tauri desktop fast path:** when the drop event came from the Tauri
- * `onDragDropEvent` listener, the attachment already carries an absolute OS
- * path *and* we've granted Tauri-scope read access to it at drop time
- * (`grantFileReadAccess` in `useChatInputFiles`). The agent's sandbox is
- * separately widened via `deriveAttachmentDirs` → `additionalWorkDirs`, so
- * the file is reachable without ever copying it into the session folder.
- * This keeps large video drops (gigabytes) instant and disk-cheap.
+ * **Tauri desktop fast path:** attachments picked with the native dialog or
+ * dropped from Finder carry an absolute OS path, and we've granted
+ * Tauri-scope read access to it (`grantFileReadAccess` in
+ * `useChatInputFiles`). The agent's sandbox is separately widened via
+ * `deriveAttachmentDirs` → `additionalWorkDirs`, so the file is read in place
+ * without ever being copied into the session folder. This keeps large video
+ * attachments (gigabytes) instant and disk-cheap.
  *
- * **Browser / paste / file-picker:** the attachment arrives as an in-memory
- * `File` with no path. Stage it through the backend (`/files/attachment-save`)
- * which writes it into the session attachments folder.
+ * **Attached by path (any runtime):** a path the user typed or pasted and the
+ * API verified is read in place exactly like a desktop pick, so a large local
+ * file never has to fit the upload limit.
  *
- * Fails open on any error — the user's message should still send rather than
- * being blocked by an attachment bookkeeping failure.
+ * **Browser / paste:** the attachment arrives as an in-memory `File` with no
+ * path. Stage it through the backend (`/files/attachment-save`) which writes
+ * it into the session attachments folder.
+ *
+ * Any attachment the agent would not be able to see is reported in
+ * `failures` so the caller can stop the send and tell the user, instead of
+ * running the agent on a message whose file silently went missing.
  */
 export async function resolveAttachmentsForSubmit(
   attachments: MessageAttachment[] | undefined,
   taskId: string | undefined,
   taskWorkDir: string | undefined,
-): Promise<MessageAttachment[] | undefined> {
-  if (!attachments?.length || !taskId) return attachments;
+): Promise<ResolvedSubmitAttachments> {
+  if (!attachments?.length || !taskId) return { attachments, failures: [] };
 
-  // Tauri desktop: split into path-backed (from drag-drop) and the rest
-  // (paste / file picker / browser File objects). The path-backed subset is
-  // passed through as-is — the OS path is already readable thanks to
-  // `grantFileReadAccess`, and the agent sandbox is widened separately via
-  // `deriveAttachmentDirs`. The path-less subset still needs to be staged
-  // through the backend like in browser mode. This keeps mixed messages
-  // (e.g. dropped video + pasted screenshot) cheap on disk for the dropped
-  // file while still persisting the pasted one.
-  const inTauri = isTauriRuntime();
+  // Split into path-backed (native picker, drag-drop, or a verified typed
+  // path) and the rest (paste / browser File objects). The path-backed subset
+  // is passed through as-is — the OS path is already readable (on desktop
+  // thanks to `grantFileReadAccess`), and the agent sandbox is widened
+  // separately via `deriveAttachmentDirs`. The path-less subset still needs
+  // to be staged through the backend.
   const pathBacked = new Set<string>();
-  if (inTauri) {
-    for (const a of attachments) {
-      if (typeof a.path === 'string' && a.path.length > 0) {
-        pathBacked.add(a.id);
-      }
-    }
-    if (pathBacked.size === attachments.length) {
-      // All attachments are path-backed — skip the resolver entirely.
-      return attachments.map((a) => ({ ...a, file: undefined }));
+  for (const a of attachments) {
+    if (typeof a.path === 'string' && a.path.length > 0) {
+      pathBacked.add(a.id);
     }
   }
 
   const needsBackendStaging = attachments.filter((a) => !pathBacked.has(a.id));
   if (needsBackendStaging.length === 0) {
-    return attachments.map((a) => ({ ...a, file: undefined }));
+    return {
+      attachments: attachments.map((a) => ({ ...a, file: undefined })),
+      failures: [],
+    };
   }
 
+  const reported = new Map<string, AttachmentStagingFailure>();
+  let refById = new Map<string, AttachmentReference>();
   const sessionFolder = await computeSessionFolder(taskId, taskWorkDir);
-  if (!sessionFolder) {
-    console.warn(
-      '[taskV2-submit] No session folder resolved; submitting without attachment resolution',
-    );
-    return attachments;
+  if (sessionFolder) {
+    // resolveFileAttachments short-circuits per-attachment when `path` is
+    // already inside the session/workDir (no copy), and stages anything else
+    // through the backend.
+    try {
+      const refs = await resolveFileAttachments(
+        needsBackendStaging,
+        sessionFolder,
+        taskWorkDir,
+        {
+          taskId,
+          workDir: taskWorkDir,
+          onFailure: (failure) => reported.set(failure.id, failure),
+        },
+      );
+      refById = new Map(refs.map((r) => [r.id, r]));
+    } catch (err) {
+      console.error('[taskV2-submit] resolveFileAttachments threw:', err);
+    }
+  } else {
+    console.error('[taskV2-submit] No session folder resolved for attachments');
   }
 
-  // Always run resolveFileAttachments — it short-circuits per-attachment when
-  // `path` is already inside the session/workDir (no copy), and stages
-  // anything else through the backend.
-  try {
-    const refs = await resolveFileAttachments(
-      needsBackendStaging,
-      sessionFolder,
-      taskWorkDir,
-      { taskId, workDir: taskWorkDir },
-    );
-    const refById = new Map(refs.map((r) => [r.id, r]));
-    const dropped: string[] = [];
-    const resolved = attachments.map((a) => {
-      // Path-backed Tauri attachments pass through untouched (no copy).
-      if (pathBacked.has(a.id)) {
-        return { ...a, file: undefined };
+  const failures: AttachmentStagingFailure[] = [];
+  const resolved = attachments.map((a) => {
+    // Path-backed attachments pass through untouched (no copy).
+    if (pathBacked.has(a.id)) return { ...a, file: undefined };
+    const ref = refById.get(a.id);
+    if (!ref) {
+      if (!reachesAgentWithoutPath(a)) {
+        failures.push(
+          reported.get(a.id) ?? {
+            id: a.id,
+            name: a.name,
+            reason: 'error',
+            message: 'Could not save the attachment',
+          },
+        );
       }
-      const ref = refById.get(a.id);
-      if (!ref) {
-        dropped.push(a.name);
-        return a;
-      }
-      return {
-        ...a,
-        path: ref.path,
-        mimeType: ref.mimeType ?? a.mimeType,
-        // Drop the File object — it's already persisted and File isn't JSON-serialisable
-        // (would round-trip to `{}` in the DB row).
-        file: undefined,
-      };
-    });
-    if (dropped.length > 0) {
-      // Surface in production too — a silently dropped attachment leaves
-      // the chip rendered (we still persist the message row) but the agent
-      // never sees the file in its [ATTACHED FILES …] prefix.
-      console.error(
-        '[taskV2-submit] Attachment staging failed; agent will not see:',
-        dropped,
-      );
+      return { ...a, file: undefined };
     }
-    return resolved;
-  } catch (err) {
+    return {
+      ...a,
+      path: ref.path,
+      mimeType: ref.mimeType ?? a.mimeType,
+      // Drop the File object — it's already persisted and File isn't JSON-serialisable
+      // (would round-trip to `{}` in the DB row).
+      file: undefined,
+    };
+  });
+  if (failures.length > 0) {
     console.error(
-      '[taskV2-submit] resolveFileAttachments threw; submitting without resolution:',
-      err,
+      '[taskV2-submit] Attachment staging failed; not sending:',
+      failures,
     );
-    return attachments;
   }
+  return { attachments: resolved, failures };
+}
+
+/** User-facing explanation for one attachment that blocked a send. */
+export function describeAttachmentFailure(
+  failure: AttachmentStagingFailure,
+  tt: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  if (failure.reason === 'too_large') {
+    const limitMb = failure.limitBytes
+      ? Math.round(failure.limitBytes / (1024 * 1024))
+      : getSettings().attachmentUploadLimitMb;
+    return tt(
+      canAttachLocalPaths()
+        ? 'task.attachmentTooLargeLocal'
+        : 'task.attachmentTooLarge',
+      {
+        name: failure.name,
+        limit: limitMb,
+      },
+    );
+  }
+  return tt('task.attachmentUploadFailed', {
+    name: failure.name,
+    reason: failure.message,
+  });
+}
+
+/**
+ * Toast every staging failure. Returns true when the caller must not send.
+ */
+export function notifyAttachmentFailures(
+  failures: AttachmentStagingFailure[],
+  tt: (key: string, params?: Record<string, string | number>) => string,
+): boolean {
+  for (const failure of failures) {
+    const canUsePath = failure.reason === 'too_large' && canAttachLocalPaths();
+    toast.error(
+      describeAttachmentFailure(failure, tt),
+      canUsePath
+        ? {
+            action: {
+              label: tt('task.attachByPath'),
+              onClick: requestAttachByPath,
+            },
+          }
+        : undefined,
+    );
+  }
+  return failures.length > 0;
 }
 
 /**

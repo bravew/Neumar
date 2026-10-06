@@ -114,6 +114,14 @@ overrides:
   # GHSA-2883-xcg3-v3hh — transitive via cosmiconfig under @remotion/cli's
   # @svgr/core and @remotion/tailwind.
   js-yaml: '^4.3.2'
+  # GHSA-jqcg-44mw-7w3h — Express's proxy-addr permits IP spoofing through
+  # IPv4-mapped IPv6 trust subnets; keep its 2.x copies on the patched release.
+  'proxy-addr@>=1.1.0 <2.0.8': '2.0.8'
+  # GHSA-68fv-2mgg-jv7q — indexed source-map offsets can block the event loop.
+  'source-map-js@>=1.0.0 <1.2.2': '1.2.2'
+  # GHSA-7mx3-vvmw-hjmv — mergeDeep prototype pollution. Older 10.x/11.x
+  # GraphQL Yoga transitives have no patched release on their original majors.
+  '@graphql-tools/utils@<=12.0.0': '12.0.1'
 peerDependencyRules:
   allowedVersions:
     # tailwindcss-animate has not widened its peer range text for Tailwind 4,

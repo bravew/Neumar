@@ -8,6 +8,12 @@
  */
 import { useCallback, useRef, useState } from 'react';
 
+import {
+  buildAgentPrompt,
+  deriveAttachmentDirs,
+  notifyAttachmentFailures,
+  resolveAttachmentsForSubmit,
+} from '@/components/task/taskV2-submit-helpers';
 import { API_BASE_URL } from '@/config';
 import { createSession, createTask } from '@/shared/db';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
@@ -17,6 +23,7 @@ import {
   updateBackgroundTaskStatus,
 } from '@/shared/lib/background-tasks';
 import { generateSessionId } from '@/shared/lib/session';
+import { useLanguage } from '@/shared/providers/language-provider';
 import { randomUUID } from '@/shared/utils/uuid';
 
 interface UseDispatchOptions {
@@ -33,7 +40,7 @@ interface UseDispatchReturn {
     attachments?: MessageAttachment[],
     mentionedMcpServers?: string[],
     pinnedSkills?: string[],
-  ) => Promise<void>;
+  ) => Promise<void | boolean>;
   isDispatching: boolean;
 }
 
@@ -84,6 +91,7 @@ export function useDispatch({
   profileMcpServers,
   profileSkills,
 }: UseDispatchOptions): UseDispatchReturn {
+  const { tt } = useLanguage();
   const [isDispatching, setIsDispatching] = useState(false);
   const isDispatchingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -95,18 +103,33 @@ export function useDispatch({
       mentionedMcpServers?: string[],
       pinnedSkills?: string[],
     ) => {
-      void attachments; // reserved for future file-upload support in dispatch mode
-      const prompt = text.trim();
-      if (isDispatchingRef.current || !prompt) return;
+      const textPrompt = text.trim();
+      if (isDispatchingRef.current || !textPrompt) return false;
 
       isDispatchingRef.current = true;
       setIsDispatching(true);
       try {
-        // Create session and task (same as Home handleSubmit)
-        const sessionId = generateSessionId(prompt);
-        await createSession({ id: sessionId, prompt });
-
         const taskId = randomUUID();
+        const staged = await resolveAttachmentsForSubmit(
+          attachments,
+          taskId,
+          workDirs[0],
+        );
+        if (notifyAttachmentFailures(staged.failures, tt)) return false;
+        const { prompt, imageBlocks } = buildAgentPrompt(
+          textPrompt,
+          staged.attachments,
+        );
+        const additionalWorkDirs = [
+          ...new Set([
+            ...workDirs.slice(1),
+            ...deriveAttachmentDirs(staged.attachments),
+          ]),
+        ];
+        // Create session and task (same as Home handleSubmit)
+        const sessionId = generateSessionId(textPrompt);
+        await createSession({ id: sessionId, prompt: textPrompt });
+
         await createTask({
           id: taskId,
           session_id: sessionId,
@@ -154,9 +177,8 @@ export function useDispatch({
             forwardedProps: {
               taskId,
               workDir: workDirs[0] ?? undefined,
-              ...(workDirs.length > 1
-                ? { additionalWorkDirs: workDirs.slice(1) }
-                : {}),
+              ...(additionalWorkDirs.length > 0 ? { additionalWorkDirs } : {}),
+              ...(imageBlocks.length > 0 ? { images: imageBlocks } : {}),
               modelConfig: buildModelOverride(selectedModel),
               ...(mergedMcp.length > 0 ? { mcpServers: mergedMcp } : {}),
               ...(mergedSkills.length > 0
@@ -176,7 +198,7 @@ export function useDispatch({
         setIsDispatching(false);
       }
     },
-    [workDirs, selectedModel, profileId, profileMcpServers, profileSkills],
+    [workDirs, selectedModel, profileId, profileMcpServers, profileSkills, tt],
   );
 
   return { dispatch, isDispatching };

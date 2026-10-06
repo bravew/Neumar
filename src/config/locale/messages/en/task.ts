@@ -418,6 +418,32 @@ export default {
   runningEllipsis: 'Running…',
   agentError: 'Error',
   agentUnknownError: 'Unknown error',
+  attachmentUploadFailed:
+    '{name} could not be attached, so the message was not sent. {reason}',
+  attachmentTooLarge:
+    '{name} is larger than the {limit} MB upload limit, so the message was not sent. Raise the limit in Settings → Advanced, or attach the file from the desktop app so it is read in place.',
+  attachByPath: 'Attach by path',
+  attachByPathTitle: 'Attach a file by path',
+  attachByPathDescription:
+    'Enter the full path of a file on this computer. It is read where it is and never uploaded, so the upload limit does not apply.',
+  attachByPathPlaceholder: '/Users/you/Movies/clip.mp4',
+  attachByPathSubmit: 'Attach',
+  attachByPathNotFound: 'File not found: {path}',
+  attachByPathNotFile: '{path} is not a file.',
+  attachByPathDenied: '{path} is outside the locations the app may read.',
+  attachByPathUnreachable:
+    'Could not reach the local service to check that path.',
+  attachByPathNotAccepted:
+    'This input does not accept the file type of {path}.',
+  attachmentTooLargeLocal:
+    '{name} is larger than the {limit} MB upload limit, so the message was not sent. Attach it by its path so it is read in place, or raise the limit in Settings → Advanced.',
+  attachmentDropHere: 'Drag and drop files here',
+  attachmentBrowse: 'Browse files',
+  attachmentSelectedCount: '{count} selected',
+  attachmentDesktopHint:
+    'Pick a file, or drop files here. Files are read where they are and never uploaded.',
+  attachmentUploadHint:
+    'Pick or drop files to attach them. Each file may be up to {limit} MB; larger files can be attached by path.',
   agentRunFailed:
     'The agent run completed without a response. Check the model configuration or try again.',
 

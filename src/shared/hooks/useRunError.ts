@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { AgentSubscriber } from '@ag-ui/client';
+
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble';
 import { API_BASE_URL } from '@/config';
 
@@ -9,12 +11,30 @@ export function useRunError(
     messages: unknown[];
     isRunning: boolean;
     abortRun: () => void;
+    subscribe?: (subscriber: AgentSubscriber) => { unsubscribe: () => void };
   },
   agentRunFailedLabel: string,
 ) {
-  const [runError, setRunError] = useState<string | null>(null);
+  const [runError, setRunErrorState] = useState<string | null>(null);
+  // Terminal callbacks can run before React renders the idle transition.
+  const runErrorRef = useRef<string | null>(null);
+  const setRunError = useCallback((message: string | null) => {
+    runErrorRef.current = message;
+    setRunErrorState(message);
+  }, []);
   const agentRef = useRef(agent);
   agentRef.current = agent;
+
+  useEffect(() => {
+    const subscription = agent.subscribe?.({
+      onRunStartedEvent: () => setRunError(null),
+      onRunErrorEvent: ({ event }) => setRunError(event.message),
+      onRunFailed: ({ error }) => {
+        if (!runErrorRef.current) setRunError(error.message);
+      },
+    });
+    return () => subscription?.unsubscribe();
+  }, [agent, setRunError]);
 
   // Listen for RUN_ERROR from the subscribe path (useThreadSync dispatches 'agui-run-error').
   useEffect(() => {
@@ -32,12 +52,11 @@ export function useRunError(
     };
     window.addEventListener('agui-run-error', handler);
     return () => window.removeEventListener('agui-run-error', handler);
-  }, [taskId]);
+  }, [taskId, setRunError]);
 
-  // Clear error when a new run starts or task switches
   useEffect(() => {
-    if (agent.isRunning) setRunError(null);
-  }, [agent.isRunning]);
+    setRunError(null);
+  }, [taskId, setRunError]);
 
   // ── Backend run-status watchdog ──
   // CopilotKit may not resolve runAgent() on RUN_ERROR, leaving isRunning=true
@@ -75,10 +94,15 @@ export function useRunError(
           clearInterval(poll);
 
           // Check for structured error messages from the backend
-          const errorMsg = data.messages?.find((m) => m.isError && m.content);
+          const lastUserIndex =
+            data.messages?.map((m) => m.role).lastIndexOf('user') ?? -1;
+          const currentRunMessages = data.messages?.slice(lastUserIndex + 1);
+          const errorMsg = currentRunMessages?.find(
+            (m) => m.isError && m.content,
+          );
           // Tool-only runs (file writes, etc.) have assistant messages with
           // toolCalls but no text content — these are successful, not errors.
-          const hasRealContent = data.messages?.some(
+          const hasRealContent = currentRunMessages?.some(
             (m) =>
               m.role === 'assistant' &&
               (m.content || m.toolCalls?.length) &&
@@ -113,9 +137,16 @@ export function useRunError(
       ac.abort();
       clearInterval(poll);
     };
-  }, [taskId, runError, hasUserMessages, agent.isRunning, agentRunFailedLabel]);
+  }, [
+    taskId,
+    runError,
+    hasUserMessages,
+    agent.isRunning,
+    agentRunFailedLabel,
+    setRunError,
+  ]);
 
-  const clearRunError = useCallback(() => setRunError(null), []);
+  const clearRunError = useCallback(() => setRunError(null), [setRunError]);
 
-  return { runError, setRunError, clearRunError };
+  return { runError, runErrorRef, setRunError, clearRunError };
 }

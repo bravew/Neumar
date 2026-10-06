@@ -409,6 +409,31 @@ export default {
   runningEllipsis: 'Executando…',
   agentError: 'Erro',
   agentUnknownError: 'Erro desconhecido',
+  attachmentUploadFailed:
+    'Não foi possível anexar {name}, então a mensagem não foi enviada. {reason}',
+  attachmentTooLarge:
+    '{name} é maior que o limite de envio de {limit} MB, então a mensagem não foi enviada. Aumente o limite em Configurações → Avançado ou anexe o arquivo pelo app de desktop para que ele seja lido no local.',
+  attachByPath: 'Anexar por caminho',
+  attachByPathTitle: 'Anexar um arquivo por caminho',
+  attachByPathDescription:
+    'Digite o caminho completo de um arquivo deste computador. Ele é lido onde está e nunca é enviado, então o limite de envio não se aplica.',
+  attachByPathPlaceholder: '/Users/voce/Movies/clip.mp4',
+  attachByPathSubmit: 'Anexar',
+  attachByPathNotFound: 'Arquivo não encontrado: {path}',
+  attachByPathNotFile: '{path} não é um arquivo.',
+  attachByPathDenied: '{path} está fora dos locais que o app pode ler.',
+  attachByPathUnreachable:
+    'Não foi possível contatar o serviço local para verificar esse caminho.',
+  attachByPathNotAccepted: 'Este campo não aceita o tipo de arquivo de {path}.',
+  attachmentTooLargeLocal:
+    '{name} é maior que o limite de envio de {limit} MB, então a mensagem não foi enviada. Anexe-o pelo caminho para que seja lido no local, ou aumente o limite em Configurações → Avançado.',
+  attachmentDropHere: 'Arraste e solte os arquivos aqui',
+  attachmentBrowse: 'Procurar arquivos',
+  attachmentSelectedCount: '{count} selecionados',
+  attachmentDesktopHint:
+    'Escolha um arquivo ou solte arquivos aqui. Eles são lidos no local e nunca enviados.',
+  attachmentUploadHint:
+    'Escolha ou solte arquivos para anexar. Cada arquivo pode ter até {limit} MB; arquivos maiores podem ser anexados pelo caminho.',
   agentRunFailed:
     'A execução do agente foi concluída sem resposta. Verifique a configuração do modelo ou tente novamente.',
 

@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/utils';
 
 import { isImeCompositionKeyEvent } from './chat-input-keyboard';
 import type { ChatInputProps } from './ChatInput.types';
-import { expandSearchSlashCommand } from './ChatInput.types';
+import { DEFAULT_ATTACHMENT_ACCEPT, inTauri } from './ChatInput.types';
 import { ChatInputActions } from './ChatInputActions';
 import { ChatInputAttachmentDialogs } from './ChatInputAttachmentDialogs';
 import { AttachmentPreview, DragOverlay } from './ChatInputAttachments';
@@ -14,8 +14,10 @@ import { McpChips, SkillChips } from './ChatInputChips';
 import { ChatInputTextarea } from './ChatInputTextarea';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { useAssetCatalogAttachment } from './useAssetCatalogAttachment';
+import { useAttachByPath } from './useAttachByPath';
 import { useChatInputFiles } from './useChatInputFiles';
 import { useChatInputState } from './useChatInputState';
+import { useChatInputSubmit } from './useChatInputSubmit';
 import { useCloudStorageAttachment } from './useCloudStorageAttachment';
 import {
   useComposerModelShortcut,
@@ -69,6 +71,8 @@ export function ChatInput({
     [onWorkDirsChangeProp, onWorkDirChange],
   );
 
+  const attachmentAccept =
+    attachmentPolicy?.accept ?? DEFAULT_ATTACHMENT_ACCEPT;
   const effectiveWorkDirsRef = useRef(effectiveWorkDirs);
   effectiveWorkDirsRef.current = effectiveWorkDirs;
 
@@ -76,6 +80,7 @@ export function ChatInput({
     attachments,
     setAttachments,
     addFiles,
+    attachLocalPaths,
     isDragOver,
     fileInputRef,
     pendingDropFolders,
@@ -95,6 +100,10 @@ export function ChatInput({
     effectiveWorkDirsRef,
     handleWorkDirsChange,
     acceptsFile: attachmentPolicy?.acceptsFile,
+    // Desktop: pick by path so files are read in place, not uploaded.
+    // Callers that need the bytes (preserveAttachmentFiles) keep the input.
+    nativePickerAccept:
+      inTauri && !preserveAttachmentFiles ? attachmentAccept : undefined,
   });
 
   const {
@@ -153,6 +162,7 @@ export function ChatInput({
     });
   const { assetCatalogOpen, setAssetCatalogOpen, handleAssetCatalogSelect } =
     useAssetCatalogAttachment({ addFiles });
+  const { attachByPathOpen, setAttachByPathOpen } = useAttachByPath(disabled);
 
   const isHome = variant === 'home';
   const resolvedPlaceholder = useComposerPlaceholder(
@@ -173,53 +183,24 @@ export function ChatInput({
         : partialText
       : value;
 
-  const collectAndClear = () => {
-    const text = expandSearchSlashCommand(value.trim());
-    if (
-      (!text && attachments.length === 0 && !hasExternalSubmitContext) ||
-      disabled
-    )
-      return null;
-    const messageAttachments = convertToMessageAttachments(attachments);
-    const mcpMentions = selectedMcp.length > 0 ? [...selectedMcp] : undefined;
-    const pinned = selectedSkills.length > 0 ? [...selectedSkills] : undefined;
-    setValue('');
-    setAttachments([]);
-    setSelectedMcp([]);
-    setSelectedSkills([]);
-    return { text, messageAttachments, mcpMentions, pinned };
-  };
-
-  const handleSubmit = async () => {
-    if (isListening) {
-      pttActiveRef.current = false;
-      stopListening();
-    }
-    const input = collectAndClear();
-    if (input)
-      await onSubmit(
-        input.text,
-        input.messageAttachments,
-        input.mcpMentions,
-        input.pinned,
-      );
-  };
-
-  const handleDispatch = async () => {
-    if (!onDispatch) return;
-    if (isListening) {
-      pttActiveRef.current = false;
-      stopListening();
-    }
-    const input = collectAndClear();
-    if (input)
-      await onDispatch(
-        input.text,
-        input.messageAttachments,
-        input.mcpMentions,
-        input.pinned,
-      );
-  };
+  const { handleSubmit, handleDispatch } = useChatInputSubmit({
+    value,
+    setValue,
+    attachments,
+    setAttachments,
+    selectedMcp,
+    setSelectedMcp,
+    selectedSkills,
+    setSelectedSkills,
+    convertToMessageAttachments,
+    hasExternalSubmitContext,
+    disabled,
+    isListening,
+    stopListening,
+    pttActiveRef,
+    onSubmit,
+    onDispatch,
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const composingKey = isComposingRef.current || isImeCompositionKeyEvent(e);
@@ -311,18 +292,6 @@ export function ChatInput({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept={
-            attachmentPolicy?.accept ??
-            'image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.md,.json,.csv,.xlsx,.xls,.pptx,.ppt'
-          }
-          onChange={handleFileChange}
-          className="hidden"
-        />
-
         {beforeInput ? <div className="mb-2">{beforeInput}</div> : null}
         <AttachmentPreview
           attachments={attachments}
@@ -365,7 +334,7 @@ export function ChatInput({
           isRunning={isRunning}
           disabled={disabled}
           canSubmit={canSubmit}
-          openFilePicker={openFilePicker}
+          openFilePicker={() => setAttachByPathOpen(true)}
           openCloudStoragePicker={() => setCloudPickerOpen(true)}
           openAssetCatalogPicker={() => setAssetCatalogOpen(true)}
           addFilesLabel={t.home.addFilesOrPhotos}
@@ -409,10 +378,23 @@ export function ChatInput({
       <ChatInputAttachmentDialogs
         cloudPickerOpen={cloudPickerOpen}
         assetCatalogOpen={assetCatalogOpen}
+        attachByPathOpen={attachByPathOpen}
         dropFolderDialogOpen={dropFolderDialogOpen}
         pendingDropFolder={pendingDropFolders[0]}
         setCloudPickerOpen={setCloudPickerOpen}
         setAssetCatalogOpen={setAssetCatalogOpen}
+        setAttachByPathOpen={setAttachByPathOpen}
+        onAttachByPath={attachLocalPaths}
+        filePicker={{
+          fileInputRef,
+          accept: attachmentAccept,
+          onFileChange: handleFileChange,
+          onDrop: handleDrop,
+          openFilePicker,
+          nativePicker: inTauri && !preserveAttachmentFiles,
+          count: attachments.length,
+        }}
+        uploadLimitMb={currentSettings.attachmentUploadLimitMb}
         onDropFolderDialogResult={handleDropFolderDialogResult}
         onCloudSelect={(items) => void handleCloudStorageSelect(items)}
         onAssetCatalogSelect={handleAssetCatalogSelect}

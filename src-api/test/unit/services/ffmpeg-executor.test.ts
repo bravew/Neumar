@@ -219,6 +219,29 @@ describe('ffmpeg executor binary detection', () => {
     });
   });
 
+  it('honors the FFMPEG_PATH alias when NEUMA_FFMPEG_PATH is unset', () => {
+    const ffmpegPath = writeExecutable(
+      'custom-ffmpeg-alias',
+      'printf "ffmpeg version alias\\n"',
+    );
+    const ffprobePath = writeExecutable(
+      'custom-ffprobe-alias',
+      'printf "ffprobe version alias\\n"',
+    );
+    vi.stubEnv('PATH', '');
+    vi.stubEnv('FFMPEG_PATH', ffmpegPath);
+    vi.stubEnv('FFPROBE_PATH', ffprobePath);
+
+    const bins = detectBinaries();
+
+    expect(bins).toMatchObject({
+      ffmpegPath,
+      ffprobePath,
+      source: 'system',
+      version: 'ffmpeg version alias',
+    });
+  });
+
   function writeExecutable(name: string, body: string): string {
     const filePath = path.join(binDir, name);
     writeFileSync(filePath, `#!/bin/sh\n${body}\n`);

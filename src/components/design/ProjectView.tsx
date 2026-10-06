@@ -258,7 +258,7 @@ export function DesignProjectView({
     }
     void runPrompt(trimmed);
   };
-  const send = async () => {
+  const send = async (skills?: string[]) => {
     const typedPrompt = message.trim();
     const basePrompt =
       typedPrompt ||
@@ -271,7 +271,7 @@ export function DesignProjectView({
     if (chatLoopActive) {
       if (chat.sending) return;
       setMessage('');
-      await chat.send(basePrompt, chatSendModel());
+      await chat.send(basePrompt, { ...chatSendModel(), skills });
       return;
     }
     if (sending || activeTaskId) {
@@ -437,7 +437,7 @@ export function DesignProjectView({
             setSendError(err instanceof Error ? err.message : String(err));
           });
         }}
-        onSend={() => void send()}
+        onSend={(skills) => void send(skills)}
         onSendQueuedNow={sendQueuedNow}
         onProjectFileOpen={openProjectFile}
         onAnswerQuestion={sendProjectPrompt}

@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { getStreamUrl } from '@/components/artifacts/media-loader';
 import { API_BASE_URL } from '@/config';
 import { getSettings, saveSettings } from '@/shared/db/settings';
 import {
@@ -16,7 +17,15 @@ import {
   isDirectory,
   isFolderAlwaysAllowed,
 } from '@/shared/lib/folder-permissions';
+import {
+  canAttachLocalPaths,
+  checkLocalFile,
+  type LocalFileCheck,
+  parsePastedPaths,
+} from '@/shared/lib/local-path';
+import { getFileName } from '@/shared/lib/paths';
 import { grantFileReadAccess } from '@/shared/lib/tauri-scope';
+import { useLanguage } from '@/shared/providers/language-provider';
 import type { PermissionDialogResult } from '@/shared/types/folder-permissions';
 
 import type { Attachment, AttachmentSourceContext } from './ChatInput.types';
@@ -32,6 +41,7 @@ import {
   isVideoFile,
   VIDEO_EXTS,
 } from './ChatInput.types';
+import { pickLocalFilePaths } from './native-file-picker';
 
 /**
  * Extract absolute file paths from HTML5 DataTransfer text data.
@@ -71,11 +81,53 @@ function extractFilePathsFromTextData(
   return paths;
 }
 
+/** Read an image at `path` as a data URL for the composer thumbnail. */
+async function readLocalImagePreview(
+  path: string,
+  ext: string,
+): Promise<string | undefined> {
+  const mime = FILE_MIME_MAP[ext] || 'image/png';
+  if (inTauri) {
+    const { readFile } = await import('@tauri-apps/plugin-fs');
+    const bytes = await readFile(path);
+    const base64 = btoa(
+      Array.from(bytes, (b) => String.fromCharCode(b)).join(''),
+    );
+    return `data:${mime};base64,${base64}`;
+  }
+  // Browsers cannot read disk paths; the local API streams the bytes.
+  const res = await fetch(getStreamUrl(path));
+  if (!res.ok) return undefined;
+  const blob = await res.blob();
+  return createImagePreview(
+    new File([blob], getFileName(path), { type: mime }),
+  );
+}
+
+/** Insert `text` into a controlled textarea so React sees an input event. */
+function insertTextAtSelection(
+  el: HTMLTextAreaElement,
+  text: string,
+  start: number,
+  end: number,
+) {
+  el.setRangeText(text, start, end, 'end');
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/** Outcome per requested path; `reason` is set when it was not attached. */
+export interface LocalPathResult {
+  path: string;
+  reason?: Exclude<LocalFileCheck, { ok: true }>['reason'] | 'not_accepted';
+}
+
 export interface UseChatInputFilesOptions {
   disabled: boolean;
   effectiveWorkDirsRef: React.RefObject<string[]>;
   handleWorkDirsChange: (folders: string[]) => void;
   acceptsFile?: (file: File) => boolean;
+  /** When set, the attach button opens the OS dialog with this filter. */
+  nativePickerAccept?: string;
 }
 
 export function useChatInputFiles({
@@ -83,7 +135,9 @@ export function useChatInputFiles({
   effectiveWorkDirsRef,
   handleWorkDirsChange,
   acceptsFile,
+  nativePickerAccept,
 }: UseChatInputFilesOptions) {
+  const { t } = useLanguage();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [pendingDropFolders, setPendingDropFolders] = useState<string[]>([]);
@@ -91,7 +145,7 @@ export function useChatInputFiles({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
 
-  // Add files by local path (Tauri desktop only)
+  // Add files by local path (desktop picker or verified typed path)
   const addFilePaths = useCallback(
     async (paths: string[]) => {
       // Widen Tauri's runtime fs scope so drops from outside the static
@@ -99,7 +153,7 @@ export function useChatInputFiles({
       await grantFileReadAccess(paths);
       const newAttachments: Attachment[] = [];
       for (const p of paths) {
-        const name = p.split('/').pop() || p;
+        const name = p.split(/[\\/]/).pop() || p;
         const ext = name.split('.').pop()?.toLowerCase() || '';
         const isImage = IMAGE_EXTS.includes(ext);
         const type = isImage
@@ -120,13 +174,7 @@ export function useChatInputFiles({
         if (acceptsFile && !acceptsFile(attachment.file)) continue;
         if (isImage) {
           try {
-            const { readFile } = await import('@tauri-apps/plugin-fs');
-            const bytes = await readFile(p);
-            const mime = FILE_MIME_MAP[ext] || 'image/png';
-            const base64 = btoa(
-              Array.from(bytes, (b) => String.fromCharCode(b)).join(''),
-            );
-            attachment.preview = `data:${mime};base64,${base64}`;
+            attachment.preview = await readLocalImagePreview(p, ext);
           } catch (err) {
             if (import.meta.env.DEV)
               console.error('[ChatInput] Failed to read image from path:', err);
@@ -135,6 +183,7 @@ export function useChatInputFiles({
         newAttachments.push(attachment);
       }
       setAttachments((prev) => [...prev, ...newAttachments]);
+      return newAttachments.map((a) => a.localPath);
     },
     [acceptsFile],
   );
@@ -192,6 +241,38 @@ export function useChatInputFiles({
     [acceptsFile],
   );
 
+  /**
+   * Attach files the local API can read in place, with no upload. A path
+   * that is missing, a directory, or outside the trusted roots is reported
+   * back instead of attached.
+   */
+  const attachLocalPaths = useCallback(
+    async (rawPaths: string[]): Promise<LocalPathResult[]> => {
+      const checks = await Promise.all(rawPaths.map(checkLocalFile));
+      const okPaths = checks.flatMap((c) => (c.ok ? [c.path] : []));
+      let accepted = new Set<string | undefined>();
+      if (okPaths.length > 0) {
+        // Swap in the in-place file for a same-named upload chip, e.g. one
+        // that was over the upload limit.
+        const names = new Set(okPaths.map(getFileName));
+        setAttachments((prev) =>
+          prev.filter((a) => a.localPath || !names.has(a.file.name)),
+        );
+        accepted = new Set(await addFilePaths(okPaths));
+      }
+      return checks.map((c, i) => ({
+        path: rawPaths[i],
+        // A composer that filters file types drops the rest after the check.
+        reason: c.ok
+          ? accepted.has(c.path)
+            ? undefined
+            : ('not_accepted' as const)
+          : c.reason,
+      }));
+    },
+    [addFilePaths],
+  );
+
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }, []);
@@ -220,14 +301,57 @@ export function useChatInputFiles({
       if (imageFiles.length > 0) {
         e.preventDefault();
         await addFiles(imageFiles, true);
+        return;
+      }
+
+      // Pasted file paths attach in place, so a large local file is never
+      // uploaded. Anything that is not a readable file stays plain text.
+      if (!canAttachLocalPaths()) return;
+      const text = e.clipboardData.getData('text/plain');
+      const paths = parsePastedPaths(text);
+      if (!paths) return;
+      e.preventDefault();
+      const el = e.currentTarget as HTMLTextAreaElement;
+      const { selectionStart, selectionEnd } = el;
+      // Paste immediately. A slow path check must not delay the user's draft
+      // or restore text into a selection that has changed in the meantime.
+      insertTextAtSelection(el, text, selectionStart, selectionEnd);
+      const pastedValue = el.value;
+      const results = await attachLocalPaths(paths);
+      const unattached = results.filter((r) => r.reason);
+      if (
+        unattached.length < results.length &&
+        el.isConnected &&
+        el.value === pastedValue
+      ) {
+        const rest = unattached.map((r) => r.path).join('\n');
+        insertTextAtSelection(
+          el,
+          rest,
+          selectionStart,
+          selectionStart + text.length,
+        );
       }
     },
-    [addFiles],
+    [addFiles, attachLocalPaths],
   );
 
-  const openFilePicker = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
+  const openFilePicker = useCallback(async () => {
+    if (nativePickerAccept === undefined) {
+      fileInputRef.current?.click();
+      return;
+    }
+    try {
+      const paths = await pickLocalFilePaths(
+        nativePickerAccept,
+        t.home.addFilesOrPhotos,
+      );
+      if (paths.length > 0) await addFilePaths(paths);
+    } catch (err) {
+      console.error('[ChatInput] Native file dialog failed:', err);
+      fileInputRef.current?.click();
+    }
+  }, [nativePickerAccept, t.home.addFilesOrPhotos, addFilePaths]);
 
   // ── Folder drag-drop permission ──
   const grantDroppedFolder = useCallback(
@@ -400,8 +524,8 @@ export function useChatInputFiles({
         const textData = e.dataTransfer.getData('text/plain');
         const paths = extractFilePathsFromTextData(uriList, textData);
         // Logged in production too — when Finder drops fall through to the
-        // File-object fallback, the file gets uploaded as multipart and is
-        // subject to the backend's in-memory size cap. Surfacing this drop
+        // File-object fallback, the file is uploaded and is subject to the
+        // attachment upload limit. Surfacing this drop
         // diagnostic is the fastest way to triage "agent didn't see my file"
         // reports without forcing a dev rebuild.
         console.warn('[ChatInput] HTML5 drop in Tauri:', {
@@ -427,10 +551,9 @@ export function useChatInputFiles({
         }
 
         // Fallback: Finder drops may provide File objects without text URIs.
-        // The submit path will upload via /files/attachment-save (multipart),
-        // which means the file has to fit the in-memory cap. For large
-        // videos, ask the user to use the file picker (which goes through
-        // the path-based copy branch and supports 4 GB).
+        // The submit path streams them to /files/attachment-save, so they
+        // must fit the configurable upload limit. The attach button picks by
+        // path instead and reads the file in place.
         if (e.dataTransfer.files.length > 0) {
           await addFiles(e.dataTransfer.files);
         }
@@ -438,9 +561,19 @@ export function useChatInputFiles({
       }
 
       const files = e.dataTransfer.files;
-      if (files && files.length > 0) await addFiles(files);
+      if (files && files.length > 0) {
+        await addFiles(files);
+        return;
+      }
+      // Editors and terminals drag paths as text; attach those in place.
+      if (!canAttachLocalPaths()) return;
+      const paths = extractFilePathsFromTextData(
+        e.dataTransfer.getData('text/uri-list'),
+        e.dataTransfer.getData('text/plain'),
+      );
+      if (paths.length > 0) await attachLocalPaths(paths);
     },
-    [disabled, addFiles, addFilePaths, handleDroppedFolders],
+    [disabled, addFiles, addFilePaths, attachLocalPaths, handleDroppedFolders],
   );
 
   const handleOpenWorkDir = useCallback(
@@ -475,6 +608,7 @@ export function useChatInputFiles({
     pendingDropFolders,
     dropFolderDialogOpen,
     addFiles,
+    attachLocalPaths,
     removeAttachment,
     handleFileChange,
     handlePaste,

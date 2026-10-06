@@ -7,6 +7,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 
 import { Switch } from '../components/Switch';
 import type { SettingsType } from '../types';
+import { AttachmentUploadLimitSetting } from './AttachmentUploadLimitSetting';
 import { SimpleShellOptIn } from './SimpleShellOptIn';
 
 interface DaemonStatus {
@@ -34,6 +35,10 @@ export function AdvancedSettings({
   return (
     <div className="space-y-6 p-6">
       <SimpleShellOptIn
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+      />
+      <AttachmentUploadLimitSetting
         settings={settings}
         onSettingsChange={onSettingsChange}
       />

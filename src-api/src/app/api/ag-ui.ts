@@ -815,7 +815,11 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
     // plan execution wrote generated images to the workspace root.
     const contextualExecStream = execSessionCwd
       ? withSessionContext(
-          { workDir: execSessionCwd, sessionId: execSession.id },
+          {
+            workDir: execSessionCwd,
+            sessionId: execSession.id,
+            taskId: effectiveTaskId,
+          },
           rawExecStream,
         )
       : rawExecStream;
@@ -1222,7 +1226,7 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
   const sessionCwd = resolveSessionCwd(workspaceRoot, effectiveTaskId);
   const contextualStream = sessionCwd
     ? withSessionContext(
-        { workDir: sessionCwd, sessionId: session.id },
+        { workDir: sessionCwd, sessionId: session.id, taskId: effectiveTaskId },
         rawStream,
       )
     : rawStream;

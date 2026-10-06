@@ -408,6 +408,28 @@ export default {
   runningEllipsis: '运行中…',
   agentError: '错误',
   agentUnknownError: '未知错误',
+  attachmentUploadFailed: '无法附加 {name}，消息未发送。{reason}',
+  attachmentTooLarge:
+    '{name} 超过了 {limit} MB 的上传上限，消息未发送。请在 设置 → 高级 中提高上限，或在桌面版中附加该文件以直接读取原文件。',
+  attachByPath: '按路径附加',
+  attachByPathTitle: '按路径附加文件',
+  attachByPathDescription:
+    '输入本机上文件的完整路径。文件会在原位置读取、不会上传，因此不受上传上限限制。',
+  attachByPathPlaceholder: '/Users/你/Movies/clip.mp4',
+  attachByPathSubmit: '附加',
+  attachByPathNotFound: '找不到文件：{path}',
+  attachByPathNotFile: '{path} 不是文件。',
+  attachByPathDenied: '{path} 不在应用允许读取的位置内。',
+  attachByPathUnreachable: '无法连接本地服务来检查该路径。',
+  attachByPathNotAccepted: '此输入框不接受 {path} 的文件类型。',
+  attachmentTooLargeLocal:
+    '{name} 超过了 {limit} MB 的上传上限，消息未发送。请按路径附加该文件以直接读取原文件，或在 设置 → 高级 中提高上限。',
+  attachmentDropHere: '将文件拖放到此处',
+  attachmentBrowse: '浏览文件',
+  attachmentSelectedCount: '已选择 {count} 项',
+  attachmentDesktopHint: '选择或拖入文件。文件会在原位置读取，不会上传。',
+  attachmentUploadHint:
+    '选择或拖入文件以附加。每个文件最大 {limit} MB，更大的文件可按路径附加。',
   agentRunFailed: '代理运行完成但没有响应。请检查模型配置或重试。',
 
   // V2 组件

@@ -403,6 +403,32 @@ export default {
   runningEllipsis: 'Ejecutando…',
   agentError: 'Error',
   agentUnknownError: 'Error desconocido',
+  attachmentUploadFailed:
+    'No se pudo adjuntar {name}, así que el mensaje no se envió. {reason}',
+  attachmentTooLarge:
+    '{name} supera el límite de subida de {limit} MB, así que el mensaje no se envió. Aumenta el límite en Configuración → Avanzado o adjunta el archivo desde la app de escritorio para leerlo en su ubicación.',
+  attachByPath: 'Adjuntar por ruta',
+  attachByPathTitle: 'Adjuntar un archivo por ruta',
+  attachByPathDescription:
+    'Introduce la ruta completa de un archivo de este equipo. Se lee donde está y nunca se sube, así que el límite de subida no se aplica.',
+  attachByPathPlaceholder: '/Users/tu/Movies/clip.mp4',
+  attachByPathSubmit: 'Adjuntar',
+  attachByPathNotFound: 'No se encontró el archivo: {path}',
+  attachByPathNotFile: '{path} no es un archivo.',
+  attachByPathDenied:
+    '{path} está fuera de las ubicaciones que la app puede leer.',
+  attachByPathUnreachable:
+    'No se pudo contactar con el servicio local para comprobar esa ruta.',
+  attachByPathNotAccepted: 'Este campo no admite el tipo de archivo de {path}.',
+  attachmentTooLargeLocal:
+    '{name} supera el límite de subida de {limit} MB, así que el mensaje no se envió. Adjúntalo por su ruta para leerlo en su ubicación, o aumenta el límite en Configuración → Avanzado.',
+  attachmentDropHere: 'Arrastra y suelta archivos aquí',
+  attachmentBrowse: 'Explorar archivos',
+  attachmentSelectedCount: '{count} seleccionados',
+  attachmentDesktopHint:
+    'Elige un archivo o suelta archivos aquí. Se leen donde están y nunca se suben.',
+  attachmentUploadHint:
+    'Elige o suelta archivos para adjuntarlos. Cada archivo puede tener hasta {limit} MB; los más grandes se pueden adjuntar por ruta.',
   agentRunFailed:
     'La ejecución del agente finalizó sin respuesta. Verifica la configuración del modelo o inténtalo de nuevo.',
 

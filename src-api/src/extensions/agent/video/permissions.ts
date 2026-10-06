@@ -216,6 +216,10 @@ export function buildVideoToolClassifications(): NonNullable<
     // Read-only media tools — auto-allow so render-verify loops don't prompt
     ['mcp__media__media_check_video', 'read'],
     ['mcp__media__media_list_capabilities', 'read'],
+    // Managed ffmpeg skill: catalog/check inspect, execute produces artifacts.
+    ['mcp__ffmpeg-skill__ffmpeg_skill_catalog', 'read'],
+    ['mcp__ffmpeg-skill__ffmpeg_skill_check', 'read'],
+    ['mcp__ffmpeg-skill__ffmpeg_skill_execute', 'write'],
     // Mutates global materialization limits; ask the user even though the tool
     // is implemented as a settings update.
     ['mcp__assets__assets_request_budget_increase', 'destructive'],

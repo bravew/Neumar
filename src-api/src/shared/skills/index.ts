@@ -8,6 +8,7 @@
 export {
   loadSkills,
   getSkillsPath,
+  resolveExistingSkillSlugs,
   getSkillNames,
   findSkill,
   type LoadedSkill,
