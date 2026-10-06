@@ -9,8 +9,11 @@ import {
   type AttachmentStagingFailure,
   resolveFileAttachments,
 } from '@/shared/lib/attachments';
+import {
+  canAttachLocalPaths,
+  requestAttachByPath,
+} from '@/shared/lib/local-path';
 import { computeSessionFolder } from '@/shared/lib/session';
-import { isTauriRuntime } from '@/shared/utils/tauri';
 
 /** Parent directory of an absolute path. Handles both POSIX (`/`) and
  *  Windows (`\`) separators since Tauri drops surface native OS paths.
@@ -68,6 +71,10 @@ function reachesAgentWithoutPath(a: MessageAttachment): boolean {
  * without ever being copied into the session folder. This keeps large video
  * attachments (gigabytes) instant and disk-cheap.
  *
+ * **Attached by path (any runtime):** a path the user typed or pasted and the
+ * API verified is read in place exactly like a desktop pick, so a large local
+ * file never has to fit the upload limit.
+ *
  * **Browser / paste:** the attachment arrives as an in-memory `File` with no
  * path. Stage it through the backend (`/files/attachment-save`) which writes
  * it into the session attachments folder.
@@ -83,19 +90,16 @@ export async function resolveAttachmentsForSubmit(
 ): Promise<ResolvedSubmitAttachments> {
   if (!attachments?.length || !taskId) return { attachments, failures: [] };
 
-  // Tauri desktop: split into path-backed (native picker / drag-drop) and the
-  // rest (paste / browser File objects). The path-backed subset is passed
-  // through as-is — the OS path is already readable thanks to
-  // `grantFileReadAccess`, and the agent sandbox is widened separately via
-  // `deriveAttachmentDirs`. The path-less subset still needs to be staged
-  // through the backend like in browser mode.
-  const inTauri = isTauriRuntime();
+  // Split into path-backed (native picker, drag-drop, or a verified typed
+  // path) and the rest (paste / browser File objects). The path-backed subset
+  // is passed through as-is — the OS path is already readable (on desktop
+  // thanks to `grantFileReadAccess`), and the agent sandbox is widened
+  // separately via `deriveAttachmentDirs`. The path-less subset still needs
+  // to be staged through the backend.
   const pathBacked = new Set<string>();
-  if (inTauri) {
-    for (const a of attachments) {
-      if (typeof a.path === 'string' && a.path.length > 0) {
-        pathBacked.add(a.id);
-      }
+  for (const a of attachments) {
+    if (typeof a.path === 'string' && a.path.length > 0) {
+      pathBacked.add(a.id);
     }
   }
 
@@ -135,7 +139,7 @@ export async function resolveAttachmentsForSubmit(
 
   const failures: AttachmentStagingFailure[] = [];
   const resolved = attachments.map((a) => {
-    // Path-backed Tauri attachments pass through untouched (no copy).
+    // Path-backed attachments pass through untouched (no copy).
     if (pathBacked.has(a.id)) return { ...a, file: undefined };
     const ref = refById.get(a.id);
     if (!ref) {
@@ -178,10 +182,15 @@ export function describeAttachmentFailure(
     const limitMb = failure.limitBytes
       ? Math.round(failure.limitBytes / (1024 * 1024))
       : getSettings().attachmentUploadLimitMb;
-    return tt('task.attachmentTooLarge', {
-      name: failure.name,
-      limit: limitMb,
-    });
+    return tt(
+      canAttachLocalPaths()
+        ? 'task.attachmentTooLargeLocal'
+        : 'task.attachmentTooLarge',
+      {
+        name: failure.name,
+        limit: limitMb,
+      },
+    );
   }
   return tt('task.attachmentUploadFailed', {
     name: failure.name,
@@ -197,7 +206,18 @@ export function notifyAttachmentFailures(
   tt: (key: string, params?: Record<string, string | number>) => string,
 ): boolean {
   for (const failure of failures) {
-    toast.error(describeAttachmentFailure(failure, tt));
+    const canUsePath = failure.reason === 'too_large' && canAttachLocalPaths();
+    toast.error(
+      describeAttachmentFailure(failure, tt),
+      canUsePath
+        ? {
+            action: {
+              label: tt('task.attachByPath'),
+              onClick: requestAttachByPath,
+            },
+          }
+        : undefined,
+    );
   }
   return failures.length > 0;
 }

@@ -11,6 +11,7 @@ import {
   type AttachmentStagingFailure,
   resolveFileAttachments,
 } from '@/shared/lib/attachments';
+import { requestAttachByPath } from '@/shared/lib/local-path';
 import { computeSessionFolder } from '@/shared/lib/session';
 import { isTauriRuntime } from '@/shared/utils/tauri';
 
@@ -72,13 +73,33 @@ describe('resolveAttachmentsForSubmit', () => {
     expect(staged.failures).toEqual([tooLarge]);
     expect(staged.attachments?.[0].path).toBeUndefined();
     expect(staged.attachments?.[0].file).toBeUndefined();
-    const translate = vi.fn(() => 'File exceeds 50 MB');
+    const translate = vi.fn((key: string) =>
+      key === 'task.attachByPath' ? 'Attach by path' : 'File exceeds 50 MB',
+    );
     expect(notifyAttachmentFailures(staged.failures, translate)).toBe(true);
+    // The page is served from localhost, so the API can read a typed path.
+    expect(translate).toHaveBeenCalledWith('task.attachmentTooLargeLocal', {
+      name: 'clip.mp4',
+      limit: 50,
+    });
+    expect(toast.error).toHaveBeenCalledWith('File exceeds 50 MB', {
+      action: { label: 'Attach by path', onClick: requestAttachByPath },
+    });
+  });
+
+  it('keeps the plain over-limit message when the page is not on the API machine', () => {
+    vi.spyOn(window, 'location', 'get').mockReturnValue({
+      hostname: 'workstation.lan',
+    } as Location);
+    const translate = vi.fn(() => 'File exceeds 50 MB');
+
+    notifyAttachmentFailures([tooLarge], translate);
+
     expect(translate).toHaveBeenCalledWith('task.attachmentTooLarge', {
       name: 'clip.mp4',
       limit: 50,
     });
-    expect(toast.error).toHaveBeenCalledWith('File exceeds 50 MB');
+    expect(toast.error).toHaveBeenCalledWith('File exceeds 50 MB', undefined);
   });
 
   it('permits an inline image when staging fails because its data still reaches the agent', async () => {
@@ -205,32 +226,53 @@ describe('resolveAttachmentsForSubmit', () => {
     ]);
   });
 
-  it('stages browser paths through the resolver instead of using the desktop fast path', async () => {
-    const browser = { ...fileAttachment, path: '/media/clip.mp4' };
+  it('reads a browser attachment that carries a verified path in place instead of copying it', async () => {
+    // Attached by path: the file is multi-gigabyte, so it must not be copied
+    // into the session folder or counted against the upload limit.
+    const byPath = {
+      ...fileAttachment,
+      file: undefined,
+      path: '/Users/me/Movies/clip.mp4',
+    };
+
+    const staged = await resolveAttachmentsForSubmit(
+      [byPath],
+      'task',
+      '/workspace',
+    );
+
+    expect(resolveFileAttachments).not.toHaveBeenCalled();
+    expect(staged.attachments).toEqual([byPath]);
+    expect(staged.failures).toEqual([]);
+  });
+
+  it('still stages an in-memory browser file while passing an in-place path through', async () => {
+    const byPath = { ...fileAttachment, id: 'big', path: '/Users/me/big.mov' };
+    const pasted = { ...fileAttachment, id: 'pasted' };
     vi.mocked(resolveFileAttachments).mockResolvedValue([
       {
-        id: browser.id,
+        id: 'pasted',
         type: 'file',
-        name: browser.name,
+        name: 'clip.mp4',
         path: '/workspace/sessions/session-task/attachments/clip.mp4',
       },
     ]);
 
     const staged = await resolveAttachmentsForSubmit(
-      [browser],
+      [byPath, pasted],
       'task',
       '/workspace',
     );
 
     expect(resolveFileAttachments).toHaveBeenCalledWith(
-      [browser],
+      [pasted],
       '/workspace/sessions/session-task',
       '/workspace',
       expect.objectContaining({ taskId: 'task' }),
     );
-    expect(staged.attachments?.[0].path).toBe(
+    expect(staged.attachments?.map((a) => a.path)).toEqual([
+      '/Users/me/big.mov',
       '/workspace/sessions/session-task/attachments/clip.mp4',
-    );
-    expect(staged.failures).toEqual([]);
+    ]);
   });
 });

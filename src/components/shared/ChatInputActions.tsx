@@ -35,6 +35,7 @@ export interface ChatInputActionsProps {
   openFilePicker: () => void;
   openCloudStoragePicker: () => void;
   openAssetCatalogPicker: () => void;
+  openAttachByPath?: () => void;
   addFilesLabel: string;
   addCloudStorageLabel: string;
   addAssetCatalogLabel: string;
@@ -79,6 +80,7 @@ export function ChatInputActions({
   openFilePicker,
   openCloudStoragePicker,
   openAssetCatalogPicker,
+  openAttachByPath,
   addFilesLabel,
   addCloudStorageLabel,
   addAssetCatalogLabel,
@@ -129,9 +131,11 @@ export function ChatInputActions({
           openFilePicker={openFilePicker}
           openCloudStoragePicker={openCloudStoragePicker}
           openAssetCatalogPicker={openAssetCatalogPicker}
+          openAttachByPath={openAttachByPath}
           addFilesLabel={addFilesLabel}
           addCloudStorageLabel={addCloudStorageLabel}
           addAssetCatalogLabel={addAssetCatalogLabel}
+          addByPathLabel={t.task.attachByPath}
           allowCloudStorage={allowCloudStorage}
           allowAssetCatalog={allowAssetCatalog}
         />

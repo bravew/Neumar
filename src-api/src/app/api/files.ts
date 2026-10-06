@@ -347,13 +347,15 @@ files.post('/stat', async (c) => {
 
     const resolvedPath = path.resolve(expandPath(filePath));
     if (!isAllowedPath(resolvedPath)) {
-      return c.json({ exists: false });
+      // `denied` lets callers tell "outside the trusted roots" from "missing".
+      return c.json({ exists: false, denied: true });
     }
 
     try {
       const stat = await fs.stat(resolvedPath);
       return c.json({
         exists: true,
+        resolvedPath,
         isFile: stat.isFile(),
         isDirectory: stat.isDirectory(),
         size: stat.size,

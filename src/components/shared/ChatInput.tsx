@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { AnimatePresence } from 'motion/react';
 
+import { canAttachLocalPaths } from '@/shared/lib/local-path';
 import { cn } from '@/shared/lib/utils';
 
 import { isImeCompositionKeyEvent } from './chat-input-keyboard';
@@ -14,6 +15,7 @@ import { McpChips, SkillChips } from './ChatInputChips';
 import { ChatInputTextarea } from './ChatInputTextarea';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { useAssetCatalogAttachment } from './useAssetCatalogAttachment';
+import { useAttachByPath } from './useAttachByPath';
 import { useChatInputFiles } from './useChatInputFiles';
 import { useChatInputState } from './useChatInputState';
 import { useChatInputSubmit } from './useChatInputSubmit';
@@ -79,6 +81,7 @@ export function ChatInput({
     attachments,
     setAttachments,
     addFiles,
+    attachLocalPaths,
     isDragOver,
     fileInputRef,
     pendingDropFolders,
@@ -160,6 +163,7 @@ export function ChatInput({
     });
   const { assetCatalogOpen, setAssetCatalogOpen, handleAssetCatalogSelect } =
     useAssetCatalogAttachment({ addFiles });
+  const { attachByPathOpen, setAttachByPathOpen } = useAttachByPath(disabled);
 
   const isHome = variant === 'home';
   const resolvedPlaceholder = useComposerPlaceholder(
@@ -343,6 +347,9 @@ export function ChatInput({
           openFilePicker={openFilePicker}
           openCloudStoragePicker={() => setCloudPickerOpen(true)}
           openAssetCatalogPicker={() => setAssetCatalogOpen(true)}
+          openAttachByPath={
+            canAttachLocalPaths() ? () => setAttachByPathOpen(true) : undefined
+          }
           addFilesLabel={t.home.addFilesOrPhotos}
           addCloudStorageLabel={t.cloudStorage.cloudStoragePickerLabel}
           addAssetCatalogLabel={t.assets.browseCatalog}
@@ -384,10 +391,13 @@ export function ChatInput({
       <ChatInputAttachmentDialogs
         cloudPickerOpen={cloudPickerOpen}
         assetCatalogOpen={assetCatalogOpen}
+        attachByPathOpen={attachByPathOpen}
         dropFolderDialogOpen={dropFolderDialogOpen}
         pendingDropFolder={pendingDropFolders[0]}
         setCloudPickerOpen={setCloudPickerOpen}
         setAssetCatalogOpen={setAssetCatalogOpen}
+        setAttachByPathOpen={setAttachByPathOpen}
+        onAttachByPath={attachLocalPaths}
         onDropFolderDialogResult={handleDropFolderDialogResult}
         onCloudSelect={(items) => void handleCloudStorageSelect(items)}
         onAssetCatalogSelect={handleAssetCatalogSelect}
