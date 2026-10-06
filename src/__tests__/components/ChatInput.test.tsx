@@ -52,6 +52,18 @@ vi.mock('@/shared/providers/language-provider', () => ({
         retryDownload: 'Retry download',
       },
       settings: {},
+      task: {
+        attachmentDesktopHint: 'Desktop hint',
+        attachByPath: 'Attach by path',
+        attachByPathDescription: 'Attach by path description',
+        attachByPathPlaceholder: 'Path placeholder',
+        attachByPathSubmit: 'Attach',
+        attachmentDropHere: 'Drop files here',
+        attachmentBrowse: 'Browse',
+      },
+      common: {
+        done: 'Done',
+      },
     },
     tt: (key: string) => key,
   }),
