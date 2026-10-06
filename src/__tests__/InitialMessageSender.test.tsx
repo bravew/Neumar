@@ -159,6 +159,7 @@ describe('InitialMessageSender', () => {
 
     expect(toastMocks.error).toHaveBeenCalledWith(
       'task.attachmentUploadFailed:clip.mp4',
+      undefined,
     );
     expect(createMessage).not.toHaveBeenCalled();
     expect(agentMocks.runAgent).not.toHaveBeenCalled();
