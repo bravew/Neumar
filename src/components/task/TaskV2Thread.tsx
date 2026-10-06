@@ -122,7 +122,7 @@ export function TaskV2Thread({
   promptPrefixRef.current = promptPrefix;
 
   // ── Extracted hooks ──
-  const { runError, setRunError, clearRunError } = useRunError(
+  const { runError, runErrorRef, setRunError, clearRunError } = useRunError(
     taskId,
     agent,
     t.task.agentRunFailed,
@@ -145,7 +145,13 @@ export function TaskV2Thread({
 
   const { forceRender } = useAgentSync(agent);
 
-  usePostRunEffects(taskId, agent, planRejectedRef, setPendingPlan);
+  usePostRunEffects(
+    taskId,
+    agent,
+    planRejectedRef,
+    setPendingPlan,
+    runErrorRef,
+  );
 
   // Track attachments per message ID (AG-UI messages don't carry attachment data).
   // Uses external ref from parent (shared with InitialMessageSender) if provided.
@@ -172,8 +178,6 @@ export function TaskV2Thread({
   );
 
   // Bridge ChatInput's onSubmit to CopilotKit headless agent.
-  // Desktop app — files are on disk, so we just pass paths in the prompt.
-  // The agent can read/view them directly via tool use.
   const handleSubmit = useCallback(
     async (
       text: string,

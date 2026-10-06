@@ -143,7 +143,7 @@ export function toAgentSeedMessages(
     content: string;
   }> = [];
   for (const m of messages) {
-    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    if (m.isError || (m.role !== 'user' && m.role !== 'assistant')) continue;
     const content = m.content?.trim();
     if (!content) continue;
     out.push({ id: m.id, role: m.role, content: m.content as string });
@@ -177,11 +177,26 @@ export function dbMessagesToAGUI(messages: Message[]): AGUIMessage[] {
         }
         break;
       }
+      case 'error': {
+        result.push({
+          id: msg.message_id ?? String(msg.id),
+          role: 'assistant',
+          content: msg.error_message || msg.content || undefined,
+          isError: true,
+          subtype: msg.subtype ?? undefined,
+        });
+        break;
+      }
       case 'text': {
         if (msg.subtype === 'thinking') break;
         if (msg.content) {
           const prev = result[result.length - 1];
-          if (prev && prev.role === 'assistant' && !prev.toolCalls?.length) {
+          if (
+            prev &&
+            prev.role === 'assistant' &&
+            !prev.isError &&
+            !prev.toolCalls?.length
+          ) {
             prev.content = (prev.content ?? '') + msg.content;
           } else {
             result.push({
@@ -203,7 +218,7 @@ export function dbMessagesToAGUI(messages: Message[]): AGUIMessage[] {
             arguments: msg.tool_input ?? '{}',
           },
         };
-        if (prev && prev.role === 'assistant') {
+        if (prev && prev.role === 'assistant' && !prev.isError) {
           prev.toolCalls = [...(prev.toolCalls ?? []), tc];
         } else {
           result.push({
