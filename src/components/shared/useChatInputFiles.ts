@@ -313,14 +313,24 @@ export function useChatInputFiles({
       e.preventDefault();
       const el = e.currentTarget as HTMLTextAreaElement;
       const { selectionStart, selectionEnd } = el;
+      // Paste immediately. A slow path check must not delay the user's draft
+      // or restore text into a selection that has changed in the meantime.
+      insertTextAtSelection(el, text, selectionStart, selectionEnd);
+      const pastedValue = el.value;
       const results = await attachLocalPaths(paths);
       const unattached = results.filter((r) => r.reason);
-      if (unattached.length > 0 && el.isConnected) {
-        const rest =
-          unattached.length === results.length
-            ? text
-            : unattached.map((r) => r.path).join('\n');
-        insertTextAtSelection(el, rest, selectionStart, selectionEnd);
+      if (
+        unattached.length < results.length &&
+        el.isConnected &&
+        el.value === pastedValue
+      ) {
+        const rest = unattached.map((r) => r.path).join('\n');
+        insertTextAtSelection(
+          el,
+          rest,
+          selectionStart,
+          selectionStart + text.length,
+        );
       }
     },
     [addFiles, attachLocalPaths],

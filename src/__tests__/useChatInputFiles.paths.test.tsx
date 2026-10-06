@@ -190,6 +190,43 @@ describe('pasting file paths', () => {
     expect(result.current.attachments).toEqual([]);
   });
 
+  it.each([false, true])(
+    'preserves edits made while a pasted path is checked (readable: %s)',
+    async (exists) => {
+      let finishCheck!: (response: object) => void;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          () =>
+            new Promise((resolve) => {
+              finishCheck = resolve;
+            }),
+        ),
+      );
+      const { result } = mountHook();
+      const textarea = mountTextarea('Original draft');
+      textarea.setSelectionRange(0, textarea.value.length);
+      const event = pasteEvent(textarea, BIG);
+
+      await act(async () => {
+        const pending = result.current.handlePaste(event);
+        // The normal paste is visible before the API responds.
+        expect(textarea.value).toBe(BIG);
+        textarea.value = 'New draft typed while checking';
+        textarea.setSelectionRange(3, 3);
+        finishCheck({
+          ok: true,
+          json: async () => (exists ? readable(BIG) : { exists: false }),
+        });
+        await pending;
+      });
+
+      expect(textarea.value).toBe('New draft typed while checking');
+      expect(textarea.selectionStart).toBe(3);
+      expect(result.current.attachments).toHaveLength(exists ? 1 : 0);
+    },
+  );
+
   it('does not intercept ordinary prose or a slash command', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
