@@ -416,6 +416,48 @@ function linkedSpeech(speed = 1, reverse = false): Timeline {
   return tl;
 }
 
+/**
+ * Generated STT cue for a source clip starting at 0 and playing source time
+ * [0, 1000) at `speed`, mirroring `buildClipCues` in the API: words and the cue
+ * span are projected from source time onto the host clip's timeline window.
+ */
+function generatedCue(id: string, speed: number) {
+  const toTimeline = (sourceMs: number) => Math.round(sourceMs / speed);
+  const words = WORDS.map((word) => ({
+    text: `w${word.startMs / 100}`,
+    startMs: toTimeline(word.startMs),
+    endMs: toTimeline(word.endMs),
+  }));
+  return {
+    id: 'stt',
+    kind: 'caption',
+    name: 'STT',
+    order: 30,
+    locked: false,
+    muted: false,
+    clips: [
+      {
+        id,
+        kind: 'caption',
+        sourceRef: { kind: 'asset', assetId: 'asset-a' },
+        startMs: 0,
+        durationMs: toTimeline(1000),
+        trimStartMs: 0,
+        trimEndMs: 1000,
+        text: words.map((word) => word.text).join(' '),
+        words,
+        params: { sourceId: 'source-a', origin: 'stt' },
+        sourceAnchor: {
+          sourceMediaId: 'asset-a',
+          sourceElementId: 'source-a',
+          sourceStartMs: 0,
+          sourceEndMs: 1000,
+        },
+      },
+    ],
+  } as unknown as Timeline['tracks'][number];
+}
+
 const TEXT_WORDS = WORDS.map((word, index) => ({ ...word, text: `w${index}` }));
 
 function cutMiddle(original: Timeline) {
@@ -583,6 +625,173 @@ describe('transcript synchronization regressions', () => {
       ok: false,
       reason: 'seam-not-found',
     });
+  });
+
+  it.each([1, 2])(
+    'keeps generated STT captions synchronized at %sx',
+    (speed) => {
+      const original = timeline([
+        clip({
+          id: 'v',
+          durationMs: 1000 / speed,
+          playback: { speed, reverse: false },
+        }),
+      ]);
+      original.tracks.push(generatedCue('over', speed));
+      const input = {
+        timeline: original,
+        match: MATCH,
+        words: TEXT_WORDS,
+        startIndex: 2,
+        endIndex: 3,
+      };
+      const cut = applyTimelineOps(
+        original,
+        compileTranscriptCut({ ...input, idFactory: ids() }),
+      ).timeline;
+      const cues = cut.tracks.find((track) => track.kind === 'caption')!.clips;
+      expect(cues.map((cue) => cue.text)).toEqual([
+        'w0 w1',
+        'w4 w5 w6 w7 w8 w9',
+      ]);
+      // The surviving cue starts where the removed span ended, on the timeline.
+      expect(cues[1]!.words![0]!.startMs).toBe(200 / speed);
+      const restored = compileTranscriptRestore({ ...input, timeline: cut });
+      expect(restored.ok).toBe(true);
+      if (!restored.ok) return;
+      const cue = applyTimelineOps(cut, restored.ops).timeline.tracks.find(
+        (track) => track.kind === 'caption',
+      )!.clips[0]!;
+      expect(cue.text).toBe('w0 w1 w2 w3');
+      expect(cue.words!.map((word) => word.startMs)).toEqual(
+        [0, 100, 200, 300].map((startMs) => startMs / speed),
+      );
+    },
+  );
+
+  it('fails safely instead of leaving generated captions behind', () => {
+    const original = timeline([clip({ id: 'v' })]);
+    original.tracks.push(generatedCue('main', 1));
+    const input = {
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 5,
+    };
+    const cut = applyTimelineOps(
+      original,
+      compileTranscriptCut({ ...input, idFactory: ids() }),
+    ).timeline;
+    // Drop both fragments of the cue covering the removed span, leaving nothing
+    // that maps to this seam, so the editor must not report a safe restore.
+    const captionTrack = cut.tracks.find((track) => track.kind === 'caption');
+    if (captionTrack?.kind !== 'caption') throw new Error('Missing captions');
+    captionTrack.clips = [];
+    expect(compileTranscriptRestore({ ...input, timeline: cut })).toEqual({
+      ok: false,
+      reason: 'caption-unavailable',
+    });
+  });
+
+  it('keeps authored caption text when the media is restored', () => {
+    // Capture/manual cues carry their own text and no word timing, so the cut
+    // splits them and the restore rejoins the seam fragment without rewriting
+    // the text from transcript words.
+    const original = timeline([clip({ id: 'v' })]);
+    original.tracks.push({
+      id: 'captions',
+      kind: 'caption',
+      name: 'Captions',
+      locked: false,
+      muted: false,
+      order: 30,
+      clips: [
+        {
+          id: 'authored',
+          kind: 'caption',
+          sourceRef: { kind: 'asset', assetId: 'asset-a' },
+          startMs: 0,
+          durationMs: 1000,
+          trimStartMs: 0,
+          trimEndMs: 1000,
+          text: 'look at this button',
+          style: { fontSize: 48 },
+        },
+      ],
+    } as unknown as Timeline['tracks'][number]);
+    const input = {
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 5,
+    };
+    const cut = applyTimelineOps(
+      original,
+      compileTranscriptCut({ ...input, idFactory: ids() }),
+    ).timeline;
+    expect(
+      cut.tracks.find((track) => track.kind === 'caption')!.clips,
+    ).toHaveLength(2);
+    const restored = compileTranscriptRestore({ ...input, timeline: cut });
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    const cues = applyTimelineOps(cut, restored.ops).timeline.tracks.find(
+      (track) => track.kind === 'caption',
+    )!.clips;
+    // The restored span rejoins the cue on the seam without rewriting its text,
+    // and the cue fragments stay aligned with the media's own split.
+    expect(cues.map((cue) => [cue.text, cue.startMs, cue.durationMs])).toEqual([
+      ['look at this button', 0, 600],
+      ['look at this button', 600, 400],
+    ]);
+    expect(cues.map((cue) => [cue.trimStartMs, cue.trimEndMs])).toEqual([
+      [0, 600],
+      [600, 1000],
+    ]);
+  });
+
+  it('tiles linked captions against the media after cut and restore', () => {
+    // The core requirement: whatever the transcript cut removes, the caption
+    // track must still tile the restored media without gaps or overlaps.
+    const original = linkedSpeech();
+    const input = {
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 5,
+    };
+    const cut = applyTimelineOps(
+      original,
+      compileTranscriptCut({ ...input, idFactory: ids() }),
+    ).timeline;
+    const captionsOf = (tl: Timeline) =>
+      [...tl.tracks.find((track) => track.kind === 'caption')!.clips].sort(
+        (l, r) => l.startMs - r.startMs,
+      );
+    const tiled = (clips: { startMs: number; durationMs: number }[]) =>
+      clips.every(
+        (clip, index) =>
+          index === 0 ||
+          Math.abs(
+            clip.startMs -
+              (clips[index - 1]!.startMs + clips[index - 1]!.durationMs),
+          ) <= 2,
+      );
+    const videoOf = (tl: Timeline) =>
+      [...tl.tracks[0]!.clips].sort((l, r) => l.startMs - r.startMs);
+    expect(tiled(captionsOf(cut))).toBe(true);
+    const restored = compileTranscriptRestore({ ...input, timeline: cut });
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    const next = applyTimelineOps(cut, restored.ops).timeline;
+    expect(tiled(captionsOf(next))).toBe(true);
+    // Captions and media describe the same timeline windows.
+    expect(captionsOf(next).map((c) => [c.startMs, c.durationMs])).toEqual(
+      videoOf(next).map((c) => [c.startMs, c.durationMs]),
+    );
   });
 
   it('preserves visual additions on an independent track during restore', () => {
