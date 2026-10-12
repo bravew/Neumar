@@ -802,6 +802,7 @@ export default {
       cutAction: 'Couper',
       restoreAction: 'Restaurer',
       restoreFailed: 'Cette coupe ne peut plus être restaurée automatiquement.',
+      cutFailed: "Cette coupe n'a pas pu être appliquée.",
       nothingToDo: 'Rien à modifier pour cette sélection.',
       layerTitle: 'Transcription',
       layerCutMarker: 'Coupe : sélectionner les mots supprimés',

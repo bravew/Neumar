@@ -95,6 +95,22 @@ describe('SourceTranscriptPanel', () => {
     });
   });
 
+  it('keeps a selection made elsewhere when the panel mounts', () => {
+    useTranscriptSelectionStore.setState({
+      selection: { sourceId: 's', startIndex: 1, endIndex: 2 },
+    });
+    render(
+      <LanguageProvider>
+        <SourceTranscriptPanel project={project([])} />
+      </LanguageProvider>,
+    );
+    expect(useTranscriptSelectionStore.getState().selection).toEqual({
+      sourceId: 's',
+      startIndex: 1,
+      endIndex: 2,
+    });
+  });
+
   it('does not seek on a cut word', () => {
     render(
       <LanguageProvider>

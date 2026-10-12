@@ -46,6 +46,8 @@ export function TranscriptWordEditor({
       onFocus={(event) => event.currentTarget.select()}
       onKeyDown={(event) => {
         event.stopPropagation();
+        // Enter confirms an IME candidate; it must not commit the correction.
+        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
         if (event.key === 'Enter') {
           event.preventDefault();
           finish(normalizeCorrection(word, event.currentTarget.value));

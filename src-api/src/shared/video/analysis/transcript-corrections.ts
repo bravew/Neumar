@@ -63,8 +63,18 @@ export function applyTranscriptCorrections(
 
   const nextWords: SubtitleWord[] = [...words];
   const changed: Array<{ index: number; from: string; to: string }> = [];
+  const seen = new Set<number>();
   for (const correction of corrections) {
-    const current = nextWords[correction.index];
+    // Each correction is checked against the stored word, so a batch cannot
+    // chain two edits to one word and hand the caption mirror a stale `from`.
+    if (seen.has(correction.index)) {
+      throw new TranscriptCorrectionError(
+        'stale-word',
+        `Transcript word ${correction.index} corrected twice in one batch`,
+      );
+    }
+    seen.add(correction.index);
+    const current = words[correction.index];
     if (
       !current ||
       current.startMs !== correction.startMs ||

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ButtonHTMLAttributes } from 'react';
 
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -57,7 +57,6 @@ function TranscriptRowBody({
   const labels = t.video.editor.transcript;
   const pixelsPerSecond = useTimelineUiStore((s) => s.pixelsPerSecond);
   const scrollX = useTimelineUiStore((s) => s.scrollX);
-  const playheadMs = useTimelineUiStore((s) => s.playheadMs);
   const selection = useTranscriptSelectionStore((s) => s.selection);
   const selectRange = useTranscriptSelectionStore((s) => s.selectRange);
   const isSelected = (sourceId: string, startIndex: number, endIndex: number) =>
@@ -89,18 +88,18 @@ function TranscriptRowBody({
                 2,
                 msToPixels(block.endMs, pixelsPerSecond) - left - 1,
               );
-              const active =
-                playheadMs >= block.startMs && playheadMs < block.endMs;
+              const selected = isSelected(
+                block.sourceId,
+                block.startIndex,
+                block.endIndex,
+              );
               return (
-                <button
+                <TranscriptBlockButton
                   key={block.key}
-                  type="button"
+                  startMs={block.startMs}
+                  endMs={block.endMs}
+                  selected={selected}
                   title={block.text}
-                  aria-pressed={isSelected(
-                    block.sourceId,
-                    block.startIndex,
-                    block.endIndex,
-                  )}
                   onClick={() => {
                     selectRange({
                       sourceId: block.sourceId,
@@ -109,21 +108,10 @@ function TranscriptRowBody({
                     });
                     onSeek(block.startMs);
                   }}
-                  className={cn(
-                    'absolute top-1 bottom-1 truncate rounded-sm px-1 text-left text-[10px] leading-5',
-                    active
-                      ? 'bg-primary/30 text-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/70',
-                    isSelected(
-                      block.sourceId,
-                      block.startIndex,
-                      block.endIndex,
-                    ) && 'ring-primary ring-1',
-                  )}
                   style={{ left, width }}
                 >
                   {block.text}
-                </button>
+                </TranscriptBlockButton>
               );
             }),
           )}
@@ -164,5 +152,38 @@ function TranscriptRowBody({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * One transcript block. It owns its playhead subscription so a playback tick
+ * re-renders only the block whose active state flips, not the whole row.
+ */
+function TranscriptBlockButton({
+  startMs,
+  endMs,
+  selected,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  startMs: number;
+  endMs: number;
+  selected: boolean;
+}) {
+  const active = useTimelineUiStore(
+    (s) => s.playheadMs >= startMs && s.playheadMs < endMs,
+  );
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      {...props}
+      className={cn(
+        'absolute top-1 bottom-1 truncate rounded-sm px-1 text-left text-[10px] leading-5',
+        active
+          ? 'bg-primary/30 text-foreground'
+          : 'bg-muted text-muted-foreground hover:bg-muted/70',
+        selected && 'ring-primary ring-1',
+      )}
+    />
   );
 }

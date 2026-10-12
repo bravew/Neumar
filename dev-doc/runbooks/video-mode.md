@@ -296,8 +296,13 @@ the media fixture with
   cannot be reconstructed automatically. Surviving split cues rebuild their
   tokens from the transcript words.
 - Automatic restore is unavailable for fragments at reversed playback speed.
-- Captions reach the compilers through `linkGroupId`; a generated cue with no
-  link group is not cut or retimed.
+- Captions reach the compilers through `linkGroupId` or, for generated
+  speech-to-text cues, through their source anchor, asset reference, or source
+  id. A caption with neither a link group nor a source match (for example a
+  hand-authored cue) is not cut or retimed.
+- A restore whose caption track holds no matching cue fails with
+  `caption-unavailable`, because an empty track cannot show whether captions
+  were cut with the speech or never existed.
 
 ## Audio Editing
 

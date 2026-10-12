@@ -86,6 +86,16 @@ describe('transcript word correction', () => {
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
+  it('ignores Enter while an IME composition is active', () => {
+    const onCorrectWord = renderPanel();
+    fireEvent.doubleClick(screen.getByText('helo'));
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(onCorrectWord).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toBeTruthy();
+  });
+
   it('cancels on Escape without saving', () => {
     const onCorrectWord = renderPanel();
     fireEvent.doubleClick(screen.getByText('helo'));

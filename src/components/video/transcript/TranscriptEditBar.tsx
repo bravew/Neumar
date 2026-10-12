@@ -24,11 +24,12 @@ export function runTranscriptAction(
   action: Action,
   view: SourceTranscriptView,
   selection: TranscriptWordSelection,
-  messages: { restoreFailed: string; nothingToDo: string },
+  messages: { restoreFailed: string; cutFailed: string; nothingToDo: string },
 ): boolean {
   const store = useTimelineEditorStore.getState();
   const timeline = store.timeline as VideoTimeline | null;
   if (!timeline) return false;
+  const failed = action === 'cut' ? messages.cutFailed : messages.restoreFailed;
   let plan: TranscriptEditPlan;
   try {
     plan =
@@ -36,18 +37,18 @@ export function runTranscriptAction(
         ? planTranscriptCut(timeline, view, selection)
         : planTranscriptRestore(timeline, view, selection);
   } catch {
-    toast.error(messages.restoreFailed);
+    toast.error(failed);
     return false;
   }
   if (!plan.ok) {
     toast.error(
-      plan.reason === 'nothing-to-do'
-        ? messages.nothingToDo
-        : messages.restoreFailed,
+      plan.reason === 'nothing-to-do' ? messages.nothingToDo : failed,
     );
     return false;
   }
-  return store.applyTimelineOpBatch(plan.ops);
+  const applied = store.applyTimelineOpBatch(plan.ops);
+  if (!applied) toast.error(failed);
+  return applied;
 }
 
 /** Mode toggle plus Cut / Restore for the current word selection. */
@@ -61,6 +62,7 @@ export function TranscriptEditBar({ view }: { view: SourceTranscriptView }) {
   const count = active ? active.endIndex - active.startIndex + 1 : 0;
   const messages = {
     restoreFailed: labels.restoreFailed,
+    cutFailed: labels.cutFailed,
     nothingToDo: labels.nothingToDo,
   };
 

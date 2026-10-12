@@ -152,6 +152,15 @@ describe('applyTranscriptCorrections', () => {
     expect(result.captionsUpdated).toBe(0);
   });
 
+  it('rejects a batch that corrects the same word twice', () => {
+    expect(() =>
+      applyTranscriptCorrections(projectWith(bare), 'src', [
+        { index: 0, text: 'Hello', startMs: 0, expectedText: 'helo' },
+        { index: 0, text: 'Hey', startMs: 0, expectedText: 'Hello' },
+      ]),
+    ).toThrow(expect.objectContaining({ code: 'stale-word' }));
+  });
+
   it('rejects a word whose timing no longer matches', () => {
     expect(() =>
       applyTranscriptCorrections(projectWith(bare), 'src', [

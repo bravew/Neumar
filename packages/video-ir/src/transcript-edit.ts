@@ -251,6 +251,9 @@ export function compileTranscriptRestore(
   // the seam, so a later pass must neither extend it again nor read the moved
   // cue as a missing seam cue.
   const extendedClips = new Set<string>();
+  // Cues extended backward from the far side of the gap rather than forward
+  // from the near seam.
+  const startExtended = new Set<string>();
   const primaries = matchingClips(timeline, input.match);
   let failure: TranscriptRestoreFailure = 'seam-not-found';
   for (const track of timeline.tracks) {
@@ -361,30 +364,19 @@ export function compileTranscriptRestore(
           captionMatchesSource(cue, input.match),
         );
         if (!sourced.length && captions.clips.length) continue;
-        const seam = sourced.filter((cue) => {
-          const sourceEdge = touchesA
-            ? reverse
-              ? cue.trimStartMs
-              : cue.trimEndMs
-            : reverse
-              ? cue.trimEndMs
-              : cue.trimStartMs;
-          const targetEdge = touchesA
-            ? reverse
-              ? target.trimStartMs
-              : target.trimEndMs
-            : reverse
-              ? target.trimEndMs
-              : target.trimStartMs;
-          const timelineEdge = touchesA
-            ? cue.startMs + cue.durationMs
-            : cue.startMs;
-          const targetTimelineEdge = touchesA ? fromEnd : target.startMs;
-          return (
-            Math.abs(sourceEdge - targetEdge) <= ADJACENT_TOLERANCE_MS &&
-            Math.abs(timelineEdge - targetTimelineEdge) <= ADJACENT_TOLERANCE_MS
+        let seam = sourced.filter((cue) =>
+          cueMeetsSeam(cue, touchesA, target, reverse),
+        );
+        // A cue whose first word was cut survives only on the far side of the
+        // gap. When the whole gap is restored and no cue ends at the near
+        // seam, extend that cue backward over the restored span instead.
+        const farTarget = touchesA ? b : undefined;
+        if (!seam.length && touchesA && touchesB && farTarget && !reverse) {
+          seam = sourced.filter((cue) =>
+            cueMeetsSeam(cue, false, farTarget, reverse),
           );
-        });
+          for (const cue of seam) startExtended.add(cue.id);
+        }
         if (!seam.length) {
           // A cue this restore already extended at an earlier seam means the
           // track is in sync; its moved geometry is why it no longer matches.
@@ -403,7 +395,7 @@ export function compileTranscriptRestore(
         const after: TimelineClip[] = [];
         for (const clip of affected.clips) {
           if (targetIds.has(clip.id)) {
-            const extendingAtEnd = touchesA;
+            const extendingAtEnd = touchesA && !startExtended.has(clip.id);
             const nextStart =
               extendingAtEnd || magnetic ? clip.startMs : clip.startMs - addMs;
             const nextEnd = nextStart + clip.durationMs + addMs;
@@ -466,6 +458,42 @@ export function compileTranscriptRestore(
     }
   }
   return ops.length ? { ok: true, ops } : { ok: false, reason: failure };
+}
+
+/**
+ * Whether a caption cue sits on a gap's seam: its source edge and its timeline
+ * edge both meet the primary clip's edge on that side of the gap.
+ */
+function cueMeetsSeam(
+  cue: TimelineClip,
+  atFirstSide: boolean,
+  clip: TimelineClip,
+  reverse: boolean,
+): boolean {
+  const sourceEdge = atFirstSide
+    ? reverse
+      ? cue.trimStartMs
+      : cue.trimEndMs
+    : reverse
+      ? cue.trimEndMs
+      : cue.trimStartMs;
+  const clipEdge = atFirstSide
+    ? reverse
+      ? clip.trimStartMs
+      : clip.trimEndMs
+    : reverse
+      ? clip.trimEndMs
+      : clip.trimStartMs;
+  const cueTimelineEdge = atFirstSide
+    ? cue.startMs + cue.durationMs
+    : cue.startMs;
+  const clipTimelineEdge = atFirstSide
+    ? clip.startMs + clip.durationMs
+    : clip.startMs;
+  return (
+    Math.abs(sourceEdge - clipEdge) <= ADJACENT_TOLERANCE_MS &&
+    Math.abs(cueTimelineEdge - clipTimelineEdge) <= ADJACENT_TOLERANCE_MS
+  );
 }
 
 function wordSpan(input: {

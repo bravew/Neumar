@@ -113,7 +113,7 @@ export function TranscriptSuggestions({
                 if (!ops.length || !store.applyTimelineOpBatch(ops))
                   toast.error(labels.nothingToDo);
               } catch {
-                toast.error(labels.restoreFailed);
+                toast.error(labels.cutFailed);
               }
             }}
           >

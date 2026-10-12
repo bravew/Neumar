@@ -783,6 +783,7 @@ export default {
       cutAction: 'काटें',
       restoreAction: 'पुनर्स्थापित करें',
       restoreFailed: 'यह कट अब स्वचालित रूप से पुनर्स्थापित नहीं किया जा सकता।',
+      cutFailed: 'यह कट लागू नहीं किया जा सका।',
       nothingToDo: 'इस चयन में बदलने के लिए कुछ नहीं है।',
       layerTitle: 'ट्रांसक्रिप्ट',
       layerCutMarker: 'कट की जगह - हटाए गए शब्द चुनें',

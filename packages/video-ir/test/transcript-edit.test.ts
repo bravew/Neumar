@@ -694,6 +694,69 @@ describe('transcript synchronization regressions', () => {
     });
   });
 
+  it('restores a generated cue that starts at the first cut word', () => {
+    // A cue whose first word is cut survives on the far side of the seam: its
+    // start edge, not its end edge, meets the restore. It must be extended from
+    // the start instead of failing as `caption-unavailable`.
+    const original = timeline([clip({ id: 'v' })]);
+    const cue = generatedCue('tail', 1);
+    const track = cue as unknown as { clips: Array<Record<string, unknown>> };
+    const full = track.clips[0]!;
+    const words = (
+      full.words as Array<{ text: string; startMs: number }>
+    ).slice(3);
+    track.clips[0] = {
+      ...full,
+      startMs: 300,
+      durationMs: 700,
+      trimStartMs: 300,
+      text: words.map((word) => word.text).join(' '),
+      words,
+      sourceAnchor: {
+        ...(full.sourceAnchor as object),
+        sourceStartMs: 300,
+      },
+    };
+    original.tracks.push(cue);
+    const input = {
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 4,
+    };
+    const cut = applyTimelineOps(
+      original,
+      compileTranscriptCut({ ...input, idFactory: ids() }),
+    ).timeline;
+    expect(
+      cut.tracks.find((item) => item.kind === 'caption')!.clips[0],
+    ).toMatchObject({ trimStartMs: 500, startMs: 300 });
+
+    const restored = compileTranscriptRestore({ ...input, timeline: cut });
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    const after = applyTimelineOps(cut, restored.ops).timeline;
+    const restoredCue = after.tracks.find(
+      (item) => item.kind === 'caption',
+    )!.clips;
+    expect(restoredCue).toHaveLength(1);
+    expect(restoredCue[0]).toMatchObject({
+      startMs: 300,
+      durationMs: 700,
+      trimStartMs: 300,
+      trimEndMs: 1000,
+      text: 'w3 w4 w5 w6 w7 w8 w9',
+    });
+    const spans = after.tracks
+      .find((item) => item.kind === 'video')!
+      .clips.map((item) => [item.startMs, item.durationMs]);
+    expect(spans).toEqual([
+      [0, 500],
+      [500, 500],
+    ]);
+  });
+
   it('restores when only the linked tracks carry the link group', () => {
     // A video clip need not itself join the link group for the cut to ripple
     // across its audio/caption siblings. The restore previously re-derived the

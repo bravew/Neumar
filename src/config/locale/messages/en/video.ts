@@ -795,6 +795,7 @@ export default {
       cutAction: 'Cut',
       restoreAction: 'Restore',
       restoreFailed: 'This cut can no longer be restored automatically.',
+      cutFailed: 'This cut could not be applied.',
       nothingToDo: 'Nothing to change for this selection.',
       layerTitle: 'Transcript',
       layerCutMarker: 'Cut seam - select the removed words',

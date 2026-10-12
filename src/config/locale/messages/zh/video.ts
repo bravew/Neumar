@@ -774,6 +774,7 @@ export default {
       cutAction: '剪切',
       restoreAction: '恢复',
       restoreFailed: '此剪切已无法自动恢复。',
+      cutFailed: '无法应用此剪切。',
       nothingToDo: '所选内容无需更改。',
       layerTitle: '文字稿',
       layerCutMarker: '剪切处 - 选择已删除的字词',

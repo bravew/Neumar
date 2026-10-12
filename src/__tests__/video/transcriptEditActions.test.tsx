@@ -1,11 +1,14 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { toast } from 'sonner';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useTimelineEditorStore } from '@/components/video/timeline/useTimelineEditorStore';
 import { SourceTranscriptPanel } from '@/components/video/transcript/SourceTranscriptPanel';
 import { useTranscriptSelectionStore } from '@/components/video/transcript/useTranscriptSelectionStore';
 import { LanguageProvider } from '@/shared/providers/language-provider';
 import type { VideoProject, VideoTimeline } from '@/shared/types/video';
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
 const words = Array.from({ length: 10 }, (_, i) => ({
   text: `w${i}`,
@@ -143,5 +146,18 @@ describe('transcript edit actions', () => {
         .getState()
         .timeline!.tracks[0]!.clips.reduce((a, c) => a + c.durationMs, 0),
     ).toBe(1000);
+  });
+
+  it('reports a cut-specific error when the cut cannot be applied', () => {
+    vi.mocked(toast.error).mockClear();
+    vi.spyOn(
+      useTimelineEditorStore.getState(),
+      'applyTimelineOpBatch',
+    ).mockReturnValue(false);
+    renderPanel();
+    fireEvent.mouseDown(screen.getByText('w3'));
+    fireEvent.mouseDown(screen.getByText('w5'), { shiftKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Cut' }));
+    expect(toast.error).toHaveBeenCalledWith('This cut could not be applied.');
   });
 });

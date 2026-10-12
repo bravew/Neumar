@@ -113,7 +113,6 @@ function SourceWords({
 }) {
   const { t } = useLanguage();
   const labels = t.video.editor.transcript;
-  const playheadMs = useTimelineUiStore((s) => s.playheadMs);
   const setPlayheadMs = useTimelineUiStore((s) => s.setPlayheadMs);
   const selection = useTranscriptSelectionStore((s) => s.selection);
   const followPlayback = useTranscriptSelectionStore((s) => s.followPlayback);
@@ -121,16 +120,28 @@ function SourceWords({
   const clearSelection = useTranscriptSelectionStore((s) => s.clearSelection);
   const mode = useTranscriptSelectionStore((s) => s.mode);
   const lines = useMemo(() => groupWordsIntoLines(view.words), [view.words]);
-  const activeIndex = findActiveWordIndex(view, playheadMs);
+  // Derive the active word in the selector so playback ticks re-render the
+  // list only when the active word changes.
+  const activeIndex = useTimelineUiStore((s) =>
+    findActiveWordIndex(view, s.playheadMs),
+  );
   const dragging = useRef(false);
   const activeRef = useRef<HTMLButtonElement | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-  // A new transcript invalidates any word-index selection.
+  // A replaced transcript invalidates its word-index selection. Mounting with
+  // an unchanged transcript keeps a selection made elsewhere (the timeline row).
+  const lastTranscriptKey = useRef(view.transcriptKey);
   useEffect(() => {
-    clearSelection();
+    if (lastTranscriptKey.current === view.transcriptKey) return;
+    lastTranscriptKey.current = view.transcriptKey;
+    if (
+      useTranscriptSelectionStore.getState().selection?.sourceId ===
+      view.sourceId
+    )
+      clearSelection();
     setEditingIndex(null);
-  }, [view.transcriptKey, clearSelection]);
+  }, [view.transcriptKey, view.sourceId, clearSelection]);
 
   useEffect(() => {
     const stop = () => {
@@ -147,10 +158,13 @@ function SourceWords({
 
   const seek = useCallback(
     (index: number) => {
-      const target = wordSeekMs(view.states?.[index], playheadMs);
+      const target = wordSeekMs(
+        view.states?.[index],
+        useTimelineUiStore.getState().playheadMs,
+      );
       if (target !== null) setPlayheadMs(target);
     },
-    [playheadMs, setPlayheadMs, view.states],
+    [setPlayheadMs, view.states],
   );
 
   if (!view.states) {
@@ -197,6 +211,7 @@ function SourceWords({
         }
         runTranscriptAction('cut', view, selection, {
           restoreFailed: labels.restoreFailed,
+          cutFailed: labels.cutFailed,
           nothingToDo: labels.nothingToDo,
         });
       }}
