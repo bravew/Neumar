@@ -93,3 +93,36 @@ export function cutRunAround(
   while (states[endIndex + 1]?.status === 'cut') endIndex += 1;
   return { startIndex, endIndex };
 }
+
+export interface TranscriptLine {
+  startIndex: number;
+  endIndex: number;
+  startMs: number;
+}
+
+const LINE_GAP_MS = 700;
+const LINE_MAX_WORDS = 24;
+
+/** Group words into display lines at sentence ends, long pauses, or a word cap. */
+export function groupWordsIntoLines(
+  words: readonly Pick<VideoSubtitleWord, 'text' | 'startMs' | 'endMs'>[],
+): TranscriptLine[] {
+  const lines: TranscriptLine[] = [];
+  let startIndex = 0;
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i]!;
+    const next = words[i + 1];
+    const endsSentence = /[.!?。！？]["')\]]*$/.test(word.text.trim());
+    const pause = next ? next.startMs - word.endMs >= LINE_GAP_MS : true;
+    const full = i - startIndex + 1 >= LINE_MAX_WORDS;
+    if (!next || endsSentence || pause || full) {
+      lines.push({
+        startIndex,
+        endIndex: i,
+        startMs: words[startIndex]!.startMs,
+      });
+      startIndex = i + 1;
+    }
+  }
+  return lines;
+}
