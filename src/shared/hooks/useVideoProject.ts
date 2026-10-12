@@ -770,7 +770,12 @@ export function useVideoProject(projectId: string | undefined) {
   const patchSourceTranscript = useCallback(
     async (
       sourceId: string,
-      corrections: Array<{ index: number; text: string; startMs: number }>,
+      corrections: Array<{
+        index: number;
+        text: string;
+        startMs: number;
+        expectedText: string;
+      }>,
     ) => {
       if (!projectId) return null;
       const data = await videoApi<{ project: VideoProject }>(
@@ -780,7 +785,7 @@ export function useVideoProject(projectId: string | undefined) {
         {
           method: 'PATCH',
           // No expectedRevision: timeline autosaves also bump the revision,
-          // and each correction carries its own startMs consistency check.
+          // and each correction compares its original text and source timing.
           body: JSON.stringify({ corrections }),
         },
       );
