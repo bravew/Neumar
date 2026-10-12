@@ -22,3 +22,4 @@ export * from './overlay-types.js';
 export * from './timeline-ops.js';
 export * from './timeline-schema.js';
 export * from './timeline-types.js';
+export * from './transcript-edit.js';
