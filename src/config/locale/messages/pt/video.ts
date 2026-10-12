@@ -802,6 +802,8 @@ export default {
       restoreAction: 'Restaurar',
       restoreFailed: 'Este corte não pode mais ser restaurado automaticamente.',
       nothingToDo: 'Nada a alterar nesta seleção.',
+      layerTitle: 'Transcrição',
+      layerCutMarker: 'Corte: selecionar as palavras removidas',
     },
     plan: {
       title: 'Plano de renderização',

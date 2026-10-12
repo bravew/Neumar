@@ -796,6 +796,8 @@ export default {
       restoreAction: 'Restore',
       restoreFailed: 'This cut can no longer be restored automatically.',
       nothingToDo: 'Nothing to change for this selection.',
+      layerTitle: 'Transcript',
+      layerCutMarker: 'Cut seam - select the removed words',
     },
     plan: {
       title: 'Render plan',

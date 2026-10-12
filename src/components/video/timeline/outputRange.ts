@@ -112,6 +112,28 @@ export function setOutputOut(
   };
 }
 
+/** Ruler drag handlers that move the output range in/out point. */
+export function outputRangeMoveHandlers(
+  editor: {
+    timeline: Pick<VideoTimeline, 'outputRange'> | null;
+    setOutputRange: (range: VideoTimelineOutputRange | null) => void;
+  },
+  rate: FrameRateLike,
+  timelineDurationMs: number,
+) {
+  const current = () => editor.timeline?.outputRange;
+  return {
+    onMoveOutputRangeIn: (ms: number) =>
+      editor.setOutputRange(
+        setOutputIn(current(), ms, rate, timelineDurationMs),
+      ),
+    onMoveOutputRangeOut: (ms: number) =>
+      editor.setOutputRange(
+        setOutputOut(current(), ms, rate, timelineDurationMs),
+      ),
+  };
+}
+
 /**
  * How many clip boundaries would move if the project re-snapped to a new rate.
  * The setting dialog shows this before locking, because re-snapping is the part
