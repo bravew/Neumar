@@ -28,6 +28,7 @@ import {
   deleteClonedVoice,
   downloadSTTModel,
   downloadTTSModel,
+  getAllSTTModelStatuses,
   getAllTTSModelStatuses,
   getSTTModelStatus,
   listCapabilities,
@@ -346,6 +347,7 @@ speechRoutes.get('/local/status', (c) => {
   try {
     return c.json({
       stt: getSTTModelStatus(),
+      sttModels: getAllSTTModelStatuses(),
       tts: getAllTTSModelStatuses(),
     });
   } catch (error) {
@@ -361,7 +363,18 @@ speechRoutes.get('/local/status', (c) => {
 const VALID_TTS_MODEL_IDS: TtsModelId[] = ['kokoro', 'pocket', 'kitten'];
 
 const localDownloadSchema = z.object({
-  model: z.string().default('all'),
+  model: z
+    .enum([
+      'all',
+      'stt',
+      'tts',
+      'sensevoice',
+      'parakeet',
+      'kokoro',
+      'pocket',
+      'kitten',
+    ])
+    .default('all'),
 });
 
 speechRoutes.post(
@@ -374,7 +387,13 @@ speechRoutes.post(
 
       logger.info(`local download requested: model=${model}`);
 
-      if (model === 'stt' || model === 'all') {
+      if (model === 'parakeet') {
+        downloadSTTModel('parakeet').catch((err) =>
+          logger.error('Parakeet model download failed:', err),
+        );
+      }
+
+      if (model === 'stt' || model === 'sensevoice' || model === 'all') {
         downloadSTTModel().catch((err) =>
           logger.error('STT model download failed:', err),
         );

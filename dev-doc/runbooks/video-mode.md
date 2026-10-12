@@ -236,6 +236,27 @@ After a source is analyzed, its word-timed transcript becomes an editing
 surface: a word list in the `transcript` rail tab and a derived row above the
 timeline tracks. The flag defaults on.
 
+### Transcribe existing footage
+
+Open the Transcript tab after placing a video or audio asset on the timeline.
+The local transcription action registers the existing asset as a source without
+copying the file, including footage linked from a folder. It leaves the media
+and timeline untouched and displays recognition progress and actionable errors.
+
+Precise word editing uses Parakeet TDT v3 int8 through the existing sherpa-onnx
+runtime. If it is absent, the panel offers an explicit model download (about
+487 MB). Audio stays on this machine; the action never falls back to a cloud
+provider. The installed SenseVoice model remains available for ordinary speech
+recognition but does not supply word durations. Parakeet supports 25 European
+languages, including English; Chinese, Japanese, Korean, and Cantonese are not
+supported by this timed model.
+
+`POST /video/projects/:id/assets/:assetId/transcribe` returns the updated project,
+source, and analysis, or an actionable 422 error when no timed output is
+available. A retry reruns recognition rather than reusing a degraded cache.
+Concurrent requests for the same asset share one recognition operation. Results
+are merged under the project lock so edits made during recognition survive.
+
 ### How it works
 
 - Word state is **derived, not stored**. For each source, every timeline clip

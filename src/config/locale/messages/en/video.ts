@@ -779,6 +779,28 @@ export default {
       saving: 'Saving...',
       sourceTitle: 'Speech',
       scenesTab: 'Scenes',
+      speechEmpty:
+        'No word-timed speech transcript yet. Transcribe a timeline video or audio asset to begin.',
+      localTranscription:
+        'Transcription runs locally. Your audio is not uploaded to a speech service.',
+      transcribeAssetLabel: 'Timeline video or audio',
+      transcribeAction: 'Transcribe asset',
+      transcribing: 'Transcribing…',
+      transcriptionProgress:
+        'Analyzing audio and recognizing speech. This may take several minutes.',
+      transcribeFailed: 'Could not transcribe this asset. Try again.',
+      noTranscribableAssets:
+        'No eligible assets remain. Add a video with audio or an audio clip to the timeline.',
+      modelSetup:
+        'Word timing requires Parakeet TDT v3 (487 MB). Download the model explicitly, then retry. It supports 25 European languages; Chinese, Japanese and Korean are not supported.',
+      downloadModel: 'Download local model (487 MB)',
+      modelChecking: 'Checking local model…',
+      modelDownloading: 'Downloading or preparing local model…',
+      modelReady: 'Local model ready. Retry transcription.',
+      modelStatusFailed:
+        'Could not check the local model. Check your API connection and retry.',
+      modelDownloadFailed:
+        'Model download failed. Check your connection and available disk space, then retry.',
       sourceDescription: 'Words from the analyzed source. Click to jump.',
       followPlayback: 'Follow playback',
       notOnTimeline: 'This source is not on the timeline yet.',

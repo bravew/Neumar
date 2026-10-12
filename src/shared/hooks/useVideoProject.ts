@@ -745,6 +745,45 @@ export function useVideoProject(projectId: string | undefined) {
     [projectId],
   );
 
+  const transcriptionRequestRef = useRef<AbortController | null>(null);
+  useEffect(() => () => transcriptionRequestRef.current?.abort(), [projectId]);
+
+  const transcribeAsset = useCallback(
+    async (assetId: string) => {
+      if (!projectId) return null;
+      transcriptionRequestRef.current?.abort();
+      const controller = new AbortController();
+      transcriptionRequestRef.current = controller;
+      try {
+        const data = await videoApi<{ project: VideoProject }>(
+          `/projects/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}/transcribe`,
+          { method: 'POST', signal: controller.signal },
+        );
+        if (!controller.signal.aborted) {
+          setProject((current) =>
+            current?.id === projectId ? data.project : current,
+          );
+        }
+        return data.project;
+      } catch (err) {
+        // Registering/analyzing the source can persist state before failing.
+        // Refresh that state while preserving the actionable transcription error.
+        if (
+          !controller.signal.aborted &&
+          err instanceof VideoApiError &&
+          err.data.project
+        ) {
+          await refresh(controller.signal);
+        }
+        throw err;
+      } finally {
+        if (transcriptionRequestRef.current === controller)
+          transcriptionRequestRef.current = null;
+      }
+    },
+    [projectId, refresh],
+  );
+
   const createCutPlan = useCallback(
     async (sourceId: string, candidateIds: string[]) => {
       if (!projectId) return null;
@@ -1620,6 +1659,7 @@ export function useVideoProject(projectId: string | undefined) {
     cancelVideoReferenceRun,
     resumeVideoReferenceRun,
     analyzeSource,
+    transcribeAsset,
     createCutPlan,
     patchSourceTranscript,
     generateStoryboard,

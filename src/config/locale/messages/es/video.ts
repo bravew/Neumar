@@ -789,6 +789,29 @@ export default {
       saving: 'Guardando...',
       sourceTitle: 'Voz',
       scenesTab: 'Escenas',
+      speechEmpty:
+        'Aún no hay transcripción con tiempos por palabra. Transcribe un vídeo o audio de la línea de tiempo.',
+      localTranscription:
+        'La transcripción se realiza localmente. El audio no se sube a un servicio de voz.',
+      transcribeAssetLabel: 'Vídeo o audio de la línea de tiempo',
+      transcribeAction: 'Transcribir material',
+      transcribing: 'Transcribiendo…',
+      transcriptionProgress:
+        'Analizando el audio y reconociendo la voz. Puede tardar varios minutos.',
+      transcribeFailed:
+        'No se pudo transcribir este material. Inténtalo de nuevo.',
+      noTranscribableAssets:
+        'No quedan materiales elegibles. Añade un vídeo con audio o un clip de audio a la línea de tiempo.',
+      modelSetup:
+        'Los tiempos por palabra requieren Parakeet TDT v3 (487 MB). Descarga el modelo y vuelve a intentarlo. Admite 25 idiomas europeos; no admite chino, japonés ni coreano.',
+      downloadModel: 'Descargar modelo local (487 MB)',
+      modelChecking: 'Comprobando modelo local…',
+      modelDownloading: 'Descargando o preparando el modelo local…',
+      modelReady: 'Modelo local listo. Reintenta la transcripción.',
+      modelStatusFailed:
+        'No se pudo comprobar el modelo local. Comprueba la conexión con la API y reintenta.',
+      modelDownloadFailed:
+        'Falló la descarga del modelo. Comprueba la conexión y el espacio disponible y reintenta.',
       sourceDescription: 'Palabras del material analizado. Haz clic para ir.',
       followPlayback: 'Seguir reproducción',
       notOnTimeline: 'Este material aún no está en la línea de tiempo.',

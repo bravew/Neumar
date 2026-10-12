@@ -139,6 +139,7 @@ export interface VideoProjectEditorActions {
     referenceId: string,
   ) => Promise<VideoReferenceRun | null>;
   analyzeSource: (sourceId: string) => Promise<VideoProject | null>;
+  transcribeAsset: (assetId: string) => Promise<VideoProject | null>;
   createCutPlan: (
     sourceId: string,
     candidateIds: string[],

@@ -38,6 +38,28 @@ describe('source analysis transcript store integration', () => {
     await fs.rm(workDir, { recursive: true, force: true });
   });
 
+  it('preserves timeline edits made while transcription is running', async () => {
+    const project = await createProject({
+      name: 'Concurrent analysis',
+      template: 'explainer',
+    });
+    const asset = assetFixture();
+    const source = sourceFixture(asset.id);
+    await writeProject({ ...project, assets: [asset], sources: [source] });
+    insertSourceRow(project.id, source);
+    transcribeSourceMediaMock.mockImplementation(async () => {
+      const current = await getProject(project.id);
+      await writeProject({ ...current, name: 'Edited during recognition' });
+      return transcriptResultFixture(source.id);
+    });
+    const result = await analyzeSource(project.id, source.id);
+    expect(result.project.name).toBe('Edited during recognition');
+    expect((await getProject(project.id)).name).toBe(
+      'Edited during recognition',
+    );
+    expect(result.analysis.transcript?.words).toHaveLength(3);
+  });
+
   it('stores source transcript and packed transcript artifacts from analyzeSource', async () => {
     const project = await createProject({
       name: 'Analysis transcript',

@@ -59,6 +59,10 @@ import {
   undoVideoAgentJournalEntry,
   videoAgentToolCallSchema,
 } from '@/shared/video/agent-tools';
+import {
+  AssetTranscriptionError,
+  transcribeProjectAsset,
+} from '@/shared/video/analysis/asset-transcription';
 import { TranscriptCorrectionError } from '@/shared/video/analysis/transcript-corrections';
 import { resolveProjectAssetPath } from '@/shared/video/asset-files';
 import { downloadBrollHit, searchBroll } from '@/shared/video/broll';
@@ -4429,6 +4433,22 @@ videoRoutes.get('/projects/:id/sources', async (c) => {
   try {
     return c.json({ sources: await listSources(c.req.param('id')) });
   } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/assets/:assetId/transcribe', async (c) => {
+  try {
+    return c.json(
+      await transcribeProjectAsset(c.req.param('id'), c.req.param('assetId')),
+    );
+  } catch (error) {
+    if (error instanceof AssetTranscriptionError) {
+      return c.json(
+        { error: error.message, code: error.code, project: error.project },
+        error.code === 'asset-not-found' ? 404 : 422,
+      );
+    }
     return jsonError(c, error);
   }
 });

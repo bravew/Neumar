@@ -38,6 +38,7 @@ import {
   type TranscriptCorrectionResult,
   type TranscriptWordCorrection,
 } from './analysis/transcript-corrections';
+import { resolveProjectAssetPath } from './asset-files';
 import {
   estimateStoryboardCostCents,
   estimateStoryboardCostUsd,
@@ -1444,7 +1445,7 @@ export async function ensureSourceForAsset(
   const contentHash =
     asset.metadata.contentHash ??
     (await hashFile(
-      path.join(getVideoProjectRoot(projectId), asset.path),
+      resolveProjectAssetPath(asset, getVideoProjectRoot(projectId)),
     ).catch(() => undefined));
   if (!contentHash) return undefined;
 
@@ -1512,6 +1513,7 @@ export async function listSources(projectId: string): Promise<SourceMedia[]> {
 export async function analyzeSource(
   projectId: string,
   sourceId: string,
+  options: { provider?: string; force?: boolean } = {},
 ): Promise<{ project: VideoProject; analysis: SourceMediaAnalysis }> {
   const project = await getProject(projectId);
   const source = (project.sources ?? []).find((item) => item.id === sourceId);
@@ -1538,6 +1540,8 @@ export async function analyzeSource(
       asset,
       workspaceRoot: root,
       cacheDir,
+      provider: options.provider,
+      force: options.force,
     });
     analysis.transcript = transcriptResult.transcript;
     if (transcriptResult.transcript.words.length > 0) {
@@ -1566,16 +1570,17 @@ export async function analyzeSource(
     analysisArtifacts.push(transcriptResult.artifact, packed.artifact);
     analysis.artifactIds = analysisArtifacts.map((artifact) => artifact.id);
   }
-  const nextSources = (project.sources ?? []).map((item) =>
-    item.id === sourceId
-      ? { ...item, analysisStatus: 'done' as const, analysisId: analysis.id }
-      : item,
-  );
-  const next = {
-    ...project,
-    sources: nextSources,
+  // Recognition can take minutes. Merge into the current document under its
+  // lock so a timeline edit made while analysis runs is never overwritten.
+  const next = await updateProjectDocument(projectId, (current) => ({
+    ...current,
+    sources: (current.sources ?? []).map((item) =>
+      item.id === sourceId
+        ? { ...item, analysisStatus: 'done' as const, analysisId: analysis.id }
+        : item,
+    ),
     sourceAnalyses: [
-      ...(project.sourceAnalyses ?? []).filter(
+      ...(current.sourceAnalyses ?? []).filter(
         (item) => item.sourceId !== sourceId,
       ),
       analysis,
@@ -1583,14 +1588,13 @@ export async function analyzeSource(
     analysisArtifacts:
       analysisArtifacts.length > 0
         ? mergeSourceAnalysisArtifacts(
-            project.analysisArtifacts ?? [],
+            current.analysisArtifacts ?? [],
             source,
             analysisArtifacts,
           )
-        : project.analysisArtifacts,
+        : current.analysisArtifacts,
     updatedAt: new Date().toISOString(),
-  };
-  await writeProject(next);
+  }));
   insertAnalysisRow(projectId, analysis);
   return { project: next, analysis };
 }

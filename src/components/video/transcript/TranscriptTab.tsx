@@ -6,6 +6,7 @@ import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import { TranscriptView } from '../TranscriptView';
+import { SourceTranscriptionAction } from './SourceTranscriptionAction';
 import { SourceTranscriptPanel } from './SourceTranscriptPanel';
 import { buildSourceTranscriptViews } from './sourceTranscriptView';
 
@@ -14,8 +15,8 @@ type Pane = 'speech' | 'scenes';
 
 /**
  * Transcript tab with the source-speech panel (word-level, cut-aware) beside
- * the existing scene/caption text editor. Falls back to the scene editor alone
- * when no analyzed source has a word-timed transcript.
+ * the existing scene/caption text editor, with explicit local transcription
+ * and empty/error states when source speech is unavailable.
  */
 export function TranscriptTab(props: TranscriptViewProps) {
   const { t } = useLanguage();
@@ -25,7 +26,6 @@ export function TranscriptTab(props: TranscriptViewProps) {
     () => buildSourceTranscriptViews(props.project).length > 0,
     [props.project],
   );
-  if (!hasSpeech) return <TranscriptView {...props} />;
 
   const panes: Array<{ id: Pane; label: string }> = [
     { id: 'speech', label: labels.sourceTitle },
@@ -65,10 +65,23 @@ export function TranscriptTab(props: TranscriptViewProps) {
         </div>
       </div>
       {pane === 'speech' ? (
-        <SourceTranscriptPanel
-          project={props.project}
-          onCorrectWord={props.actions.patchSourceTranscript}
-        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <SourceTranscriptionAction
+            key={props.project.id}
+            project={props.project}
+            onTranscribe={props.actions.transcribeAsset}
+          />
+          {hasSpeech ? (
+            <SourceTranscriptPanel
+              project={props.project}
+              onCorrectWord={props.actions.patchSourceTranscript}
+            />
+          ) : (
+            <p className="text-muted-foreground p-3 text-xs">
+              {labels.speechEmpty}
+            </p>
+          )}
+        </div>
       ) : (
         <TranscriptView {...props} className="min-h-0 flex-1 border-0" />
       )}

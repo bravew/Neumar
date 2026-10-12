@@ -786,6 +786,28 @@ export default {
       saving: 'Enregistrement...',
       sourceTitle: 'Parole',
       scenesTab: 'Scènes',
+      speechEmpty:
+        'Aucune transcription avec minutage par mot. Transcrivez une vidéo ou un audio de la timeline.',
+      localTranscription:
+        'La transcription est locale. Votre audio n’est pas envoyé à un service vocal.',
+      transcribeAssetLabel: 'Vidéo ou audio de la timeline',
+      transcribeAction: 'Transcrire le média',
+      transcribing: 'Transcription…',
+      transcriptionProgress:
+        'Analyse audio et reconnaissance vocale en cours. Cela peut prendre plusieurs minutes.',
+      transcribeFailed: 'Impossible de transcrire ce média. Réessayez.',
+      noTranscribableAssets:
+        'Aucun média éligible restant. Ajoutez une vidéo avec audio ou un clip audio à la timeline.',
+      modelSetup:
+        'Le minutage par mot nécessite Parakeet TDT v3 (487 Mo). Téléchargez le modèle, puis réessayez. Il prend en charge 25 langues européennes ; le chinois, le japonais et le coréen ne sont pas pris en charge.',
+      downloadModel: 'Télécharger le modèle local (487 Mo)',
+      modelChecking: 'Vérification du modèle local…',
+      modelDownloading: 'Téléchargement ou préparation du modèle local…',
+      modelReady: 'Modèle local prêt. Relancez la transcription.',
+      modelStatusFailed:
+        'Impossible de vérifier le modèle local. Vérifiez la connexion API et réessayez.',
+      modelDownloadFailed:
+        'Échec du téléchargement. Vérifiez la connexion et l’espace disque disponible, puis réessayez.',
       sourceDescription: 'Mots de la source analysée. Cliquez pour y aller.',
       followPlayback: 'Suivre la lecture',
       notOnTimeline: "Cette source n'est pas encore sur la timeline.",

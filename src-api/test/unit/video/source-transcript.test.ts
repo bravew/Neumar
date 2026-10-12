@@ -109,6 +109,52 @@ describe('video source transcript analysis', () => {
     ]);
   });
 
+  it('retries a degraded local cache after model setup and uses real word timings', async () => {
+    const options = {
+      ...baseOptions({ workDir, cacheDir }),
+      extractAudio: vi.fn(async () => Buffer.from([0, 0])),
+      resolveProviderInfo: () => ({
+        provider: 'Local',
+        dataEgress: 'local' as const,
+      }),
+    };
+    await transcribeSourceMedia({
+      ...options,
+      transcribeAudio: async () => ({
+        success: false,
+        provider: 'Local',
+        model: 'parakeet',
+        errorCode: 'local-model-not-ready',
+        error: 'Download model.',
+      }),
+    });
+    const transcribeAudio = vi.fn(async () => ({
+      success: true,
+      provider: 'Local',
+      model: 'parakeet',
+      text: 'hello world',
+      segments: [{ text: 'hello world', startMs: 100, endMs: 900 }],
+      words: [
+        { word: 'hello', startMs: 100, endMs: 400 },
+        { word: 'world', startMs: 500, endMs: 900 },
+      ],
+    }));
+    const result = await transcribeSourceMedia({
+      ...options,
+      force: true,
+      transcribeAudio,
+    });
+    expect(result.cacheHit).toBe(false);
+    expect(result.transcript.words).toEqual([
+      { text: 'hello', startMs: 100, endMs: 400 },
+      { text: 'world', startMs: 500, endMs: 900 },
+    ]);
+    expect(result.transcript.segments[0]?.words).toEqual(
+      result.transcript.words,
+    );
+    expect(transcribeAudio).toHaveBeenCalledTimes(1);
+  });
+
   it('marks successful providers without word timestamps as degraded', async () => {
     const result = await transcribeSourceMedia({
       ...baseOptions({ workDir, cacheDir }),

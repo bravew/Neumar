@@ -48,6 +48,7 @@ export {
   deleteClonedVoice,
   downloadSTTModel,
   downloadTTSModel,
+  getAllSTTModelStatuses,
   getAllTTSModelStatuses,
   getSTTModelStatus,
   getTTSModelStatus,
@@ -57,4 +58,4 @@ export {
 } from './local-models';
 
 // Local model types
-export type { TtsModelId } from './local-models';
+export type { SttModelId, TtsModelId } from './local-models';
