@@ -76,6 +76,7 @@ describe('video feature flags (on by default)', () => {
       // and audio-correlation sync until its accuracy is measured.
       'video.multicam': false,
       'video.multicamAudioSync': false,
+      'video.transcriptLayer': true,
     });
   });
 });
