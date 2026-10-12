@@ -803,6 +803,8 @@ export default {
       restoreAction: 'Restaurer',
       restoreFailed: 'Cette coupe ne peut plus être restaurée automatiquement.',
       nothingToDo: 'Rien à modifier pour cette sélection.',
+      layerTitle: 'Transcription',
+      layerCutMarker: 'Coupe : sélectionner les mots supprimés',
     },
     plan: {
       title: 'Plan de rendu',

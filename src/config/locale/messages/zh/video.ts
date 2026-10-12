@@ -775,6 +775,8 @@ export default {
       restoreAction: '恢复',
       restoreFailed: '此剪切已无法自动恢复。',
       nothingToDo: '所选内容无需更改。',
+      layerTitle: '文字稿',
+      layerCutMarker: '剪切处 - 选择已删除的字词',
     },
     plan: {
       title: '渲染计划',
