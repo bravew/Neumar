@@ -1,12 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import { applyTimelineOp } from '@neumar/video-ir';
-import type {
-  Timeline,
-  TimelineClip,
-  TimelineOp,
-  TimelineTrack,
-} from '@neumar/video-ir';
+import { applyTimelineOp, compileTranscriptCut } from '@neumar/video-ir';
+import type { Timeline, TimelineOp } from '@neumar/video-ir';
 
 import type {
   CutCandidate,
@@ -173,178 +168,18 @@ function compileCandidateOps(input: {
   sourceAssetId: string;
   idFactory: () => string;
 }): TimelineOp[] {
-  const linkedGroups = sourceLinkedGroups(input.timeline, input.sourceAssetId);
-  const splitLinkGroups = new Map<string, { left: string; right: string }>();
-  const resolveSplitLinkGroup = (linkGroupId: string) => {
-    let existing = splitLinkGroups.get(linkGroupId);
-    if (!existing) {
-      existing = { left: input.idFactory(), right: input.idFactory() };
-      splitLinkGroups.set(linkGroupId, existing);
-    }
-    return existing;
-  };
-  const ops: TimelineOp[] = [];
-  for (const track of input.timeline.tracks) {
-    const ranges = removableRangesForTrack(
-      track,
-      input.sourceAssetId,
-      linkedGroups,
-      input.candidate,
-    ).sort((left, right) => right.startMs - left.startMs);
-    for (const range of ranges) {
-      const replacement = buildTrackReplacement(
-        track,
-        range.startMs,
-        range.endMs,
-        true,
-        input.idFactory,
-        resolveSplitLinkGroup,
-      );
-      if (replacement.before.length === 0) continue;
-      ops.push({
-        kind: 'clip.removeTimeRange',
-        trackId: track.id,
-        startMs: range.startMs,
-        endMs: range.endMs,
-        magnetic: true,
-        before: replacement.before,
-        after: replacement.after,
-      });
-    }
+  if (input.candidate.endMs - input.candidate.startMs < MIN_CUT_DURATION_MS) {
+    return [];
   }
-  return ops;
-}
-
-function sourceLinkedGroups(
-  timeline: Timeline,
-  sourceAssetId: string,
-): Set<string> {
-  const groups = new Set<string>();
-  for (const track of timeline.tracks) {
-    for (const clip of track.clips) {
-      if (
-        clip.sourceRef.kind === 'asset' &&
-        clip.sourceRef.assetId === sourceAssetId &&
-        clip.linkGroupId
-      ) {
-        groups.add(clip.linkGroupId);
-      }
-    }
-  }
-  return groups;
-}
-
-function removableRangesForTrack(
-  track: TimelineTrack,
-  sourceAssetId: string,
-  linkedGroups: Set<string>,
-  candidate: CutCandidate,
-): Array<{ startMs: number; endMs: number }> {
-  return track.clips.flatMap((clip) => {
-    if (!isSourceCutClip(clip, sourceAssetId, linkedGroups)) return [];
-    const startMs = Math.max(candidate.startMs, clip.trimStartMs);
-    const endMs = Math.min(candidate.endMs, clip.trimEndMs);
-    if (endMs - startMs < MIN_CUT_DURATION_MS) return [];
-    return [
-      {
-        startMs: clip.startMs + startMs - clip.trimStartMs,
-        endMs: clip.startMs + endMs - clip.trimStartMs,
-      },
-    ];
+  return compileTranscriptCut({
+    timeline: input.timeline,
+    match: { assetIds: [input.sourceAssetId] },
+    words: [{ startMs: input.candidate.startMs, endMs: input.candidate.endMs }],
+    startIndex: 0,
+    endIndex: 0,
+    magnetic: true,
+    idFactory: input.idFactory,
   });
-}
-
-function isSourceCutClip(
-  clip: TimelineClip,
-  sourceAssetId: string,
-  linkedGroups: Set<string>,
-): boolean {
-  if (
-    clip.sourceRef.kind === 'asset' &&
-    clip.sourceRef.assetId === sourceAssetId
-  ) {
-    return true;
-  }
-  return Boolean(clip.linkGroupId && linkedGroups.has(clip.linkGroupId));
-}
-
-function buildTrackReplacement(
-  track: TimelineTrack,
-  startMs: number,
-  endMs: number,
-  magnetic: boolean,
-  idFactory: () => string,
-  resolveSplitLinkGroup: (linkGroupId: string) => {
-    left: string;
-    right: string;
-  },
-): { before: TimelineClip[]; after: TimelineClip[] } {
-  const durationMs = endMs - startMs;
-  const before: TimelineClip[] = [];
-  const after: TimelineClip[] = [];
-
-  for (const clip of track.clips) {
-    const clipEndMs = clip.startMs + clip.durationMs;
-    const intersects = clip.startMs < endMs && clipEndMs > startMs;
-    const shifts = magnetic && clip.startMs >= endMs;
-    if (!intersects && !shifts) continue;
-    before.push(clip);
-
-    if (!intersects) {
-      after.push({ ...clip, startMs: Math.max(0, clip.startMs - durationMs) });
-      continue;
-    }
-
-    if (startMs <= clip.startMs && endMs >= clipEndMs) continue;
-
-    const splitLinkGroup =
-      clip.startMs < startMs && clipEndMs > endMs && clip.linkGroupId
-        ? resolveSplitLinkGroup(clip.linkGroupId)
-        : null;
-
-    if (clip.startMs < startMs) {
-      const leftDurationMs = startMs - clip.startMs;
-      after.push(
-        withClipLinkGroup(
-          {
-            ...clip,
-            durationMs: leftDurationMs,
-            trimEndMs: clip.trimStartMs + leftDurationMs,
-          },
-          splitLinkGroup?.left ?? clip.linkGroupId,
-        ),
-      );
-    }
-
-    if (clipEndMs > endMs) {
-      const removedFromStartMs = Math.max(0, endMs - clip.startMs);
-      const rightDurationMs = clipEndMs - endMs;
-      after.push(
-        withClipLinkGroup(
-          {
-            ...clip,
-            id: clip.startMs < startMs ? idFactory() : clip.id,
-            startMs: magnetic ? startMs : endMs,
-            durationMs: rightDurationMs,
-            trimStartMs: clip.trimStartMs + removedFromStartMs,
-            trimEndMs: clip.trimStartMs + removedFromStartMs + rightDurationMs,
-          },
-          splitLinkGroup?.right ?? clip.linkGroupId,
-        ),
-      );
-    }
-  }
-
-  return { before, after };
-}
-
-function withClipLinkGroup<T extends TimelineClip>(
-  clip: T,
-  linkGroupId: string | undefined,
-): T {
-  if (linkGroupId) return { ...clip, linkGroupId };
-  const { linkGroupId: _omit, ...rest } = clip;
-  return rest as T;
 }
 
 function assertCandidateNotMidWord(
