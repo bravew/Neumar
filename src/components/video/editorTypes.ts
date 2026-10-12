@@ -143,6 +143,10 @@ export interface VideoProjectEditorActions {
     sourceId: string,
     candidateIds: string[],
   ) => Promise<VideoProject | null>;
+  patchSourceTranscript: (
+    sourceId: string,
+    corrections: Array<{ index: number; text: string; startMs: number }>,
+  ) => Promise<VideoProject | null>;
   generateStoryboard: (message: string) => Promise<VideoProject | null>;
   updateStoryboard: (
     storyboard: VideoStoryboard,

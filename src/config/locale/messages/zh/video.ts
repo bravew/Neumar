@@ -777,6 +777,8 @@ export default {
       nothingToDo: '所选内容无需更改。',
       layerTitle: '文字稿',
       layerCutMarker: '剪切处 - 选择已删除的字词',
+      editWordLabel: '修正文字稿字词',
+      correctFailed: '无法保存修正。',
     },
     plan: {
       title: '渲染计划',

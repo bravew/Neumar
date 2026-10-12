@@ -767,6 +767,29 @@ export function useVideoProject(projectId: string | undefined) {
     [projectId],
   );
 
+  const patchSourceTranscript = useCallback(
+    async (
+      sourceId: string,
+      corrections: Array<{ index: number; text: string; startMs: number }>,
+    ) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ project: VideoProject }>(
+        `/projects/${encodeURIComponent(projectId)}/sources/${encodeURIComponent(
+          sourceId,
+        )}/transcript`,
+        {
+          method: 'PATCH',
+          // No expectedRevision: timeline autosaves also bump the revision,
+          // and each correction carries its own startMs consistency check.
+          body: JSON.stringify({ corrections }),
+        },
+      );
+      setProject(data.project);
+      return data.project;
+    },
+    [projectId],
+  );
+
   const generateStoryboard = useCallback(
     async (message: string) => {
       if (!projectId) return null;
@@ -1593,6 +1616,7 @@ export function useVideoProject(projectId: string | undefined) {
     resumeVideoReferenceRun,
     analyzeSource,
     createCutPlan,
+    patchSourceTranscript,
     generateStoryboard,
     updateStoryboard,
     approveStoryboard,

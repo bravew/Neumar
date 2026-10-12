@@ -804,6 +804,8 @@ export default {
       nothingToDo: 'Nada a alterar nesta seleção.',
       layerTitle: 'Transcrição',
       layerCutMarker: 'Corte: selecionar as palavras removidas',
+      editWordLabel: 'Corrigir palavra da transcrição',
+      correctFailed: 'Não foi possível salvar a correção.',
     },
     plan: {
       title: 'Plano de renderização',

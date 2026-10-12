@@ -59,6 +59,7 @@ import {
   undoVideoAgentJournalEntry,
   videoAgentToolCallSchema,
 } from '@/shared/video/agent-tools';
+import { TranscriptCorrectionError } from '@/shared/video/analysis/transcript-corrections';
 import { resolveProjectAssetPath } from '@/shared/video/asset-files';
 import { downloadBrollHit, searchBroll } from '@/shared/video/broll';
 import {
@@ -309,6 +310,7 @@ import {
   deleteProjectAsset,
   enqueueYtDlpImport,
   getSourceAnalysis,
+  patchSourceTranscript,
   getProject,
   getProviderConfig,
   getVideoAssetDerivativesDir,
@@ -489,6 +491,25 @@ const cutPlanSchema = z.object({
   candidateIds: z.array(z.string()).optional(),
   mode: z.enum(['cut', 'speed-up', 'review-only']).optional(),
   approved: z.boolean().optional(),
+});
+
+const transcriptCorrectionSchema = z.object({
+  corrections: z
+    .array(
+      z.object({
+        index: z.number().int().min(0),
+        text: z
+          .string()
+          .trim()
+          .min(1)
+          .max(80)
+          .refine((value) => !/\s/.test(value), 'One word per correction'),
+        startMs: z.number().min(0),
+      }),
+    )
+    .min(1)
+    .max(200),
+  expectedRevision: z.number().int().min(0).optional(),
 });
 
 const agentTurnSchema = z.object({
@@ -4434,6 +4455,42 @@ videoRoutes.get('/projects/:id/sources/:sourceId/analysis', async (c) => {
     return jsonError(c, error);
   }
 });
+
+videoRoutes.patch(
+  '/projects/:id/sources/:sourceId/transcript',
+  zValidator('json', transcriptCorrectionSchema),
+  async (c) => {
+    try {
+      const result = await patchSourceTranscript(
+        c.req.param('id'),
+        c.req.param('sourceId'),
+        c.req.valid('json'),
+      );
+      return c.json({
+        project: result.project,
+        captionsUpdated: result.captionsUpdated,
+      });
+    } catch (error) {
+      if (error instanceof ProjectRevisionConflictError) {
+        return c.json(
+          { error: error.message, currentRevision: error.currentRevision },
+          409,
+        );
+      }
+      if (error instanceof TranscriptCorrectionError) {
+        return c.json(
+          { error: error.message, code: error.code },
+          error.code === 'source-not-found'
+            ? 404
+            : error.code === 'stale-word'
+              ? 409
+              : 422,
+        );
+      }
+      return jsonError(c, error);
+    }
+  },
+);
 
 videoRoutes.post(
   '/projects/:id/sources/:sourceId/cut-plan',

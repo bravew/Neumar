@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { toast } from 'sonner';
 
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -13,6 +15,7 @@ import {
   type SourceTranscriptView,
 } from './sourceTranscriptView';
 import { runTranscriptAction, TranscriptEditBar } from './TranscriptEditBar';
+import { TranscriptWordEditor } from './TranscriptWordEditor';
 import { useTranscriptSelectionStore } from './useTranscriptSelectionStore';
 
 function formatTimestamp(ms: number): string {
@@ -29,9 +32,12 @@ function formatTimestamp(ms: number): string {
  */
 export function SourceTranscriptPanel({
   project,
+  onCorrectWord,
   className,
 }: {
   project: VideoProject;
+  /** Saves a text correction; timing never changes. Omit to disable editing. */
+  onCorrectWord?: WordCorrectionHandler;
   className?: string;
 }) {
   const views = useMemo(() => buildSourceTranscriptViews(project), [project]);
@@ -59,14 +65,29 @@ export function SourceTranscriptPanel({
       </div>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
         {views.map((view) => (
-          <SourceWords key={view.sourceId} view={view} />
+          <SourceWords
+            key={view.sourceId}
+            view={view}
+            onCorrectWord={onCorrectWord}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function SourceWords({ view }: { view: SourceTranscriptView }) {
+export type WordCorrectionHandler = (
+  sourceId: string,
+  corrections: Array<{ index: number; text: string; startMs: number }>,
+) => Promise<unknown>;
+
+function SourceWords({
+  view,
+  onCorrectWord,
+}: {
+  view: SourceTranscriptView;
+  onCorrectWord?: WordCorrectionHandler;
+}) {
   const { t } = useLanguage();
   const labels = t.video.editor.transcript;
   const playheadMs = useTimelineUiStore((s) => s.playheadMs);
@@ -80,10 +101,12 @@ function SourceWords({ view }: { view: SourceTranscriptView }) {
   const activeIndex = findActiveWordIndex(view, playheadMs);
   const dragging = useRef(false);
   const activeRef = useRef<HTMLButtonElement | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   // A new transcript invalidates any word-index selection.
   useEffect(() => {
     clearSelection();
+    setEditingIndex(null);
   }, [view.transcriptKey, clearSelection]);
 
   useEffect(() => {
@@ -156,6 +179,22 @@ function SourceWords({ view }: { view: SourceTranscriptView }) {
                 const index = line.startIndex + offset;
                 const status = view.states![index]!.status;
                 const active = index === activeIndex;
+                if (editingIndex === index) {
+                  return (
+                    <TranscriptWordEditor
+                      key={index}
+                      word={word.text}
+                      ariaLabel={labels.editWordLabel}
+                      onCancel={() => setEditingIndex(null)}
+                      onCommit={(text) => {
+                        setEditingIndex(null);
+                        void onCorrectWord?.(view.sourceId, [
+                          { index, text, startMs: word.startMs },
+                        ]).catch(() => toast.error(labels.correctFailed));
+                      }}
+                    />
+                  );
+                }
                 return (
                   <button
                     key={index}
@@ -185,6 +224,16 @@ function SourceWords({ view }: { view: SourceTranscriptView }) {
                     }}
                     onClick={(event) => {
                       if (!event.shiftKey) seek(index);
+                    }}
+                    onDoubleClick={() => {
+                      // Text mode only: fixing a word never edits the media.
+                      if (
+                        mode === 'text' &&
+                        onCorrectWord &&
+                        status !== 'cut'
+                      ) {
+                        setEditingIndex(index);
+                      }
                     }}
                     className={cn(
                       'hover:bg-muted mr-0.5 inline rounded px-0.5',
