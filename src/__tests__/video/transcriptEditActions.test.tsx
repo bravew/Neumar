@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useTimelineEditorStore } from '@/components/video/timeline/useTimelineEditorStore';
@@ -42,6 +42,7 @@ const timeline = {
 
 function project(): VideoProject {
   return {
+    id: 'p',
     sources: [{ id: 's', mediaItemId: 'a' }],
     sourceAnalyses: [
       { id: 'an', sourceId: 's', transcript: { engine: 't', words } },
@@ -71,6 +72,7 @@ describe('transcript edit actions', () => {
   beforeEach(() => {
     useTimelineEditorStore.setState({
       ...useTimelineEditorStore.getInitialState(),
+      projectId: 'p',
       timeline,
     });
     useTranscriptSelectionStore.setState(
@@ -107,6 +109,22 @@ describe('transcript edit actions', () => {
     expect(clipDurations().reduce((a, b) => a + b, 0)).toBe(700);
     useTimelineEditorStore.getState().undoUserEdit();
     expect(clipDurations()).toEqual([1000]);
+  });
+
+  it('shows cut and undo immediately while the project prop remains unsaved', () => {
+    const saved = project();
+    render(
+      <LanguageProvider>
+        <SourceTranscriptPanel project={saved} />
+      </LanguageProvider>,
+    );
+    fireEvent.mouseDown(screen.getByText('w3'));
+    fireEvent.mouseDown(screen.getByText('w5'), { shiftKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Cut' }));
+    expect(screen.getByText('w4').getAttribute('data-status')).toBe('cut');
+    expect(saved.timeline).toBe(timeline);
+    act(() => useTimelineEditorStore.getState().undoUserEdit());
+    expect(screen.getByText('w4').getAttribute('data-status')).toBe('kept');
   });
 
   it('Restore re-adds a cut run via the Restore button', () => {

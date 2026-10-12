@@ -29,10 +29,16 @@ export function runTranscriptAction(
   const store = useTimelineEditorStore.getState();
   const timeline = store.timeline as VideoTimeline | null;
   if (!timeline) return false;
-  const plan: TranscriptEditPlan =
-    action === 'cut'
-      ? planTranscriptCut(timeline, view, selection)
-      : planTranscriptRestore(timeline, view, selection);
+  let plan: TranscriptEditPlan;
+  try {
+    plan =
+      action === 'cut'
+        ? planTranscriptCut(timeline, view, selection)
+        : planTranscriptRestore(timeline, view, selection);
+  } catch {
+    toast.error(messages.restoreFailed);
+    return false;
+  }
   if (!plan.ok) {
     toast.error(
       plan.reason === 'nothing-to-do'
@@ -92,9 +98,10 @@ export function TranscriptEditBar({ view }: { view: SourceTranscriptView }) {
           active && runTranscriptAction('cut', view, active, messages)
         }
         className="hover:bg-muted text-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] disabled:opacity-40"
+        aria-label={labels.cutAction}
+        title={labels.cutAction}
       >
         <Scissors className="size-3" />
-        {labels.cutAction}
       </button>
       <button
         type="button"
@@ -103,9 +110,10 @@ export function TranscriptEditBar({ view }: { view: SourceTranscriptView }) {
           active && runTranscriptAction('restore', view, active, messages)
         }
         className="hover:bg-muted text-foreground inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] disabled:opacity-40"
+        aria-label={labels.restoreAction}
+        title={labels.restoreAction}
       >
         <Undo2 className="size-3" />
-        {labels.restoreAction}
       </button>
     </div>
   );

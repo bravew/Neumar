@@ -245,6 +245,12 @@ export function compileTranscriptRestore(
   let timeline = input.timeline;
   const ops: TimelineOp[] = [];
   const handled = new Set<string>();
+  // Clips an earlier seam resolution in this restore already extended. A cue
+  // can be reached twice — by source match from a clip that holds no link
+  // group, then by its link group from a sibling — and its geometry moves with
+  // the seam, so a later pass must neither extend it again nor read the moved
+  // cue as a missing seam cue.
+  const extendedClips = new Set<string>();
   const primaries = matchingClips(timeline, input.match);
   let failure: TranscriptRestoreFailure = 'seam-not-found';
   for (const track of timeline.tracks) {
@@ -338,8 +344,9 @@ export function compileTranscriptRestore(
       const targets = timeline.tracks.flatMap((t) =>
         t.clips.filter(
           (c) =>
-            c.id === target.id ||
-            (target.linkGroupId && c.linkGroupId === target.linkGroupId),
+            !extendedClips.has(c.id) &&
+            (c.id === target.id ||
+              (target.linkGroupId && c.linkGroupId === target.linkGroupId)),
         ),
       );
       // Generated STT cues carry source anchors and params even when they hold
@@ -378,7 +385,12 @@ export function compileTranscriptRestore(
             Math.abs(timelineEdge - targetTimelineEdge) <= ADJACENT_TOLERANCE_MS
           );
         });
-        if (!seam.length) return { ok: false, reason: 'caption-unavailable' };
+        if (!seam.length) {
+          // A cue this restore already extended at an earlier seam means the
+          // track is in sync; its moved geometry is why it no longer matches.
+          if (sourced.some((cue) => extendedClips.has(cue.id))) continue;
+          return { ok: false, reason: 'caption-unavailable' };
+        }
         for (const cue of seam)
           if (!targets.some((item) => item.id === cue.id)) targets.push(cue);
       }
@@ -446,6 +458,7 @@ export function compileTranscriptRestore(
       }
       // Explicit snapshots ripple each linked track exactly once, unlike
       // linked clip.trim, which extends siblings without moving their tails.
+      for (const cue of targets) extendedClips.add(cue.id);
       for (const op of replacements)
         timeline = applyTimelineOp(timeline, op).timeline;
       ops.push(...replacements);

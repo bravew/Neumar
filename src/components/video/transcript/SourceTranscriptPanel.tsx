@@ -6,6 +6,7 @@ import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { VideoProject } from '@/shared/types/video';
 
+import { useTimelineEditorStore } from '../timeline/useTimelineEditorStore';
 import { useTimelineUiStore } from '../timeline/useTimelineUiStore';
 import {
   buildSourceTranscriptViews,
@@ -41,7 +42,17 @@ export function SourceTranscriptPanel({
   onCorrectWord?: WordCorrectionHandler;
   className?: string;
 }) {
-  const views = useMemo(() => buildSourceTranscriptViews(project), [project]);
+  const liveTimeline = useTimelineEditorStore((s) =>
+    s.projectId === project.id ? s.timeline : null,
+  );
+  const views = useMemo(
+    () =>
+      buildSourceTranscriptViews({
+        ...project,
+        timeline: liveTimeline ?? project.timeline,
+      }),
+    [project, liveTimeline],
+  );
   const followPlayback = useTranscriptSelectionStore((s) => s.followPlayback);
   const setFollowPlayback = useTranscriptSelectionStore(
     (s) => s.setFollowPlayback,
@@ -85,7 +96,12 @@ export function SourceTranscriptPanel({
 
 export type WordCorrectionHandler = (
   sourceId: string,
-  corrections: Array<{ index: number; text: string; startMs: number }>,
+  corrections: Array<{
+    index: number;
+    text: string;
+    startMs: number;
+    expectedText: string;
+  }>,
 ) => Promise<unknown>;
 
 function SourceWords({
@@ -161,9 +177,24 @@ function SourceWords({
           return;
         }
         if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-        // Text mode never touches media (AT-09); cutting needs Cut media mode.
-        if (mode !== 'cut' || selection?.sourceId !== view.sourceId) return;
+        if (selection?.sourceId !== view.sourceId) return;
         event.preventDefault();
+        if (mode === 'text') {
+          if (onCorrectWord) {
+            const corrections = view.words
+              .slice(selection.startIndex, selection.endIndex + 1)
+              .map((word, offset) => ({
+                index: selection.startIndex + offset,
+                text: '',
+                startMs: word.startMs,
+                expectedText: word.text,
+              }));
+            void onCorrectWord(view.sourceId, corrections).catch(() =>
+              toast.error(labels.correctFailed),
+            );
+          }
+          return;
+        }
         runTranscriptAction('cut', view, selection, {
           restoreFailed: labels.restoreFailed,
           nothingToDo: labels.nothingToDo,
@@ -196,7 +227,12 @@ function SourceWords({
                       onCommit={(text) => {
                         setEditingIndex(null);
                         void onCorrectWord?.(view.sourceId, [
-                          { index, text, startMs: word.startMs },
+                          {
+                            index,
+                            text,
+                            startMs: word.startMs,
+                            expectedText: word.text,
+                          },
                         ]).catch(() => toast.error(labels.correctFailed));
                       }}
                     />

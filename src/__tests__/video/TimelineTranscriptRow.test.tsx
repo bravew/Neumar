@@ -81,6 +81,30 @@ describe('buildTranscriptLayer', () => {
     ]);
   });
 
+  it('renders each repeated occurrence and never bridges disconnected clips', () => {
+    const repeated = layerOf(
+      project([
+        [0, 0, 400],
+        [2000, 0, 400],
+      ]),
+    );
+    expect(repeated.blocks.map((b) => b.startMs)).toEqual([0, 200, 2000, 2200]);
+    const disconnected = layerOf(
+      project([
+        [0, 0, 100],
+        [9000, 100, 400],
+      ]),
+    );
+    expect(disconnected.blocks[0]).toMatchObject({
+      startMs: 0,
+      endMs: 100,
+      startIndex: 0,
+      endIndex: 0,
+    });
+    expect(disconnected.blocks[1]!.startMs).toBe(9000);
+    expect(new Set(repeated.blocks.map((b) => b.key)).size).toBe(4);
+  });
+
   it('is empty when no clip plays the source', () => {
     expect(layerOf(project([]))).toEqual({ blocks: [], cuts: [] });
   });

@@ -38,7 +38,7 @@ export function buildSourceTranscriptViews(
       states: timeline
         ? deriveTranscriptWordStates(timeline, match, words)
         : null,
-      transcriptKey: transcriptKey(analysis.id, words),
+      transcriptKey: transcriptKey(`${source.id}:${analysis.id}`, words),
     });
   }
   return views;
@@ -48,8 +48,7 @@ function transcriptKey(
   analysisId: string,
   words: readonly VideoSubtitleWord[],
 ): string {
-  const last = words[words.length - 1];
-  return `${analysisId}:${words.length}:${words[0]?.startMs ?? 0}:${last?.endMs ?? 0}`;
+  return `${analysisId}:${words.map((word) => `${word.startMs},${word.endMs}`).join(';')}`;
 }
 
 /** Index of the word playing at `playheadMs` (first occurrence), or null. */

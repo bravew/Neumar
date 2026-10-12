@@ -694,6 +694,77 @@ describe('transcript synchronization regressions', () => {
     });
   });
 
+  it('restores when only the linked tracks carry the link group', () => {
+    // A video clip need not itself join the link group for the cut to ripple
+    // across its audio/caption siblings. The restore previously re-derived the
+    // seam per track from `primaries`, so once the first track's op had been
+    // applied the caption fragment no longer sat at that seam's timeline edge
+    // and the restore failed with `caption-unavailable`.
+    const group = 'speech';
+    const primary = { linkGroupId: group };
+    const original = timeline(
+      [clip({ id: 'v' })],
+      [clip({ id: 'au', kind: 'audio', ...primary })],
+    );
+    original.tracks.push({
+      id: 'captions',
+      kind: 'caption',
+      name: 'Captions',
+      locked: false,
+      muted: false,
+      order: 30,
+      clips: [
+        {
+          id: 'cue',
+          kind: 'caption',
+          sourceRef: { kind: 'asset', assetId: 'asset-a' },
+          linkGroupId: group,
+          startMs: 0,
+          durationMs: 1000,
+          trimStartMs: 0,
+          trimEndMs: 1000,
+          text: TEXT_WORDS.map((word) => word.text).join(' '),
+          words: TEXT_WORDS,
+        },
+      ],
+    } as unknown as Timeline['tracks'][number]);
+
+    const input = {
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 5,
+    };
+    const cut = applyTimelineOps(
+      original,
+      compileTranscriptCut({ ...input, idFactory: ids() }),
+    ).timeline;
+    const restored = compileTranscriptRestore({ ...input, timeline: cut });
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    const applied = applyTimelineOps(cut, restored.ops).timeline;
+    // The media and its caption both return to the pre-cut source span: the
+    // seam fragment is extended back over the removed range, so the pair tiles
+    // the original clip again.
+    const videoTrack = applied.tracks.find((track) => track.kind === 'video')!;
+    expect(
+      videoTrack.clips.map((clip) => [clip.startMs, clip.durationMs]),
+    ).toEqual([
+      [0, 600],
+      [600, 400],
+    ]);
+    const cues = applied.tracks.find(
+      (track) => track.kind === 'caption',
+    )!.clips;
+    expect(cues.map((cue) => [cue.startMs, cue.durationMs])).toEqual([
+      [0, 600],
+      [600, 400],
+    ]);
+    expect(cues[0]!.trimEndMs).toBe(600);
+    expect(cues[0]!.text).toBe('w0 w1 w2 w3 w4 w5');
+  });
+
   it('keeps authored caption text when the media is restored', () => {
     // Capture/manual cues carry their own text and no word timing, so the cut
     // splits them and the restore rejoins the seam fragment without rewriting
