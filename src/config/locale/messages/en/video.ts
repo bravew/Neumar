@@ -784,6 +784,18 @@ export default {
       notOnTimeline: 'This source is not on the timeline yet.',
       cutWord: 'Cut from the timeline',
       partialWord: 'Partly cut',
+      modeLabel: 'Edit mode',
+      modeText: 'Text',
+      modeCut: 'Cut media',
+      selectedCount: '{count} words selected',
+      textModeHint:
+        'Delete in Text mode only changes text; media is untouched.',
+      cutModeHint:
+        'Delete removes the selected words from the video and audio.',
+      cutAction: 'Cut',
+      restoreAction: 'Restore',
+      restoreFailed: 'This cut can no longer be restored automatically.',
+      nothingToDo: 'Nothing to change for this selection.',
     },
     plan: {
       title: 'Render plan',

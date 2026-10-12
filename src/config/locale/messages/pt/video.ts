@@ -790,6 +790,18 @@ export default {
       notOnTimeline: 'Esta fonte ainda não está na linha do tempo.',
       cutWord: 'Cortada da linha do tempo',
       partialWord: 'Parcialmente cortada',
+      modeLabel: 'Modo de edição',
+      modeText: 'Texto',
+      modeCut: 'Cortar mídia',
+      selectedCount: '{count} palavras selecionadas',
+      textModeHint:
+        'No modo Texto, Delete só altera o texto; a mídia não é tocada.',
+      cutModeHint:
+        'Delete remove as palavras selecionadas do vídeo e do áudio.',
+      cutAction: 'Cortar',
+      restoreAction: 'Restaurar',
+      restoreFailed: 'Este corte não pode mais ser restaurado automaticamente.',
+      nothingToDo: 'Nada a alterar nesta seleção.',
     },
     plan: {
       title: 'Plano de renderização',

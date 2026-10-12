@@ -791,6 +791,18 @@ export default {
       notOnTimeline: "Cette source n'est pas encore sur la timeline.",
       cutWord: 'Coupé de la timeline',
       partialWord: 'Partiellement coupé',
+      modeLabel: "Mode d'édition",
+      modeText: 'Texte',
+      modeCut: 'Couper le média',
+      selectedCount: '{count} mots sélectionnés',
+      textModeHint:
+        'En mode Texte, Suppr ne modifie que le texte ; le média reste intact.',
+      cutModeHint:
+        "Suppr retire les mots sélectionnés de la vidéo et de l'audio.",
+      cutAction: 'Couper',
+      restoreAction: 'Restaurer',
+      restoreFailed: 'Cette coupe ne peut plus être restaurée automatiquement.',
+      nothingToDo: 'Rien à modifier pour cette sélection.',
     },
     plan: {
       title: 'Plan de rendu',
