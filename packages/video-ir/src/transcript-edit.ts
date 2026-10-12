@@ -69,7 +69,8 @@ export type TranscriptRestoreFailure =
   | 'seam-not-found'
   | 'interior-gap'
   | 'no-room'
-  | 'track-locked';
+  | 'track-locked'
+  | 'caption-unavailable';
 
 const ADJACENT_TOLERANCE_MS = 2;
 
@@ -196,7 +197,8 @@ export function compileTranscriptCut(
           overlaps(clip, window.startMs, window.endMs) &&
           (clipMatchesTranscriptSource(clip, input.match) ||
             (clip.linkGroupId !== undefined &&
-              linkedGroups.has(clip.linkGroupId))),
+              linkedGroups.has(clip.linkGroupId)) ||
+            captionMatchesSource(clip, input.match)),
       );
       if (!touches) continue;
       if (track.locked) {
@@ -340,6 +342,46 @@ export function compileTranscriptRestore(
             (target.linkGroupId && c.linkGroupId === target.linkGroupId),
         ),
       );
+      // Generated STT cues carry source anchors and params even when they hold
+      // no link group, and a cut can split one cue into several fragments along
+      // the same seam. Extend every cue sitting at this seam's source and
+      // timeline edge, and fail when the source once had a cue on that seam but
+      // no longer does — a restore that leaves the captions out of sync with
+      // the restored speech must not report success.
+      for (const captions of timeline.tracks) {
+        if (captions.kind !== 'caption') continue;
+        const sourced = captions.clips.filter((cue) =>
+          captionMatchesSource(cue, input.match),
+        );
+        if (!sourced.length && captions.clips.length) continue;
+        const seam = sourced.filter((cue) => {
+          const sourceEdge = touchesA
+            ? reverse
+              ? cue.trimStartMs
+              : cue.trimEndMs
+            : reverse
+              ? cue.trimEndMs
+              : cue.trimStartMs;
+          const targetEdge = touchesA
+            ? reverse
+              ? target.trimStartMs
+              : target.trimEndMs
+            : reverse
+              ? target.trimEndMs
+              : target.trimStartMs;
+          const timelineEdge = touchesA
+            ? cue.startMs + cue.durationMs
+            : cue.startMs;
+          const targetTimelineEdge = touchesA ? fromEnd : target.startMs;
+          return (
+            Math.abs(sourceEdge - targetEdge) <= ADJACENT_TOLERANCE_MS &&
+            Math.abs(timelineEdge - targetTimelineEdge) <= ADJACENT_TOLERANCE_MS
+          );
+        });
+        if (!seam.length) return { ok: false, reason: 'caption-unavailable' };
+        for (const cue of seam)
+          if (!targets.some((item) => item.id === cue.id)) targets.push(cue);
+      }
       const targetIds = new Set(targets.map((c) => c.id));
       const replacements: TimelineOp[] = [];
       for (const affected of timeline.tracks) {
@@ -491,7 +533,13 @@ function buildCutReplacement(
 
     const primary = clip.linkGroupId
       ? sourceClips.find((source) => source.linkGroupId === clip.linkGroupId)
-      : undefined;
+      : clip.kind === 'caption'
+        ? sourceClips.find(
+            (source) =>
+              captionMatchesSource(clip, sourceMatch(source)) &&
+              overlaps(source, clip.startMs, clip.startMs + clip.durationMs),
+          )
+        : undefined;
     const { reverse } = normalizeClipPlayback(
       primary?.playback ?? clip.playback,
     );
@@ -551,7 +599,17 @@ function buildCutReplacement(
         ? sourceClips.find(
             (source) => source.linkGroupId === original.linkGroupId,
           )
-        : undefined;
+        : original?.kind === 'caption'
+          ? sourceClips.find(
+              (source) =>
+                captionMatchesSource(original, sourceMatch(source)) &&
+                overlaps(
+                  source,
+                  original.startMs,
+                  original.startMs + original.durationMs,
+                ),
+            )
+          : undefined;
       return original ? cutCaption(original, next, primary) : next;
     }),
   };
@@ -640,6 +698,10 @@ function rebuildCaption(
   reverse: boolean,
 ): TimelineClip {
   if (clip.kind !== 'caption') return clip;
+  // Only word-timed cues can be rebuilt from transcript words. Authored cues
+  // (capture/manual) carry their own text and nothing to map it onto, so they
+  // keep it — rewriting it from transcript words would be a false restore.
+  if (!clip.words && !clip.tokens) return clip;
   const inside = words.filter(
     (w) => w.startMs >= clip.trimStartMs && w.endMs <= clip.trimEndMs,
   );
@@ -687,4 +749,28 @@ function rebuildCaption(
       : {}),
   };
   return next;
+}
+
+function captionMatchesSource(
+  clip: TimelineClip,
+  match: TranscriptSourceMatch,
+): boolean {
+  if (clip.kind !== 'caption') return false;
+  return (
+    (clip.sourceAnchor !== undefined &&
+      match.assetIds?.includes(clip.sourceAnchor.sourceMediaId) === true) ||
+    (clip.sourceRef.kind === 'asset' &&
+      match.assetIds?.includes(clip.sourceRef.assetId) === true) ||
+    (clip.sourceRef.kind === 'linked' &&
+      clip.sourceRef.sourceId === match.sourceId) ||
+    (match.sourceId !== undefined && clip.params?.sourceId === match.sourceId)
+  );
+}
+
+function sourceMatch(clip: TimelineClip): TranscriptSourceMatch {
+  return clip.sourceRef.kind === 'asset'
+    ? { assetIds: [clip.sourceRef.assetId] }
+    : clip.sourceRef.kind === 'linked'
+      ? { sourceId: clip.sourceRef.sourceId }
+      : {};
 }
