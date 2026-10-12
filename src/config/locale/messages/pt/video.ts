@@ -783,6 +783,13 @@ export default {
       timingEstimated: 'Tempo estimado',
       save: 'Salvar',
       saving: 'Salvando...',
+      sourceTitle: 'Fala',
+      scenesTab: 'Cenas',
+      sourceDescription: 'Palavras da fonte analisada. Clique para ir.',
+      followPlayback: 'Seguir reprodução',
+      notOnTimeline: 'Esta fonte ainda não está na linha do tempo.',
+      cutWord: 'Cortada da linha do tempo',
+      partialWord: 'Parcialmente cortada',
     },
     plan: {
       title: 'Plano de renderização',

@@ -767,6 +767,13 @@ export default {
       timingEstimated: 'अनुमानित समय',
       save: 'सहेजें',
       saving: 'सहेज रहा है...',
+      sourceTitle: 'भाषण',
+      scenesTab: 'सीन',
+      sourceDescription: 'विश्लेषित स्रोत के शब्द। जाने के लिए क्लिक करें।',
+      followPlayback: 'प्लेबैक का अनुसरण करें',
+      notOnTimeline: 'यह स्रोत अभी टाइमलाइन पर नहीं है।',
+      cutWord: 'टाइमलाइन से काटा गया',
+      partialWord: 'आंशिक रूप से कटा',
     },
     plan: {
       title: 'रेंडर प्लान',

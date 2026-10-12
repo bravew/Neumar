@@ -33,6 +33,7 @@ import { SceneInspector } from './SceneInspector';
 import { SourcesPanel } from './SourcesPanel';
 import { useTimelineEditorStore } from './timeline/useTimelineEditorStore';
 import { TimelineClipInspector } from './TimelineClipInspector';
+import { TranscriptTab } from './transcript/TranscriptTab';
 import { TranscriptView } from './TranscriptView';
 import { TransitionLibraryRail } from './transitions/TransitionLibraryRail';
 
@@ -132,6 +133,10 @@ export function SideRail({
   const transitionsEnabled = flags['video.timelineTransitions'] !== false;
   const overlaysEnabled = flags['video.vividOverlays'] !== false;
   const referenceEnabled = flags['video.referenceAnalysis'] !== false;
+  const transcriptLayerEnabled = flags['video.transcriptLayer'] !== false;
+  const TranscriptComponent = transcriptLayerEnabled
+    ? TranscriptTab
+    : TranscriptView;
   const [tab, setTab] = useState<SideRailTab>(recommendedTab ?? 'brief');
   const userPickedTabRef = useRef(false);
   useEffect(() => {
@@ -312,7 +317,7 @@ export function SideRail({
           <BrandRail project={project} onPatch={actions.patchProject} />
         ) : null}
         {tab === 'transcript' ? (
-          <TranscriptView
+          <TranscriptComponent
             project={project}
             actions={actions}
             selectedSceneId={selectedSceneId}

@@ -784,6 +784,13 @@ export default {
       timingEstimated: 'Timing estimé',
       save: 'Enregistrer',
       saving: 'Enregistrement...',
+      sourceTitle: 'Parole',
+      scenesTab: 'Scènes',
+      sourceDescription: 'Mots de la source analysée. Cliquez pour y aller.',
+      followPlayback: 'Suivre la lecture',
+      notOnTimeline: "Cette source n'est pas encore sur la timeline.",
+      cutWord: 'Coupé de la timeline',
+      partialWord: 'Partiellement coupé',
     },
     plan: {
       title: 'Plan de rendu',

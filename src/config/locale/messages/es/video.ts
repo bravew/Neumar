@@ -787,6 +787,13 @@ export default {
       timingEstimated: 'Tiempo estimado',
       save: 'Guardar',
       saving: 'Guardando...',
+      sourceTitle: 'Voz',
+      scenesTab: 'Escenas',
+      sourceDescription: 'Palabras del material analizado. Haz clic para ir.',
+      followPlayback: 'Seguir reproducción',
+      notOnTimeline: 'Este material aún no está en la línea de tiempo.',
+      cutWord: 'Cortada de la línea de tiempo',
+      partialWord: 'Cortada en parte',
     },
     plan: {
       title: 'Plan de render',

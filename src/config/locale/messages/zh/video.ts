@@ -758,6 +758,13 @@ export default {
       timingEstimated: '估算定时',
       save: '保存',
       saving: '正在保存...',
+      sourceTitle: '语音',
+      scenesTab: '场景',
+      sourceDescription: '已分析素材中的词语。点击可跳转。',
+      followPlayback: '跟随播放',
+      notOnTimeline: '此素材尚未放入时间轴。',
+      cutWord: '已从时间轴剪掉',
+      partialWord: '部分剪掉',
     },
     plan: {
       title: '渲染计划',

@@ -777,6 +777,13 @@ export default {
       timingEstimated: 'Estimated timing',
       save: 'Save',
       saving: 'Saving...',
+      sourceTitle: 'Speech',
+      scenesTab: 'Scenes',
+      sourceDescription: 'Words from the analyzed source. Click to jump.',
+      followPlayback: 'Follow playback',
+      notOnTimeline: 'This source is not on the timeline yet.',
+      cutWord: 'Cut from the timeline',
+      partialWord: 'Partly cut',
     },
     plan: {
       title: 'Render plan',
