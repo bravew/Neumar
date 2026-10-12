@@ -294,6 +294,14 @@ export interface CaptionTimelineClip extends BaseTimelineClip {
   captionGroupId?: string;
   text: string;
   tokens?: CaptionToken[];
+  /** Timeline-absolute word timings used by generated caption renderers. */
+  words?: Array<{ text: string; startMs: number; endMs: number }>;
+  sourceAnchor?: {
+    sourceMediaId: string;
+    sourceElementId: string;
+    sourceStartMs: number;
+    sourceEndMs: number;
+  };
   style?: SubtitleStyle;
 }
 

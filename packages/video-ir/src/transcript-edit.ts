@@ -1,6 +1,8 @@
+import { EditBuilderError } from './edit-builders.js';
 import { normalizeClipPlayback } from './playback.js';
 import { applyTimelineOp } from './timeline-ops.js';
 import type {
+  CaptionTimelineClip,
   Timeline,
   TimelineClip,
   TimelineOp,
@@ -21,6 +23,8 @@ export interface TranscriptSourceMatch {
 }
 
 export interface TranscriptWordTiming {
+  /** Text is needed to rebuild generated captions when restoring speech. */
+  text?: string;
   startMs: number;
   endMs: number;
 }
@@ -64,7 +68,8 @@ export type TranscriptRestoreFailure =
   | 'nothing-to-restore'
   | 'seam-not-found'
   | 'interior-gap'
-  | 'no-room';
+  | 'no-room'
+  | 'track-locked';
 
 const ADJACENT_TOLERANCE_MS = 2;
 
@@ -174,7 +179,8 @@ export function compileTranscriptCut(
   let timeline = input.timeline;
   const ops: TimelineOp[] = [];
   for (const window of windows) {
-    const linkedGroups = linkGroupsOf(matchingClips(timeline, input.match));
+    const sourceClips = matchingClips(timeline, input.match);
+    const linkedGroups = linkGroupsOf(sourceClips);
     const splitGroups = new Map<string, { left: string; right: string }>();
     const resolveSplit = (id: string) => {
       let existing = splitGroups.get(id);
@@ -193,6 +199,11 @@ export function compileTranscriptCut(
               linkedGroups.has(clip.linkGroupId))),
       );
       if (!touches) continue;
+      if (track.locked) {
+        throw new EditBuilderError('Track is locked', 'track_locked', {
+          trackId: track.id,
+        });
+      }
       const replacement = buildCutReplacement(
         track,
         window.startMs,
@@ -200,6 +211,7 @@ export function compileTranscriptCut(
         magnetic,
         idFactory,
         resolveSplit,
+        sourceClips,
       );
       if (replacement.before.length === 0) continue;
       const op: TimelineOp = {
@@ -228,92 +240,177 @@ export function compileTranscriptRestore(
 ): CompileTranscriptRestoreResult {
   const span = wordSpan(input);
   const magnetic = input.magnetic ?? true;
-  const primaries = matchingClips(input.timeline, input.match);
+  let timeline = input.timeline;
   const ops: TimelineOp[] = [];
-  const handledGroups = new Set<string>();
-  let sawGap = false;
+  const handled = new Set<string>();
+  const primaries = matchingClips(timeline, input.match);
   let failure: TranscriptRestoreFailure = 'seam-not-found';
-
-  const byTrack = new Map<string, TimelineClip[]>();
-  for (const clip of primaries) {
-    const trackId = trackIdOf(input.timeline, clip.id);
-    byTrack.set(trackId, [...(byTrack.get(trackId) ?? []), clip]);
-  }
-  for (const [trackId, clips] of byTrack) {
-    const ordered = [...clips].sort((l, r) => l.startMs - r.startMs);
-    const trackClips =
-      input.timeline.tracks.find((t) => t.id === trackId)?.clips ?? [];
-    // i = -1 handles a leading cut (no clip before the gap); the last index
-    // handles a trailing cut (no clip after it).
+  for (const track of timeline.tracks) {
+    const ordered = primaries
+      .filter((clip) => track.clips.some((item) => item.id === clip.id))
+      .sort((l, r) => l.startMs - r.startMs);
     for (let i = -1; i < ordered.length; i++) {
       const a = ordered[i];
       const b = ordered[i + 1];
-      if (!a && !b) continue;
-      if (a && normalizeClipPlayback(a.playback).reverse) continue;
-      if (b && normalizeClipPlayback(b.playback).reverse) continue;
-      const gapStart = a ? a.trimEndMs : 0;
-      const gapEnd = b ? b.trimStartMs : span.endMs;
-      if (gapEnd <= gapStart) continue;
-      if (a && gapStart > span.startMs + ADJACENT_TOLERANCE_MS) continue;
-      if (b && gapEnd < span.endMs - ADJACENT_TOLERANCE_MS) continue;
-      if (!a && gapEnd > span.endMs + ADJACENT_TOLERANCE_MS) continue;
-      sawGap = true;
+      const host = a ?? b;
+      if (!host) continue;
+      const { speed, reverse } = normalizeClipPlayback(host.playback);
+      const gapStart = reverse ? (b?.trimEndMs ?? 0) : (a?.trimEndMs ?? 0);
+      const gapEnd = reverse
+        ? (a?.trimStartMs ?? span.endMs)
+        : (b?.trimStartMs ?? span.endMs);
+      if (
+        gapEnd <= gapStart ||
+        span.startMs < gapStart - ADJACENT_TOLERANCE_MS ||
+        span.endMs > gapEnd + ADJACENT_TOLERANCE_MS
+      )
+        continue;
+      if (a && b) {
+        const other = normalizeClipPlayback(b.playback);
+        if (other.speed !== speed || other.reverse !== reverse)
+          return { ok: false, reason: 'seam-not-found' };
+        // Source neighbors must also still form a timeline seam. A moved or
+        // occupied seam cannot be restored by guessing where content belongs.
+        if (
+          magnetic &&
+          Math.abs(b.startMs - a.startMs - a.durationMs) > ADJACENT_TOLERANCE_MS
+        )
+          return { ok: false, reason: 'seam-not-found' };
+        if (
+          track.clips.some(
+            (clip) =>
+              clip.id !== a.id &&
+              clip.id !== b.id &&
+              overlaps(
+                clip,
+                a.startMs + a.durationMs - ADJACENT_TOLERANCE_MS,
+                b.startMs + ADJACENT_TOLERANCE_MS,
+              ),
+          )
+        )
+          return { ok: false, reason: 'seam-not-found' };
+      }
+      if (
+        a &&
+        b &&
+        !magnetic &&
+        Math.abs(
+          b.startMs - a.startMs - a.durationMs - (gapEnd - gapStart) / speed,
+        ) > ADJACENT_TOLERANCE_MS
+      )
+        return { ok: false, reason: 'seam-not-found' };
       const touchesA =
-        Boolean(a) && span.startMs <= gapStart + ADJACENT_TOLERANCE_MS;
+        Boolean(a) &&
+        (reverse
+          ? span.endMs >= gapEnd - ADJACENT_TOLERANCE_MS
+          : span.startMs <= gapStart + ADJACENT_TOLERANCE_MS);
       const touchesB =
-        Boolean(b) && span.endMs >= gapEnd - ADJACENT_TOLERANCE_MS;
+        Boolean(b) &&
+        (reverse
+          ? span.startMs <= gapStart + ADJACENT_TOLERANCE_MS
+          : span.endMs >= gapEnd - ADJACENT_TOLERANCE_MS);
       if (!touchesA && !touchesB) {
         failure = 'interior-gap';
         continue;
       }
       const target = (touchesA ? a : b)!;
-      if (target.linkGroupId && handledGroups.has(target.linkGroupId)) continue;
-      const restoredSourceMs = touchesA
-        ? Math.min(span.endMs, gapEnd) - gapStart
-        : gapEnd - Math.max(span.startMs, gapStart);
-      const speed = normalizeClipPlayback(target.playback).speed;
-      const addMs = Math.round(restoredSourceMs / speed);
+      const group = target.linkGroupId ?? target.id;
+      if (handled.has(group)) continue;
+      const restoredStart = reverse
+        ? touchesA
+          ? span.startMs
+          : gapStart
+        : touchesA
+          ? gapStart
+          : span.startMs;
+      const restoredEnd = reverse
+        ? touchesA
+          ? gapEnd
+          : span.endMs
+        : touchesA
+          ? span.endMs
+          : gapEnd;
+      const addMs = Math.round((restoredEnd - restoredStart) / speed);
       if (addMs <= 0) continue;
-      if (!magnetic) {
-        const targetEnd = target.startMs + target.durationMs;
-        const room = touchesA
-          ? (b ? b.startMs : Number.POSITIVE_INFINITY) - targetEnd
-          : target.startMs -
-            trackClips
-              .filter((c) => c.id !== target.id && c.startMs < target.startMs)
-              .reduce((m, c) => Math.max(m, c.startMs + c.durationMs), 0);
-        if (room < addMs) {
-          failure = 'no-room';
-          continue;
-        }
-      }
-      const from = timing(target);
-      const to = touchesA
-        ? {
-            ...from,
-            durationMs: from.durationMs + addMs,
-            trimEndMs: from.trimEndMs + Math.round(restoredSourceMs),
+      const fromEnd = target.startMs + target.durationMs;
+      const targets = timeline.tracks.flatMap((t) =>
+        t.clips.filter(
+          (c) =>
+            c.id === target.id ||
+            (target.linkGroupId && c.linkGroupId === target.linkGroupId),
+        ),
+      );
+      const targetIds = new Set(targets.map((c) => c.id));
+      const replacements: TimelineOp[] = [];
+      for (const affected of timeline.tracks) {
+        if (!affected.clips.some((c) => targetIds.has(c.id))) continue;
+        if (affected.locked) return { ok: false, reason: 'track-locked' };
+        const before: TimelineClip[] = [];
+        const after: TimelineClip[] = [];
+        for (const clip of affected.clips) {
+          if (targetIds.has(clip.id)) {
+            const extendingAtEnd = touchesA;
+            const nextStart =
+              extendingAtEnd || magnetic ? clip.startMs : clip.startMs - addMs;
+            const nextEnd = nextStart + clip.durationMs + addMs;
+            if (
+              nextStart < 0 ||
+              (!magnetic &&
+                affected.clips.some(
+                  (other) =>
+                    !targetIds.has(other.id) &&
+                    overlaps(other, nextStart, nextEnd),
+                ))
+            )
+              return { ok: false, reason: 'no-room' };
+            const next = {
+              ...clip,
+              startMs: nextStart,
+              durationMs: clip.durationMs + addMs,
+              trimStartMs: reverse
+                ? extendingAtEnd
+                  ? restoredStart
+                  : clip.trimStartMs
+                : extendingAtEnd
+                  ? clip.trimStartMs
+                  : restoredStart,
+              trimEndMs: reverse
+                ? extendingAtEnd
+                  ? clip.trimEndMs
+                  : restoredEnd
+                : extendingAtEnd
+                  ? restoredEnd
+                  : clip.trimEndMs,
+            };
+            before.push(clip);
+            after.push(rebuildCaption(next, input.words, speed, reverse));
+          } else if (
+            magnetic &&
+            clip.startMs >= fromEnd - ADJACENT_TOLERANCE_MS
+          ) {
+            before.push(clip);
+            after.push(shiftCaption(clip, addMs));
           }
-        : {
-            ...from,
-            startMs: Math.max(0, from.startMs - addMs),
-            durationMs: from.durationMs + addMs,
-            trimStartMs: from.trimStartMs - Math.round(restoredSourceMs),
-          };
-      ops.push({
-        kind: 'clip.trim',
-        clipId: target.id,
-        from,
-        to,
-        magnetic,
-      });
-      if (target.linkGroupId) handledGroups.add(target.linkGroupId);
+        }
+        replacements.push({
+          kind: 'clip.removeTimeRange',
+          trackId: affected.id,
+          startMs: target.startMs,
+          endMs: target.startMs + addMs,
+          magnetic: false,
+          before,
+          after,
+        });
+      }
+      // Explicit snapshots ripple each linked track exactly once, unlike
+      // linked clip.trim, which extends siblings without moving their tails.
+      for (const op of replacements)
+        timeline = applyTimelineOp(timeline, op).timeline;
+      ops.push(...replacements);
+      handled.add(group);
     }
   }
-  if (ops.length === 0) {
-    return { ok: false, reason: sawGap ? failure : 'seam-not-found' };
-  }
-  return { ok: true, ops };
+  return ops.length ? { ok: true, ops } : { ok: false, reason: failure };
 }
 
 function wordSpan(input: {
@@ -348,13 +445,6 @@ function linkGroupsOf(clips: readonly TimelineClip[]): Set<string> {
   return groups;
 }
 
-function trackIdOf(timeline: Timeline, clipId: string): string {
-  return (
-    timeline.tracks.find((track) => track.clips.some((c) => c.id === clipId))
-      ?.id ?? ''
-  );
-}
-
 function mergeSpans(
   spans: readonly { startMs: number; endMs: number }[],
 ): { startMs: number; endMs: number }[] {
@@ -375,15 +465,6 @@ function overlaps(clip: TimelineClip, startMs: number, endMs: number): boolean {
   return clip.startMs < endMs && clip.startMs + clip.durationMs > startMs;
 }
 
-function timing(clip: TimelineClip) {
-  return {
-    startMs: clip.startMs,
-    durationMs: clip.durationMs,
-    trimStartMs: clip.trimStartMs,
-    trimEndMs: clip.trimEndMs,
-  };
-}
-
 function buildCutReplacement(
   track: TimelineTrack,
   startMs: number,
@@ -391,22 +472,37 @@ function buildCutReplacement(
   magnetic: boolean,
   idFactory: () => string,
   resolveSplit: (linkGroupId: string) => { left: string; right: string },
+  sourceClips: readonly TimelineClip[],
 ): { before: TimelineClip[]; after: TimelineClip[] } {
   const removedMs = endMs - startMs;
   const before: TimelineClip[] = [];
   const after: TimelineClip[] = [];
+  const originals = new Map<string, TimelineClip>();
   for (const clip of track.clips) {
     const clipEnd = clip.startMs + clip.durationMs;
     const intersects = overlaps(clip, startMs, endMs);
     if (!intersects && !(magnetic && clip.startMs >= endMs)) continue;
     before.push(clip);
     if (!intersects) {
-      after.push({ ...clip, startMs: Math.max(0, clip.startMs - removedMs) });
+      after.push(shiftCaption(clip, -removedMs));
       continue;
     }
     if (startMs <= clip.startMs && endMs >= clipEnd) continue;
 
-    const { speed, reverse } = normalizeClipPlayback(clip.playback);
+    const primary = clip.linkGroupId
+      ? sourceClips.find((source) => source.linkGroupId === clip.linkGroupId)
+      : undefined;
+    const { reverse } = normalizeClipPlayback(
+      primary?.playback ?? clip.playback,
+    );
+    const speed =
+      clip.kind === 'caption' && clip.durationMs > 0
+        ? (clip.trimEndMs - clip.trimStartMs) / clip.durationMs
+        : normalizeClipPlayback(clip.playback).speed;
+    const append = (next: TimelineClip) => {
+      originals.set(next.id, clip);
+      after.push(next);
+    };
     const split =
       clip.startMs < startMs && clipEnd > endMs && clip.linkGroupId
         ? resolveSplit(clip.linkGroupId)
@@ -415,7 +511,7 @@ function buildCutReplacement(
     if (clip.startMs < startMs) {
       const durationMs = startMs - clip.startMs;
       const sourceMs = Math.round(durationMs * speed);
-      after.push(
+      append(
         withLinkGroup(
           {
             ...clip,
@@ -431,7 +527,7 @@ function buildCutReplacement(
     if (clipEnd > endMs) {
       const skippedMs = Math.max(0, endMs - clip.startMs);
       const sourceMs = Math.round(skippedMs * speed);
-      after.push(
+      append(
         withLinkGroup(
           {
             ...clip,
@@ -447,7 +543,18 @@ function buildCutReplacement(
       );
     }
   }
-  return { before, after };
+  return {
+    before,
+    after: after.map((next) => {
+      const original = originals.get(next.id);
+      const primary = original?.linkGroupId
+        ? sourceClips.find(
+            (source) => source.linkGroupId === original.linkGroupId,
+          )
+        : undefined;
+      return original ? cutCaption(original, next, primary) : next;
+    }),
+  };
 }
 
 function withLinkGroup<T extends TimelineClip>(
@@ -457,4 +564,127 @@ function withLinkGroup<T extends TimelineClip>(
   if (linkGroupId) return { ...clip, linkGroupId };
   const { linkGroupId: _omit, ...rest } = clip;
   return rest as T;
+}
+
+/** Shift both caption representations, whose timings are timeline-absolute. */
+function shiftCaption(clip: TimelineClip, deltaMs: number): TimelineClip {
+  if (clip.kind !== 'caption')
+    return { ...clip, startMs: clip.startMs + deltaMs };
+  return {
+    ...clip,
+    startMs: clip.startMs + deltaMs,
+    words: clip.words?.map((w) => ({
+      ...w,
+      startMs: w.startMs + deltaMs,
+      endMs: w.endMs + deltaMs,
+    })),
+    tokens: clip.tokens?.map((w) => ({
+      ...w,
+      startMs: w.startMs + deltaMs,
+      endMs: w.endMs + deltaMs,
+    })),
+  };
+}
+
+function cutCaption(
+  original: TimelineClip,
+  next: TimelineClip,
+  primary?: TimelineClip,
+): TimelineClip {
+  if (original.kind !== 'caption' || next.kind !== 'caption') return next;
+  const { reverse } = normalizeClipPlayback(
+    primary?.playback ?? original.playback,
+  );
+  const speed =
+    (original.trimEndMs - original.trimStartMs) / original.durationMs;
+  const lo = reverse
+    ? original.startMs + (original.trimEndMs - next.trimEndMs) / speed
+    : original.startMs + (next.trimStartMs - original.trimStartMs) / speed;
+  const hi = lo + next.durationMs;
+  const delta = next.startMs - lo;
+  const keep = <T extends { startMs: number; endMs: number }>(items: T[]) =>
+    items
+      .filter(
+        (w) =>
+          w.startMs >= lo - ADJACENT_TOLERANCE_MS &&
+          w.endMs <= hi + ADJACENT_TOLERANCE_MS,
+      )
+      .map((w) => ({
+        ...w,
+        startMs: w.startMs + delta,
+        endMs: w.endMs + delta,
+      }));
+  const words = original.words ? keep(original.words) : undefined;
+  const tokens = original.tokens ? keep(original.tokens) : undefined;
+  return {
+    ...next,
+    ...(words ? { words } : {}),
+    ...(tokens ? { tokens } : {}),
+    text: (words ?? tokens)?.map((w) => w.text).join(' ') ?? next.text,
+    ...(next.sourceAnchor
+      ? {
+          sourceAnchor: {
+            ...next.sourceAnchor,
+            sourceStartMs: next.trimStartMs,
+            sourceEndMs: next.trimEndMs,
+          },
+        }
+      : {}),
+  };
+}
+
+function rebuildCaption(
+  clip: TimelineClip,
+  words: readonly TranscriptWordTiming[],
+  speed: number,
+  reverse: boolean,
+): TimelineClip {
+  if (clip.kind !== 'caption') return clip;
+  const inside = words.filter(
+    (w) => w.startMs >= clip.trimStartMs && w.endMs <= clip.trimEndMs,
+  );
+  if (!inside.length || inside.some((w) => w.text === undefined)) {
+    throw new EditBuilderError(
+      'Transcript text is required to restore captions',
+      'transcript_text_required',
+    );
+  }
+  const mapped = inside
+    .map((w) => ({
+      text: w.text!,
+      startMs: Math.round(
+        clip.startMs +
+          (reverse ? clip.trimEndMs - w.endMs : w.startMs - clip.trimStartMs) /
+            speed,
+      ),
+      endMs: Math.round(
+        clip.startMs +
+          (reverse ? clip.trimEndMs - w.startMs : w.endMs - clip.trimStartMs) /
+            speed,
+      ),
+    }))
+    .sort((a, b) => a.startMs - b.startMs);
+  const next: CaptionTimelineClip = {
+    ...clip,
+    text: mapped.map((w) => w.text).join(' '),
+    ...(clip.words ? { words: mapped } : {}),
+    ...(clip.tokens
+      ? {
+          tokens: mapped.map((w, index) => ({
+            ...w,
+            id: `${clip.id}:restored:${index}`,
+          })),
+        }
+      : {}),
+    ...(clip.sourceAnchor
+      ? {
+          sourceAnchor: {
+            ...clip.sourceAnchor,
+            sourceStartMs: clip.trimStartMs,
+            sourceEndMs: clip.trimEndMs,
+          },
+        }
+      : {}),
+  };
+  return next;
 }
