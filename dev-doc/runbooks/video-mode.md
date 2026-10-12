@@ -230,6 +230,75 @@ boundary windows, collect structured findings, optionally re-render, and stop at
 the configured cap (maximum three attempts). Plugin manifest `until` text is
 advisory and must not be treated as a host-enforced loop condition.
 
+## Interactive Transcript Layer (behind `video.transcriptLayer`)
+
+After a source is analyzed, its word-timed transcript becomes an editing
+surface: a word list in the `transcript` rail tab and a derived row above the
+timeline tracks. The flag defaults on.
+
+### How it works
+
+- Word state is **derived, not stored**. For each source, every timeline clip
+  whose `sourceRef` resolves to it (including `linked` refs and link-group
+  siblings) is converted to the source span it plays, honoring `trimStartMs`,
+  `trimEndMs`, `playback.speed`, and reverse playback. The union of those spans
+  decides each word: `kept`, `cut`, or `partial`.
+- Cut and restore are pure compilers in
+  `packages/video-ir/src/transcript-edit.ts`. A cut is `clip.removeTimeRange`
+  with explicit `before`/`after` snapshots covering the primary track,
+  link-group siblings, and ripple, so replay is deterministic and undo restores
+  the same shapes. A restore re-inserts the removed span at its seam; it fails
+  with a reason (`seam-not-found`, `interior-gap`, `no-room`, `track-locked`,
+  `caption-unavailable`) rather than guessing.
+- A cue can be reached by source match from a clip that holds no link group and
+  again by its link group from a sibling. The restore tracks the clips it has
+  already extended so a later seam pass neither extends them twice nor reads
+  their moved geometry as a missing seam cue.
+- The panel and the timeline row share one selection store
+  (`useTranscriptSelectionStore`); the panel follows the editor's live timeline
+  so cut/undo feedback is immediate.
+- Text corrections go to `PATCH /projects/:id/sources/:sourceId/transcript`,
+  which updates word text only — timings never move. Each correction carries the
+  text it was loaded from (`expectedText`) checked under the project lock, so a
+  delayed edit returns 409 instead of overwriting a newer correction. Captions
+  generated from the transcript are updated only when every provenance field
+  (STT origin, `params.sourceId`, `sourceAnchor`, `sourceRef`) matches.
+
+### Modes (the safe one is default)
+
+| Mode | Delete / Backspace | Media |
+| --- | --- | --- |
+| **Text** (default) | Removes the word's text or opens the inline editor on double-click | untouched |
+| **Cut media** | Compiles a cut as one undo step across video, audio, and linked captions | changed |
+
+Delete never reaches the timeline in Text mode.
+
+### The agent tools
+
+`video_transcript_cut_words` and `video_transcript_restore_words` take
+`{ sourceId, startIndex, endIndex }` (zero-based, inclusive) and go through the
+same compilers as the UI, so approvals, diffs, and history behave like every
+other timeline edit. Both are listed in `DESTRUCTIVE_TOOLS`
+(`src-api/src/extensions/agent/video/permissions.ts`) and are hidden when the
+flag is off.
+
+### Acceptance run
+
+`tests/e2e/specs/video-transcript-layer.spec.ts` drives analyze → select → cut →
+undo → restore against a fixture project. It seeds the transcript analysis cache
+rather than transcribing, so the run needs no ASR provider or network. Generate
+the media fixture with
+`python3 tests/e2e/fixtures/video/transcript/generate.py`.
+
+### Known limitations
+
+- A caption cue wholly inside a cut has no surviving linked cue to extend, so it
+  cannot be reconstructed automatically. Surviving split cues rebuild their
+  tokens from the transcript words.
+- Automatic restore is unavailable for fragments at reversed playback speed.
+- Captions reach the compilers through `linkGroupId`; a generated cue with no
+  link group is not cut or retimed.
+
 ## Audio Editing
 
 Use the named audio tools before raw timeline ops:

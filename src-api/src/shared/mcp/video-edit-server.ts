@@ -6073,6 +6073,24 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
       },
     ),
     tool(
+      'video_close_gap',
+      'Close an empty half-open project-frame gap on one track by shifting downstream clips left.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        trackId: z.string().min(1),
+        gapStartFrame: z.number().int().min(0),
+        gapEndFrame: z.number().int().positive(),
+        applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
+        summary: z.string().max(280).optional(),
+      },
+      async (input) => {
+        const { applyMode, ...rest } = input;
+        const { projectId, call } = camelToolCall('closeGap', rest);
+        return timelineEditToolCallResult(projectId, options, call, applyMode);
+      },
+    ),
+    tool(
       'video_transcript_cut_words',
       'Cut a source transcript word range (zero-based inclusive indices) from video, audio and linked captions. Analyze the source first.',
       {
@@ -6116,24 +6134,6 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
           'transcriptRestoreWords',
           rest,
         );
-        return timelineEditToolCallResult(projectId, options, call, applyMode);
-      },
-    ),
-    tool(
-      'video_close_gap',
-      'Close an empty half-open project-frame gap on one track by shifting downstream clips left.',
-      {
-        projectId: PROJECT_ID_SCHEMA,
-        reasoning: REASONING_SCHEMA,
-        trackId: z.string().min(1),
-        gapStartFrame: z.number().int().min(0),
-        gapEndFrame: z.number().int().positive(),
-        applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
-        summary: z.string().max(280).optional(),
-      },
-      async (input) => {
-        const { applyMode, ...rest } = input;
-        const { projectId, call } = camelToolCall('closeGap', rest);
         return timelineEditToolCallResult(projectId, options, call, applyMode);
       },
     ),

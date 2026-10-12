@@ -104,13 +104,17 @@ export function TranscriptSuggestions({
               setPreview(null);
               const store = useTimelineEditorStore.getState();
               if (!store.timeline) return;
-              const ops = compileSuggestionCut(
-                store.timeline as VideoTimeline,
-                view,
-                candidate,
-              );
-              if (!ops.length || !store.applyTimelineOpBatch(ops))
-                toast.error(labels.nothingToDo);
+              try {
+                const ops = compileSuggestionCut(
+                  store.timeline as VideoTimeline,
+                  view,
+                  candidate,
+                );
+                if (!ops.length || !store.applyTimelineOpBatch(ops))
+                  toast.error(labels.nothingToDo);
+              } catch {
+                toast.error(labels.restoreFailed);
+              }
             }}
           >
             {labels.acceptSuggestion}
