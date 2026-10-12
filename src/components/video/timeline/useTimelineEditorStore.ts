@@ -24,6 +24,7 @@ import {
   transitionParamValueEquals,
   type EditBuildResult,
   type FrameRateLike,
+  type TimelineOp,
 } from '@neumar/video-ir';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
@@ -148,6 +149,8 @@ interface TimelineEditorState {
   ) => void;
   splitSelectedClipAtPlayhead: (playheadMs: number) => void;
   deleteSelectedClip: (options?: { ripple?: boolean }) => void;
+  /** Applies compiled ops as one undoable user edit; false if nothing changed. */
+  applyTimelineOpBatch: (ops: TimelineOp[]) => boolean;
   duplicateSelectedClips: () => void;
   insertClip: (trackId: string, clip: VideoTimelineClip) => void;
   removeClipsForAssets: (assetIds: Iterable<string>) => void;
@@ -501,6 +504,32 @@ export const useTimelineEditorStore = create<TimelineEditorState>(
           { selection: 'clear' },
         );
       }),
+    applyTimelineOpBatch: (ops) => {
+      let applied = false;
+      set((state) => {
+        if (!state.timeline || ops.length === 0) return state;
+        const next = applyEditBuildResult(
+          state,
+          state.timeline,
+          {
+            ops,
+            conflicts: [],
+            metadata: {
+              affectedTrackIds: [],
+              changedClipIds: [],
+              createdClipIds: [],
+              removedClipIds: [],
+              shiftedClipIds: [],
+              inspectClipIds: [],
+            },
+          },
+          { selection: 'preserve' },
+        );
+        applied = next !== state;
+        return next;
+      });
+      return applied;
+    },
     duplicateSelectedClips: () =>
       set((state) => {
         if (!state.timeline || state.selectedClipIds.size === 0) return state;

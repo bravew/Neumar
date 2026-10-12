@@ -12,6 +12,7 @@ import {
   wordSeekMs,
   type SourceTranscriptView,
 } from './sourceTranscriptView';
+import { runTranscriptAction, TranscriptEditBar } from './TranscriptEditBar';
 import { useTranscriptSelectionStore } from './useTranscriptSelectionStore';
 
 function formatTimestamp(ms: number): string {
@@ -74,6 +75,7 @@ function SourceWords({ view }: { view: SourceTranscriptView }) {
   const followPlayback = useTranscriptSelectionStore((s) => s.followPlayback);
   const selectWord = useTranscriptSelectionStore((s) => s.selectWord);
   const clearSelection = useTranscriptSelectionStore((s) => s.clearSelection);
+  const mode = useTranscriptSelectionStore((s) => s.mode);
   const lines = useMemo(() => groupWordsIntoLines(view.words), [view.words]);
   const activeIndex = findActiveWordIndex(view, playheadMs);
   const dragging = useRef(false);
@@ -118,7 +120,27 @@ function SourceWords({ view }: { view: SourceTranscriptView }) {
     index <= selection.endIndex;
 
   return (
-    <div className="space-y-2" role="group" aria-label={labels.sourceTitle}>
+    <div
+      className="space-y-2 outline-none"
+      role="group"
+      aria-label={labels.sourceTitle}
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          clearSelection();
+          return;
+        }
+        if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+        // Text mode never touches media (AT-09); cutting needs Cut media mode.
+        if (mode !== 'cut' || selection?.sourceId !== view.sourceId) return;
+        event.preventDefault();
+        runTranscriptAction('cut', view, selection, {
+          restoreFailed: labels.restoreFailed,
+          nothingToDo: labels.nothingToDo,
+        });
+      }}
+    >
+      <TranscriptEditBar view={view} />
       {lines.map((line) => (
         <div
           key={line.startIndex}
