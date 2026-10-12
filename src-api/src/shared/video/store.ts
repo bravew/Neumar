@@ -34,6 +34,11 @@ import {
 } from './analysis/source-range-evidence';
 import { transcribeSourceMedia } from './analysis/transcript';
 import {
+  applyTranscriptCorrections,
+  type TranscriptCorrectionResult,
+  type TranscriptWordCorrection,
+} from './analysis/transcript-corrections';
+import {
   estimateStoryboardCostCents,
   estimateStoryboardCostUsd,
 } from './cost-estimator';
@@ -1681,6 +1686,34 @@ export async function getSourceAnalysis(
     (project.sourceAnalyses ?? []).find((item) => item.sourceId === sourceId) ??
     null
   );
+}
+
+/**
+ * Sparse text corrections to a source's cached transcript (timings untouched).
+ * `expectedRevision` is the project revision the client edited against; a
+ * mismatch throws `ProjectRevisionConflictError` instead of overwriting.
+ */
+export async function patchSourceTranscript(
+  projectId: string,
+  sourceId: string,
+  input: {
+    corrections: TranscriptWordCorrection[];
+    expectedRevision?: number;
+  },
+): Promise<TranscriptCorrectionResult> {
+  return withProjectLock(projectId, async () => {
+    const project = await getProject(projectId);
+    const result = applyTranscriptCorrections(
+      project,
+      sourceId,
+      input.corrections,
+    );
+    if (result.project === project) return result;
+    await writeProject(result.project, {
+      expectedRevision: input.expectedRevision,
+    });
+    return result;
+  });
 }
 
 export async function createCutPlan(

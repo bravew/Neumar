@@ -65,7 +65,10 @@ export function TranscriptTab(props: TranscriptViewProps) {
         </div>
       </div>
       {pane === 'speech' ? (
-        <SourceTranscriptPanel project={props.project} />
+        <SourceTranscriptPanel
+          project={props.project}
+          onCorrectWord={props.actions.patchSourceTranscript}
+        />
       ) : (
         <TranscriptView {...props} className="min-h-0 flex-1 border-0" />
       )}

@@ -798,6 +798,8 @@ export default {
       nothingToDo: 'Nothing to change for this selection.',
       layerTitle: 'Transcript',
       layerCutMarker: 'Cut seam - select the removed words',
+      editWordLabel: 'Correct transcript word',
+      correctFailed: 'Could not save the correction.',
     },
     plan: {
       title: 'Render plan',

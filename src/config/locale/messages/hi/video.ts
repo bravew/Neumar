@@ -786,6 +786,8 @@ export default {
       nothingToDo: 'इस चयन में बदलने के लिए कुछ नहीं है।',
       layerTitle: 'ट्रांसक्रिप्ट',
       layerCutMarker: 'कट की जगह - हटाए गए शब्द चुनें',
+      editWordLabel: 'ट्रांसक्रिप्ट शब्द सुधारें',
+      correctFailed: 'सुधार सहेजा नहीं जा सका।',
     },
     plan: {
       title: 'रेंडर प्लान',

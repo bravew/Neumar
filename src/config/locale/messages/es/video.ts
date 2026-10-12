@@ -808,6 +808,8 @@ export default {
       nothingToDo: 'No hay nada que cambiar en esta selección.',
       layerTitle: 'Transcripción',
       layerCutMarker: 'Corte: selecciona las palabras eliminadas',
+      editWordLabel: 'Corregir palabra de la transcripción',
+      correctFailed: 'No se pudo guardar la corrección.',
     },
     plan: {
       title: 'Plan de render',

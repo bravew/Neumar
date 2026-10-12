@@ -805,6 +805,8 @@ export default {
       nothingToDo: 'Rien à modifier pour cette sélection.',
       layerTitle: 'Transcription',
       layerCutMarker: 'Coupe : sélectionner les mots supprimés',
+      editWordLabel: 'Corriger le mot de la transcription',
+      correctFailed: "Impossible d'enregistrer la correction.",
     },
     plan: {
       title: 'Plan de rendu',
