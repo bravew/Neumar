@@ -18,6 +18,7 @@ import {
 } from '@neumar/video-ir';
 import { z } from 'zod';
 
+import { buildTranscriptWordOps } from './analysis/transcript-agent-ops';
 import { retimeTimelineCaptions } from './caption-retime';
 import { normalizeCssColor } from './css-colors';
 import { calculateWer } from './eval';
@@ -743,6 +744,32 @@ export const videoAgentToolCallSchema = z.discriminatedUnion('name', [
     reasoning: z.string().optional(),
   }),
   z.object({
+    name: z.literal('transcriptCutWords'),
+    args: z
+      .object({
+        sourceId: z.string().min(1),
+        startIndex: z.number().int().min(0),
+        endIndex: z.number().int().min(0),
+        ripple: z.boolean().optional(),
+        summary: z.string().max(280).optional(),
+      })
+      .strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
+    name: z.literal('transcriptRestoreWords'),
+    args: z
+      .object({
+        sourceId: z.string().min(1),
+        startIndex: z.number().int().min(0),
+        endIndex: z.number().int().min(0),
+        ripple: z.boolean().optional(),
+        summary: z.string().max(280).optional(),
+      })
+      .strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
     name: z.literal('closeGap'),
     args: z
       .object({
@@ -1109,6 +1136,8 @@ export type TimelineEditAgentToolCall = Extract<
       | 'flipClip'
       | 'setClipTransform'
       | 'closeGap'
+      | 'transcriptCutWords'
+      | 'transcriptRestoreWords'
       | 'setAudioClipGain'
       | 'setAudioClipMute'
       | 'setAudioClipFade'
@@ -1198,6 +1227,8 @@ export function isTimelineEditAgentToolCall(
     case 'flipClip':
     case 'setClipTransform':
     case 'closeGap':
+    case 'transcriptCutWords':
+    case 'transcriptRestoreWords':
     case 'setAudioClipGain':
     case 'setAudioClipMute':
     case 'setAudioClipFade':
@@ -1401,6 +1432,8 @@ function buildVideoAgentToolDiff(
     case 'flipClip':
     case 'setClipTransform':
     case 'closeGap':
+    case 'transcriptCutWords':
+    case 'transcriptRestoreWords':
     case 'setAudioClipGain':
     case 'setAudioClipMute':
     case 'setAudioClipFade':
@@ -2933,6 +2966,10 @@ export function buildTimelineEditToolOps(
       return buildSetClipTransformOps(timeline, call.args);
     case 'closeGap':
       return buildCloseGapOps(timeline, call.args);
+    case 'transcriptCutWords':
+      return buildTranscriptWordOps(project, timeline, 'cut', call.args);
+    case 'transcriptRestoreWords':
+      return buildTranscriptWordOps(project, timeline, 'restore', call.args);
     case 'setAudioClipGain':
       return buildSetAudioClipGainOps(timeline, call.args);
     case 'setAudioClipMute':

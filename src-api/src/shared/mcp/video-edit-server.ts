@@ -423,6 +423,8 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_apply_overlay_motion_template',
   'video_set_clip_params',
   'video_close_gap',
+  'video_transcript_cut_words',
+  'video_transcript_restore_words',
   'video_set_audio_clip_gain',
   'video_set_audio_clip_mute',
   'video_set_audio_clip_fade',
@@ -2545,7 +2547,14 @@ async function attachVideoAsset(
 }
 
 export function createVideoEditTools(options: VideoEditServerOptions = {}) {
-  return withVideoRefResolution(buildVideoEditTools(options), options);
+  return withVideoRefResolution(
+    buildVideoEditTools(options).filter(
+      (definition) =>
+        !definition.name.startsWith('video_transcript_') ||
+        getVideoFeatureFlag('video.transcriptLayer'),
+    ),
+    options,
+  );
 }
 
 /**
@@ -6060,6 +6069,53 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
           ...rest,
           clipId: resolveClipRef(clipId, selectionResolverRefs(options)),
         });
+        return timelineEditToolCallResult(projectId, options, call, applyMode);
+      },
+    ),
+    tool(
+      'video_transcript_cut_words',
+      'Cut a source transcript word range (zero-based inclusive indices) from video, audio and linked captions. Analyze the source first.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        sourceId: z.string().min(1),
+        startIndex: z.number().int().min(0),
+        endIndex: z.number().int().min(0),
+        ripple: z.boolean().optional(),
+        applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
+        summary: z.string().max(280).optional(),
+      },
+      async (input) => {
+        if (!getVideoFeatureFlag('video.transcriptLayer')) {
+          throw new Error('Transcript layer is disabled');
+        }
+        const { applyMode, ...rest } = input;
+        const { projectId, call } = camelToolCall('transcriptCutWords', rest);
+        return timelineEditToolCallResult(projectId, options, call, applyMode);
+      },
+    ),
+    tool(
+      'video_transcript_restore_words',
+      'Restore a previously cut source transcript word range at its seam. Fails safely if the seam no longer exists.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        sourceId: z.string().min(1),
+        startIndex: z.number().int().min(0),
+        endIndex: z.number().int().min(0),
+        ripple: z.boolean().optional(),
+        applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
+        summary: z.string().max(280).optional(),
+      },
+      async (input) => {
+        if (!getVideoFeatureFlag('video.transcriptLayer')) {
+          throw new Error('Transcript layer is disabled');
+        }
+        const { applyMode, ...rest } = input;
+        const { projectId, call } = camelToolCall(
+          'transcriptRestoreWords',
+          rest,
+        );
         return timelineEditToolCallResult(projectId, options, call, applyMode);
       },
     ),

@@ -15,6 +15,7 @@ import {
   type SourceTranscriptView,
 } from './sourceTranscriptView';
 import { runTranscriptAction, TranscriptEditBar } from './TranscriptEditBar';
+import { TranscriptSuggestions } from './TranscriptSuggestions';
 import { TranscriptWordEditor } from './TranscriptWordEditor';
 import { useTranscriptSelectionStore } from './useTranscriptSelectionStore';
 
@@ -65,11 +66,17 @@ export function SourceTranscriptPanel({
       </div>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
         {views.map((view) => (
-          <SourceWords
-            key={view.sourceId}
-            view={view}
-            onCorrectWord={onCorrectWord}
-          />
+          <div key={view.transcriptKey} className="space-y-2">
+            <TranscriptSuggestions
+              view={view}
+              candidates={
+                project.sourceAnalyses?.find(
+                  (a) => a.sourceId === view.sourceId,
+                )?.cutCandidates ?? []
+              }
+            />
+            <SourceWords view={view} onCorrectWord={onCorrectWord} />
+          </div>
         ))}
       </div>
     </div>

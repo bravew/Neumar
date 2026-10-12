@@ -161,6 +161,8 @@ const DESTRUCTIVE_TOOLS = [
   'video_set_clip_effects',
   'video_snap_cuts_to_beats',
   'video_close_gap',
+  'video_transcript_cut_words',
+  'video_transcript_restore_words',
   'video_set_audio_clip_gain',
   'video_set_audio_clip_mute',
   'video_set_audio_clip_fade',
