@@ -4,6 +4,7 @@ import {
   applyTranscriptCorrections,
   TranscriptCorrectionError,
 } from '@/shared/video/analysis/transcript-corrections';
+import { STT_CAPTION_ORIGIN } from '@/shared/video/caption-retime';
 import type {
   CaptionTimelineClip,
   VideoProject,
@@ -26,6 +27,14 @@ function timeline(captionWords = words): VideoTimeline {
     trimEndMs: 1500,
     text: captionWords.map((w) => w.text).join(' '),
     words: captionWords,
+    sourceRef: { kind: 'asset', assetId: 'asset' },
+    sourceAnchor: {
+      sourceMediaId: 'asset',
+      sourceElementId: 'src',
+      sourceStartMs: 0,
+      sourceEndMs: 1500,
+    },
+    params: { origin: STT_CAPTION_ORIGIN, sourceId: 'src' },
   } as CaptionTimelineClip;
   return {
     schema: 'neuma.video.timeline.v1',
@@ -99,7 +108,7 @@ describe('applyTranscriptCorrections', () => {
     const { project, captionsUpdated } = applyTranscriptCorrections(
       projectWith(bare),
       'src',
-      [{ index: 0, text: 'Hello', startMs: 0 }],
+      [{ index: 0, text: 'Hello', startMs: 0, expectedText: 'helo' }],
     );
     const transcript = project.sourceAnalyses![0]!.transcript!;
     expect(transcript.words[0]).toEqual({
@@ -113,7 +122,7 @@ describe('applyTranscriptCorrections', () => {
 
   it('mirrors the correction into the caption cue that plays the word', () => {
     const { project } = applyTranscriptCorrections(projectWith(bare), 'src', [
-      { index: 0, text: 'Hello', startMs: 0 },
+      { index: 0, text: 'Hello', startMs: 0, expectedText: 'helo' },
     ]);
     const cue = project.timeline!.tracks[1]!.clips[0] as CaptionTimelineClip;
     expect(cue.text).toBe('Hello world. again');
@@ -127,7 +136,7 @@ describe('applyTranscriptCorrections', () => {
     const { project } = applyTranscriptCorrections(
       projectWith(bare, edited),
       'src',
-      [{ index: 0, text: 'Hello', startMs: 0 }],
+      [{ index: 0, text: 'Hello', startMs: 0, expectedText: 'helo' }],
     );
     const cue = project.timeline!.tracks[1]!.clips[0] as CaptionTimelineClip;
     expect(cue.text).toBe('custom text');
@@ -137,7 +146,7 @@ describe('applyTranscriptCorrections', () => {
   it('is a no-op when nothing changes', () => {
     const input = projectWith(bare);
     const result = applyTranscriptCorrections(input, 'src', [
-      { index: 0, text: 'helo', startMs: 0 },
+      { index: 0, text: 'helo', startMs: 0, expectedText: 'helo' },
     ]);
     expect(result.project).toBe(input);
     expect(result.captionsUpdated).toBe(0);
@@ -146,7 +155,7 @@ describe('applyTranscriptCorrections', () => {
   it('rejects a word whose timing no longer matches', () => {
     expect(() =>
       applyTranscriptCorrections(projectWith(bare), 'src', [
-        { index: 1, text: 'x', startMs: 123 },
+        { index: 1, text: 'x', startMs: 123, expectedText: 'world.' },
       ]),
     ).toThrow(expect.objectContaining({ code: 'stale-word' }));
   });
@@ -164,5 +173,89 @@ describe('applyTranscriptCorrections', () => {
     expect(() => applyTranscriptCorrections(noWords, 'src', [])).toThrow(
       expect.objectContaining({ code: 'no-transcript' }),
     );
+  });
+  it('rejects a stale correction after another edit with unchanged timing', () => {
+    const input = projectWith(bare);
+    const corrected = applyTranscriptCorrections(input, 'src', [
+      { index: 0, text: 'Hello', startMs: 0, expectedText: 'helo' },
+    ]).project;
+    expect(() =>
+      applyTranscriptCorrections(corrected, 'src', [
+        { index: 0, text: 'Hey', startMs: 0, expectedText: 'helo' },
+      ]),
+    ).toThrow(expect.objectContaining({ code: 'stale-word' }));
+    expect(corrected.sourceAnalyses![0]!.transcript!.words[0]!.text).toBe(
+      'Hello',
+    );
+  });
+
+  it('removes text without changing word timing or media clips', () => {
+    const input = projectWith(bare);
+    const corrected = applyTranscriptCorrections(input, 'src', [
+      { index: 0, text: '', startMs: 0, expectedText: 'helo' },
+    ]).project;
+    expect(corrected.sourceAnalyses![0]!.transcript!.words[0]).toEqual({
+      text: '',
+      startMs: 0,
+      endMs: 500,
+    });
+    expect(corrected.timeline!.tracks[0]).toEqual(input.timeline!.tracks[0]);
+    expect(corrected.sourceAnalyses![0]!.transcript!.segments![0]!.text).toBe(
+      'world. again',
+    );
+    const cue = corrected.timeline!.tracks[1]!.clips[0] as CaptionTimelineClip;
+    expect(cue.text).toBe('world. again');
+  });
+
+  it('only changes generated captions with matching source provenance', () => {
+    const tl = timeline();
+    const original = tl.tracks[1]!.clips[0] as CaptionTimelineClip;
+    const otherSource = {
+      ...original,
+      id: 'other',
+      sourceRef: { kind: 'asset' as const, assetId: 'other-asset' },
+      sourceAnchor: {
+        ...original.sourceAnchor!,
+        sourceMediaId: 'other-asset',
+        sourceElementId: 'other-source',
+      },
+      params: { origin: STT_CAPTION_ORIGIN, sourceId: 'other-source' },
+    };
+    const manual = {
+      ...original,
+      id: 'manual',
+      params: undefined,
+      sourceAnchor: undefined,
+    };
+    const mismatchedRef = {
+      ...original,
+      id: 'mismatched',
+      sourceRef: otherSource.sourceRef,
+    };
+    const editedToken = {
+      ...original,
+      id: 'edited-token',
+      words: [{ ...words[0]!, text: 'custom' }, ...words.slice(1)],
+    };
+    const captionTrack = tl.tracks[1]!;
+    if (captionTrack.kind !== 'caption')
+      throw new Error('Expected caption track');
+    tl.tracks.push({
+      ...captionTrack,
+      id: 'other-caption-track',
+      clips: [otherSource, manual, mismatchedRef, editedToken],
+    });
+    const { project, captionsUpdated } = applyTranscriptCorrections(
+      projectWith(bare, tl),
+      'src',
+      [{ index: 0, text: 'Hello', startMs: 0, expectedText: 'helo' }],
+    );
+    expect(captionsUpdated).toBe(1);
+    expect(project.timeline!.tracks[2]!.clips).toEqual([
+      otherSource,
+      manual,
+      mismatchedRef,
+      editedToken,
+    ]);
   });
 });

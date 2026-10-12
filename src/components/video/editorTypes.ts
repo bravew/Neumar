@@ -145,7 +145,12 @@ export interface VideoProjectEditorActions {
   ) => Promise<VideoProject | null>;
   patchSourceTranscript: (
     sourceId: string,
-    corrections: Array<{ index: number; text: string; startMs: number }>,
+    corrections: Array<{
+      index: number;
+      text: string;
+      startMs: number;
+      expectedText: string;
+    }>,
   ) => Promise<VideoProject | null>;
   generateStoryboard: (message: string) => Promise<VideoProject | null>;
   updateStoryboard: (

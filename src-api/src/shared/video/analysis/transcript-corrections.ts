@@ -1,12 +1,15 @@
 import { deriveTranscriptWordStates } from '@neumar/video-ir';
 
-import type { SubtitleWord, VideoProject } from '../types';
+import { STT_CAPTION_ORIGIN } from '../caption-retime';
+import type { CaptionTimelineClip, SubtitleWord, VideoProject } from '../types';
 
 export interface TranscriptWordCorrection {
   index: number;
   text: string;
   /** Consistency check: must equal the stored word's `startMs`. */
   startMs: number;
+  /** Compare-and-swap guard independent of unrelated project autosaves. */
+  expectedText: string;
 }
 
 export type TranscriptCorrectionErrorCode =
@@ -62,7 +65,11 @@ export function applyTranscriptCorrections(
   const changed: Array<{ index: number; from: string; to: string }> = [];
   for (const correction of corrections) {
     const current = nextWords[correction.index];
-    if (!current || current.startMs !== correction.startMs) {
+    if (
+      !current ||
+      current.startMs !== correction.startMs ||
+      current.text !== correction.expectedText
+    ) {
       throw new TranscriptCorrectionError(
         'stale-word',
         `Transcript word ${correction.index} changed since it was loaded`,
@@ -108,6 +115,25 @@ export function applyTranscriptCorrections(
   };
 }
 
+function captionBelongsToSource(
+  clip: CaptionTimelineClip,
+  sourceId: string,
+  mediaItemId: string,
+): boolean {
+  if (clip.params?.origin !== STT_CAPTION_ORIGIN) return false;
+  const anchor = clip.sourceAnchor;
+  const ref = clip.sourceRef;
+  // All provenance supplied by the generated cue must agree. Timings and
+  // text alone are never enough to establish which source produced a cue.
+  return (
+    clip.params.sourceId === sourceId &&
+    anchor?.sourceMediaId === mediaItemId &&
+    anchor.sourceElementId === sourceId &&
+    ((ref.kind === 'asset' && ref.assetId === mediaItemId) ||
+      (ref.kind === 'linked' && ref.sourceId === sourceId))
+  );
+}
+
 /** Rebuild a segment's text from its words; keep the original if none fall in. */
 function segmentText(
   segment: { startMs: number; endMs: number },
@@ -118,7 +144,10 @@ function segmentText(
     (word) => word.startMs >= segment.startMs && word.endMs <= segment.endMs,
   );
   return inside.length > 0
-    ? inside.map((word) => word.text).join(' ')
+    ? inside
+        .map((word) => word.text)
+        .filter(Boolean)
+        .join(' ')
     : fallback;
 }
 
@@ -145,8 +174,16 @@ function mirrorIntoCaptions(
   const tracks = timeline.tracks.map((track) => ({
     ...track,
     clips: track.clips.map((clip) => {
-      if (clip.kind !== 'caption' || !clip.words?.length) return clip;
-      const originalText = clip.words.map((word) => word.text).join(' ');
+      if (
+        clip.kind !== 'caption' ||
+        !clip.words?.length ||
+        !captionBelongsToSource(clip, sourceId, mediaItemId)
+      )
+        return clip;
+      const originalText = clip.words
+        .map((word) => word.text)
+        .filter(Boolean)
+        .join(' ');
       const words = clip.words.map((word) => {
         for (const change of changed) {
           const hit = states[change.index]?.occurrences.some(
@@ -168,7 +205,10 @@ function mirrorIntoCaptions(
       // otherwise the cue was hand-edited and we leave its text alone.
       const text =
         clip.text === originalText
-          ? words.map((word) => word.text).join(' ')
+          ? words
+              .map((word) => word.text)
+              .filter(Boolean)
+              .join(' ')
           : clip.text;
       return { ...clip, words, text };
     }),

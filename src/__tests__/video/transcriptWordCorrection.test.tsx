@@ -81,7 +81,7 @@ describe('transcript word correction', () => {
     fireEvent.change(input, { target: { value: 'Hello' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onCorrectWord).toHaveBeenCalledWith('s', [
-      { index: 0, text: 'Hello', startMs: 0 },
+      { index: 0, text: 'Hello', startMs: 0, expectedText: 'helo' },
     ]);
     expect(screen.queryByRole('textbox')).toBeNull();
   });

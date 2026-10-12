@@ -501,10 +501,10 @@ const transcriptCorrectionSchema = z.object({
         text: z
           .string()
           .trim()
-          .min(1)
           .max(80)
           .refine((value) => !/\s/.test(value), 'One word per correction'),
         startMs: z.number().min(0),
+        expectedText: z.string(),
       }),
     )
     .min(1)
