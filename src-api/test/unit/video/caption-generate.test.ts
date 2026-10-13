@@ -36,6 +36,44 @@ describe('caption generation from transcript', () => {
     await fs.rm(workDir, { recursive: true, force: true });
   });
 
+  it('prepares captions from cached speech without retranscribing', async () => {
+    const project = await createProject({
+      name: 'Cached',
+      template: 'explainer',
+    });
+    await writeProject({
+      ...project,
+      assets: [assetFixture()],
+      sources: [sourceFixture('asset-source')],
+      sourceAnalyses: [analysisFixture()],
+      timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+    });
+    const result = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+    });
+    expect(result.cues.map((cue) => cue.text)).toEqual(['hello', 'world']);
+  });
+
+  it('does not start transcription or register a source in cached-only mode', async () => {
+    const project = await createProject({
+      name: 'No cached speech',
+      template: 'explainer',
+    });
+    await writeProject({
+      ...project,
+      assets: [assetFixture()],
+      sources: [],
+      sourceAnalyses: [],
+      timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+    });
+    const result = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+    });
+    expect(result.cues).toEqual([]);
+    expect(result.project.sources).toEqual([]);
+    expect(result.project.sourceAnalyses).toEqual([]);
+  });
+
   it('lays cues carrying the spoken words, timed to the timeline', async () => {
     const project = await createProject({
       name: 'Captions',

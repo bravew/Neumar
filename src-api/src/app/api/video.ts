@@ -67,6 +67,7 @@ import {
 import { TranscriptCorrectionError } from '@/shared/video/analysis/transcript-corrections';
 import { resolveProjectAssetPath } from '@/shared/video/asset-files';
 import { downloadBrollHit, searchBroll } from '@/shared/video/broll';
+import { generateProjectCaptions } from '@/shared/video/caption-generate';
 import {
   CaptionTranslationError,
   captionTranslationLanguageSchema,
@@ -4496,6 +4497,27 @@ videoRoutes.post('/projects/:id/assets/:assetId/transcribe', async (c) => {
         error.code === 'asset-not-found' ? 404 : 422,
       );
     }
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/captions/prepare-translation', async (c) => {
+  try {
+    const project = await getProject(c.req.param('id'));
+    if (
+      project.timeline?.tracks.some(
+        (track) =>
+          track.kind === 'caption' &&
+          track.clips.some((cue) => cue.text.trim()),
+      )
+    ) {
+      return c.json({ project });
+    }
+    const result = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+    });
+    return c.json({ project: result.project });
+  } catch (error) {
     return jsonError(c, error);
   }
 });

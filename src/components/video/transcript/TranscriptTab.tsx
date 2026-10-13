@@ -24,6 +24,11 @@ export function TranscriptTab(props: TranscriptViewProps) {
   const labels = t.video.editor.transcript;
   const [pane, setPane] = useState<Pane>('speech');
   const [translateOpen, setTranslateOpen] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [translationProject, setTranslationProject] = useState<
+    TranscriptViewProps['project'] | null
+  >(null);
+  const [prepareError, setPrepareError] = useState<string | null>(null);
   const hasSpeech = useMemo(
     () => buildSourceTranscriptViews(props.project).length > 0,
     [props.project],
@@ -37,6 +42,38 @@ export function TranscriptTab(props: TranscriptViewProps) {
       ),
     [props.project.timeline?.tracks],
   );
+
+  const openTranslation = async () => {
+    setPrepareError(null);
+    if (hasCaptions) {
+      setTranslationProject(props.project);
+      setTranslateOpen(true);
+      return;
+    }
+    setPreparing(true);
+    try {
+      const project = await props.actions.prepareCaptionTranslation();
+      if (
+        !project.timeline?.tracks.some(
+          (track) =>
+            track.kind === 'caption' &&
+            track.clips.some((cue) => cue.text.trim()),
+        )
+      ) {
+        setPrepareError(labels.translate.failed);
+        return;
+      }
+      props.actions.onProjectUpdated?.(project);
+      setTranslationProject(project);
+      setTranslateOpen(true);
+    } catch (error) {
+      setPrepareError(
+        error instanceof Error ? error.message : labels.translate.failed,
+      );
+    } finally {
+      setPreparing(false);
+    }
+  };
 
   const panes: Array<{ id: Pane; label: string }> = [
     { id: 'speech', label: labels.sourceTitle },
@@ -56,11 +93,12 @@ export function TranscriptTab(props: TranscriptViewProps) {
           {labels.title}
         </h3>
         <div role="tablist" className="ml-auto flex gap-1">
-          {hasCaptions ? (
+          {hasCaptions || hasSpeech ? (
             <button
               type="button"
               className="text-muted-foreground hover:bg-muted flex items-center gap-1 rounded px-2 py-0.5 text-[11px]"
-              onClick={() => setTranslateOpen(true)}
+              disabled={preparing}
+              onClick={() => void openTranslation()}
             >
               <Languages className="size-3" />
               {labels.translate.title}
@@ -85,6 +123,11 @@ export function TranscriptTab(props: TranscriptViewProps) {
           ))}
         </div>
       </div>
+      {prepareError ? (
+        <p role="alert" className="text-destructive px-3 py-2 text-xs">
+          {prepareError}
+        </p>
+      ) : null}
       {pane === 'speech' ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <SourceTranscriptionAction
@@ -110,7 +153,7 @@ export function TranscriptTab(props: TranscriptViewProps) {
         <TranslateCaptionsDialog
           open
           onOpenChange={setTranslateOpen}
-          project={props.project}
+          project={translationProject ?? props.project}
           actions={props.actions}
         />
       ) : null}

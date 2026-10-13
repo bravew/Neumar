@@ -30,6 +30,8 @@ const logger = createLogger('VideoCaptionGenerate');
 export { STT_CAPTION_ORIGIN } from './caption-retime';
 
 export interface GenerateCaptionsOptions {
+  /** Build cues only from saved analyses; never start transcription. */
+  cachedOnly?: boolean;
   /** Look + animation applied to every generated cue. */
   style?: SubtitleStyle;
   /** Restrict generation to a single visual clip. */
@@ -105,7 +107,8 @@ export async function generateProjectCaptions(
     let source = resolveSourceForAsset(current, assetId);
     // An asset added via upload / linked-folder attach has no SourceMedia yet;
     // register one so it can be transcribed like an imported source.
-    if (!source) source = await ensureSourceForAsset(projectId, assetId);
+    if (!source && !options.cachedOnly)
+      source = await ensureSourceForAsset(projectId, assetId);
     if (!source) {
       const asset = current.assets.find((item) => item.id === assetId);
       skipped.push({
@@ -114,7 +117,9 @@ export async function generateProjectCaptions(
       });
       continue;
     }
-    const transcript = await resolveTranscript(projectId, source);
+    const transcript = options.cachedOnly
+      ? (await getSourceAnalysis(projectId, source.id))?.transcript
+      : await resolveTranscript(projectId, source);
     if (!transcript) {
       skipped.push({ clipId: clip.id, reason: 'transcription-failed' });
       continue;

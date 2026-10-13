@@ -786,6 +786,19 @@ export function useVideoProject(projectId: string | undefined) {
     [projectId, refresh],
   );
 
+  const prepareCaptionTranslation =
+    useCallback(async (): Promise<VideoProject> => {
+      if (!projectId) throw new Error('No project selected');
+      const data = await videoApi<{ project: VideoProject }>(
+        `/projects/${encodeURIComponent(projectId)}/captions/prepare-translation`,
+        { method: 'POST' },
+      );
+      setProject((current) =>
+        current?.id === projectId ? data.project : current,
+      );
+      return data.project;
+    }, [projectId]);
+
   const translateCaptions = useCallback(
     async (
       input: VideoCaptionTranslateRequest,
@@ -1680,6 +1693,7 @@ export function useVideoProject(projectId: string | undefined) {
     analyzeSource,
     transcribeAsset,
     translateCaptions,
+    prepareCaptionTranslation,
     createCutPlan,
     patchSourceTranscript,
     generateStoryboard,

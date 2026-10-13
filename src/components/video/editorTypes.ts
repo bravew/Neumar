@@ -142,6 +142,7 @@ export interface VideoProjectEditorActions {
   ) => Promise<VideoReferenceRun | null>;
   analyzeSource: (sourceId: string) => Promise<VideoProject | null>;
   transcribeAsset: (assetId: string) => Promise<VideoProject | null>;
+  prepareCaptionTranslation: () => Promise<VideoProject>;
   translateCaptions: (
     input: VideoCaptionTranslateRequest,
   ) => Promise<VideoCaptionTranslateResult>;

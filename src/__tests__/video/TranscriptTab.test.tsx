@@ -109,6 +109,88 @@ beforeEach(() =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Transcript tab transcription', () => {
+  it('offers translation for cached speech before a caption track exists', async () => {
+    const p = project([asset('video')]);
+    p.sources = [
+      {
+        id: 's',
+        mediaItemId: 'video',
+        origin: 'upload',
+        contentHash: 'hash',
+        analysisStatus: 'done',
+        createdAt: 'now',
+      },
+    ];
+    p.sourceAnalyses = [
+      {
+        id: 'analysis',
+        sourceId: 's',
+        durationMs: 1000,
+        scenes: [],
+        speechRanges: [],
+        cutCandidates: [],
+        transcript: {
+          engine: 'local',
+          words: [{ text: 'hello', startMs: 0, endMs: 100 }],
+        },
+      },
+    ];
+    const prepared: VideoProject = {
+      ...p,
+      timeline: {
+        ...p.timeline!,
+        tracks: [
+          ...p.timeline!.tracks,
+          {
+            id: 'captions',
+            kind: 'caption',
+            name: 'Captions',
+            muted: false,
+            locked: false,
+            order: 30,
+            clips: [
+              {
+                id: 'cue',
+                kind: 'caption',
+                sourceRef: { kind: 'asset', assetId: 'video' },
+                startMs: 0,
+                durationMs: 100,
+                trimStartMs: 0,
+                trimEndMs: 100,
+                text: 'hello',
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const prepareCaptionTranslation = vi.fn().mockResolvedValue(prepared);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              destination: 'https://api.example.com',
+              configured: true,
+            }),
+          ),
+      ),
+    );
+    render(
+      <TranscriptTab
+        project={p}
+        actions={{ ...actions(vi.fn()), prepareCaptionTranslation }}
+      />,
+      { wrapper: LanguageProvider },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Translate captions' }));
+    await waitFor(() =>
+      expect(prepareCaptionTranslation).toHaveBeenCalledTimes(1),
+    );
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
   it('shows an honest speech empty state and retains scene editing as a separate tab', () => {
     render(<TranscriptTab project={project([])} actions={actions(vi.fn())} />, {
       wrapper: LanguageProvider,
