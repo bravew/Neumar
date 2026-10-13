@@ -11,6 +11,7 @@ import {
 import { pcmToWav } from '@/shared/services/speech/audio-utils';
 import {
   wordsFromTdtResult,
+  ownedTextFromTdtResult,
   transcribeTimedLocal,
   getTimedSTTModelStatus,
 } from '@/shared/services/speech/timed-local';
@@ -111,6 +112,29 @@ describe('native TDT word timing', () => {
         3,
       ),
     ).toEqual([{ word: 'Hello', startMs: 120, endMs: 500 }]);
+  });
+  it('limits the owned text to the owned region, dropping decode-context speech', () => {
+    // A decode window at 28–36 s (4 s of context around the owned 30–36 s):
+    // the context word "before" must not leak into the owned text.
+    const window = {
+      text: 'before owned words',
+      tokens: ['▁before', '▁owned', '▁words'],
+      timestamps: [1.2, 3.1, 4.0],
+      durations: [0.5, 0.4, 0.4],
+    };
+    expect(ownedTextFromTdtResult(window, 8, 28, 30_000, 36_000)).toBe(
+      'owned words',
+    );
+  });
+  it('keeps an untimeable group in the owned text', () => {
+    // The zero-duration group cannot be timed but still owns its place in the text.
+    const window = {
+      text: 'so well',
+      tokens: ['▁so', '▁well'],
+      timestamps: [1.0, 3.5],
+      durations: [0.4, 0],
+    };
+    expect(ownedTextFromTdtResult(window, 8, 28, 30_000, 36_000)).toBe('well');
   });
   it('does not download an absent model during a timed request', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch');

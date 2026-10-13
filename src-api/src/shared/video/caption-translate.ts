@@ -79,7 +79,14 @@ export function getTranslationDestination(): {
  * destination. A `codex:`/`cursor-agent:` model id is not supported here: those
  * runtimes expose no plain one-shot text call, so translation falls back to the
  * provider-config model rather than silently using another provider.
+ *
+ * Each call is aborted after `TRANSLATION_CALL_TIMEOUT_MS` so a stalled CLI (for
+ * example a gateway auth hang) cannot wedge the in-flight task map forever —
+ * without this, the dedup entry never settles and every retry returns the same
+ * pending promise.
  */
+const TRANSLATION_CALL_TIMEOUT_MS = 5 * 60_000;
+
 function buildClaudeTranslationCaller(input: {
   model?: string;
   cwd: string;
@@ -96,6 +103,12 @@ function buildClaudeTranslationCaller(input: {
     if (model) env.ANTHROPIC_MODEL = model;
     if (baseUrl) env.ANTHROPIC_BASE_URL = baseUrl;
 
+    const abortController = new AbortController();
+    const deadline = setTimeout(
+      () => abortController.abort(),
+      TRANSLATION_CALL_TIMEOUT_MS,
+    );
+
     const q = query({
       prompt,
       options: {
@@ -104,6 +117,7 @@ function buildClaudeTranslationCaller(input: {
         permissionMode: 'dontAsk',
         tools: [],
         settingSources: ['user'],
+        abortController,
         ...(model ? { model } : {}),
         env,
       },
@@ -121,7 +135,16 @@ function buildClaudeTranslationCaller(input: {
         const text = message.result;
         if (typeof text === 'string' && text.trim()) return text;
       }
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        throw new CaptionTranslationError(
+          'provider-failed',
+          'The translation model did not respond in time.',
+        );
+      }
+      throw error;
     } finally {
+      clearTimeout(deadline);
       (q as { close?: () => void }).close?.();
     }
     return '';

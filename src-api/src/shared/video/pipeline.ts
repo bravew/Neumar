@@ -3786,7 +3786,10 @@ async function writeCaptionSidecarFile(
   const byLanguage: Record<string, string> = {};
   if (visibleCaptionLanguages(project).length > 1) {
     for (const [language, languageSrt] of captionSrtByLanguage(project)) {
-      if (!language) continue;
+      // The language is timeline data, so it is not trusted to be a safe path
+      // segment. A BCP-47-shaped tag cannot traverse; anything else is skipped
+      // rather than written to an arbitrary in-root path.
+      if (!isSafeCaptionLanguageTag(language)) continue;
       const languagePath = validatePath(
         path.join(parsed.dir, `${parsed.name}.${language}.srt`),
         root,
@@ -3797,6 +3800,16 @@ async function writeCaptionSidecarFile(
     }
   }
   return { primary: srt ? primaryPath : undefined, byLanguage };
+}
+
+/**
+ * A caption `language` value is untrusted timeline data that becomes a file
+ * name segment. Only a BCP-47-shaped tag is written; anything else (including
+ * path separators and traversal sequences) is skipped rather than written to
+ * an arbitrary in-root path.
+ */
+export function isSafeCaptionLanguageTag(language: string): boolean {
+  return /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/.test(language);
 }
 
 /** Distinct BCP-47 tags of the visible caption tracks, in track order. */

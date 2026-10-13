@@ -1053,38 +1053,51 @@ function mutationPayload(execution: {
   };
 }
 
+/**
+ * A long caption track translates in many LLM batches and can far outlast the
+ * default 45 s tool timeout. The server-side task keeps running after the
+ * timeout fires, so the larger budget only buys the agent the answer in one
+ * call; the in-flight dedup in `translateProjectCaptions` still collapses an
+ * overlap while the task is pending.
+ */
+const VIDEO_TRANSLATE_TOOL_TIMEOUT_MS = 10 * 60_000;
+
 function toolCallResult(
   inputProjectId: string | undefined,
   options: VideoEditServerOptions,
   call: VideoAgentToolCall,
 ) {
-  return withToolTimeout(call.name, async () => {
-    const proposal = await proposalOnlyToolResult(
-      inputProjectId,
-      options,
-      call,
-    );
-    if (proposal) return proposal;
-    if (call.name === 'translate') {
-      const result = await translateVideoAgentCaptions(
-        resolveProjectId(inputProjectId, options),
+  return withToolTimeout(
+    call.name,
+    async () => {
+      const proposal = await proposalOnlyToolResult(
+        inputProjectId,
+        options,
         call,
       );
-      return jsonResult({
-        projectId: result.project.id,
-        updatedAt: result.project.updatedAt,
-        tool: call.name,
-        trackId: result.track.id,
-        language: result.track.language,
-        hidden: result.track.hidden,
-        cueCount: result.track.clips.length,
-        skipped: result.skipped,
-      });
-    }
-    return mutationResult(
-      await applyVideoToolCall(inputProjectId, options, call),
-    );
-  }).catch((error) => {
+      if (proposal) return proposal;
+      if (call.name === 'translate') {
+        const result = await translateVideoAgentCaptions(
+          resolveProjectId(inputProjectId, options),
+          call,
+        );
+        return jsonResult({
+          projectId: result.project.id,
+          updatedAt: result.project.updatedAt,
+          tool: call.name,
+          trackId: result.track.id,
+          language: result.track.language,
+          hidden: result.track.hidden,
+          cueCount: result.track.clips.length,
+          skipped: result.skipped,
+        });
+      }
+      return mutationResult(
+        await applyVideoToolCall(inputProjectId, options, call),
+      );
+    },
+    call.name === 'translate' ? VIDEO_TRANSLATE_TOOL_TIMEOUT_MS : undefined,
+  ).catch((error) => {
     if (
       error instanceof CaptionTranslationError ||
       error instanceof VideoCostApprovalError ||

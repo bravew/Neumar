@@ -237,11 +237,21 @@ export async function downloadTimedSTTModel(): Promise<void> {
 }
 
 /** Parse native TDT subwords into words using only model-provided intervals. */
-export function wordsFromTdtResult(
+interface TdtGroup {
+  word: string;
+  start: number;
+  end: number;
+  /** Native end extends past this decode window; only the window start is usable. */
+  truncated: boolean;
+}
+
+function groupsFromTdtResult(
   raw: unknown,
   duration: number,
-  offset = 0,
-): WordTimestamp[] {
+): {
+  text: string;
+  groups: TdtGroup[];
+} {
   if (
     typeof raw !== 'object' ||
     raw === null ||
@@ -270,15 +280,8 @@ export function wordsFromTdtResult(
       'timing-unavailable',
     );
   }
-  interface Group {
-    word: string;
-    start: number;
-    end: number;
-    /** Native end extends past this decode window; only the window start is usable. */
-    truncated: boolean;
-  }
-  const groups: Group[] = [];
-  let current: Group | undefined;
+  const groups: TdtGroup[] = [];
+  let current: TdtGroup | undefined;
   let previousStart = -1;
   const flush = () => {
     if (!current) return;
@@ -354,6 +357,15 @@ export function wordsFromTdtResult(
       'timing-unavailable',
     );
   }
+  return { text, groups };
+}
+
+export function wordsFromTdtResult(
+  raw: unknown,
+  duration: number,
+  offset = 0,
+): WordTimestamp[] {
+  const { groups } = groupsFromTdtResult(raw, duration);
   const measured = groups.filter(
     (group) => group.end > group.start && !group.truncated,
   );
@@ -371,6 +383,33 @@ export function wordsFromTdtResult(
     startMs: Math.round((offset + group.start) * 1000),
     endMs: Math.round((offset + group.end) * 1000),
   }));
+}
+
+/**
+ * Transcript text for the region this chunk owns, dropping the 2 s of decode
+ * context on either side. The raw engine text covers the whole window, so
+ * using it directly repeats the context speech at every chunk seam.
+ *
+ * Grouping is by group start, not word midpoint: an untimeable group (zero
+ * duration or window-truncated) still owns its place in the text, so untimed
+ * words are not silently dropped from the transcript.
+ */
+export function ownedTextFromTdtResult(
+  raw: unknown,
+  duration: number,
+  offset: number,
+  ownStartMs: number,
+  ownEndMs: number,
+): string {
+  const { groups } = groupsFromTdtResult(raw, duration);
+  return groups
+    .filter((group) => {
+      const absoluteStartMs = (offset + group.start) * 1000;
+      return absoluteStartMs >= ownStartMs && absoluteStartMs < ownEndMs;
+    })
+    .map((group) => group.word)
+    .join(' ')
+    .trim();
 }
 
 export async function transcribeTimedLocal(
@@ -425,13 +464,16 @@ export async function transcribeTimedLocal(
       chunk.length / sampleRate,
       windowStart / sampleRate,
     );
+    // Text covers only what this chunk owns: the raw engine text spans the whole
+    // decode window, so it would repeat the context speech at every seam.
     texts.push(
-      typeof raw === 'object' &&
-        raw !== null &&
-        'text' in raw &&
-        typeof raw.text === 'string'
-        ? raw.text.trim()
-        : chunkWords.map((word) => word.word).join(' '),
+      ownedTextFromTdtResult(
+        raw,
+        chunk.length / sampleRate,
+        windowStart / sampleRate,
+        (start / sampleRate) * 1000,
+        (Math.min(start + chunkSize, samples.length) / sampleRate) * 1000,
+      ),
     );
     words.push(
       ...chunkWords.filter((word) => {
@@ -453,8 +495,8 @@ export async function transcribeTimedLocal(
         'timing-unavailable',
       );
   }
-  // Prefer the engine's own transcript; fall back to the timed words only if a
-  // result lacks text. Never rebuild the transcript from kept words, which would
-  // silently drop words the engine could not time.
+  // Each chunk's text covers only its owned region, so the joined transcript
+  // contains no duplicated context speech. Untimed groups still contribute
+  // their text; only their timing is unavailable.
   return { text: texts.filter(Boolean).join(' '), words };
 }

@@ -5,6 +5,7 @@ import {
   buildMultiSceneRenderArgs,
   buildRenderArgs,
   captionSrtByLanguage,
+  isSafeCaptionLanguageTag,
   selectFinalRenderer,
   timelineCaptionSubtitles,
   transitionDegradationsForScenes,
@@ -1009,6 +1010,19 @@ describe('video render args', () => {
 
     const byLanguage = captionSrtByLanguage(project);
     expect([...byLanguage.keys()]).toEqual(['es']);
+  });
+
+  it('refuses a language tag that cannot be a safe path segment', () => {
+    // BCP-47-shaped tags (including script/region subtags) remain writable...
+    expect(isSafeCaptionLanguageTag('en')).toBe(true);
+    expect(isSafeCaptionLanguageTag('zh-Hans')).toBe(true);
+    expect(isSafeCaptionLanguageTag('pt-BR')).toBe(true);
+    // ...but timeline data cannot traverse or redirect the sidecar path.
+    expect(isSafeCaptionLanguageTag('x/../../other')).toBe(false);
+    expect(isSafeCaptionLanguageTag('../etc')).toBe(false);
+    expect(isSafeCaptionLanguageTag('en;rm -rf')).toBe(false);
+    expect(isSafeCaptionLanguageTag('')).toBe(false);
+    expect(isSafeCaptionLanguageTag('.')).toBe(false);
   });
 });
 
