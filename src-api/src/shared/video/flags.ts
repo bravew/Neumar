@@ -39,7 +39,9 @@ export type VideoFeatureFlag =
    * Audio cross-correlation sync. Stays off until its accuracy is measured
    * against real fixtures; manual and timecode sync do not need it.
    */
-  | 'video.multicamAudioSync';
+  | 'video.multicamAudioSync'
+  /** Interactive transcript layer: word panel, transcript cuts, timeline row. Kill-switch. */
+  | 'video.transcriptLayer';
 
 const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.engine.html': true,
@@ -58,6 +60,7 @@ const VIDEO_FEATURE_FLAG_DEFAULTS = {
   'video.hostNative': true,
   'video.multicam': false,
   'video.multicamAudioSync': false,
+  'video.transcriptLayer': true,
 } satisfies Record<VideoFeatureFlag, boolean>;
 
 export function getVideoFeatureFlag(flag: VideoFeatureFlag): boolean {
@@ -97,5 +100,6 @@ export function snapshotVideoFeatureFlags(): Record<VideoFeatureFlag, boolean> {
     'video.hostNative': getVideoFeatureFlag('video.hostNative'),
     'video.multicam': getVideoFeatureFlag('video.multicam'),
     'video.multicamAudioSync': getVideoFeatureFlag('video.multicamAudioSync'),
+    'video.transcriptLayer': getVideoFeatureFlag('video.transcriptLayer'),
   };
 }

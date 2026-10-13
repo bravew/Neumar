@@ -54,6 +54,11 @@ overrides:
   # are fixed at 1.20.0. `pnpm install` does not re-resolve inside an
   # already-satisfied range, so the floor itself has to move.
   axios: '1.20.0'
+  # GHSA-6qxp-vccf-f47h (MCP SDK: OAuth client could send credentials to an
+  # authorization server chosen by the MCP server) is fixed at 1.31.0. Several
+  # CopilotKit / AG-UI / ext-apps packages resolve 1.30.x, so the floor is
+  # pinned for every copy. Added 2026-10-12.
+  '@modelcontextprotocol/sdk': '^1.31.0'
   # workbox lineage required by vite-plugin-pwa; pin until plugin catches up.
   # Re-checked 2026-08-21 (G3) — no newer vite-plugin-pwa release yet.
   workbox-build: '^7.4.1'
@@ -94,8 +99,10 @@ overrides:
   # does not re-resolve inside an already-satisfied range.
   adm-zip: '^0.6.1'
   # GHSA-rgj7-g3m4-5g8c — sharp <0.35.4 includes vulnerable libheif builds.
-  # Keep direct and transitive copies on the patched release.
-  sharp: '^0.35.4'
+  # GHSA-wq5f-xc86-pv6w — sharp <0.35.5 includes a vulnerable librsvg. Keep
+  # direct and transitive copies on the patched release. Raised to 0.35.5
+  # 2026-10-12.
+  sharp: '^0.35.5'
   # GHSA-w5hq-g745-h8pq — CopilotKit runtime still allows vulnerable uuid 10.
   'uuid@10.0.0': '11.1.1'
   # 2026-08-08: node-tar critical DoS (GHSA-23hp-3jrh-7fpw) + 3 more advisories

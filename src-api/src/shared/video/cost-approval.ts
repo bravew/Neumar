@@ -35,6 +35,49 @@ export class VideoCostApprovalError extends Error {
   }
 }
 
+/**
+ * The project's budget cap cannot cover the estimated spend. Carries a code so
+ * the API can answer 402 rather than a generic 500.
+ */
+export class VideoBudgetExceededError extends Error {
+  readonly code = 'budget-exceeded';
+  readonly capCents: number;
+  readonly spentCents: number;
+  readonly estimatedCents: number;
+
+  constructor(input: {
+    capCents: number;
+    spentCents: number;
+    estimatedCents: number;
+  }) {
+    super('budget-exceeded');
+    this.name = 'VideoBudgetExceededError';
+    this.capCents = input.capCents;
+    this.spentCents = input.spentCents;
+    this.estimatedCents = input.estimatedCents;
+  }
+}
+
+/**
+ * Refuses work whose estimated cost would push the project past its budget cap.
+ * The arithmetic matches the job pipeline's private `enforceBudget`, but throws
+ * a typed error the API can map to 402 instead of an opaque 500.
+ */
+export function enforceProjectBudget(
+  project: Pick<VideoProject, 'budget'>,
+  estimatedCents: number,
+): void {
+  const capCents = Math.round((project.budget?.capUsd ?? 0) * 100);
+  const spentCents = Math.round((project.budget?.spentUsd ?? 0) * 100);
+  if (spentCents + estimatedCents > capCents) {
+    throw new VideoBudgetExceededError({
+      capCents,
+      spentCents,
+      estimatedCents,
+    });
+  }
+}
+
 export function buildVideoCostApprovalToken(
   projectId: string,
   scopeId: string,

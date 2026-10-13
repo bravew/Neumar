@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   carryForwardSttCaptions,
+  findPrimaryCaptionTrack,
   retimeTimelineCaptions,
 } from '@/shared/video/caption-retime';
 import type {
@@ -77,6 +78,25 @@ function timeline(
   };
 }
 
+describe('findPrimaryCaptionTrack', () => {
+  it('does not pick a surviving translation as the source generation target', () => {
+    const tl = timeline([], []);
+    tl.tracks = [
+      {
+        id: 'track-caption-es',
+        kind: 'caption',
+        name: 'Spanish',
+        language: 'es',
+        order: 30,
+        muted: false,
+        locked: false,
+        clips: [sttCue({ params: { origin: 'translated' } })],
+      },
+    ];
+    expect(findPrimaryCaptionTrack(tl)).toBeUndefined();
+  });
+});
+
 describe('retimeTimelineCaptions', () => {
   it('moves a cue when its host clip is repositioned', () => {
     // Clip now starts at timeline 1000 but still shows source [0,5000).
@@ -149,5 +169,102 @@ describe('carryForwardSttCaptions', () => {
     expect(carryForwardSttCaptions(timeline([videoClip()], []), fresh)).toBe(
       fresh,
     );
+  });
+});
+
+/** A translated cue: different origin, but anchored like the STT cue it came from. */
+function translatedCue(
+  over: Partial<CaptionTimelineClip> = {},
+): CaptionTimelineClip {
+  return sttCue({
+    id: 'cap-es-1',
+    text: 'mundo',
+    words: undefined,
+    params: { origin: 'translated' },
+    ...over,
+  });
+}
+
+function withCaptionTracks(
+  base: VideoTimeline,
+  extra: VideoTimeline['tracks'],
+): VideoTimeline {
+  return { ...base, tracks: [...base.tracks, ...extra] };
+}
+
+describe('translated caption tracks', () => {
+  it('retimes a translated cue from its source anchor', () => {
+    const tl = withCaptionTracks(
+      timeline([videoClip({ startMs: 1000 })], [sttCue()]),
+      [
+        {
+          id: 'track-caption-es',
+          kind: 'caption',
+          name: 'Captions (Spanish)',
+          language: 'es',
+          hidden: true,
+          muted: false,
+          locked: false,
+          order: 31,
+          clips: [translatedCue()],
+        },
+      ],
+    );
+    const next = retimeTimelineCaptions(tl);
+    const es = next.tracks.find((t) => t.id === 'track-caption-es')!;
+    // Same projection as the source cue: source 2000 -> 1000 + 2000 = 3000.
+    expect(es.clips[0]!.startMs).toBe(3000);
+    // The translation track keeps its language and stays hidden.
+    expect(es).toMatchObject({ language: 'es', hidden: true });
+  });
+
+  it('leaves a manual cue without an anchor untouched', () => {
+    const manual = sttCue({
+      id: 'manual',
+      params: { origin: 'capture' },
+      sourceAnchor: undefined,
+    });
+    const tl = timeline([videoClip({ startMs: 1000 })], [manual]);
+    const next = retimeTimelineCaptions(tl);
+    expect(
+      next.tracks.find((t) => t.kind === 'caption')!.clips[0]!.startMs,
+    ).toBe(2000);
+  });
+
+  it('carries a translated track across a rebuild and preserves hidden', () => {
+    const previous = withCaptionTracks(timeline([videoClip()], [sttCue()]), [
+      {
+        id: 'track-caption-es',
+        kind: 'caption',
+        name: 'Captions (Spanish)',
+        language: 'es',
+        hidden: true,
+        muted: false,
+        locked: false,
+        order: 31,
+        clips: [translatedCue()],
+      },
+    ]);
+    const fresh = timeline([videoClip({ startMs: 500 })], []);
+    const merged = carryForwardSttCaptions(previous, fresh);
+    const es = merged.tracks.find((t) => t.id === 'track-caption-es');
+    expect(es).toMatchObject({ language: 'es', hidden: true });
+    expect(es!.clips[0]!.startMs).toBe(2500);
+  });
+
+  it('keeps the rebuilt track own cues when carrying generated ones', () => {
+    const storyboardCue = sttCue({
+      id: 'clip-caption-scene-1',
+      params: undefined,
+      sourceAnchor: undefined,
+    });
+    const previous = timeline([videoClip()], [sttCue()]);
+    const fresh = timeline([videoClip({ startMs: 500 })], [storyboardCue]);
+    const merged = carryForwardSttCaptions(previous, fresh);
+    const captions = merged.tracks.find((t) => t.kind === 'caption')!.clips;
+    expect(captions.map((cue) => cue.id).sort()).toEqual([
+      'cap-1',
+      'clip-caption-scene-1',
+    ]);
   });
 });

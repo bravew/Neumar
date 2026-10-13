@@ -56,11 +56,24 @@ import {
 import {
   applyVideoAgentTool,
   redoVideoAgentJournalEntry,
+  translateVideoAgentCaptions,
   undoVideoAgentJournalEntry,
   videoAgentToolCallSchema,
 } from '@/shared/video/agent-tools';
+import {
+  AssetTranscriptionError,
+  transcribeProjectAsset,
+} from '@/shared/video/analysis/asset-transcription';
+import { TranscriptCorrectionError } from '@/shared/video/analysis/transcript-corrections';
 import { resolveProjectAssetPath } from '@/shared/video/asset-files';
 import { downloadBrollHit, searchBroll } from '@/shared/video/broll';
+import { generateProjectCaptions } from '@/shared/video/caption-generate';
+import {
+  CaptionTranslationError,
+  captionTranslationLanguageSchema,
+  getTranslationDestination,
+  translateProjectCaptions,
+} from '@/shared/video/caption-translate';
 import {
   mergeCaption,
   patchCaption,
@@ -88,6 +101,7 @@ import {
 } from '@/shared/video/content-graph/persistence';
 import {
   readVideoCostApproval,
+  VideoBudgetExceededError,
   VideoCostApprovalError,
 } from '@/shared/video/cost-approval';
 import {
@@ -309,6 +323,7 @@ import {
   deleteProjectAsset,
   enqueueYtDlpImport,
   getSourceAnalysis,
+  patchSourceTranscript,
   getProject,
   getProviderConfig,
   getVideoAssetDerivativesDir,
@@ -489,6 +504,25 @@ const cutPlanSchema = z.object({
   candidateIds: z.array(z.string()).optional(),
   mode: z.enum(['cut', 'speed-up', 'review-only']).optional(),
   approved: z.boolean().optional(),
+});
+
+const transcriptCorrectionSchema = z.object({
+  corrections: z
+    .array(
+      z.object({
+        index: z.number().int().min(0),
+        text: z
+          .string()
+          .trim()
+          .max(80)
+          .refine((value) => !/\s/.test(value), 'One word per correction'),
+        startMs: z.number().min(0),
+        expectedText: z.string(),
+      }),
+    )
+    .min(1)
+    .max(200),
+  expectedRevision: z.number().int().min(0).optional(),
 });
 
 const agentTurnSchema = z.object({
@@ -891,6 +925,24 @@ const musicSelectSchema = z.object({
   seed: z.number().int().optional(),
 });
 
+const egressConsentRecordSchema = z.record(
+  z.string(),
+  z.object({
+    confirmed: z.boolean(),
+    confirmedAt: z.string(),
+  }),
+);
+
+const costApprovalRecordSchema = z.record(
+  z.string(),
+  z.object({
+    token: z.string().min(1),
+    approvedCents: z.number().optional(),
+    approvedAt: z.string().optional(),
+    approvedBy: z.enum(['user', 'system']).optional(),
+  }),
+);
+
 const projectSettingsSchema = z.object({
   renderCaptionMode: z.enum(['off', 'burn-in', 'sidecar']).optional(),
   renderWhere: z.enum(['local', 'cloud']).optional(),
@@ -906,15 +958,15 @@ const projectSettingsSchema = z.object({
       scope: z.literal('project'),
     })
     .optional(),
-  cloudRenderConsents: z
-    .record(
-      z.string(),
-      z.object({
-        confirmed: z.boolean(),
-        confirmedAt: z.string(),
-      }),
-    )
-    .optional(),
+  cloudRenderConsents: egressConsentRecordSchema.optional(),
+  // The source-transcription trio was missing here, so PATCH silently stripped
+  // the consent and cost approval the cloud transcription path depends on.
+  sourceTranscriptionProviderId: z.string().min(1).max(80).optional(),
+  sourceTranscriptionEgressConsents: egressConsentRecordSchema.optional(),
+  sourceTranscriptionCostApprovals: costApprovalRecordSchema.optional(),
+  captionTranslationProviderId: z.string().min(1).max(512).optional(),
+  captionTranslationEgressConsents: egressConsentRecordSchema.optional(),
+  translationLanguage: captionTranslationLanguageSchema.optional(),
   loudnessTargetLufs: z
     .union([loudnessTargetSchema, z.literal('off')])
     .optional(),
@@ -1098,12 +1150,29 @@ function errorResponse(error: unknown): {
           : 422;
     return { body: { error: message, code: error.code }, status };
   }
+  if (error instanceof CaptionTranslationError) {
+    return { body: { error: message, code: error.code }, status: 422 };
+  }
   if (error instanceof VideoCostApprovalError) {
     return {
       body: {
         error: message,
         code: error.code,
         detail: error.decision,
+      },
+      status: 402,
+    };
+  }
+  if (error instanceof VideoBudgetExceededError) {
+    return {
+      body: {
+        error: message,
+        code: error.code,
+        detail: {
+          capCents: error.capCents,
+          spentCents: error.spentCents,
+          estimatedCents: error.estimatedCents,
+        },
       },
       status: 402,
     };
@@ -3698,6 +3767,9 @@ videoRoutes.post(
     try {
       const call = c.req.valid('json');
       const projectId = c.req.param('id');
+      if (call.name === 'translate') {
+        return c.json(await translateVideoAgentCaptions(projectId, call));
+      }
       const execution = await withProjectLock(projectId, async () => {
         const nextExecution = applyVideoAgentTool(
           await getProject(projectId),
@@ -4412,6 +4484,83 @@ videoRoutes.get('/projects/:id/sources', async (c) => {
   }
 });
 
+videoRoutes.post('/projects/:id/assets/:assetId/transcribe', async (c) => {
+  try {
+    return c.json(
+      await transcribeProjectAsset(c.req.param('id'), c.req.param('assetId')),
+    );
+  } catch (error) {
+    if (error instanceof AssetTranscriptionError) {
+      return c.json(
+        { error: error.message, code: error.code, project: error.project },
+        error.code === 'asset-not-found' ? 404 : 422,
+      );
+    }
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.post('/projects/:id/captions/prepare-translation', async (c) => {
+  try {
+    const project = await getProject(c.req.param('id'));
+    if (
+      project.timeline?.tracks.some(
+        (track) =>
+          track.kind === 'caption' &&
+          track.clips.some((cue) => cue.text.trim()),
+      )
+    ) {
+      return c.json({ project });
+    }
+    const result = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+    });
+    return c.json({ project: result.project });
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+videoRoutes.get('/caption-translation/destination', (c) => {
+  try {
+    return c.json(getTranslationDestination());
+  } catch (error) {
+    return jsonError(c, error);
+  }
+});
+
+const translateCaptionsSchema = z.object({
+  targetLanguage: captionTranslationLanguageSchema,
+  sourceTrackId: z.string().min(1).max(120).optional(),
+  consentDestination: z.string().min(1).max(512).optional(),
+  egressConfirmed: z.boolean().optional(),
+  model: z.string().min(1).max(512).optional(),
+});
+
+videoRoutes.post(
+  '/projects/:id/captions/translate',
+  zValidator('json', translateCaptionsSchema),
+  async (c) => {
+    try {
+      const body = c.req.valid('json');
+      return c.json(
+        await translateProjectCaptions(c.req.param('id'), {
+          targetLanguage: body.targetLanguage,
+          sourceTrackId: body.sourceTrackId,
+          consentDestination: body.consentDestination,
+          egressConfirmed: body.egressConfirmed,
+          model: body.model,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof CaptionTranslationError) {
+        return c.json({ error: error.message, code: error.code }, 422);
+      }
+      return jsonError(c, error);
+    }
+  },
+);
+
 videoRoutes.post('/projects/:id/sources/:sourceId/analyze', async (c) => {
   try {
     return c.json(
@@ -4434,6 +4583,42 @@ videoRoutes.get('/projects/:id/sources/:sourceId/analysis', async (c) => {
     return jsonError(c, error);
   }
 });
+
+videoRoutes.patch(
+  '/projects/:id/sources/:sourceId/transcript',
+  zValidator('json', transcriptCorrectionSchema),
+  async (c) => {
+    try {
+      const result = await patchSourceTranscript(
+        c.req.param('id'),
+        c.req.param('sourceId'),
+        c.req.valid('json'),
+      );
+      return c.json({
+        project: result.project,
+        captionsUpdated: result.captionsUpdated,
+      });
+    } catch (error) {
+      if (error instanceof ProjectRevisionConflictError) {
+        return c.json(
+          { error: error.message, currentRevision: error.currentRevision },
+          409,
+        );
+      }
+      if (error instanceof TranscriptCorrectionError) {
+        return c.json(
+          { error: error.message, code: error.code },
+          error.code === 'source-not-found'
+            ? 404
+            : error.code === 'stale-word'
+              ? 409
+              : 422,
+        );
+      }
+      return jsonError(c, error);
+    }
+  },
+);
 
 videoRoutes.post(
   '/projects/:id/sources/:sourceId/cut-plan',

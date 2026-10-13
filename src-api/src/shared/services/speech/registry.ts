@@ -53,7 +53,7 @@ const REGISTRY: RegistryEntry[] = [
   {
     name: 'Local',
     urlPattern: /^local$/i,
-    modelPattern: /sensevoice|kokoro|piper|pocket|kitten/i,
+    modelPattern: /sensevoice|parakeet|kokoro|piper|pocket|kitten/i,
     factory: (config) => new LocalSpeechAdapter(config),
   },
   {
@@ -132,7 +132,7 @@ export function isTTSModel(modelName: string): boolean {
  * Check if a specific model name is recognised as an STT model.
  */
 export function isSTTModel(modelName: string): boolean {
-  return /whisper|gpt-4o-transcribe|nova-3|nova-2|flux|sensevoice|scribe/i.test(
+  return /whisper|gpt-4o-transcribe|nova-3|nova-2|flux|sensevoice|parakeet|scribe/i.test(
     modelName,
   );
 }

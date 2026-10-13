@@ -51,6 +51,7 @@ describe('video feature flags (on by default)', () => {
     expect(getVideoFeatureFlag('video.webcodecsPreview')).toBe(false);
     expect(getVideoFeatureFlag('video.vividOverlays')).toBe(false);
     expect(getVideoFeatureFlag('video.remotionMedia')).toBe(false);
+    expect(getVideoFeatureFlag('video.transcriptLayer')).toBe(false);
   });
 
   it('snapshots all flags', () => {
@@ -76,6 +77,7 @@ describe('video feature flags (on by default)', () => {
       // and audio-correlation sync until its accuracy is measured.
       'video.multicam': false,
       'video.multicamAudioSync': false,
+      'video.transcriptLayer': true,
     });
   });
 });

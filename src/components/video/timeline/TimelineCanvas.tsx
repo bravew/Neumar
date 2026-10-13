@@ -15,12 +15,12 @@ import type {
 import type { LinkedAssetDragPayload } from '../linkedAssetDrag';
 import type { OverlayPresetDragPayload } from '../overlays/overlayDragPayload';
 import type { ProjectAssetDragPayload } from '../projectAssetDrag';
+import { TimelineTranscriptRow } from '../transcript/TimelineTranscriptRow';
 import { BeatGridOverlay } from './BeatGridOverlay';
 import {
   msToTimelineFrame,
+  outputRangeMoveHandlers,
   outputRangePixels,
-  setOutputIn,
-  setOutputOut,
   timelineFrameRate,
 } from './outputRange';
 import { SnapOverlay } from './SnapOverlay';
@@ -198,148 +198,136 @@ export function TimelineCanvas({
   const virtualRows = rowVirtualizer.getVirtualItems();
 
   return (
-    <div
-      ref={scrollRef}
-      className="relative min-h-0 flex-1 overflow-auto"
-      onScroll={(event) => setScrollX(event.currentTarget.scrollLeft)}
-      onPointerLeave={hover.clearHover}
-      onPointerMoveCapture={hover.handlePointerMove}
-    >
+    <>
+      <TimelineTranscriptRow
+        project={project}
+        timeline={editor.projectId === project.id ? editor.timeline : null}
+        onSeek={onSeek}
+      />
       <div
-        data-timeline-scroll-content
-        className="relative"
-        style={{
-          height: Math.max(totalHeight, rowVirtualizer.getTotalSize()),
-          minHeight: '100%',
-          width: TRACK_HEADER_WIDTH + timelineWidth,
-        }}
-        onPointerDownCapture={hover.clearHover}
-        onPointerDown={lasso.handlePointerDown}
-        onPointerMove={lasso.handlePointerMove}
-        onPointerUp={lasso.handlePointerUp}
-        onPointerCancel={lasso.handlePointerCancel}
+        ref={scrollRef}
+        className="relative min-h-0 flex-1 overflow-auto"
+        onScroll={(event) => setScrollX(event.currentTarget.scrollLeft)}
+        onPointerLeave={hover.clearHover}
+        onPointerMoveCapture={hover.handlePointerMove}
       >
-        {onDropOnNewTrack ? (
-          <TimelineNewTrackDropZone
+        <div
+          data-timeline-scroll-content
+          className="relative"
+          style={{
+            height: Math.max(totalHeight, rowVirtualizer.getTotalSize()),
+            minHeight: '100%',
+            width: TRACK_HEADER_WIDTH + timelineWidth,
+          }}
+          onPointerDownCapture={hover.clearHover}
+          onPointerDown={lasso.handlePointerDown}
+          onPointerMove={lasso.handlePointerMove}
+          onPointerUp={lasso.handlePointerUp}
+          onPointerCancel={lasso.handlePointerCancel}
+        >
+          {onDropOnNewTrack ? (
+            <TimelineNewTrackDropZone
+              pixelsPerSecond={pixelsPerSecond}
+              timelineWidth={timelineWidth}
+              hint={labels.track.newTrackDropHint}
+              onDropOnNewTrack={onDropOnNewTrack}
+            />
+          ) : null}
+          <BeatGridOverlay
+            beatTimesMs={beatTimesMs}
+            headerWidth={TRACK_HEADER_WIDTH}
+            height={Math.max(totalHeight, rowVirtualizer.getTotalSize())}
             pixelsPerSecond={pixelsPerSecond}
-            timelineWidth={timelineWidth}
-            hint={labels.track.newTrackDropHint}
-            onDropOnNewTrack={onDropOnNewTrack}
           />
-        ) : null}
-        <BeatGridOverlay
-          beatTimesMs={beatTimesMs}
-          headerWidth={TRACK_HEADER_WIDTH}
-          height={Math.max(totalHeight, rowVirtualizer.getTotalSize())}
-          pixelsPerSecond={pixelsPerSecond}
-        />
-        <TimelineRuler
-          durationMs={timelineDurationMs}
-          headerWidth={TRACK_HEADER_WIDTH}
-          timelineWidth={timelineWidth}
-          pixelsPerSecond={pixelsPerSecond}
-          markers={markers}
-          selectedMarkerId={editor.selectedMarkerId}
-          markerLabels={labels.marker}
-          ariaLabel={labels.toolbar.seek}
-          onSeek={onSeek}
-          onSelectMarker={editor.selectMarker}
-          onUpdateMarker={editor.updateMarker}
-          onDeleteMarker={editor.deleteMarker}
-          outputRange={editor.timeline?.outputRange ?? null}
-          outputRangeMaxFrame={Math.max(
-            1,
-            msToTimelineFrame(timelineDurationMs, rate),
-          )}
-          outputRangeInMs={rangePixels?.inMs}
-          outputRangeOutMs={rangePixels?.outMs}
-          outputRangeLabels={labels.outputRange}
-          onMoveOutputRangeIn={(ms) =>
-            editor.setOutputRange(
-              setOutputIn(
-                editor.timeline?.outputRange,
-                ms,
-                rate,
-                timelineDurationMs,
-              ),
-            )
-          }
-          onMoveOutputRangeOut={(ms) =>
-            editor.setOutputRange(
-              setOutputOut(
-                editor.timeline?.outputRange,
-                ms,
-                rate,
-                timelineDurationMs,
-              ),
-            )
-          }
-        />
-        <SnapOverlay
-          headerWidth={TRACK_HEADER_WIDTH}
-          pixelsPerSecond={pixelsPerSecond}
-          snap={clipMove.overlay?.snap ?? null}
-        />
-        <TimelineLassoOverlay rect={lasso.rect} />
-        <TimelineHoverIndicator
-          headerWidth={TRACK_HEADER_WIDTH}
-          height={Math.max(totalHeight, rowVirtualizer.getTotalSize())}
-          hoverMs={hover.hoverMs}
-          pixelsPerSecond={pixelsPerSecond}
-        />
-        <TimelinePlayhead
-          playheadMs={playheadMs}
-          durationMs={timelineDurationMs}
-          headerWidth={TRACK_HEADER_WIDTH}
-          pixelsPerSecond={pixelsPerSecond}
-          ariaLabel={labels.toolbar.playhead.replace(
-            '{time}',
-            formatTimelineTime(playheadMs),
-          )}
-          onSeek={onSeek}
-        />
-        <TimelineTrackRows
-          rows={virtualRows}
-          tracks={tracks}
-          clipWindow={clipWindow}
-          pinnedClipIds={pinnedClipIds}
-          project={project}
-          materializationStates={materializationStates}
-          timelineWidth={timelineWidth}
-          pixelsPerSecond={pixelsPerSecond}
-          fps={fps}
-          selectedTrackId={selectedTrackId}
-          selectedSceneId={selectedSceneId}
-          selectedClipIds={editor.selectedClipIds}
-          selectedLinkGroupIds={selectedLinkGroupIds}
-          labels={labels.track as TimelineTrackLabels}
-          playheadMs={playheadMs}
-          timelineTransitionsEnabled={timelineTransitionsEnabled}
-          onSelectTrack={onSelectTrack}
-          onSelectClip={onSelectClip}
-          onTrimClip={editor.trimClip}
-          onMoveClip={onMoveClip}
-          clipMoveDropTarget={clipMove.dropTarget}
-          onMoveClipPreview={clipMove.handleMovePreview}
-          onMoveClipPreviewEnd={clipMove.handleMovePreviewEnd}
-          onDeleteSelectedClip={onDeleteSelectedClip}
-          onDropLinkedAsset={onDropLinkedAsset}
-          onDropCatalogAssets={onDropCatalogAssets}
-          onDropOverlayPreset={onDropOverlayPreset}
-          onDropProjectAsset={onDropProjectAsset}
-          onDropFiles={onDropFiles}
-          onDropOnNewTrack={onDropOnNewTrack}
-          onToggleTrackMute={onToggleTrackMute}
-          onToggleTrackLock={onToggleTrackLock}
-          onToggleTrackSyncLock={onToggleTrackSyncLock}
-          onToggleTrackVisibility={onToggleTrackVisibility}
-          onDeleteTrack={onDeleteTrack}
-          onRenameTrack={onRenameTrack}
-          onMoveTrackLayer={editor.moveTrackLayer}
-          onApplyAgentTool={onApplyAgentTool}
-        />
-        <TimelineMoveOverlay preview={clipMove.overlay} />
+          <TimelineRuler
+            durationMs={timelineDurationMs}
+            headerWidth={TRACK_HEADER_WIDTH}
+            timelineWidth={timelineWidth}
+            pixelsPerSecond={pixelsPerSecond}
+            markers={markers}
+            selectedMarkerId={editor.selectedMarkerId}
+            markerLabels={labels.marker}
+            ariaLabel={labels.toolbar.seek}
+            onSeek={onSeek}
+            onSelectMarker={editor.selectMarker}
+            onUpdateMarker={editor.updateMarker}
+            onDeleteMarker={editor.deleteMarker}
+            outputRange={editor.timeline?.outputRange ?? null}
+            outputRangeMaxFrame={Math.max(
+              1,
+              msToTimelineFrame(timelineDurationMs, rate),
+            )}
+            outputRangeInMs={rangePixels?.inMs}
+            outputRangeOutMs={rangePixels?.outMs}
+            outputRangeLabels={labels.outputRange}
+            {...outputRangeMoveHandlers(editor, rate, timelineDurationMs)}
+          />
+          <SnapOverlay
+            headerWidth={TRACK_HEADER_WIDTH}
+            pixelsPerSecond={pixelsPerSecond}
+            snap={clipMove.overlay?.snap ?? null}
+          />
+          <TimelineLassoOverlay rect={lasso.rect} />
+          <TimelineHoverIndicator
+            headerWidth={TRACK_HEADER_WIDTH}
+            height={Math.max(totalHeight, rowVirtualizer.getTotalSize())}
+            hoverMs={hover.hoverMs}
+            pixelsPerSecond={pixelsPerSecond}
+          />
+          <TimelinePlayhead
+            playheadMs={playheadMs}
+            durationMs={timelineDurationMs}
+            headerWidth={TRACK_HEADER_WIDTH}
+            pixelsPerSecond={pixelsPerSecond}
+            ariaLabel={labels.toolbar.playhead.replace(
+              '{time}',
+              formatTimelineTime(playheadMs),
+            )}
+            onSeek={onSeek}
+          />
+          <TimelineTrackRows
+            rows={virtualRows}
+            tracks={tracks}
+            clipWindow={clipWindow}
+            pinnedClipIds={pinnedClipIds}
+            project={project}
+            materializationStates={materializationStates}
+            timelineWidth={timelineWidth}
+            pixelsPerSecond={pixelsPerSecond}
+            fps={fps}
+            selectedTrackId={selectedTrackId}
+            selectedSceneId={selectedSceneId}
+            selectedClipIds={editor.selectedClipIds}
+            selectedLinkGroupIds={selectedLinkGroupIds}
+            labels={labels.track as TimelineTrackLabels}
+            playheadMs={playheadMs}
+            timelineTransitionsEnabled={timelineTransitionsEnabled}
+            onSelectTrack={onSelectTrack}
+            onSelectClip={onSelectClip}
+            onTrimClip={editor.trimClip}
+            onMoveClip={onMoveClip}
+            clipMoveDropTarget={clipMove.dropTarget}
+            onMoveClipPreview={clipMove.handleMovePreview}
+            onMoveClipPreviewEnd={clipMove.handleMovePreviewEnd}
+            onDeleteSelectedClip={onDeleteSelectedClip}
+            onDropLinkedAsset={onDropLinkedAsset}
+            onDropCatalogAssets={onDropCatalogAssets}
+            onDropOverlayPreset={onDropOverlayPreset}
+            onDropProjectAsset={onDropProjectAsset}
+            onDropFiles={onDropFiles}
+            onDropOnNewTrack={onDropOnNewTrack}
+            onToggleTrackMute={onToggleTrackMute}
+            onToggleTrackLock={onToggleTrackLock}
+            onToggleTrackSyncLock={onToggleTrackSyncLock}
+            onToggleTrackVisibility={onToggleTrackVisibility}
+            onDeleteTrack={onDeleteTrack}
+            onRenameTrack={onRenameTrack}
+            onMoveTrackLayer={editor.moveTrackLayer}
+            onApplyAgentTool={onApplyAgentTool}
+          />
+          <TimelineMoveOverlay preview={clipMove.overlay} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -197,6 +197,45 @@ describe('timeline ops', () => {
     expect(restored.timeline).toEqual(timeline);
   });
 
+  it('round-trips caption visibility through schema and undo', () => {
+    const timeline = timelineFixture();
+    timeline.tracks.push({
+      id: 'captions',
+      kind: 'caption',
+      name: 'Spanish',
+      language: 'es',
+      muted: false,
+      locked: false,
+      order: 30,
+      clips: [],
+    });
+    const op = TimelineOpSchema.parse({
+      kind: 'track.update',
+      trackId: 'captions',
+      before: {},
+      after: { hidden: true },
+    });
+    const applied = applyTimelineOp(timeline, op);
+    expect(
+      applied.timeline.tracks.find((track) => track.id === 'captions'),
+    ).toMatchObject({ hidden: true, language: 'es' });
+    expect(TimelineSchema.parse(applied.timeline)).toEqual(applied.timeline);
+    expect(
+      applyHistoryOperation(applied.timeline, applied.inverse).timeline,
+    ).toEqual(timeline);
+  });
+
+  it('rejects audio track visibility updates', () => {
+    expect(() =>
+      applyTimelineOp(timelineFixture(), {
+        kind: 'track.update',
+        trackId: 'track-audio',
+        before: {},
+        after: { hidden: true },
+      }),
+    ).toThrow(TimelineOpError);
+  });
+
   it('round-trips audio track volume and duck metadata through track update', () => {
     const timeline = linkedTimelineFixture();
     const applied = applyTimelineOp(timeline, {

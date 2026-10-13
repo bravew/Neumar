@@ -4,6 +4,8 @@ import type {
   VideoAssetPlan,
   VideoAspectRatio,
   VideoCaptionRenderMode,
+  VideoCaptionTranslateRequest,
+  VideoCaptionTranslateResult,
   VideoEditorHandoffJobStatus,
   VideoEditorHandoffMediaMode,
   VideoEditorHandoffTarget,
@@ -139,9 +141,23 @@ export interface VideoProjectEditorActions {
     referenceId: string,
   ) => Promise<VideoReferenceRun | null>;
   analyzeSource: (sourceId: string) => Promise<VideoProject | null>;
+  transcribeAsset: (assetId: string) => Promise<VideoProject | null>;
+  prepareCaptionTranslation: () => Promise<VideoProject>;
+  translateCaptions: (
+    input: VideoCaptionTranslateRequest,
+  ) => Promise<VideoCaptionTranslateResult>;
   createCutPlan: (
     sourceId: string,
     candidateIds: string[],
+  ) => Promise<VideoProject | null>;
+  patchSourceTranscript: (
+    sourceId: string,
+    corrections: Array<{
+      index: number;
+      text: string;
+      startMs: number;
+      expectedText: string;
+    }>,
   ) => Promise<VideoProject | null>;
   generateStoryboard: (message: string) => Promise<VideoProject | null>;
   updateStoryboard: (

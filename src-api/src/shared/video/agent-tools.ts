@@ -18,7 +18,12 @@ import {
 } from '@neumar/video-ir';
 import { z } from 'zod';
 
+import { buildTranscriptWordOps } from './analysis/transcript-agent-ops';
 import { retimeTimelineCaptions } from './caption-retime';
+import {
+  captionTranslationLanguageSchema,
+  translateProjectCaptions,
+} from './caption-translate';
 import { normalizeCssColor } from './css-colors';
 import { calculateWer } from './eval';
 import { outputRangeFromFrames } from './output-range';
@@ -279,7 +284,7 @@ const providerKindsSchema = z.enum(['image', 'video', 'audio']);
 const publishChannelSchema = z.enum(['slack', 'youtube', 'tiktok']);
 const renderPresetSchema = z.enum(['draft', 'standard', 'high']);
 const renderWhereSchema = z.enum(['local', 'cloud']);
-const languageSchema = z.enum(['en', 'zh', 'es', 'fr', 'hi', 'pt']);
+const languageSchema = captionTranslationLanguageSchema;
 const timelineProposalApplyModeSchema = z.enum([
   'suggest',
   'auto',
@@ -743,6 +748,32 @@ export const videoAgentToolCallSchema = z.discriminatedUnion('name', [
     reasoning: z.string().optional(),
   }),
   z.object({
+    name: z.literal('transcriptCutWords'),
+    args: z
+      .object({
+        sourceId: z.string().min(1),
+        startIndex: z.number().int().min(0),
+        endIndex: z.number().int().min(0),
+        ripple: z.boolean().optional(),
+        summary: z.string().max(280).optional(),
+      })
+      .strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
+    name: z.literal('transcriptRestoreWords'),
+    args: z
+      .object({
+        sourceId: z.string().min(1),
+        startIndex: z.number().int().min(0),
+        endIndex: z.number().int().min(0),
+        ripple: z.boolean().optional(),
+        summary: z.string().max(280).optional(),
+      })
+      .strict(),
+    reasoning: z.string().optional(),
+  }),
+  z.object({
     name: z.literal('closeGap'),
     args: z
       .object({
@@ -981,7 +1012,12 @@ export const videoAgentToolCallSchema = z.discriminatedUnion('name', [
   }),
   z.object({
     name: z.literal('translate'),
-    args: z.object({ lang: languageSchema }).strict(),
+    args: z
+      .object({
+        lang: languageSchema,
+        sourceTrackId: z.string().min(1).optional(),
+      })
+      .strict(),
     reasoning: z.string().optional(),
   }),
   z.object({
@@ -1109,6 +1145,8 @@ export type TimelineEditAgentToolCall = Extract<
       | 'flipClip'
       | 'setClipTransform'
       | 'closeGap'
+      | 'transcriptCutWords'
+      | 'transcriptRestoreWords'
       | 'setAudioClipGain'
       | 'setAudioClipMute'
       | 'setAudioClipFade'
@@ -1149,6 +1187,17 @@ export interface VideoAgentToolOptions {
 }
 
 type JsonContainer = Record<string, unknown> | unknown[];
+
+/** Runs translation through the service using only previously saved consent. */
+export function translateVideoAgentCaptions(
+  projectId: string,
+  call: Extract<VideoAgentToolCall, { name: 'translate' }>,
+) {
+  return translateProjectCaptions(projectId, {
+    targetLanguage: call.args.lang,
+    sourceTrackId: call.args.sourceTrackId,
+  });
+}
 
 export function applyVideoAgentTool(
   project: VideoProject,
@@ -1198,6 +1247,8 @@ export function isTimelineEditAgentToolCall(
     case 'flipClip':
     case 'setClipTransform':
     case 'closeGap':
+    case 'transcriptCutWords':
+    case 'transcriptRestoreWords':
     case 'setAudioClipGain':
     case 'setAudioClipMute':
     case 'setAudioClipFade':
@@ -1401,6 +1452,8 @@ function buildVideoAgentToolDiff(
     case 'flipClip':
     case 'setClipTransform':
     case 'closeGap':
+    case 'transcriptCutWords':
+    case 'transcriptRestoreWords':
     case 'setAudioClipGain':
     case 'setAudioClipMute':
     case 'setAudioClipFade':
@@ -1439,7 +1492,9 @@ function buildVideoAgentToolDiff(
     case 'reframe':
       return reframeDiff(project, call.args.aspect);
     case 'translate':
-      return translateDiff(project, call.args.lang);
+      throw new Error(
+        'Caption translation requires translateVideoAgentCaptions.',
+      );
     case 'restyle':
       return restyleDiff(project, call.args.preset);
     case 'render':
@@ -2483,17 +2538,6 @@ function storyboardSceneStartMs(
   throw new Error(`Scene not found: ${sceneId}`);
 }
 
-function translateDiff(
-  project: VideoProject,
-  lang: Extract<VideoAgentToolCall, { name: 'translate' }>['args']['lang'],
-): ProjectDiffOperation[] {
-  const nextSettings = {
-    ...(project.settings ?? {}),
-    translationLanguage: lang,
-  };
-  return upsertDiff(project, '/settings', nextSettings);
-}
-
 function restyleDiff(
   project: VideoProject,
   preset: string,
@@ -2933,6 +2977,10 @@ export function buildTimelineEditToolOps(
       return buildSetClipTransformOps(timeline, call.args);
     case 'closeGap':
       return buildCloseGapOps(timeline, call.args);
+    case 'transcriptCutWords':
+      return buildTranscriptWordOps(project, timeline, 'cut', call.args);
+    case 'transcriptRestoreWords':
+      return buildTranscriptWordOps(project, timeline, 'restore', call.args);
     case 'setAudioClipGain':
       return buildSetAudioClipGainOps(timeline, call.args);
     case 'setAudioClipMute':

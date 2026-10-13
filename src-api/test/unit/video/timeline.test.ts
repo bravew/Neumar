@@ -193,6 +193,7 @@ describe('video timeline migration and EDL compilation', () => {
         {
           id: 'edl-clip-caption-scene-1',
           clipId: 'clip-caption-scene-1',
+          trackId: 'track-caption-main',
           sourceRef: { kind: 'scene', sceneId: 'scene-1' },
           sceneId: 'scene-1',
           startMs: 0,
@@ -203,6 +204,7 @@ describe('video timeline migration and EDL compilation', () => {
         {
           id: 'edl-clip-caption-scene-2',
           clipId: 'clip-caption-scene-2',
+          trackId: 'track-caption-main',
           sourceRef: { kind: 'scene', sceneId: 'scene-2' },
           sceneId: 'scene-2',
           startMs: 2500,
@@ -495,6 +497,46 @@ describe('video timeline migration and EDL compilation', () => {
     expect(loaded.schemaVersion).toBe(2);
     expect(raw.schemaVersion).toBe(2);
     expect(raw.timeline).toEqual(loaded.timeline);
+  });
+
+  it('leaves a hidden caption track out of the EDL', () => {
+    const project = projectFixture();
+    project.timeline = migrateStoryboardToTimeline(project).timeline;
+    const captionTrack = project.timeline!.tracks.find(
+      (track) => track.kind === 'caption',
+    )!;
+    captionTrack.hidden = true;
+
+    expect(compileTimelineToEdl(project).captions).toEqual([]);
+  });
+
+  it('keeps two visible caption tracks apart by trackId', () => {
+    const project = projectFixture();
+    project.timeline = migrateStoryboardToTimeline(project).timeline;
+    const primary = project.timeline!.tracks.find(
+      (track) => track.kind === 'caption',
+    )!;
+    if (primary.kind !== 'caption') throw new Error('expected a caption track');
+    primary.language = 'en';
+    project.timeline!.tracks.push({
+      ...primary,
+      id: 'track-caption-es',
+      name: 'Captions (es)',
+      language: 'es',
+      order: primary.order + 1,
+      clips: primary.clips.map((clip) => ({
+        ...clip,
+        id: `${clip.id}-es`,
+        text: `[es] ${clip.text}`,
+        params: { ...clip.params, origin: 'translated' },
+      })),
+    });
+
+    const captions = compileTimelineToEdl(project).captions;
+    expect(captions).toHaveLength(4);
+    expect(
+      captions.filter((caption) => caption.trackId === 'track-caption-es'),
+    ).toHaveLength(2);
   });
 });
 

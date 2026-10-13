@@ -19,6 +19,7 @@ import { ElevenLabsSfxAdapter } from './adapters/elevenlabs-sfx';
 import { LocalSpeechAdapter } from './adapters/local';
 import { isSilentPcm, pcmToWav } from './audio-utils';
 import { createAdapterForProvider, isSTTModel, isTTSModel } from './registry';
+import { getTimedSTTModelStatus } from './timed-local';
 import type {
   SpeechAdapter,
   SpeechProviderConfig,
@@ -247,6 +248,8 @@ const LOCAL_SUB_PROVIDERS = new Set([
   'kitten',
   'local',
   'sensevoice',
+  'parakeet',
+  'parakeet-tdt-v3',
   'whisper',
   'whisperx',
   'whisperx-local',
@@ -829,6 +832,7 @@ export function listCapabilities(): {
   streamingSTTProviders: string[];
   streamingTTSProviders: string[];
   sfxProviders: string[];
+  localTimedSTT: ReturnType<typeof getTimedSTTModelStatus>;
 } {
   const adapters = discoverAdapters();
   return {
@@ -841,6 +845,7 @@ export function listCapabilities(): {
       .filter((a) => a.supportsStreamingTTS)
       .map((a) => a.name),
     sfxProviders: adapters.filter((a) => a.supportsSFX).map((a) => a.name),
+    localTimedSTT: getTimedSTTModelStatus(),
   };
 }
 

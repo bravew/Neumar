@@ -1,6 +1,10 @@
 import { createLogger } from '@/shared/utils/logger';
 
-import { STT_CAPTION_ORIGIN } from './caption-retime';
+import {
+  findPrimaryCaptionTrack,
+  PRIMARY_CAPTION_TRACK_ID,
+  STT_CAPTION_ORIGIN,
+} from './caption-retime';
 import {
   analyzeSource,
   ensureSourceForAsset,
@@ -26,6 +30,8 @@ const logger = createLogger('VideoCaptionGenerate');
 export { STT_CAPTION_ORIGIN } from './caption-retime';
 
 export interface GenerateCaptionsOptions {
+  /** Build cues only from saved analyses; never start transcription. */
+  cachedOnly?: boolean;
   /** Look + animation applied to every generated cue. */
   style?: SubtitleStyle;
   /** Restrict generation to a single visual clip. */
@@ -101,7 +107,8 @@ export async function generateProjectCaptions(
     let source = resolveSourceForAsset(current, assetId);
     // An asset added via upload / linked-folder attach has no SourceMedia yet;
     // register one so it can be transcribed like an imported source.
-    if (!source) source = await ensureSourceForAsset(projectId, assetId);
+    if (!source && !options.cachedOnly)
+      source = await ensureSourceForAsset(projectId, assetId);
     if (!source) {
       const asset = current.assets.find((item) => item.id === assetId);
       skipped.push({
@@ -110,7 +117,9 @@ export async function generateProjectCaptions(
       });
       continue;
     }
-    const transcript = await resolveTranscript(projectId, source);
+    const transcript = options.cachedOnly
+      ? (await getSourceAnalysis(projectId, source.id))?.transcript
+      : await resolveTranscript(projectId, source);
     if (!transcript) {
       skipped.push({ clipId: clip.id, reason: 'transcription-failed' });
       continue;
@@ -365,16 +374,15 @@ function wordsPerCueForStyle(style?: SubtitleStyle): number {
 }
 
 /**
- * Swaps the STT-generated cues on the caption track, preserving any manually
- * added or capture-origin caption clips. Re-running generation is idempotent.
+ * Swaps the STT-generated cues on the primary caption track, preserving any
+ * manually added or capture-origin caption clips and leaving translated tracks
+ * untouched. Re-running generation is idempotent.
  */
 function replaceSttCaptionClips(
   timeline: VideoTimeline,
   cues: CaptionTimelineClip[],
 ): VideoTimeline {
-  const captionTrack = timeline.tracks.find(
-    (track): track is CaptionTimelineTrack => track.kind === 'caption',
-  );
+  const captionTrack = findPrimaryCaptionTrack(timeline);
   const preserved = (captionTrack?.clips ?? []).filter(
     (clip) => clip.params?.origin !== STT_CAPTION_ORIGIN,
   );
@@ -392,7 +400,7 @@ function replaceSttCaptionClips(
     };
   }
   const newTrack: CaptionTimelineTrack = {
-    id: 'track-caption-main',
+    id: PRIMARY_CAPTION_TRACK_ID,
     kind: 'caption',
     name: 'Captions',
     muted: false,

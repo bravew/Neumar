@@ -11,6 +11,8 @@ import type {
   VideoAgentToolCallInput,
   VideoAgentToolExecution,
   VideoCaptionRenderMode,
+  VideoCaptionTranslateRequest,
+  VideoCaptionTranslateResult,
   VideoEditorHandoffJobStatus,
   VideoEditorHandoffMediaMode,
   VideoEditorHandoffTarget,
@@ -745,6 +747,75 @@ export function useVideoProject(projectId: string | undefined) {
     [projectId],
   );
 
+  const transcriptionRequestRef = useRef<AbortController | null>(null);
+  useEffect(() => () => transcriptionRequestRef.current?.abort(), [projectId]);
+
+  const transcribeAsset = useCallback(
+    async (assetId: string) => {
+      if (!projectId) return null;
+      transcriptionRequestRef.current?.abort();
+      const controller = new AbortController();
+      transcriptionRequestRef.current = controller;
+      try {
+        const data = await videoApi<{ project: VideoProject }>(
+          `/projects/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}/transcribe`,
+          { method: 'POST', signal: controller.signal },
+        );
+        if (!controller.signal.aborted) {
+          setProject((current) =>
+            current?.id === projectId ? data.project : current,
+          );
+        }
+        return data.project;
+      } catch (err) {
+        // Registering/analyzing the source can persist state before failing.
+        // Refresh that state while preserving the actionable transcription error.
+        if (
+          !controller.signal.aborted &&
+          err instanceof VideoApiError &&
+          err.data.project
+        ) {
+          await refresh(controller.signal);
+        }
+        throw err;
+      } finally {
+        if (transcriptionRequestRef.current === controller)
+          transcriptionRequestRef.current = null;
+      }
+    },
+    [projectId, refresh],
+  );
+
+  const prepareCaptionTranslation =
+    useCallback(async (): Promise<VideoProject> => {
+      if (!projectId) throw new Error('No project selected');
+      const data = await videoApi<{ project: VideoProject }>(
+        `/projects/${encodeURIComponent(projectId)}/captions/prepare-translation`,
+        { method: 'POST' },
+      );
+      setProject((current) =>
+        current?.id === projectId ? data.project : current,
+      );
+      return data.project;
+    }, [projectId]);
+
+  const translateCaptions = useCallback(
+    async (
+      input: VideoCaptionTranslateRequest,
+    ): Promise<VideoCaptionTranslateResult> => {
+      if (!projectId) throw new Error('No project selected');
+      const data = await videoApi<VideoCaptionTranslateResult>(
+        `/projects/${encodeURIComponent(projectId)}/captions/translate`,
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+      setProject((current) =>
+        current?.id === projectId ? data.project : current,
+      );
+      return data;
+    },
+    [projectId],
+  );
+
   const createCutPlan = useCallback(
     async (sourceId: string, candidateIds: string[]) => {
       if (!projectId) return null;
@@ -759,6 +830,34 @@ export function useVideoProject(projectId: string | undefined) {
             approved: true,
             mode: 'cut',
           }),
+        },
+      );
+      setProject(data.project);
+      return data.project;
+    },
+    [projectId],
+  );
+
+  const patchSourceTranscript = useCallback(
+    async (
+      sourceId: string,
+      corrections: Array<{
+        index: number;
+        text: string;
+        startMs: number;
+        expectedText: string;
+      }>,
+    ) => {
+      if (!projectId) return null;
+      const data = await videoApi<{ project: VideoProject }>(
+        `/projects/${encodeURIComponent(projectId)}/sources/${encodeURIComponent(
+          sourceId,
+        )}/transcript`,
+        {
+          method: 'PATCH',
+          // No expectedRevision: timeline autosaves also bump the revision,
+          // and each correction compares its original text and source timing.
+          body: JSON.stringify({ corrections }),
         },
       );
       setProject(data.project);
@@ -1592,7 +1691,11 @@ export function useVideoProject(projectId: string | undefined) {
     cancelVideoReferenceRun,
     resumeVideoReferenceRun,
     analyzeSource,
+    transcribeAsset,
+    translateCaptions,
+    prepareCaptionTranslation,
     createCutPlan,
+    patchSourceTranscript,
     generateStoryboard,
     updateStoryboard,
     approveStoryboard,

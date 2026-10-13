@@ -53,6 +53,29 @@ describe('buildLightweightLLMCaller token-param fallback', () => {
     vi.unstubAllGlobals();
   });
 
+  it('keeps the consented destination when provider configuration changes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse({ choices: [{ message: { content: 'ok' } }] }),
+      ),
+    );
+    const { buildLightweightLLMCaller } =
+      await import('@/shared/utils/llm-caller');
+    const caller = buildLightweightLLMCaller({
+      credentials: { ...mocks.credentials },
+    });
+    mocks.credentials = {
+      apiKey: 'other-key',
+      baseUrl: 'https://other.example/v1',
+    };
+    await expect(caller('hello')).resolves.toBe('ok');
+    expect(fetch).toHaveBeenCalledWith(
+      'https://proxy.example/v1/chat/completions',
+      expect.objectContaining({ redirect: 'error' }),
+    );
+  });
+
   it('retries max_tokens requests once when the 400 body names max_completion_tokens', async () => {
     vi.stubGlobal(
       'fetch',

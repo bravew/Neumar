@@ -19,6 +19,7 @@ import * as path from 'node:path';
 import { createLogger } from '@/shared/utils/logger';
 
 import type { TtsModelId } from '../local-models';
+import { LocalTimingError, transcribeTimedLocal } from '../timed-local';
 import type {
   SpeechAdapter,
   SpeechProviderConfig,
@@ -329,62 +330,61 @@ export function decodeWavToFloat32(wavBuffer: Buffer): {
   samples: Float32Array;
   sampleRate: number;
 } {
-  // Parse WAV header
-  const riff = wavBuffer.toString('ascii', 0, 4);
-  if (riff !== 'RIFF') {
-    throw new Error('Invalid WAV file: missing RIFF header');
+  if (
+    wavBuffer.length < 12 ||
+    wavBuffer.toString('ascii', 0, 4) !== 'RIFF' ||
+    wavBuffer.toString('ascii', 8, 12) !== 'WAVE'
+  )
+    throw new Error('Invalid WAV header');
+  let sampleRate = 0;
+  let channels = 0;
+  let format = 0;
+  let bits = 0;
+  let data: Buffer | undefined;
+  for (let pos = 12; pos + 8 <= wavBuffer.length;) {
+    const id = wavBuffer.toString('ascii', pos, pos + 4);
+    const size = wavBuffer.readUInt32LE(pos + 4);
+    const start = pos + 8;
+    if (start + size > wavBuffer.length) throw new Error('Truncated WAV chunk');
+    if (id === 'fmt ') {
+      if (size < 16) throw new Error('Invalid WAV format chunk');
+      format = wavBuffer.readUInt16LE(start);
+      channels = wavBuffer.readUInt16LE(start + 2);
+      sampleRate = wavBuffer.readUInt32LE(start + 4);
+      bits = wavBuffer.readUInt16LE(start + 14);
+    } else if (id === 'data') data = wavBuffer.subarray(start, start + size);
+    pos = start + size + (size % 2);
   }
-
-  const wave = wavBuffer.toString('ascii', 8, 12);
-  if (wave !== 'WAVE') {
-    throw new Error('Invalid WAV file: missing WAVE marker');
-  }
-
-  // Find fmt and data chunks
-  let pos = 12;
-  let sampleRate = DEFAULT_SAMPLE_RATE;
-  let bitsPerSample = BITS_PER_SAMPLE_16;
-  let dataStart = 0;
-  let dataSize = 0;
-
-  while (pos < wavBuffer.length) {
-    const chunkId = wavBuffer.toString('ascii', pos, pos + 4);
-    const chunkSize = wavBuffer.readUInt32LE(pos + 4);
-
-    if (chunkId === 'fmt ') {
-      sampleRate = wavBuffer.readUInt32LE(pos + 12);
-      bitsPerSample = wavBuffer.readUInt16LE(pos + 22);
-    } else if (chunkId === 'data') {
-      dataStart = pos + 8;
-      dataSize = chunkSize;
-      break;
+  if (
+    !data?.length ||
+    !channels ||
+    !sampleRate ||
+    !(
+      (format === 1 && [8, 16, 24, 32].includes(bits)) ||
+      (format === 3 && bits === 32)
+    )
+  )
+    throw new Error('Unsupported or incomplete WAV; use PCM or float32 WAV');
+  const bytes = bits / 8;
+  const frameBytes = bytes * channels;
+  if (data.length % frameBytes !== 0)
+    throw new Error('Incomplete WAV sample frame');
+  const samples = new Float32Array(data.length / frameBytes);
+  for (let frame = 0; frame < samples.length; frame++) {
+    let sum = 0;
+    for (let channel = 0; channel < channels; channel++) {
+      const pos = frame * frameBytes + channel * bytes;
+      const value =
+        format === 3
+          ? data.readFloatLE(pos)
+          : bits === 8
+            ? (data[pos]! - 128) / 128
+            : data.readIntLE(pos, bytes) / 2 ** (bits - 1);
+      if (!Number.isFinite(value)) throw new Error('Nonfinite WAV sample');
+      sum += value;
     }
-
-    pos += 8 + chunkSize;
+    samples[frame] = sum / channels;
   }
-
-  if (dataStart === 0 || dataSize === 0) {
-    throw new Error('Invalid WAV file: no data chunk found');
-  }
-
-  const bytesPerSample = bitsPerSample / 8;
-  const numSamples = dataSize / bytesPerSample;
-  const samples = new Float32Array(numSamples);
-
-  for (let i = 0; i < numSamples; i++) {
-    const byteOffset = dataStart + i * bytesPerSample;
-    if (bitsPerSample === 16) {
-      const val = wavBuffer.readInt16LE(byteOffset);
-      samples[i] = val < 0 ? val / -INT16_MIN : val / INT16_MAX;
-    } else if (bitsPerSample === 32) {
-      // 32-bit float
-      samples[i] = wavBuffer.readFloatLE(byteOffset);
-    } else {
-      // 8-bit unsigned
-      samples[i] = ((wavBuffer[byteOffset] ?? 128) - 128) / 128;
-    }
-  }
-
   return { samples, sampleRate };
 }
 
@@ -555,26 +555,56 @@ export class LocalSpeechAdapter implements SpeechAdapter {
       language: params.language,
     });
 
+    const timed = params.timestamps === true;
+    const model = timed ? 'parakeet-tdt-v3' : STT_MODEL_LABEL;
     try {
-      // Lazy import — only load the native binding when STT is actually needed
-      const { transcribeLocal } = await import('../local-models');
-
-      // Copy to an aligned buffer — Node.js Buffer.from() may have odd byte offsets
-      // which would cause Int16Array construction to throw a RangeError.
-      const aligned = Buffer.from(params.audioData);
-      const int16Array = new Int16Array(
-        aligned.buffer,
-        aligned.byteOffset,
-        aligned.byteLength / BYTES_PER_INT16_SAMPLE,
-      );
-      const float32Samples = new Float32Array(int16Array.length);
-      for (let i = 0; i < int16Array.length; i++) {
-        const val = int16Array[i] ?? 0;
-        float32Samples[i] = val < 0 ? val / -INT16_MIN : val / INT16_MAX;
+      params.signal?.throwIfAborted();
+      const isWav =
+        params.audioData.toString('ascii', 0, 4) === 'RIFF' ||
+        /(?:wav|wave)/i.test(params.mimeType ?? '');
+      let float32Samples: Float32Array;
+      let sampleRate: number;
+      if (isWav) {
+        const decoded = decodeWavToFloat32(params.audioData);
+        float32Samples = decoded.samples;
+        sampleRate = decoded.sampleRate;
+      } else {
+        if (params.mimeType && !/(?:pcm|s16le|l16)/i.test(params.mimeType))
+          throw new Error(
+            'Local transcription requires PCM WAV or raw 16 kHz S16LE audio. Convert compressed audio before transcription.',
+          );
+        if (params.audioData.length % BYTES_PER_INT16_SAMPLE !== 0)
+          throw new Error('Incomplete S16LE audio sample');
+        float32Samples = new Float32Array(
+          params.audioData.length / BYTES_PER_INT16_SAMPLE,
+        );
+        for (let i = 0; i < float32Samples.length; i++) {
+          const value = params.audioData.readInt16LE(
+            i * BYTES_PER_INT16_SAMPLE,
+          );
+          float32Samples[i] = value / -INT16_MIN;
+        }
+        sampleRate = DEFAULT_SAMPLE_RATE;
       }
-
-      // Assume 16 kHz — sherpa-onnx models are trained on this rate
-      const sampleRate = DEFAULT_SAMPLE_RATE;
+      if (timed) {
+        const result = await transcribeTimedLocal(
+          float32Samples,
+          sampleRate,
+          params.language,
+          params.signal,
+        );
+        return {
+          success: true,
+          provider: this.name,
+          model,
+          dataEgress: 'local',
+          text: result.text,
+          words: result.words,
+          timingQuality: 'model',
+          duration: float32Samples.length / sampleRate,
+        };
+      }
+      const { transcribeLocal } = await import('../local-models');
 
       this.logger.debug('Calling transcribeLocal()', {
         sampleCount: float32Samples.length,
@@ -597,8 +627,10 @@ export class LocalSpeechAdapter implements SpeechAdapter {
       return {
         success: true,
         provider: this.name,
-        model: STT_MODEL_LABEL,
+        model,
+        dataEgress: 'local',
         text: result.text,
+        detectedLanguage: result.language,
         emotion: result.emotion,
         audioEvents: result.audioEvents,
         duration: float32Samples.length / sampleRate,
@@ -610,7 +642,10 @@ export class LocalSpeechAdapter implements SpeechAdapter {
       return {
         success: false,
         provider: this.name,
-        model: STT_MODEL_LABEL,
+        model,
+        dataEgress: 'local',
+        timingQuality: timed ? 'missing' : undefined,
+        errorCode: error instanceof LocalTimingError ? error.code : undefined,
         error: message,
       };
     }

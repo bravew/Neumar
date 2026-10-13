@@ -1,6 +1,9 @@
 import { clipPlaybackFromFields, normalizeFrameRate } from '@neumar/video-ir';
 
-import { carryForwardSttCaptions } from './caption-retime';
+import {
+  carryForwardSttCaptions,
+  findPrimaryCaptionTrack,
+} from './caption-retime';
 import { applyOutputRangeToEdl, resolveOutputRange } from './output-range';
 import { compatibilityFps, deriveProjectTimebase } from './timebase';
 import { normalizeTransition } from './types';
@@ -155,7 +158,14 @@ export function compileTimelineToEdl(
     }
 
     if (track.kind === 'caption') {
-      captions.push(...clips.filter(isCaptionClip).map(edlCaptionFromClip));
+      // A hidden caption track stays out of the render. Hiding one language and
+      // showing another is how a dual-language project picks what burns in.
+      if (track.hidden) continue;
+      captions.push(
+        ...clips
+          .filter(isCaptionClip)
+          .map((clip) => edlCaptionFromClip(clip, track.id)),
+      );
     }
   }
 
@@ -195,9 +205,7 @@ export function insertCaptureCaptionClips(
   const captionClips = captureCaptionClips(input);
   if (captionClips.length === 0) return timeline;
 
-  const existingTrack = timeline.tracks.find(
-    (track) => track.kind === 'caption' && !track.locked,
-  );
+  const existingTrack = findPrimaryCaptionTrack(timeline);
   const captionTrack =
     existingTrack ?? buildCaptureCaptionTrack(timeline.tracks);
   const hasCaptionTrack = timeline.tracks.some(
@@ -657,10 +665,14 @@ function fadeForBoundary(
   )?.fadeMs;
 }
 
-function edlCaptionFromClip(clip: CaptionTimelineClip): EdlCaption {
+function edlCaptionFromClip(
+  clip: CaptionTimelineClip,
+  trackId: string,
+): EdlCaption {
   return {
     id: `edl-${clip.id}`,
     clipId: clip.id,
+    trackId,
     sourceRef: clip.sourceRef,
     sceneId: clip.sceneId,
     startMs: clip.startMs,

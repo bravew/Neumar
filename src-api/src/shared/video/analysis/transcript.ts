@@ -22,7 +22,7 @@ import type {
 } from '@/shared/services/speech/types';
 import { createLogger } from '@/shared/utils/logger';
 
-import { resolveProjectAssetPath } from '../asset-files';
+import { assetPathValidation, resolveProjectAssetPath } from '../asset-files';
 import {
   enforceVideoCostApproval,
   readVideoCostApproval,
@@ -121,6 +121,7 @@ export interface SourceTranscriptOptions {
   workspaceRoot: string;
   cacheDir: string;
   provider?: string;
+  force?: boolean;
   extractAudio?: SourceAudioExtractor;
   transcribeAudio?: SpeechTranscriber;
   resolveProviderInfo?: (provider?: string) => SttProviderInfo | null;
@@ -168,7 +169,11 @@ export async function transcribeSourceMedia(
     sourceId: options.source.id,
   });
   const cached = await readTranscriptCache(cachePath);
-  if (cached && shouldUseTranscriptCache(cached, skipReason)) {
+  if (
+    !options.force &&
+    cached &&
+    shouldUseTranscriptCache(cached, skipReason)
+  ) {
     return { ...cached, cacheHit: true };
   }
   if (skipReason) {
@@ -242,7 +247,7 @@ export async function transcribeSourceMedia(
         dataEgress: result.dataEgress ?? providerInfo.dataEgress,
         estimatedCostCents,
         generatedAt,
-        reason: 'transcription-failed',
+        reason: result.errorCode ?? 'transcription-failed',
         error: result.error,
       }),
     );
@@ -298,7 +303,10 @@ export async function extractSourceAudioPcm(input: {
         String(PCM_SAMPLE_RATE),
         outputPath,
       ],
-      { inputDuration: Math.max(input.durationMs, 0) / 1000 },
+      {
+        inputDuration: Math.max(input.durationMs, 0) / 1000,
+        ...assetPathValidation(input.asset),
+      },
     );
     if (exitCode !== 0) {
       throw new Error(
@@ -311,11 +319,18 @@ export async function extractSourceAudioPcm(input: {
 
 export function transcriptDataFromSttResult(result: STTResult): TranscriptData {
   const segments = normalizeSegments(result.segments ?? []);
-  const words = segments.map((segment): SubtitleWord => ({
-    text: segment.text,
-    startMs: segment.startMs,
-    endMs: segment.endMs,
+  const wordSegments = result.words?.map((word) => ({
+    text: word.word,
+    startMs: word.startMs,
+    endMs: word.endMs,
   }));
+  const words = normalizeSegments(wordSegments ?? segments).map(
+    (word): SubtitleWord => ({
+      text: word.text,
+      startMs: word.startMs,
+      endMs: word.endMs,
+    }),
+  );
   const subtitles: Subtitle[] =
     segments.length > 0
       ? segments.map((segment, index) => ({
@@ -323,13 +338,10 @@ export function transcriptDataFromSttResult(result: STTResult): TranscriptData {
           text: segment.text,
           startMs: segment.startMs,
           endMs: segment.endMs,
-          words: [
-            {
-              text: segment.text,
-              startMs: segment.startMs,
-              endMs: segment.endMs,
-            },
-          ],
+          words: words.filter(
+            (word) =>
+              word.startMs >= segment.startMs && word.endMs <= segment.endMs,
+          ),
         }))
       : result.text
         ? [

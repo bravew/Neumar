@@ -692,6 +692,13 @@ export interface VideoProjectSettings {
       approvedBy?: 'user' | 'system';
     }
   >;
+  /** Target language of the most recent successful caption translation. */
+  translationLanguage?: CaptionTranslationLanguage;
+  captionTranslationProviderId?: string;
+  captionTranslationEgressConsents?: Record<
+    string,
+    { confirmed: boolean; confirmedAt: string }
+  >;
   musicProviderId?: MusicProviderId;
   musicProviderModel?: string;
   youtubeRightsAck?: {
@@ -1409,6 +1416,16 @@ export interface AudioTimelineTrack extends BaseTimelineTrack {
 
 export interface CaptionTimelineTrack extends BaseTimelineTrack {
   kind: 'caption';
+  /**
+   * BCP-47 tag of the cue text. A translated track carries its own language so
+   * the timeline can hold several languages side by side.
+   */
+  language?: string;
+  /**
+   * Keeps this track out of the render. Hiding the source track and showing the
+   * translated one is how a dual-language project picks the burned-in language.
+   */
+  hidden?: boolean;
   clips: CaptionTimelineClip[];
 }
 
@@ -1598,6 +1615,11 @@ export interface EdlAudioClip {
 export interface EdlCaption {
   id: string;
   clipId: string;
+  /**
+   * Caption track the cue came from. Carried through the EDL because several
+   * caption tracks (one per language) can be present at once.
+   */
+  trackId?: string;
   sourceRef: TimelineSourceRef;
   sceneId?: string;
   startMs: number;
@@ -2165,6 +2187,15 @@ export interface MusicPlan {
 
 export type CaptionRenderMode = 'off' | 'burn-in' | 'sidecar';
 
+/** Languages the caption-translation action accepts. */
+export type CaptionTranslationLanguage =
+  | 'en'
+  | 'zh'
+  | 'es'
+  | 'fr'
+  | 'hi'
+  | 'pt';
+
 export interface NarrationSegment {
   id: string;
   sceneId: string;
@@ -2303,6 +2334,13 @@ export interface RenderOutput {
   fileSize: number;
   codec: string;
   captionSidecarPath?: string;
+  /**
+   * Per-language sidecars, keyed by BCP-47 tag, when several caption tracks are
+   * visible (e.g. a dual-language project exporting `.en.srt` and `.es.srt`).
+   * `captionSidecarPath` stays the burned-in/primary language so existing
+   * consumers keep working.
+   */
+  captionSidecarPaths?: Record<string, string>;
   /** Relative path to the `<output>.credits.json` AI-disclosure sidecar. */
   disclosurePath?: string;
   /** Relative path to the C2PA manifest sidecar, when signing succeeded. */

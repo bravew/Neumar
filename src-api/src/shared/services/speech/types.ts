@@ -104,6 +104,8 @@ export interface STTParams {
   timestamps?: boolean;
   /** Optional prompt/context to improve accuracy */
   prompt?: string;
+  /** Cancel local timed transcription between inference chunks. */
+  signal?: AbortSignal;
 }
 
 /** A segment of transcribed text with timing */
@@ -127,6 +129,14 @@ export interface STTResult {
   text?: string;
   /** Segments with timing (when timestamps requested) */
   segments?: TranscriptSegment[];
+  /** Authoritative word intervals, when the engine supplies starts and durations. */
+  words?: WordTimestamp[];
+  /** Local timing provenance; missing timing must never be presented as aligned. */
+  timingQuality?: 'model' | 'missing';
+  errorCode?:
+    | 'local-model-not-ready'
+    | 'timing-unavailable'
+    | 'unsupported-language';
   /** Auto-detected language */
   detectedLanguage?: string;
   /** Audio duration in seconds */
@@ -310,5 +320,8 @@ export interface LocalModelStatus {
   phase?: string;
   model?: string;
   size?: string;
+  /** Native timing capability, independent of whether files have been installed. */
+  timing?: 'none' | 'word';
+  languages?: readonly string[];
   error?: string;
 }

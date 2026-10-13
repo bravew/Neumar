@@ -17,7 +17,7 @@ import {
 
 import { cn } from '@/shared/lib/utils';
 import {
-  isVisualTimelineTrack,
+  isHideableTimelineTrack,
   type VideoTimelineTrack,
 } from '@/shared/types/video';
 
@@ -90,8 +90,8 @@ export function TrackHeader({
   onSelectTrack,
   onAddClipFiles,
 }: TrackHeaderProps) {
-  const isVisualTrack = isVisualTimelineTrack(track);
-  const hidden = isVisualTrack ? track.hidden === true : false;
+  const canHide = isHideableTimelineTrack(track);
+  const hidden = canHide ? track.hidden === true : false;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cancelRenameRef = useRef(false);
   const [draftName, setDraftName] = useState(track.name);
@@ -208,7 +208,7 @@ export function TrackHeader({
               )}
             </button>
           ) : null}
-          {isVisualTrack && onToggleVisibility ? (
+          {canHide && onToggleVisibility ? (
             <button
               type="button"
               className="hover:text-foreground rounded-sm"

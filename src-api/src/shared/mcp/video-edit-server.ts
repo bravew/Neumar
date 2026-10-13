@@ -70,6 +70,7 @@ import {
   isTimelineEditAgentToolCall,
   redoVideoAgentJournalEntry,
   undoVideoAgentJournalEntry,
+  translateVideoAgentCaptions,
   videoStoryboardSchema,
 } from '@/shared/video/agent-tools';
 import type {
@@ -94,6 +95,10 @@ import {
 } from '@/shared/video/audio-generation';
 import { generateProjectCaptions } from '@/shared/video/caption-generate';
 import {
+  CaptionTranslationError,
+  captionTranslationLanguageSchema,
+} from '@/shared/video/caption-translate';
+import {
   hydrateReferencedProjectAssets,
   hydrateProjectAsset,
   isReferencedProjectAsset,
@@ -106,6 +111,10 @@ import {
   writeContentGraph,
   writeFrameHtml,
 } from '@/shared/video/content-graph/persistence';
+import {
+  VideoBudgetExceededError,
+  VideoCostApprovalError,
+} from '@/shared/video/cost-approval';
 import { normalizeCssColor } from '@/shared/video/css-colors';
 import {
   buildCurrentVideoContext,
@@ -423,6 +432,8 @@ export const VIDEO_EDIT_TOOL_NAMES = [
   'video_apply_overlay_motion_template',
   'video_set_clip_params',
   'video_close_gap',
+  'video_transcript_cut_words',
+  'video_transcript_restore_words',
   'video_set_audio_clip_gain',
   'video_set_audio_clip_mute',
   'video_set_audio_clip_fade',
@@ -508,7 +519,7 @@ const EXPORT_DESTINATION_SCHEMA = z.enum([
   'telegram',
   'lark',
 ]);
-const LANGUAGE_SCHEMA = z.enum(['en', 'zh', 'es', 'fr', 'hi', 'pt']);
+const LANGUAGE_SCHEMA = captionTranslationLanguageSchema;
 const RENDER_PRESET_SCHEMA = z.enum(['draft', 'standard', 'high']);
 const RENDER_WHERE_SCHEMA = z.enum(['local', 'cloud']);
 const CURRENT_CONTEXT_INCLUDE_SCHEMA = z.enum(CURRENT_VIDEO_CONTEXT_INCLUDES);
@@ -1042,24 +1053,60 @@ function mutationPayload(execution: {
   };
 }
 
+/**
+ * A long caption track translates in many LLM batches and can far outlast the
+ * default 45 s tool timeout. The server-side task keeps running after the
+ * timeout fires, so the larger budget only buys the agent the answer in one
+ * call; the in-flight dedup in `translateProjectCaptions` still collapses an
+ * overlap while the task is pending.
+ */
+const VIDEO_TRANSLATE_TOOL_TIMEOUT_MS = 10 * 60_000;
+
 function toolCallResult(
   inputProjectId: string | undefined,
   options: VideoEditServerOptions,
   call: VideoAgentToolCall,
 ) {
-  return withToolTimeout(call.name, async () => {
-    const proposal = await proposalOnlyToolResult(
-      inputProjectId,
-      options,
-      call,
-    );
-    if (proposal) return proposal;
-    return mutationResult(
-      await applyVideoToolCall(inputProjectId, options, call),
-    );
-  }).catch((error) =>
-    errorResult(error instanceof Error ? error.message : String(error)),
-  );
+  return withToolTimeout(
+    call.name,
+    async () => {
+      const proposal = await proposalOnlyToolResult(
+        inputProjectId,
+        options,
+        call,
+      );
+      if (proposal) return proposal;
+      if (call.name === 'translate') {
+        const result = await translateVideoAgentCaptions(
+          resolveProjectId(inputProjectId, options),
+          call,
+        );
+        return jsonResult({
+          projectId: result.project.id,
+          updatedAt: result.project.updatedAt,
+          tool: call.name,
+          trackId: result.track.id,
+          language: result.track.language,
+          hidden: result.track.hidden,
+          cueCount: result.track.clips.length,
+          skipped: result.skipped,
+        });
+      }
+      return mutationResult(
+        await applyVideoToolCall(inputProjectId, options, call),
+      );
+    },
+    call.name === 'translate' ? VIDEO_TRANSLATE_TOOL_TIMEOUT_MS : undefined,
+  ).catch((error) => {
+    if (
+      error instanceof CaptionTranslationError ||
+      error instanceof VideoCostApprovalError ||
+      error instanceof VideoBudgetExceededError
+    ) {
+      return errorResult(error.message, error.code);
+    }
+    return errorResult(error instanceof Error ? error.message : String(error));
+  });
 }
 
 async function proposalOnlyToolResult(
@@ -2545,7 +2592,14 @@ async function attachVideoAsset(
 }
 
 export function createVideoEditTools(options: VideoEditServerOptions = {}) {
-  return withVideoRefResolution(buildVideoEditTools(options), options);
+  return withVideoRefResolution(
+    buildVideoEditTools(options).filter(
+      (definition) =>
+        !definition.name.startsWith('video_transcript_') ||
+        getVideoFeatureFlag('video.transcriptLayer'),
+    ),
+    options,
+  );
 }
 
 /**
@@ -6082,6 +6136,53 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
       },
     ),
     tool(
+      'video_transcript_cut_words',
+      'Cut a source transcript word range (zero-based inclusive indices) from video, audio and linked captions. Analyze the source first.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        sourceId: z.string().min(1),
+        startIndex: z.number().int().min(0),
+        endIndex: z.number().int().min(0),
+        ripple: z.boolean().optional(),
+        applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
+        summary: z.string().max(280).optional(),
+      },
+      async (input) => {
+        if (!getVideoFeatureFlag('video.transcriptLayer')) {
+          throw new Error('Transcript layer is disabled');
+        }
+        const { applyMode, ...rest } = input;
+        const { projectId, call } = camelToolCall('transcriptCutWords', rest);
+        return timelineEditToolCallResult(projectId, options, call, applyMode);
+      },
+    ),
+    tool(
+      'video_transcript_restore_words',
+      'Restore a previously cut source transcript word range at its seam. Fails safely if the seam no longer exists.',
+      {
+        projectId: PROJECT_ID_SCHEMA,
+        reasoning: REASONING_SCHEMA,
+        sourceId: z.string().min(1),
+        startIndex: z.number().int().min(0),
+        endIndex: z.number().int().min(0),
+        ripple: z.boolean().optional(),
+        applyMode: NAMED_EDIT_APPLY_MODE_SCHEMA.default('auto'),
+        summary: z.string().max(280).optional(),
+      },
+      async (input) => {
+        if (!getVideoFeatureFlag('video.transcriptLayer')) {
+          throw new Error('Transcript layer is disabled');
+        }
+        const { applyMode, ...rest } = input;
+        const { projectId, call } = camelToolCall(
+          'transcriptRestoreWords',
+          rest,
+        );
+        return timelineEditToolCallResult(projectId, options, call, applyMode);
+      },
+    ),
+    tool(
       'video_set_audio_clip_gain',
       'Set or clear gain in dB on one or more audio clips.',
       {
@@ -6735,11 +6836,12 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
     ),
     tool(
       'video_translate',
-      'Record a target language for caption/script translation work.',
+      'Translate caption cues into a hidden language track using saved destination consent and cost approval. Obtain missing approvals in the UI before retrying.',
       {
         projectId: PROJECT_ID_SCHEMA,
         reasoning: REASONING_SCHEMA,
         lang: LANGUAGE_SCHEMA,
+        sourceTrackId: z.string().min(1).optional(),
       },
       async (input) => {
         const { projectId, call } = camelToolCall('translate', input);

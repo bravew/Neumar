@@ -409,12 +409,63 @@ export interface VideoProjectSettings {
     string,
     { confirmed: boolean; confirmedAt: string }
   >;
+  sourceTranscriptionProviderId?: string;
+  sourceTranscriptionEgressConsents?: Record<
+    string,
+    { confirmed: boolean; confirmedAt: string }
+  >;
+  sourceTranscriptionCostApprovals?: Record<
+    string,
+    {
+      token: string;
+      approvedCents?: number;
+      approvedAt?: string;
+      approvedBy?: 'user' | 'system';
+    }
+  >;
+  /** Target language of the most recent successful caption translation. */
+  translationLanguage?: VideoCaptionLanguage;
+  captionTranslationProviderId?: string;
+  captionTranslationEgressConsents?: Record<
+    string,
+    { confirmed: boolean; confirmedAt: string }
+  >;
   musicProviderId?: 'elevenlabs-music' | 'stable-audio';
   musicProviderModel?: string;
   loudnessTargetLufs?: VideoLoudnessTargetSetting;
   autoColorEnabled?: boolean;
   autoReframeEnabled?: boolean;
   mcpEnabled?: boolean;
+}
+
+/** Languages the caption-translation action accepts. */
+export type VideoCaptionLanguage = 'en' | 'zh' | 'es' | 'fr' | 'hi' | 'pt';
+
+export const VIDEO_CAPTION_LANGUAGES: VideoCaptionLanguage[] = [
+  'en',
+  'zh',
+  'es',
+  'fr',
+  'hi',
+  'pt',
+];
+
+export interface VideoCaptionTranslateRequest {
+  targetLanguage: VideoCaptionLanguage;
+  /** Source caption track; the primary track when omitted. */
+  sourceTrackId?: string;
+  /** Exact API destination shown when the user confirmed egress. */
+  consentDestination?: string;
+  /** User confirmed the cue text leaves the machine for this provider. */
+  egressConfirmed?: boolean;
+  /** User-selected Video-mode model id, threaded from the agent dock. */
+  model?: string;
+}
+
+export interface VideoCaptionTranslateResult {
+  project: VideoProject;
+  /** Ids of cues the model dropped; they keep their source-language text. */
+  skipped: string[];
 }
 
 export interface VideoTranscriptSelectionContext {
@@ -1226,7 +1277,22 @@ export interface VideoAudioTimelineTrack extends VideoBaseTimelineTrack {
 
 export interface VideoCaptionTimelineTrack extends VideoBaseTimelineTrack {
   kind: 'caption';
+  /** BCP-47 tag of the cue text; a translated track carries its own language. */
+  language?: string;
+  /** Keeps this track out of the render. Picks the burned-in language. */
+  hidden?: boolean;
   clips: VideoCaptionTimelineClip[];
+}
+
+/**
+ * Tracks whose visibility the render honors. Audio tracks are excluded: they are
+ * silenced with `muted`, and a `hidden` flag on them would be a silent no-op.
+ * The track header uses this to decide whether to offer an eye toggle.
+ */
+export function isHideableTimelineTrack(
+  track: VideoTimelineTrack,
+): track is VideoVisualTimelineTrack | VideoCaptionTimelineTrack {
+  return isVisualTimelineTrack(track) || track.kind === 'caption';
 }
 
 export type VideoTimelineClip =
@@ -1402,6 +1468,8 @@ export interface VideoEdlAudioClip {
 export interface VideoEdlCaption {
   id: string;
   clipId: string;
+  /** Caption track the cue came from; several languages can be present at once. */
+  trackId?: string;
   sourceRef: VideoTimelineSourceRef;
   sceneId?: string;
   startMs: number;
@@ -1960,6 +2028,11 @@ export interface VideoRenderOutput {
   fileSize: number;
   codec: string;
   captionSidecarPath?: string;
+  /**
+   * Per-language sidecars, keyed by BCP-47 tag, when several caption tracks are
+   * visible (e.g. a dual-language project exporting `.en.srt` and `.es.srt`).
+   */
+  captionSidecarPaths?: Record<string, string>;
   qaReport?: VideoQaReport;
 }
 

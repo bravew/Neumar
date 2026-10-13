@@ -315,7 +315,14 @@ export function compileProjectToEdl(
       continue;
     }
     if (track.kind === 'caption') {
-      captions.push(...clips.filter(isCaptionClip).map(captionFromClip));
+      // Match the EDL compiler: a hidden caption track is not previewed, so
+      // hiding one language shows only the other.
+      if (track.hidden) continue;
+      captions.push(
+        ...clips
+          .filter(isCaptionClip)
+          .map((clip) => captionFromClip(clip, track.id)),
+      );
     }
   }
 
@@ -595,10 +602,12 @@ function audioFromClip(clip: Extract<VideoTimelineClip, { kind: 'audio' }>) {
 
 function captionFromClip(
   clip: Extract<VideoTimelineClip, { kind: 'caption' }>,
+  trackId: string,
 ) {
   return {
     id: `edl-${clip.id}`,
     clipId: clip.id,
+    trackId,
     sourceRef: clip.sourceRef,
     sceneId: clip.sceneId,
     startMs: clip.startMs,

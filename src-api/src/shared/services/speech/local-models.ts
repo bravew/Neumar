@@ -37,7 +37,10 @@ import { APP_SLUG } from '@/config/branding';
 
 import { createLogger } from '@/shared/utils/logger';
 
+import { downloadTimedSTTModel, getTimedSTTModelStatus } from './timed-local';
 import type { LocalModelStatus } from './types';
+
+export type SttModelId = 'sensevoice' | 'parakeet';
 
 const execFileAsync = promisify(execFile);
 const logger = createLogger('SpeechModels');
@@ -101,7 +104,12 @@ const TTS_NUM_THREADS = 1;
 // ---------------------------------------------------------------------------
 
 type SherpaModule = {
-  OfflineRecognizer: new (config: Record<string, unknown>) => OfflineRecognizer;
+  OfflineRecognizer: {
+    new (config: Record<string, unknown>): OfflineRecognizer;
+    createAsync?: (
+      config: Record<string, unknown>,
+    ) => Promise<OfflineRecognizer>;
+  };
   OfflineTts: new (config: Record<string, unknown>) => OfflineTts;
   readWave: (path: string) => { samples: Float32Array; sampleRate: number };
 };
@@ -147,7 +155,7 @@ function resolveBundledSherpaPath(): string | null {
  *
  * - Development (tsx/ESM): Dynamic import() resolves via pnpm symlinks.
  */
-async function loadSherpaOnnx(): Promise<SherpaModule> {
+export async function loadSherpaOnnx(): Promise<SherpaModule> {
   if (cachedSherpa) return cachedSherpa;
 
   // Production: load from bundled native files in Tauri Resources
@@ -762,7 +770,25 @@ const PHASE_LABELS: Record<string, string> = {
  * Return the current status of the local STT model (SenseVoice).
  * Does not trigger a download.
  */
-export function getSTTModelStatus(): LocalModelStatus {
+export function getSTTModelStatus(
+  modelId: SttModelId = 'sensevoice',
+): LocalModelStatus {
+  if (modelId === 'parakeet') return getTimedSTTModelStatus();
+  return {
+    ...getSenseVoiceModelStatus(),
+    timing: 'none',
+    languages: ['zh', 'en', 'ja', 'ko', 'yue'],
+  };
+}
+
+export function getAllSTTModelStatuses(): Record<SttModelId, LocalModelStatus> {
+  return {
+    sensevoice: getSTTModelStatus(),
+    parakeet: getSTTModelStatus('parakeet'),
+  };
+}
+
+function getSenseVoiceModelStatus(): LocalModelStatus {
   // Already loaded and ready
   if (sttRecognizer) {
     return { state: 'ready', model: STT_MODEL.name, size: STT_MODEL.size };
@@ -916,7 +942,10 @@ export function getTTSSampleRate(): number {
  * Download and load the SenseVoice STT model files.
  * Safe to call multiple times — concurrent calls share the same promise.
  */
-export async function downloadSTTModel(): Promise<void> {
+export async function downloadSTTModel(
+  modelId: SttModelId = 'sensevoice',
+): Promise<void> {
+  if (modelId === 'parakeet') return downloadTimedSTTModel();
   if (sttRecognizer) return;
   if (sttLoading) return sttLoading;
 

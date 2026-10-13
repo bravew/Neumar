@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type {
   VideoCaptionTimelineClip,
+  VideoCaptionTimelineTrack,
   VideoSubtitleWord,
   VideoTimeline,
 } from '@/shared/types/video';
@@ -11,19 +12,27 @@ import type {
 import { useTimelineEditorStore } from './timeline/useTimelineEditorStore';
 import { useTimelineUiStore } from './timeline/useTimelineUiStore';
 
-/**
- * Reads the generated caption cues off the timeline's caption track, sorted by
- * time. This is the single source of truth — the same cues the timeline and
- * preview render — so the transcript panel always matches the captions.
- */
+export function captionTracksFromTimeline(
+  timeline: VideoTimeline | null | undefined,
+): VideoCaptionTimelineTrack[] {
+  return (
+    timeline?.tracks.filter(
+      (track): track is VideoCaptionTimelineTrack => track.kind === 'caption',
+    ) ?? []
+  );
+}
+
+/** Reads one caption track, including hidden translations, in timeline order. */
 export function captionCuesFromTimeline(
   timeline: VideoTimeline | null | undefined,
+  trackId?: string,
 ): VideoCaptionTimelineClip[] {
-  const track = timeline?.tracks.find((entry) => entry.kind === 'caption');
+  const tracks = captionTracksFromTimeline(timeline);
+  const track = trackId
+    ? tracks.find((entry) => entry.id === trackId)
+    : tracks.find((entry) => entry.clips.length > 0);
   if (!track) return [];
-  return [...(track.clips as VideoCaptionTimelineClip[])].sort(
-    (a, b) => a.startMs - b.startMs,
-  );
+  return [...track.clips].sort((a, b) => a.startMs - b.startMs);
 }
 
 function formatTimestamp(ms: number): string {
@@ -64,40 +73,75 @@ export function redistributeCaptionWords(
  * transcript-editor pattern used by dedicated caption tools.
  */
 export function CaptionTranscriptView({
-  cues,
+  cues: fallbackCues,
+  timeline: fallbackTimeline,
 }: {
   cues: VideoCaptionTimelineClip[];
+  timeline?: VideoTimeline | null;
 }) {
   const { t } = useLanguage();
+  const timeline = useTimelineEditorStore((state) => state.timeline);
+  const tracks = captionTracksFromTimeline(timeline ?? fallbackTimeline);
+  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const selectedTrack =
+    tracks.find((track) => track.id === selectedTrackId) ??
+    tracks.find((track) => track.clips.length > 0) ??
+    tracks[0];
+  const cues = selectedTrack
+    ? [...selectedTrack.clips].sort((a, b) => a.startMs - b.startMs)
+    : fallbackCues;
   const playheadMs = useTimelineUiStore((state) => state.playheadMs);
   const setPlayheadMs = useTimelineUiStore((state) => state.setPlayheadMs);
   const selectClip = useTimelineEditorStore((state) => state.selectClip);
   const updateClip = useTimelineEditorStore((state) => state.updateClip);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{
+    cueId: string;
+    trackId?: string;
+  } | null>(null);
   const [draft, setDraft] = useState('');
+  const editRef = useRef<{ cueId: string; trackId?: string } | null>(null);
 
+  const cancelEdit = () => {
+    editRef.current = null;
+    setEditing(null);
+  };
   const startEditing = (cue: VideoCaptionTimelineClip) => {
-    setEditingId(cue.id);
+    if (selectedTrack?.locked) return;
+    editRef.current = { cueId: cue.id, trackId: selectedTrack?.id };
+    setEditing({ cueId: cue.id, trackId: selectedTrack?.id });
     setDraft(cue.text);
   };
   const commitEdit = (cue: VideoCaptionTimelineClip) => {
+    const edit = editRef.current;
+    cancelEdit();
+    if (edit?.cueId !== cue.id || edit.trackId !== selectedTrack?.id) return;
+    const currentTimeline = useTimelineEditorStore.getState().timeline;
+    const currentTrack = captionTracksFromTimeline(currentTimeline).find(
+      (track) =>
+        (edit.trackId ? track.id === edit.trackId : true) &&
+        track.clips.some((clip) => clip.id === cue.id),
+    );
+    // Clip updates address globally unique IDs. Refuse ambiguous legacy cues
+    // rather than applying a translation edit to its source track as well.
+    const matches = currentTimeline?.tracks.flatMap((track) =>
+      track.clips.filter((clip) => clip.id === cue.id),
+    );
+    if (!currentTrack || currentTrack.locked || matches?.length !== 1) return;
+    const currentCue = currentTrack.clips.find((clip) => clip.id === cue.id);
     const text = draft.trim();
-    setEditingId(null);
-    if (!text || text === cue.text) return;
+    if (!currentCue || !text || text === currentCue.text) return;
     updateClip(cue.id, {
       text,
-      words: redistributeCaptionWords(cue, text),
+      words: redistributeCaptionWords(currentCue, text),
     });
   };
 
-  const activeCueId = useMemo(() => {
-    const active = cues.find(
+  const activeCueId =
+    cues.find(
       (cue) =>
         playheadMs >= cue.startMs && playheadMs < cue.startMs + cue.durationMs,
-    );
-    return active?.id ?? null;
-  }, [cues, playheadMs]);
+    )?.id ?? null;
 
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
   useEffect(() => {
@@ -114,6 +158,31 @@ export function CaptionTranscriptView({
 
   return (
     <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
+      {tracks.length > 1 ? (
+        <label className="text-muted-foreground mb-3 flex items-center gap-2 text-xs">
+          {t.video.editor.transcript.captionTrackLabel}
+          <select
+            value={selectedTrack?.id}
+            onChange={(event) => {
+              cancelEdit();
+              setSelectedTrackId(event.target.value);
+            }}
+            className="border-input bg-background text-foreground min-w-0 flex-1 rounded-md border px-2 py-1"
+          >
+            {tracks.map((track) => (
+              <option key={track.id} value={track.id}>
+                {track.name}
+                {track.language ? ` · ${track.language}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {cues.length === 0 ? (
+        <p className="text-muted-foreground p-3 text-center text-xs">
+          {t.video.editor.transcript.empty}
+        </p>
+      ) : null}
       {cues.map((cue) => {
         const active = cue.id === activeCueId;
         return (
@@ -140,7 +209,8 @@ export function CaptionTranscriptView({
             >
               {formatTimestamp(cue.startMs)}
             </button>
-            {editingId === cue.id ? (
+            {editing?.cueId === cue.id &&
+            editing.trackId === selectedTrack?.id ? (
               <textarea
                 autoFocus
                 rows={1}
@@ -152,7 +222,7 @@ export function CaptionTranscriptView({
                     event.preventDefault();
                     commitEdit(cue);
                   } else if (event.key === 'Escape') {
-                    setEditingId(null);
+                    cancelEdit();
                   }
                 }}
                 className="border-input bg-background text-foreground field-sizing-content w-full resize-none rounded-md border px-1.5 py-0.5 text-xs leading-snug"

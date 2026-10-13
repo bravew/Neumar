@@ -35,6 +35,8 @@ const VIDEO_TOOL_ACTIONS: Record<string, AgentActionName> = {
   video_set_clip_transform: 'applyTimelineOps',
   video_apply_overlay_motion_template: 'applyTimelineOps',
   video_close_gap: 'applyTimelineOps',
+  video_transcript_cut_words: 'applyTimelineOps',
+  video_transcript_restore_words: 'applyTimelineOps',
   video_set_audio_clip_gain: 'applyTimelineOps',
   video_set_audio_clip_mute: 'applyTimelineOps',
   video_set_audio_clip_fade: 'applyTimelineOps',

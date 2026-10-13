@@ -143,6 +143,70 @@ TTS, B-roll, and music providers must record provenance, license/commercial-use 
 
 Caption truth is `Subtitle[]` with optional source anchors. Rendering prefers a prebuilt `src-video`/Remotion artifact when present; otherwise the FFmpeg ASS fallback is acceptable. The render pipeline keeps captions last.
 
+### Translate captions
+
+A project can hold **several caption tracks, one per language**. The translated
+track is created by `POST /video/projects/:id/captions/translate`
+(`translateProjectCaptions` in `src-api/src/shared/video/caption-translate.ts`),
+which calls an LLM at cue level: timings, trims and source anchors are copied
+from the source cue unchanged, so a translated track retimes with the speech it
+covers exactly like the STT track it came from.
+
+**Which language burns in is per-track visibility, not a render setting.** The
+EDL compiler skips a `hidden` caption track (`timeline.ts`), the preview matches
+it, and the track header offers the same eye toggle caption tracks now share with
+visual tracks. Hide the source track and show the translated one to switch the
+burned-in language. A newly translated track starts **hidden**, so an existing
+render is unchanged until someone opts in.
+
+The call leaves the machine, so it passes the same two gates as cloud
+transcription and then debits the project budget:
+
+1. **Egress consent** — `settings.captionTranslationEgressConsents[providerKey]`,
+   written server-side on the first confirmed run so the user is asked once per
+   API origin. `GET /video/caption-translation/destination` resolves the same
+   configured or environment credentials as the caller without exposing them.
+   A fresh confirmation includes `consentDestination`; a changed destination
+   requires a new confirmation. Missing consent returns 422
+   `cloud-egress-consent-required`.
+2. **Cost approval** — `estimateTranslationCostCents({ charCount })` against
+   `enforceVideoCostApproval`, scoped
+   `translate:${projectId}:${sourceTrackId}:${targetLanguage}:${destination}`. Returns 402
+   `cost-approval-required` when the estimate clears
+   `settings.autoApproveUnderCents`.
+3. **Budget debit** — `enforceProjectBudget` and the spend write run inside the
+   *same* locked `updateProjectDocument` closure that writes the track, so two
+   concurrent translations cannot both pass a cap only one of them fits under.
+
+Concurrent requests for the same project + track + language share one in-flight
+task, so a double click is not billed twice.
+
+**Sidecars.** A render writes the unsuffixed `<output>.srt` from the flattened
+visible cues (unchanged, and what the burn-in pass consumes) and additionally
+writes `<output>.<lang>.srt` per visible language once the timeline holds more
+than one. Those per-language paths are reported in
+`RenderOutput.captionSidecarPaths`.
+
+**Agent tool.** `translate` / `video_translate` calls the same translation
+service with `lang` and optional `sourceTrackId` (the primary caption track is
+used when omitted). It creates a hidden translated track and returns its id,
+cue count, skipped cue ids and estimated cost. Agents supply no fresh egress
+confirmation or cost approval: the service requires saved consent for the exact
+configured destination and applies saved cost approval, the auto-approve floor
+and the project budget gate. If approval is missing, use the UI to obtain it
+before retrying. External MCP clients in proposal mode cannot execute translation.
+
+Known limits of translation:
+
+- Translated cues carry **no `words`**. Per-word timings would be wrong for
+  translated text, so word-level caption styles (karaoke, active-word,
+  typewriter) degrade to plain cue text on the translated track.
+- A cue the model drops keeps its **source-language** text and its id is returned
+  in `skipped`, rather than being silently emptied. The response is always N cues
+  for N inputs.
+- If every batch fails, the call throws `provider-failed` rather than writing a
+  track that looks translated but is wholly in the source language.
+
 ## Timeline Editing
 
 Timeline edits are frame-first. Agent tools and UI commits should convert
@@ -229,6 +293,101 @@ The bounded QA loop is a core service/tool boundary: render, inspect cut
 boundary windows, collect structured findings, optionally re-render, and stop at
 the configured cap (maximum three attempts). Plugin manifest `until` text is
 advisory and must not be treated as a host-enforced loop condition.
+
+## Interactive Transcript Layer (behind `video.transcriptLayer`)
+
+After a source is analyzed, its word-timed transcript becomes an editing
+surface: a word list in the `transcript` rail tab and a derived row above the
+timeline tracks. The flag defaults on.
+
+### Transcribe existing footage
+
+Open the Transcript tab after placing a video or audio asset on the timeline.
+The local transcription action registers the existing asset as a source without
+copying the file, including footage linked from a folder. It leaves the media
+and timeline untouched and displays recognition progress and actionable errors.
+
+Precise word editing uses Parakeet TDT v3 int8 through the existing sherpa-onnx
+runtime. If it is absent, the panel offers an explicit model download (about
+487 MB). Audio stays on this machine; the action never falls back to a cloud
+provider. The installed SenseVoice model remains available for ordinary speech
+recognition but does not supply word durations. Parakeet supports 25 European
+languages, including English; Chinese, Japanese, Korean, and Cantonese are not
+supported by this timed model.
+
+`POST /video/projects/:id/assets/:assetId/transcribe` returns the updated project,
+source, and analysis, or an actionable 422 error when no timed output is
+available. A retry reruns recognition rather than reusing a degraded cache.
+Concurrent requests for the same asset share one recognition operation. Results
+are merged under the project lock so edits made during recognition survive.
+
+### How it works
+
+- Word state is **derived, not stored**. For each source, every timeline clip
+  whose `sourceRef` resolves to it (including `linked` refs and link-group
+  siblings) is converted to the source span it plays, honoring `trimStartMs`,
+  `trimEndMs`, `playback.speed`, and reverse playback. The union of those spans
+  decides each word: `kept`, `cut`, or `partial`.
+- Cut and restore are pure compilers in
+  `packages/video-ir/src/transcript-edit.ts`. A cut is `clip.removeTimeRange`
+  with explicit `before`/`after` snapshots covering the primary track,
+  link-group siblings, and ripple, so replay is deterministic and undo restores
+  the same shapes. A restore re-inserts the removed span at its seam; it fails
+  with a reason (`seam-not-found`, `interior-gap`, `no-room`, `track-locked`,
+  `caption-unavailable`) rather than guessing.
+- A cue can be reached by source match from a clip that holds no link group and
+  again by its link group from a sibling. The restore tracks the clips it has
+  already extended so a later seam pass neither extends them twice nor reads
+  their moved geometry as a missing seam cue.
+- The panel and the timeline row share one selection store
+  (`useTranscriptSelectionStore`); the panel follows the editor's live timeline
+  so cut/undo feedback is immediate.
+- Text corrections go to `PATCH /projects/:id/sources/:sourceId/transcript`,
+  which updates word text only — timings never move. Each correction carries the
+  text it was loaded from (`expectedText`) checked under the project lock, so a
+  delayed edit returns 409 instead of overwriting a newer correction. Captions
+  generated from the transcript are updated only when every provenance field
+  (STT origin, `params.sourceId`, `sourceAnchor`, `sourceRef`) matches.
+
+### Modes (the safe one is default)
+
+| Mode | Delete / Backspace | Media |
+| --- | --- | --- |
+| **Text** (default) | Removes the word's text or opens the inline editor on double-click | untouched |
+| **Cut media** | Compiles a cut as one undo step across video, audio, and linked captions | changed |
+
+Delete never reaches the timeline in Text mode.
+
+### The agent tools
+
+`video_transcript_cut_words` and `video_transcript_restore_words` take
+`{ sourceId, startIndex, endIndex }` (zero-based, inclusive) and go through the
+same compilers as the UI, so approvals, diffs, and history behave like every
+other timeline edit. Both are listed in `DESTRUCTIVE_TOOLS`
+(`src-api/src/extensions/agent/video/permissions.ts`) and are hidden when the
+flag is off.
+
+### Acceptance run
+
+`tests/e2e/specs/video-transcript-layer.spec.ts` drives analyze → select → cut →
+undo → restore against a fixture project. It seeds the transcript analysis cache
+rather than transcribing, so the run needs no ASR provider or network. Generate
+the media fixture with
+`python3 tests/e2e/fixtures/video/transcript/generate.py`.
+
+### Known limitations
+
+- A caption cue wholly inside a cut has no surviving linked cue to extend, so it
+  cannot be reconstructed automatically. Surviving split cues rebuild their
+  tokens from the transcript words.
+- Automatic restore is unavailable for fragments at reversed playback speed.
+- Captions reach the compilers through `linkGroupId` or, for generated
+  speech-to-text cues, through their source anchor, asset reference, or source
+  id. A caption with neither a link group nor a source match (for example a
+  hand-authored cue) is not cut or retimed.
+- A restore whose caption track holds no matching cue fails with
+  `caption-unavailable`, because an empty track cannot show whether captions
+  were cut with the speech or never existed.
 
 ## Audio Editing
 
@@ -561,3 +720,7 @@ correlation accuracy is measured against real fixtures.
 ## Known Limits
 
 Remotion overlays depend on the packaged renderer artifact. IndexTTS is license-gated. Suno/Udio are intentionally excluded. OpenAI Sora/Videos is not offered as a launch provider while its shutdown/deprecation notice remains active. The MVP supports one active render per project.
+
+Caption translation degrades word-level caption styles to plain cue text (see
+[Translate captions](#translate-captions)); translated cues carry no per-word
+timings by design.

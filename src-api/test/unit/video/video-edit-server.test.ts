@@ -16,7 +16,7 @@ import {
   VIDEO_EDIT_TOOL_NAMES,
 } from '@/shared/mcp/video-edit-server';
 import { MULTICAM_TOOL_NAMES } from '@/shared/mcp/video-multicam-tools';
-import { writeProject } from '@/shared/video/store';
+import { getProject, writeProject } from '@/shared/video/store';
 import type {
   TimelineTrack,
   TimelineTransition,
@@ -24,6 +24,18 @@ import type {
 } from '@/shared/video/types';
 
 import { toolResultText } from '../../helpers/tool-result-text';
+
+// Translation runs through the Claude Code runtime (the current Video-mode model),
+// not a raw fetch. Mock the SDK query so the video_translate tool can be exercised
+// without spawning the CLI.
+const { sdkQueryMock } = vi.hoisted(() => ({ sdkQueryMock: vi.fn() }));
+vi.mock('@anthropic-ai/claude-agent-sdk/core', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('@anthropic-ai/claude-agent-sdk/core')
+    >();
+  return { ...actual, query: sdkQueryMock };
+});
 
 describe('video-edit MCP server', () => {
   let workDir: string;
@@ -1831,6 +1843,161 @@ function projectWithOverlayClip(): VideoProject {
     },
   };
 }
+
+describe('video_translate MCP tool', () => {
+  let workDir: string;
+  const destination = 'https://translation.example.com';
+
+  function claudeResult(text: string) {
+    return {
+      async *[Symbol.asyncIterator]() {
+        yield { type: 'result', subtype: 'success', result: text };
+      },
+      close: vi.fn(),
+    };
+  }
+
+  function translationProject(): VideoProject {
+    const project = projectFixture();
+    project.timeline = {
+      schema: 'neuma.video.timeline.v1',
+      fps: 24,
+      durationMs: 4000,
+      tracks: [
+        {
+          id: 'track-caption-main',
+          kind: 'caption',
+          language: 'en',
+          name: 'Captions',
+          order: 30,
+          muted: false,
+          locked: false,
+          clips: ['Hello world', 'Second cue'].map((text, index) => ({
+            id: `caption-${index}`,
+            kind: 'caption',
+            sourceRef: { kind: 'asset', assetId: 'asset-video' },
+            startMs: index * 1000,
+            durationMs: 1000,
+            trimStartMs: index * 1000,
+            trimEndMs: (index + 1) * 1000,
+            text,
+          })),
+        },
+      ],
+    };
+    project.settings = {
+      captionTranslationEgressConsents: {
+        [destination]: {
+          confirmed: true,
+          confirmedAt: '2026-09-13T00:00:00.000Z',
+        },
+      },
+    };
+    return project;
+  }
+
+  beforeEach(async () => {
+    workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'video-translate-mcp-'));
+    vi.stubEnv('NEUMA_VIDEO_WORKDIR', workDir);
+    // The consent key is the resolved provider origin; point the SDK's base URL
+    // at the same destination so `resolveTranslationProviderKey()` matches.
+    vi.stubEnv('ANTHROPIC_BASE_URL', destination);
+    sdkQueryMock.mockReset();
+    sdkQueryMock.mockImplementation(() =>
+      claudeResult('[{"i":0,"text":"Hola mundo"}]'),
+    );
+    await writeProject(translationProject());
+  });
+
+  afterEach(async () => {
+    closeDatabase();
+    vi.unstubAllEnvs();
+    await fs.rm(workDir, { recursive: true, force: true });
+  });
+
+  it('translates through the current model with saved consent, returning a compact result', async () => {
+    const result = await findTool('video_translate').handler(
+      { lang: 'es', sourceTrackId: 'track-caption-main' },
+      {},
+    );
+    expect(result.isError).not.toBe(true);
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
+    expect(payload).toMatchObject({
+      projectId: 'project-1',
+      tool: 'translate',
+      trackId: 'track-caption-es',
+      language: 'es',
+      hidden: true,
+      cueCount: 2,
+      skipped: ['caption-1'],
+    });
+    expect(payload.project).toBeUndefined();
+    expect(sdkQueryMock).toHaveBeenCalledTimes(1);
+    const stored = await getProject('project-1');
+    const translated = stored.timeline?.tracks.find(
+      (track) => track.id === payload.trackId,
+    );
+    expect(translated).toMatchObject({
+      hidden: true,
+      clips: [{ text: 'Hola mundo' }, { text: 'Second cue' }],
+    });
+    // Translation runs on the selected model and no longer debits the budget.
+    expect(stored.budget?.spentUsd).toBe(0.02);
+  });
+
+  it('defaults to the primary caption track without a cost gate', async () => {
+    const result = await findTool('video_translate').handler(
+      { lang: 'es' },
+      {},
+    );
+    expect(result.isError).not.toBe(true);
+    expect(sdkQueryMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['missing-consent', 'other-destination'] as const)(
+    'preserves the egress consent gate for %s without calling the provider',
+    async (gate) => {
+      const project = translationProject();
+      project.settings = {
+        ...project.settings,
+        captionTranslationEgressConsents:
+          gate === 'missing-consent'
+            ? {}
+            : {
+                'https://other.example.com': {
+                  confirmed: true,
+                  confirmedAt: '2026-09-13T00:00:00.000Z',
+                },
+              },
+      };
+      await writeProject(project);
+      const result = await findTool('video_translate').handler(
+        { lang: 'es' },
+        {},
+      );
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse(toolResultText(result) ?? '{}');
+      expect(payload.error).toContain('Confirm before continuing');
+      expect(payload.code).toBe('cloud-egress-consent-required');
+      expect(sdkQueryMock).not.toHaveBeenCalled();
+      const stored = await getProject('project-1');
+      expect(stored.timeline?.tracks).toHaveLength(1);
+      expect(stored.settings?.translationLanguage).toBeUndefined();
+      expect(stored.budget?.spentUsd).toBe(0.02);
+    },
+  );
+
+  it('keeps external MCP translation in proposal mode', async () => {
+    const result = await findTool('video_translate', {
+      clientKind: 'external-mcp',
+    }).handler({ lang: 'es' }, {});
+    expect(JSON.parse(toolResultText(result) ?? '{}')).toMatchObject({
+      mode: 'proposal-only',
+    });
+    expect(sdkQueryMock).not.toHaveBeenCalled();
+    expect((await getProject('project-1')).timeline?.tracks).toHaveLength(1);
+  });
+});
 
 function findTool(
   name: string,

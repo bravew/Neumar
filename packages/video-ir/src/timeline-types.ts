@@ -233,6 +233,13 @@ export interface AudioTimelineTrack extends BaseTimelineTrack {
 
 export interface CaptionTimelineTrack extends BaseTimelineTrack {
   kind: 'caption';
+  /** BCP-47 tag of the cue text. A translated track carries its own language. */
+  language?: string;
+  /**
+   * Keeps the track out of the render. Hiding the source track and showing the
+   * translated one is how a dual-language project picks what burns in.
+   */
+  hidden?: boolean;
   clips: CaptionTimelineClip[];
 }
 
@@ -294,6 +301,14 @@ export interface CaptionTimelineClip extends BaseTimelineClip {
   captionGroupId?: string;
   text: string;
   tokens?: CaptionToken[];
+  /** Timeline-absolute word timings used by generated caption renderers. */
+  words?: Array<{ text: string; startMs: number; endMs: number }>;
+  sourceAnchor?: {
+    sourceMediaId: string;
+    sourceElementId: string;
+    sourceStartMs: number;
+    sourceEndMs: number;
+  };
   style?: SubtitleStyle;
 }
 
@@ -682,6 +697,7 @@ export interface TrackUpdatePatch {
   muted?: boolean;
   locked?: boolean;
   syncLocked?: boolean | null;
+  hidden?: boolean | null;
   order?: number;
   volumeDb?: number | null;
   duckUnderTrackId?: string | null;
