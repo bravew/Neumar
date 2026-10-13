@@ -777,6 +777,7 @@ export default {
         'Clique em uma linha para mover o cursor — destaca durante a reprodução.',
       jumpTo: 'Ir para {time}',
       editHint: 'Clique duas vezes para editar',
+      captionTrackLabel: 'Faixa de legendas / idioma',
       empty: 'Ainda não há linhas de transcrição.',
       textLabel: 'Texto da transcrição da cena',
       wordAnchored: 'Seleção com tempo por palavra',
@@ -837,6 +838,34 @@ export default {
       stopPreview: 'Parar prévia',
       editWordLabel: 'Corrigir palavra da transcrição',
       correctFailed: 'Não foi possível salvar a correção.',
+      translate: {
+        title: 'Traduzir legendas',
+        description:
+          'Cria uma segunda faixa de legendas em outro idioma. A nova faixa começa oculta, então nada muda na tela até você exibi-la.',
+        action: 'Traduzir',
+        translating: 'Traduzindo…',
+        cancel: 'Cancelar',
+        failed: 'Não foi possível traduzir as legendas. Tente novamente.',
+        sourceLabel: 'Traduzir de',
+        targetLabel: 'Traduzir para',
+        providerLabel: 'Provedor',
+        noProvider: 'Nenhum provedor configurado',
+        consent:
+          'O texto das legendas sai deste computador e é enviado ao {provider} para tradução.',
+        estimate: '{cues} legendas · custo estimado ${cost}',
+        partial:
+          '{count} legendas não puderam ser traduzidas e mantêm o texto original.',
+        costApprovalRequired:
+          'Esta tradução ultrapassa o limite de aprovação automática. Aprove o custo e tente novamente.',
+        languages: {
+          en: 'Inglês',
+          zh: 'Chinês',
+          es: 'Espanhol',
+          fr: 'Francês',
+          hi: 'Hindi',
+          pt: 'Português',
+        },
+      },
     },
     plan: {
       title: 'Plano de renderização',

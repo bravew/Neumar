@@ -20,6 +20,7 @@ import type {
   AudioClipAudioPatch,
   AudioTimelineClip,
   CaptionTimelineClip,
+  CaptionTimelineTrack,
   ClipLinkState,
   ClipTimingState,
   ClipEffectParameter,
@@ -38,6 +39,7 @@ import type {
   TimelineTrack,
   TrackUpdatePatch,
   VisualTimelineClip,
+  VisualTimelineTrack,
 } from './timeline-types.js';
 
 export interface TimelineOpResult {
@@ -2858,6 +2860,7 @@ const TRACK_UPDATE_PATCH_KEYS = [
   'muted',
   'locked',
   'syncLocked',
+  'hidden',
   'order',
   'volumeDb',
   'duckUnderTrackId',
@@ -2887,6 +2890,9 @@ function trackUpdatePatchFromTrack(
         break;
       case 'syncLocked':
         patch.syncLocked = track.syncLocked ?? null;
+        break;
+      case 'hidden':
+        patch.hidden = isHideableTrack(track) ? (track.hidden ?? null) : null;
         break;
       case 'order':
         patch.order = track.order;
@@ -2957,6 +2963,18 @@ function applyBaseTrackUpdatePatch(
         ? omitTrackSyncLocked(next)
         : { ...next, syncLocked: patch.syncLocked };
   }
+  if (patch.hidden !== undefined) {
+    if (patch.hidden === null) {
+      next = omitTrackHidden(next);
+    } else if (isHideableTrack(next)) {
+      next = { ...next, hidden: patch.hidden };
+    } else {
+      throw new TimelineOpError(
+        `Track cannot be hidden: ${track.id}`,
+        'track_kind_mismatch',
+      );
+    }
+  }
   if (patch.order !== undefined) {
     next = { ...next, order: patch.order };
   }
@@ -2979,6 +2997,30 @@ function omitTrackSyncLocked(track: TimelineTrack): TimelineTrack {
       const exhaustive: never = rest;
       return exhaustive;
     }
+  }
+}
+
+function isHideableTrack(
+  track: TimelineTrack,
+): track is VisualTimelineTrack | CaptionTimelineTrack {
+  return (
+    track.kind === 'video' ||
+    track.kind === 'broll' ||
+    track.kind === 'overlay' ||
+    track.kind === 'caption'
+  );
+}
+
+function omitTrackHidden(track: TimelineTrack): TimelineTrack {
+  switch (track.kind) {
+    case 'video':
+    case 'broll':
+    case 'overlay':
+      return omitKey(track, 'hidden');
+    case 'caption':
+      return omitKey(track, 'hidden');
+    default:
+      return track;
   }
 }
 

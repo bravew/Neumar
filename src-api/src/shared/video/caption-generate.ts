@@ -1,6 +1,10 @@
 import { createLogger } from '@/shared/utils/logger';
 
-import { STT_CAPTION_ORIGIN } from './caption-retime';
+import {
+  findPrimaryCaptionTrack,
+  PRIMARY_CAPTION_TRACK_ID,
+  STT_CAPTION_ORIGIN,
+} from './caption-retime';
 import {
   analyzeSource,
   ensureSourceForAsset,
@@ -365,16 +369,15 @@ function wordsPerCueForStyle(style?: SubtitleStyle): number {
 }
 
 /**
- * Swaps the STT-generated cues on the caption track, preserving any manually
- * added or capture-origin caption clips. Re-running generation is idempotent.
+ * Swaps the STT-generated cues on the primary caption track, preserving any
+ * manually added or capture-origin caption clips and leaving translated tracks
+ * untouched. Re-running generation is idempotent.
  */
 function replaceSttCaptionClips(
   timeline: VideoTimeline,
   cues: CaptionTimelineClip[],
 ): VideoTimeline {
-  const captionTrack = timeline.tracks.find(
-    (track): track is CaptionTimelineTrack => track.kind === 'caption',
-  );
+  const captionTrack = findPrimaryCaptionTrack(timeline);
   const preserved = (captionTrack?.clips ?? []).filter(
     (clip) => clip.params?.origin !== STT_CAPTION_ORIGIN,
   );
@@ -392,7 +395,7 @@ function replaceSttCaptionClips(
     };
   }
   const newTrack: CaptionTimelineTrack = {
-    id: 'track-caption-main',
+    id: PRIMARY_CAPTION_TRACK_ID,
     kind: 'caption',
     name: 'Captions',
     muted: false,

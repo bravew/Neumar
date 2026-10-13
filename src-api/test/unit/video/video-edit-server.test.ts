@@ -16,7 +16,11 @@ import {
   VIDEO_EDIT_TOOL_NAMES,
 } from '@/shared/mcp/video-edit-server';
 import { MULTICAM_TOOL_NAMES } from '@/shared/mcp/video-multicam-tools';
-import { writeProject } from '@/shared/video/store';
+import * as lightweightLLMCaller from '@/shared/utils/llm-caller';
+import * as providerResolution from '@/shared/utils/provider-resolution';
+import { buildVideoCostApprovalToken } from '@/shared/video/cost-approval';
+import { estimateTranslationCostCents } from '@/shared/video/cost-estimator';
+import { getProject, writeProject } from '@/shared/video/store';
 import type {
   TimelineTrack,
   TimelineTransition,
@@ -1831,6 +1835,214 @@ function projectWithOverlayClip(): VideoProject {
     },
   };
 }
+
+describe('video_translate MCP tool', () => {
+  let workDir: string;
+  const destination = 'https://translation.example.com';
+  const estimatedCents = estimateTranslationCostCents({
+    charCount: 'Hello world'.length + 'Second cue'.length,
+  });
+  const llm = vi.fn(async () => JSON.stringify([{ i: 0, text: 'Hola mundo' }]));
+
+  function translationProject(): VideoProject {
+    const project = projectFixture();
+    project.timeline = {
+      schema: 'neuma.video.timeline.v1',
+      fps: 24,
+      durationMs: 4000,
+      tracks: [
+        {
+          id: 'track-caption-main',
+          kind: 'caption',
+          language: 'en',
+          name: 'Captions',
+          order: 30,
+          muted: false,
+          locked: false,
+          clips: ['Hello world', 'Second cue'].map((text, index) => ({
+            id: `caption-${index}`,
+            kind: 'caption',
+            sourceRef: { kind: 'asset', assetId: 'asset-video' },
+            startMs: index * 1000,
+            durationMs: 1000,
+            trimStartMs: index * 1000,
+            trimEndMs: (index + 1) * 1000,
+            text,
+          })),
+        },
+      ],
+    };
+    project.settings = {
+      autoApproveUnderCents: 1,
+      captionTranslationEgressConsents: {
+        [destination]: {
+          confirmed: true,
+          confirmedAt: '2026-09-13T00:00:00.000Z',
+        },
+      },
+      captionTranslationCostApprovals: {
+        [destination]: {
+          token: buildVideoCostApprovalToken(
+            project.id,
+            `translate:${project.id}:track-caption-main:es:${destination}`,
+            estimatedCents,
+          ),
+          approvedCents: estimatedCents,
+          approvedBy: 'user',
+        },
+      },
+    };
+    return project;
+  }
+
+  beforeEach(async () => {
+    workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'video-translate-mcp-'));
+    vi.stubEnv('NEUMA_VIDEO_WORKDIR', workDir);
+    vi.spyOn(providerResolution, 'resolveApiCredentials').mockReturnValue({
+      baseUrl: destination,
+      apiKey: 'test-key',
+    });
+    llm.mockClear();
+    vi.spyOn(lightweightLLMCaller, 'buildLightweightLLMCaller').mockReturnValue(
+      llm,
+    );
+    await writeProject(translationProject());
+  });
+
+  afterEach(async () => {
+    closeDatabase();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    await fs.rm(workDir, { recursive: true, force: true });
+  });
+
+  it('translates with saved destination consent and cost approval, returning a compact result', async () => {
+    const result = await findTool('video_translate').handler(
+      { lang: 'es', sourceTrackId: 'track-caption-main' },
+      {},
+    );
+    expect(result.isError).not.toBe(true);
+    const payload = JSON.parse(toolResultText(result) ?? '{}');
+    expect(payload).toMatchObject({
+      projectId: 'project-1',
+      tool: 'translate',
+      trackId: 'track-caption-es',
+      language: 'es',
+      hidden: true,
+      cueCount: 2,
+      skipped: ['caption-1'],
+      estimatedCostCents: estimatedCents,
+    });
+    expect(payload.project).toBeUndefined();
+    expect(llm).toHaveBeenCalledTimes(1);
+    const stored = await getProject('project-1');
+    const translated = stored.timeline?.tracks.find(
+      (track) => track.id === payload.trackId,
+    );
+    expect(translated).toMatchObject({
+      hidden: true,
+      clips: [{ text: 'Hola mundo' }, { text: 'Second cue' }],
+    });
+    expect(stored.budget?.spentUsd).toBeCloseTo(0.02 + estimatedCents / 100);
+  });
+
+  it('defaults to the primary caption track and honors the auto-approve floor', async () => {
+    const project = translationProject();
+    project.settings = {
+      ...project.settings,
+      autoApproveUnderCents: 25,
+      captionTranslationCostApprovals: {},
+    };
+    await writeProject(project);
+    const result = await findTool('video_translate').handler(
+      { lang: 'es' },
+      {},
+    );
+    expect(result.isError).not.toBe(true);
+    expect(llm).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'missing-consent',
+    'other-destination',
+    'missing-cost',
+    'wrong-cost-scope',
+    'budget',
+  ] as const)(
+    'preserves the service gate for %s without calling the provider',
+    async (gate) => {
+      const project = translationProject();
+      if (gate === 'missing-consent' || gate === 'other-destination') {
+        project.settings = {
+          ...project.settings,
+          captionTranslationEgressConsents:
+            gate === 'missing-consent'
+              ? {}
+              : {
+                  'https://other.example.com': {
+                    confirmed: true,
+                    confirmedAt: '2026-09-13T00:00:00.000Z',
+                  },
+                },
+        };
+      } else if (gate === 'missing-cost' || gate === 'wrong-cost-scope') {
+        project.settings = {
+          ...project.settings,
+          captionTranslationCostApprovals:
+            gate === 'missing-cost'
+              ? {}
+              : {
+                  [destination]: {
+                    token: buildVideoCostApprovalToken(
+                      project.id,
+                      'translate:other-track:es',
+                      estimatedCents,
+                    ),
+                    approvedCents: estimatedCents,
+                  },
+                },
+        };
+      } else {
+        project.budget = { capUsd: 0.02, spentUsd: 0.02 };
+      }
+      await writeProject(project);
+      const result = await findTool('video_translate').handler(
+        { lang: 'es' },
+        {},
+      );
+      expect(result.isError).toBe(true);
+      const payload = JSON.parse(toolResultText(result) ?? '{}');
+      const expectedError =
+        gate === 'budget'
+          ? 'budget-exceeded'
+          : gate === 'missing-cost' || gate === 'wrong-cost-scope'
+            ? 'cost-approval-required'
+            : 'Confirm before continuing';
+      expect(payload.error).toContain(expectedError);
+      expect(payload.code).toBe(
+        gate === 'missing-consent' || gate === 'other-destination'
+          ? 'cloud-egress-consent-required'
+          : expectedError,
+      );
+      expect(llm).not.toHaveBeenCalled();
+      const stored = await getProject('project-1');
+      expect(stored.timeline?.tracks).toHaveLength(1);
+      expect(stored.settings?.translationLanguage).toBeUndefined();
+      expect(stored.budget?.spentUsd).toBe(0.02);
+    },
+  );
+
+  it('keeps external MCP translation in proposal mode', async () => {
+    const result = await findTool('video_translate', {
+      clientKind: 'external-mcp',
+    }).handler({ lang: 'es' }, {});
+    expect(JSON.parse(toolResultText(result) ?? '{}')).toMatchObject({
+      mode: 'proposal-only',
+    });
+    expect(llm).not.toHaveBeenCalled();
+    expect((await getProject('project-1')).timeline?.tracks).toHaveLength(1);
+  });
+});
 
 function findTool(
   name: string,

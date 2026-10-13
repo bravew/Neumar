@@ -4,6 +4,7 @@ import {
   buildCaptionSidecarSrt,
   buildMultiSceneRenderArgs,
   buildRenderArgs,
+  captionSrtByLanguage,
   selectFinalRenderer,
   timelineCaptionSubtitles,
   transitionDegradationsForScenes,
@@ -940,6 +941,74 @@ describe('video render args', () => {
     expect(buildCaptionSidecarSrt(project)).toBe(
       '1\n00:00:01,200 --> 00:00:03,000\nTimeline caption\n',
     );
+  });
+
+  it('groups sidecar cues by the language of each visible caption track', () => {
+    const project = timelineCaptionProject();
+    const tracks = project.timeline!.tracks;
+    const primary = tracks[0]!;
+    if (primary.kind !== 'caption') throw new Error('expected caption track');
+    primary.language = 'en';
+    tracks.push({
+      ...primary,
+      id: 'track-caption-es',
+      name: 'Captions (es)',
+      language: 'es',
+      order: 31,
+      clips: primary.clips.map((clip) => ({
+        ...clip,
+        id: `${clip.id}-es`,
+        text: 'Subtítulo',
+      })),
+    });
+
+    const byLanguage = captionSrtByLanguage(project);
+    expect([...byLanguage.keys()]).toEqual(['en', 'es']);
+    expect(byLanguage.get('es')).toContain('Subtítulo');
+    // The flattened sidecar keeps serving the burn-in path unchanged.
+    expect(timelineCaptionSubtitles(project)).toHaveLength(2);
+  });
+
+  it('combines multiple visible tracks with the same language in one sidecar', () => {
+    const project = timelineCaptionProject();
+    const primary = project.timeline!.tracks[0]!;
+    if (primary.kind !== 'caption') throw new Error('expected caption track');
+    primary.language = 'en';
+    project.timeline!.tracks.push({
+      ...primary,
+      id: 'other-en',
+      clips: primary.clips.map((clip) => ({
+        ...clip,
+        id: `${clip.id}-other`,
+        text: 'Other caption',
+      })),
+    });
+    const srt = captionSrtByLanguage(project).get('en');
+    expect(srt).toContain('Timeline caption');
+    expect(srt).toContain('Other caption');
+  });
+
+  it('omits a hidden caption track from every sidecar', () => {
+    const project = timelineCaptionProject();
+    const primary = project.timeline!.tracks[0]!;
+    if (primary.kind !== 'caption') throw new Error('expected caption track');
+    primary.language = 'en';
+    primary.hidden = true;
+    project.timeline!.tracks.push({
+      ...primary,
+      id: 'track-caption-es',
+      language: 'es',
+      hidden: false,
+      order: 31,
+      clips: primary.clips.map((clip) => ({
+        ...clip,
+        id: `${clip.id}-es`,
+        text: 'Subtítulo',
+      })),
+    });
+
+    const byLanguage = captionSrtByLanguage(project);
+    expect([...byLanguage.keys()]).toEqual(['es']);
   });
 });
 

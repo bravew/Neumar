@@ -143,6 +143,70 @@ TTS, B-roll, and music providers must record provenance, license/commercial-use 
 
 Caption truth is `Subtitle[]` with optional source anchors. Rendering prefers a prebuilt `src-video`/Remotion artifact when present; otherwise the FFmpeg ASS fallback is acceptable. The render pipeline keeps captions last.
 
+### Translate captions
+
+A project can hold **several caption tracks, one per language**. The translated
+track is created by `POST /video/projects/:id/captions/translate`
+(`translateProjectCaptions` in `src-api/src/shared/video/caption-translate.ts`),
+which calls an LLM at cue level: timings, trims and source anchors are copied
+from the source cue unchanged, so a translated track retimes with the speech it
+covers exactly like the STT track it came from.
+
+**Which language burns in is per-track visibility, not a render setting.** The
+EDL compiler skips a `hidden` caption track (`timeline.ts`), the preview matches
+it, and the track header offers the same eye toggle caption tracks now share with
+visual tracks. Hide the source track and show the translated one to switch the
+burned-in language. A newly translated track starts **hidden**, so an existing
+render is unchanged until someone opts in.
+
+The call leaves the machine, so it passes the same two gates as cloud
+transcription and then debits the project budget:
+
+1. **Egress consent** — `settings.captionTranslationEgressConsents[providerKey]`,
+   written server-side on the first confirmed run so the user is asked once per
+   API origin. `GET /video/caption-translation/destination` resolves the same
+   configured or environment credentials as the caller without exposing them.
+   A fresh confirmation includes `consentDestination`; a changed destination
+   requires a new confirmation. Missing consent returns 422
+   `cloud-egress-consent-required`.
+2. **Cost approval** — `estimateTranslationCostCents({ charCount })` against
+   `enforceVideoCostApproval`, scoped
+   `translate:${projectId}:${sourceTrackId}:${targetLanguage}:${destination}`. Returns 402
+   `cost-approval-required` when the estimate clears
+   `settings.autoApproveUnderCents`.
+3. **Budget debit** — `enforceProjectBudget` and the spend write run inside the
+   *same* locked `updateProjectDocument` closure that writes the track, so two
+   concurrent translations cannot both pass a cap only one of them fits under.
+
+Concurrent requests for the same project + track + language share one in-flight
+task, so a double click is not billed twice.
+
+**Sidecars.** A render writes the unsuffixed `<output>.srt` from the flattened
+visible cues (unchanged, and what the burn-in pass consumes) and additionally
+writes `<output>.<lang>.srt` per visible language once the timeline holds more
+than one. Those per-language paths are reported in
+`RenderOutput.captionSidecarPaths`.
+
+**Agent tool.** `translate` / `video_translate` calls the same translation
+service with `lang` and optional `sourceTrackId` (the primary caption track is
+used when omitted). It creates a hidden translated track and returns its id,
+cue count, skipped cue ids and estimated cost. Agents supply no fresh egress
+confirmation or cost approval: the service requires saved consent for the exact
+configured destination and applies saved cost approval, the auto-approve floor
+and the project budget gate. If approval is missing, use the UI to obtain it
+before retrying. External MCP clients in proposal mode cannot execute translation.
+
+Known limits of translation:
+
+- Translated cues carry **no `words`**. Per-word timings would be wrong for
+  translated text, so word-level caption styles (karaoke, active-word,
+  typewriter) degrade to plain cue text on the translated track.
+- A cue the model drops keeps its **source-language** text and its id is returned
+  in `skipped`, rather than being silently emptied. The response is always N cues
+  for N inputs.
+- If every batch fails, the call throws `provider-failed` rather than writing a
+  track that looks translated but is wholly in the source language.
+
 ## Timeline Editing
 
 Timeline edits are frame-first. Agent tools and UI commits should convert
@@ -656,3 +720,7 @@ correlation accuracy is measured against real fixtures.
 ## Known Limits
 
 Remotion overlays depend on the packaged renderer artifact. IndexTTS is license-gated. Suno/Udio are intentionally excluded. OpenAI Sora/Videos is not offered as a launch provider while its shutdown/deprecation notice remains active. The MVP supports one active render per project.
+
+Caption translation degrades word-level caption styles to plain cue text (see
+[Translate captions](#translate-captions)); translated cues carry no per-word
+timings by design.

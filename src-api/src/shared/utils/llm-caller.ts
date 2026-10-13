@@ -30,6 +30,8 @@ const DEFAULT_MAX_TOKENS = 1024;
 interface LLMCallerOptions {
   model?: string;
   maxTokens?: number;
+  /** Capture credentials when consent must match the destination of every batch. */
+  credentials?: ReturnType<typeof resolveApiCredentials>;
 }
 
 /**
@@ -43,7 +45,7 @@ export function buildLightweightLLMCaller(
   const maxTokens = options?.maxTokens ?? DEFAULT_MAX_TOKENS;
 
   return async (prompt: string): Promise<string> => {
-    const creds = resolveApiCredentials();
+    const creds = options?.credentials ?? resolveApiCredentials();
     if (!creds.apiKey) {
       logger.warn('No API key configured for lightweight LLM call');
       return '';
@@ -59,6 +61,7 @@ export function buildLightweightLLMCaller(
           options?.model ?? DEFAULT_ANTHROPIC_MODEL,
           maxTokens,
           prompt,
+          options?.credentials ? 'error' : 'follow',
         );
       }
       return await callOpenAICompat(
@@ -67,6 +70,7 @@ export function buildLightweightLLMCaller(
         options?.model ?? getFastModelForProvider(baseUrl, creds.model),
         maxTokens,
         prompt,
+        options?.credentials ? 'error' : 'follow',
       );
     } catch (err) {
       logger.debug(`LLM call error: ${err}`);
@@ -81,9 +85,11 @@ async function callAnthropic(
   model: string,
   maxTokens: number,
   prompt: string,
+  redirect: RequestRedirect,
 ): Promise<string> {
   const res = await fetch(`${baseUrl}/v1/messages`, {
     method: 'POST',
+    redirect,
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
@@ -111,6 +117,7 @@ async function callOpenAICompat(
   model: string,
   maxTokens: number,
   prompt: string,
+  redirect: RequestRedirect,
 ): Promise<string> {
   const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
   const headers = {
@@ -121,6 +128,7 @@ async function callOpenAICompat(
   const tokenParam = resolveOpenAICompatTokenParam(baseUrl, model);
   let res = await fetch(url, {
     method: 'POST',
+    redirect,
     headers,
     body: JSON.stringify(
       buildOpenAICompatBody(model, maxTokens, prompt, tokenParam),
@@ -133,6 +141,7 @@ async function callOpenAICompat(
       const retryStart = Date.now();
       res = await fetch(url, {
         method: 'POST',
+        redirect,
         headers,
         body: JSON.stringify(
           buildOpenAICompatBody(model, maxTokens, prompt, fallbackParam),

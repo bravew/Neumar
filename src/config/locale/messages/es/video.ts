@@ -781,6 +781,7 @@ export default {
         'Haz clic en una línea para mover el cursor — se resalta al reproducir.',
       jumpTo: 'Ir a {time}',
       editHint: 'Doble clic para editar',
+      captionTrackLabel: 'Pista de subtítulos / idioma',
       empty: 'Aún no hay líneas de transcripción.',
       textLabel: 'Texto de transcripción de escena',
       wordAnchored: 'Selección con tiempos por palabra',
@@ -841,6 +842,34 @@ export default {
       stopPreview: 'Detener vista previa',
       editWordLabel: 'Corregir palabra de la transcripción',
       correctFailed: 'No se pudo guardar la corrección.',
+      translate: {
+        title: 'Traducir subtítulos',
+        description:
+          'Crea una segunda pista de subtítulos en otro idioma. La nueva pista empieza oculta, así que nada cambia en pantalla hasta que la muestres.',
+        action: 'Traducir',
+        translating: 'Traduciendo…',
+        cancel: 'Cancelar',
+        failed: 'No se pudieron traducir los subtítulos. Inténtalo de nuevo.',
+        sourceLabel: 'Traducir desde',
+        targetLabel: 'Traducir a',
+        providerLabel: 'Proveedor',
+        noProvider: 'No hay proveedor configurado',
+        consent:
+          'El texto de los subtítulos sale de este equipo y se envía a {provider} para traducirlo.',
+        estimate: '{cues} subtítulos · coste estimado ${cost}',
+        partial:
+          '{count} subtítulos no se pudieron traducir y conservan su texto original.',
+        costApprovalRequired:
+          'Esta traducción supera el límite de aprobación automática. Aprueba el coste y vuelve a intentarlo.',
+        languages: {
+          en: 'Inglés',
+          zh: 'Chino',
+          es: 'Español',
+          fr: 'Francés',
+          hi: 'Hindi',
+          pt: 'Portugués',
+        },
+      },
     },
     plan: {
       title: 'Plan de render',

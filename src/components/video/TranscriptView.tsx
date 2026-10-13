@@ -258,7 +258,10 @@ export function TranscriptView({
         </div>
       </div>
       {hasCaptions ? (
-        <CaptionTranscriptView cues={captionCues} />
+        <CaptionTranscriptView
+          cues={captionCues}
+          timeline={storeTimeline ?? project.timeline}
+        />
       ) : entries.length === 0 ? (
         <div className="text-muted-foreground flex min-h-40 items-center justify-center p-4 text-center text-xs">
           {t.video.editor.transcript.empty}

@@ -14,10 +14,40 @@ import {
   applyVideoAgentTool,
   redoVideoAgentJournalEntry,
   undoVideoAgentJournalEntry,
+  videoAgentToolCallSchema,
 } from '@/shared/video/agent-tools';
 import type { VideoProject } from '@/shared/video/types';
 
 describe('video agent tools', () => {
+  it('accepts a translation source track but rejects agent-supplied approvals', () => {
+    const call = {
+      name: 'translate',
+      args: { lang: 'es', sourceTrackId: 'track-caption-main' },
+    };
+    expect(videoAgentToolCallSchema.parse(call)).toEqual(call);
+    for (const approval of [
+      { egressConfirmed: true },
+      { consentDestination: 'https://api.example.com' },
+      { costApproval: { token: 'untrusted' } },
+    ]) {
+      expect(() =>
+        videoAgentToolCallSchema.parse({
+          ...call,
+          args: { ...call.args, ...approval },
+        }),
+      ).toThrow();
+    }
+  });
+
+  it('requires the translation service instead of saving language intent', () => {
+    const project = projectFixture();
+    expect(() =>
+      applyVideoAgentTool(project, { name: 'translate', args: { lang: 'es' } }),
+    ).toThrow('Caption translation requires translateVideoAgentCaptions.');
+    expect(project.settings?.translationLanguage).toBeUndefined();
+    expect(project.agentJournal).toBeUndefined();
+  });
+
   it('applies a complete storyboard in one reversible journal entry', () => {
     const project: VideoProject = {
       ...projectFixture(),

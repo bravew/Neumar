@@ -11,6 +11,8 @@ import type {
   VideoAgentToolCallInput,
   VideoAgentToolExecution,
   VideoCaptionRenderMode,
+  VideoCaptionTranslateRequest,
+  VideoCaptionTranslateResult,
   VideoEditorHandoffJobStatus,
   VideoEditorHandoffMediaMode,
   VideoEditorHandoffTarget,
@@ -782,6 +784,23 @@ export function useVideoProject(projectId: string | undefined) {
       }
     },
     [projectId, refresh],
+  );
+
+  const translateCaptions = useCallback(
+    async (
+      input: VideoCaptionTranslateRequest,
+    ): Promise<VideoCaptionTranslateResult> => {
+      if (!projectId) throw new Error('No project selected');
+      const data = await videoApi<VideoCaptionTranslateResult>(
+        `/projects/${encodeURIComponent(projectId)}/captions/translate`,
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+      setProject((current) =>
+        current?.id === projectId ? data.project : current,
+      );
+      return data;
+    },
+    [projectId],
   );
 
   const createCutPlan = useCallback(
@@ -1660,6 +1679,7 @@ export function useVideoProject(projectId: string | undefined) {
     resumeVideoReferenceRun,
     analyzeSource,
     transcribeAsset,
+    translateCaptions,
     createCutPlan,
     patchSourceTranscript,
     generateStoryboard,

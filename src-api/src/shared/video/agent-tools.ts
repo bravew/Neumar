@@ -20,6 +20,10 @@ import { z } from 'zod';
 
 import { buildTranscriptWordOps } from './analysis/transcript-agent-ops';
 import { retimeTimelineCaptions } from './caption-retime';
+import {
+  captionTranslationLanguageSchema,
+  translateProjectCaptions,
+} from './caption-translate';
 import { normalizeCssColor } from './css-colors';
 import { calculateWer } from './eval';
 import { outputRangeFromFrames } from './output-range';
@@ -280,7 +284,7 @@ const providerKindsSchema = z.enum(['image', 'video', 'audio']);
 const publishChannelSchema = z.enum(['slack', 'youtube', 'tiktok']);
 const renderPresetSchema = z.enum(['draft', 'standard', 'high']);
 const renderWhereSchema = z.enum(['local', 'cloud']);
-const languageSchema = z.enum(['en', 'zh', 'es', 'fr', 'hi', 'pt']);
+const languageSchema = captionTranslationLanguageSchema;
 const timelineProposalApplyModeSchema = z.enum([
   'suggest',
   'auto',
@@ -1008,7 +1012,12 @@ export const videoAgentToolCallSchema = z.discriminatedUnion('name', [
   }),
   z.object({
     name: z.literal('translate'),
-    args: z.object({ lang: languageSchema }).strict(),
+    args: z
+      .object({
+        lang: languageSchema,
+        sourceTrackId: z.string().min(1).optional(),
+      })
+      .strict(),
     reasoning: z.string().optional(),
   }),
   z.object({
@@ -1178,6 +1187,17 @@ export interface VideoAgentToolOptions {
 }
 
 type JsonContainer = Record<string, unknown> | unknown[];
+
+/** Runs paid translation through the service using only previously saved approvals. */
+export function translateVideoAgentCaptions(
+  projectId: string,
+  call: Extract<VideoAgentToolCall, { name: 'translate' }>,
+) {
+  return translateProjectCaptions(projectId, {
+    targetLanguage: call.args.lang,
+    sourceTrackId: call.args.sourceTrackId,
+  });
+}
 
 export function applyVideoAgentTool(
   project: VideoProject,
@@ -1472,7 +1492,9 @@ function buildVideoAgentToolDiff(
     case 'reframe':
       return reframeDiff(project, call.args.aspect);
     case 'translate':
-      return translateDiff(project, call.args.lang);
+      throw new Error(
+        'Caption translation requires translateVideoAgentCaptions.',
+      );
     case 'restyle':
       return restyleDiff(project, call.args.preset);
     case 'render':
@@ -2514,17 +2536,6 @@ function storyboardSceneStartMs(
     cursor += scene.durationMs;
   }
   throw new Error(`Scene not found: ${sceneId}`);
-}
-
-function translateDiff(
-  project: VideoProject,
-  lang: Extract<VideoAgentToolCall, { name: 'translate' }>['args']['lang'],
-): ProjectDiffOperation[] {
-  const nextSettings = {
-    ...(project.settings ?? {}),
-    translationLanguage: lang,
-  };
-  return upsertDiff(project, '/settings', nextSettings);
 }
 
 function restyleDiff(

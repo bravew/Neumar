@@ -771,6 +771,7 @@ export default {
         'Click a line to jump the playhead — highlights as it plays.',
       jumpTo: 'Jump to {time}',
       editHint: 'Double-click to edit',
+      captionTrackLabel: 'Caption track / language',
       empty: 'No transcript lines yet.',
       textLabel: 'Scene transcript text',
       wordAnchored: 'Word-timed selection',
@@ -830,6 +831,34 @@ export default {
       stopPreview: 'Stop preview',
       editWordLabel: 'Correct transcript word',
       correctFailed: 'Could not save the correction.',
+      translate: {
+        title: 'Translate captions',
+        description:
+          'Create a second caption track in another language. The new track starts hidden, so nothing changes on screen until you show it.',
+        action: 'Translate',
+        translating: 'Translating…',
+        cancel: 'Cancel',
+        failed: 'Could not translate the captions. Try again.',
+        sourceLabel: 'Translate from',
+        targetLabel: 'Translate into',
+        providerLabel: 'Provider',
+        noProvider: 'No provider configured',
+        consent:
+          'Caption text leaves this machine and is sent to {provider} for translation.',
+        estimate: '{cues} cues · estimated cost ${cost}',
+        partial:
+          '{count} cues could not be translated and keep their original text.',
+        costApprovalRequired:
+          'This translation costs more than the auto-approve limit. Approve the cost and retry.',
+        languages: {
+          en: 'English',
+          zh: 'Chinese',
+          es: 'Spanish',
+          fr: 'French',
+          hi: 'Hindi',
+          pt: 'Portuguese',
+        },
+      },
     },
     plan: {
       title: 'Render plan',

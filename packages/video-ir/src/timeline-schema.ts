@@ -533,6 +533,8 @@ export const TimelineTrackSchema = z.discriminatedUnion('kind', [
   }).strict(),
   BaseTrackSchema.extend({
     kind: z.literal('caption'),
+    language: z.string().optional(),
+    hidden: z.boolean().optional(),
     clips: z.array(CaptionTimelineClipSchema),
   }).strict(),
 ]);
@@ -611,6 +613,7 @@ const TrackUpdatePatchSchema = z
     muted: z.boolean().optional(),
     locked: z.boolean().optional(),
     syncLocked: z.boolean().nullable().optional(),
+    hidden: z.boolean().nullable().optional(),
     order: z.number().int().optional(),
     volumeDb: z.number().nullable().optional(),
     duckUnderTrackId: z.string().min(1).nullable().optional(),

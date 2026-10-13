@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import {
-  isVisualTimelineTrack,
+  isHideableTimelineTrack,
   type VideoTimeline,
   type VideoTimelineTrack,
 } from '@/shared/types/video';
@@ -45,7 +45,7 @@ export function useTimelineTrackActions({
 
   const handleToggleTrackVisibility = useCallback(
     (track: VideoTimelineTrack) => {
-      if (!isVisualTimelineTrack(track)) return;
+      if (!isHideableTimelineTrack(track)) return;
       updateTrack(track.id, { hidden: !track.hidden });
     },
     [updateTrack],

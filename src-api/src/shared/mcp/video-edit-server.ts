@@ -70,6 +70,7 @@ import {
   isTimelineEditAgentToolCall,
   redoVideoAgentJournalEntry,
   undoVideoAgentJournalEntry,
+  translateVideoAgentCaptions,
   videoStoryboardSchema,
 } from '@/shared/video/agent-tools';
 import type {
@@ -94,6 +95,10 @@ import {
 } from '@/shared/video/audio-generation';
 import { generateProjectCaptions } from '@/shared/video/caption-generate';
 import {
+  CaptionTranslationError,
+  captionTranslationLanguageSchema,
+} from '@/shared/video/caption-translate';
+import {
   hydrateReferencedProjectAssets,
   hydrateProjectAsset,
   isReferencedProjectAsset,
@@ -106,6 +111,10 @@ import {
   writeContentGraph,
   writeFrameHtml,
 } from '@/shared/video/content-graph/persistence';
+import {
+  VideoBudgetExceededError,
+  VideoCostApprovalError,
+} from '@/shared/video/cost-approval';
 import { normalizeCssColor } from '@/shared/video/css-colors';
 import {
   buildCurrentVideoContext,
@@ -510,7 +519,7 @@ const EXPORT_DESTINATION_SCHEMA = z.enum([
   'telegram',
   'lark',
 ]);
-const LANGUAGE_SCHEMA = z.enum(['en', 'zh', 'es', 'fr', 'hi', 'pt']);
+const LANGUAGE_SCHEMA = captionTranslationLanguageSchema;
 const RENDER_PRESET_SCHEMA = z.enum(['draft', 'standard', 'high']);
 const RENDER_WHERE_SCHEMA = z.enum(['local', 'cloud']);
 const CURRENT_CONTEXT_INCLUDE_SCHEMA = z.enum(CURRENT_VIDEO_CONTEXT_INCLUDES);
@@ -1056,12 +1065,36 @@ function toolCallResult(
       call,
     );
     if (proposal) return proposal;
+    if (call.name === 'translate') {
+      const result = await translateVideoAgentCaptions(
+        resolveProjectId(inputProjectId, options),
+        call,
+      );
+      return jsonResult({
+        projectId: result.project.id,
+        updatedAt: result.project.updatedAt,
+        tool: call.name,
+        trackId: result.track.id,
+        language: result.track.language,
+        hidden: result.track.hidden,
+        cueCount: result.track.clips.length,
+        skipped: result.skipped,
+        estimatedCostCents: result.estimatedCostCents,
+      });
+    }
     return mutationResult(
       await applyVideoToolCall(inputProjectId, options, call),
     );
-  }).catch((error) =>
-    errorResult(error instanceof Error ? error.message : String(error)),
-  );
+  }).catch((error) => {
+    if (
+      error instanceof CaptionTranslationError ||
+      error instanceof VideoCostApprovalError ||
+      error instanceof VideoBudgetExceededError
+    ) {
+      return errorResult(error.message, error.code);
+    }
+    return errorResult(error instanceof Error ? error.message : String(error));
+  });
 }
 
 async function proposalOnlyToolResult(
@@ -6791,11 +6824,12 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
     ),
     tool(
       'video_translate',
-      'Record a target language for caption/script translation work.',
+      'Translate caption cues into a hidden language track using saved destination consent and cost approval. Obtain missing approvals in the UI before retrying.',
       {
         projectId: PROJECT_ID_SCHEMA,
         reasoning: REASONING_SCHEMA,
         lang: LANGUAGE_SCHEMA,
+        sourceTrackId: z.string().min(1).optional(),
       },
       async (input) => {
         const { projectId, call } = camelToolCall('translate', input);

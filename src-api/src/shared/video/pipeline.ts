@@ -130,6 +130,7 @@ import {
   type AssetPlan,
   type ClipTransform,
   type CaptionRenderMode,
+  type CaptionTimelineTrack,
   type EdlAudioClip,
   type EdlAudioTrack,
   type EdlOverlay,
@@ -361,10 +362,11 @@ export async function renderProject(
       updatedAt: new Date().toISOString(),
     };
     project = await reloadAndUpdateRenderStatus(projectId, renderStatus);
-    const captionSidecarPath =
+    const captionSidecars =
       captionMode === 'off'
-        ? undefined
+        ? { primary: undefined, byLanguage: {} as Record<string, string> }
         : await writeCaptionSidecarFile(project, outputPath, root);
+    const captionSidecarPath = captionSidecars.primary;
     const loudnessTargetLufs = normalizeLoudnessTarget(
       opts.loudnessTargetLufs ?? project.settings?.loudnessTargetLufs,
     );
@@ -453,6 +455,11 @@ export async function renderProject(
           captionSidecarPath && captionMode !== 'burn-in'
             ? path.relative(root, captionSidecarPath)
             : undefined,
+        captionSidecarPaths: relativeSidecars(
+          captionSidecars.byLanguage,
+          root,
+          captionMode,
+        ),
         loudnessTargetLufs,
         colorManagement,
         missingMedia,
@@ -521,6 +528,11 @@ export async function renderProject(
           captionSidecarPath && captionMode !== 'burn-in'
             ? path.relative(root, captionSidecarPath)
             : undefined,
+        captionSidecarPaths: relativeSidecars(
+          captionSidecars.byLanguage,
+          root,
+          captionMode,
+        ),
         loudnessTargetLufs,
         colorManagement,
         missingMedia,
@@ -572,6 +584,11 @@ export async function renderProject(
           captionSidecarPath && captionMode !== 'burn-in'
             ? path.relative(root, captionSidecarPath)
             : undefined,
+        captionSidecarPaths: relativeSidecars(
+          captionSidecars.byLanguage,
+          root,
+          captionMode,
+        ),
         loudnessTargetLufs,
         colorManagement,
         missingMedia,
@@ -676,6 +693,11 @@ export async function renderProject(
         captionSidecarPath && captionMode !== 'burn-in'
           ? path.relative(root, captionSidecarPath)
           : undefined,
+      captionSidecarPaths: relativeSidecars(
+        captionSidecars.byLanguage,
+        root,
+        captionMode,
+      ),
       loudnessTargetLufs,
       colorManagement,
       missingMedia,
@@ -3746,17 +3768,84 @@ async function writeCaptionSidecarFile(
   project: VideoProject,
   outputPath: string,
   root: string,
-): Promise<string | undefined> {
-  const srt = buildCaptionSidecarSrt(project);
-  if (!srt) return undefined;
+): Promise<{ primary?: string; byLanguage: Record<string, string> }> {
   const parsed = path.parse(outputPath);
-  const sidecarPath = validatePath(
+  // The unsuffixed sidecar stays the flattened visible cues — it is what the
+  // burn-in pass consumes, so its content must not change.
+  const srt = buildCaptionSidecarSrt(project);
+  const primaryPath = validatePath(
     path.join(parsed.dir, `${parsed.name}.srt`),
     root,
     'write',
   );
-  await fs.writeFile(sidecarPath, srt);
-  return sidecarPath;
+  if (srt) await fs.writeFile(primaryPath, srt);
+
+  // Per-language files are additive and only appear once a timeline actually
+  // holds more than one visible language; a single-track project keeps exactly
+  // the one sidecar it always had.
+  const byLanguage: Record<string, string> = {};
+  if (visibleCaptionLanguages(project).length > 1) {
+    for (const [language, languageSrt] of captionSrtByLanguage(project)) {
+      if (!language) continue;
+      const languagePath = validatePath(
+        path.join(parsed.dir, `${parsed.name}.${language}.srt`),
+        root,
+        'write',
+      );
+      await fs.writeFile(languagePath, languageSrt);
+      byLanguage[language] = languagePath;
+    }
+  }
+  return { primary: srt ? primaryPath : undefined, byLanguage };
+}
+
+/** Distinct BCP-47 tags of the visible caption tracks, in track order. */
+function visibleCaptionLanguages(project: VideoProject): string[] {
+  const languages = (project.timeline?.tracks ?? [])
+    .filter((track) => track.kind === 'caption' && !track.hidden)
+    .map((track) => (track.kind === 'caption' ? (track.language ?? '') : ''));
+  return [...new Set(languages)];
+}
+
+/**
+ * Visible caption tracks rendered as SRT, keyed by language. An untagged track
+ * uses `''` for the caller to treat as the primary language.
+ */
+export function captionSrtByLanguage(
+  project: VideoProject,
+): Map<string, string> {
+  const result = new Map<string, string>();
+  const tracks = (project.timeline?.tracks ?? []).filter(
+    (track): track is CaptionTimelineTrack =>
+      track.kind === 'caption' && !track.hidden,
+  );
+  const edl = compileTimelineToEdl(project);
+  const languages = [...new Set(tracks.map((track) => track.language ?? ''))];
+  for (const language of languages) {
+    const trackIds = new Set(
+      tracks
+        .filter((track) => (track.language ?? '') === language)
+        .map((track) => track.id),
+    );
+    const subtitles = edl.captions
+      .filter((caption) => caption.trackId && trackIds.has(caption.trackId))
+      .map((caption) => ({
+        id: caption.id,
+        startMs: caption.startMs,
+        endMs: caption.endMs,
+        text: caption.text.trim(),
+      }))
+      .filter((caption) => caption.text.length > 0)
+      .sort((a, b) => a.startMs - b.startMs || a.id.localeCompare(b.id))
+      .map(({ id: _id, ...caption }, index) => ({
+        index: index + 1,
+        ...caption,
+      }));
+    if (subtitles.length > 0) {
+      result.set(language, renderSrt(subtitles));
+    }
+  }
+  return result;
 }
 
 export function buildCaptionSidecarSrt(
@@ -3818,6 +3907,27 @@ function padTime(value: number): string {
   return String(value).padStart(2, '0');
 }
 
+/**
+ * Per-language sidecar paths as project-relative strings. Burn-in renders fold
+ * the cues into the picture, so they report no sidecars — matching how the
+ * single `captionSidecarPath` field already behaves.
+ */
+function relativeSidecars(
+  byLanguage: Record<string, string>,
+  root: string,
+  captionMode: CaptionRenderMode,
+): Record<string, string> | undefined {
+  if (captionMode === 'burn-in') return undefined;
+  const entries = Object.entries(byLanguage);
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(
+    entries.map(([language, sidecarPath]) => [
+      language,
+      path.relative(root, sidecarPath),
+    ]),
+  );
+}
+
 async function buildRenderOutput(input: {
   projectId: string;
   root: string;
@@ -3825,6 +3935,7 @@ async function buildRenderOutput(input: {
   aspectRatio: AspectRatio;
   probe: Awaited<ReturnType<typeof probeFile>>;
   captionSidecarPath?: string;
+  captionSidecarPaths?: Record<string, string>;
   disclosurePath?: string;
   c2paManifestPath?: string;
   c2paSignerMode?: string;
@@ -3849,6 +3960,7 @@ async function buildRenderOutput(input: {
       input.probe.streams.find((stream) => stream.codecType === 'video')
         ?.codecName ?? 'unknown',
     captionSidecarPath: input.captionSidecarPath,
+    captionSidecarPaths: input.captionSidecarPaths,
     disclosurePath: input.disclosurePath,
     c2paManifestPath: input.c2paManifestPath,
     c2paSignerMode: input.c2paSignerMode,
@@ -3900,6 +4012,7 @@ async function finalizeRenderOutput(input: {
   outputPath: string;
   aspectRatio: AspectRatio;
   captionSidecarPath?: string;
+  captionSidecarPaths?: Record<string, string>;
   loudnessTargetLufs?: LoudnessTargetLufs;
   colorManagement?: ColorManagementSummary;
   missingMedia?: VideoQaMissingMedia[];
@@ -3969,6 +4082,7 @@ async function finalizeRenderOutput(input: {
     aspectRatio: input.aspectRatio,
     probe,
     captionSidecarPath: input.captionSidecarPath,
+    captionSidecarPaths: input.captionSidecarPaths,
     disclosurePath,
     c2paManifestPath: c2pa?.manifestPath,
     c2paSignerMode: c2pa?.signerMode,
