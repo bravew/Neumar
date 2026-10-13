@@ -1,8 +1,8 @@
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 
-import { logUsage } from '@/shared/services/usage-logger';
 import { createLogger } from '@/shared/utils/logger';
-import { resolveApiCredentials } from '@/shared/utils/provider-resolution';
+import { getProviderConfig } from '@/shared/utils/provider-resolution';
 
 import type { LLMCallFn } from '../services/memory/types';
 import { buildLightweightLLMCaller } from '../utils/llm-caller';
@@ -12,13 +12,10 @@ import {
   retimeTimelineCaptions,
 } from './caption-retime';
 import {
-  enforceProjectBudget,
-  enforceVideoCostApproval,
-  readVideoCostApproval,
-  type VideoCostApproval,
-} from './cost-approval';
-import { estimateTranslationCostCents } from './cost-estimator';
-import { getProject, updateProjectDocument } from './store';
+  getProject,
+  getVideoProjectRoot,
+  updateProjectDocument,
+} from './store';
 import type {
   CaptionTimelineClip,
   CaptionTimelineTrack,
@@ -29,11 +26,22 @@ import type {
 
 const logger = createLogger('VideoCaptionTranslate');
 
-/** Resolve the same credentials as the caller, including environment fallback. */
+/**
+ * The base URL the current model routes through, mirroring the Claude adapter's
+ * `resolveClaudeConfig` (provider config first, then the inherited environment).
+ * A gateway base URL set only in `~/.claude/settings.json` is not visible to the
+ * API daemon; in that case the CLI still honours it for the call itself, while
+ * the consent destination shown here falls back to the Anthropic API origin.
+ */
+function resolveTranslationBaseUrl(): string | undefined {
+  return getProviderConfig().baseUrl ?? process.env.ANTHROPIC_BASE_URL;
+}
+
+/** Resolve the destination that translation text will leave the machine to. */
 export function resolveTranslationProviderKey(
-  credentials = resolveApiCredentials(),
+  baseUrl = resolveTranslationBaseUrl(),
 ): string {
-  const url = new URL(credentials.baseUrl || 'https://api.anthropic.com');
+  const url = new URL(baseUrl || 'https://api.anthropic.com');
   if (
     !['https:', 'http:'].includes(url.protocol) ||
     url.username ||
@@ -52,10 +60,71 @@ export function getTranslationDestination(): {
   destination: string;
   configured: boolean;
 } {
-  const credentials = resolveApiCredentials();
   return {
-    destination: resolveTranslationProviderKey(credentials),
-    configured: Boolean(credentials.apiKey),
+    destination: resolveTranslationProviderKey(),
+    // Translation runs through the current Video-mode model (the Claude Code
+    // runtime), not a separately configured API key, so it is available whenever
+    // Video Mode can run agents.
+    configured: true,
+  };
+}
+
+/**
+ * Builds the caption-translation caller that runs through the current Video-mode
+ * model (the Claude Code runtime), matching how Video Mode executes its agent.
+ *
+ * The call is a single tool-free turn so the model only translates text — no file,
+ * network, or tool surface. The selected model and gateway base URL are pinned for
+ * the whole request so every batch of a multi-batch translation lands on the same
+ * destination. A `codex:`/`cursor-agent:` model id is not supported here: those
+ * runtimes expose no plain one-shot text call, so translation falls back to the
+ * provider-config model rather than silently using another provider.
+ */
+function buildClaudeTranslationCaller(input: {
+  model?: string;
+  cwd: string;
+}): LLMCallFn {
+  return async (prompt: string): Promise<string> => {
+    const { query } = await import('@anthropic-ai/claude-agent-sdk/core');
+    const providerConfig = getProviderConfig();
+    const model = input.model ?? providerConfig.model;
+    const baseUrl = providerConfig.baseUrl ?? process.env.ANTHROPIC_BASE_URL;
+    const env: Record<string, string | undefined> = { ...process.env };
+    // The dev API runs inside Claude Code; drop the sentinel so the spawned CLI
+    // doesn't refuse a "nested session".
+    delete env.CLAUDECODE;
+    if (model) env.ANTHROPIC_MODEL = model;
+    if (baseUrl) env.ANTHROPIC_BASE_URL = baseUrl;
+
+    const q = query({
+      prompt,
+      options: {
+        cwd: input.cwd,
+        maxTurns: 1,
+        permissionMode: 'dontAsk',
+        tools: [],
+        settingSources: ['user'],
+        ...(model ? { model } : {}),
+        env,
+      },
+    });
+
+    try {
+      for await (const message of q as AsyncIterable<SDKMessage>) {
+        if (message.type !== 'result') continue;
+        if (message.subtype !== 'success') {
+          throw new CaptionTranslationError(
+            'provider-failed',
+            'The translation model did not return a result.',
+          );
+        }
+        const text = message.result;
+        if (typeof text === 'string' && text.trim()) return text;
+      }
+    } finally {
+      (q as { close?: () => void }).close?.();
+    }
+    return '';
   };
 }
 
@@ -365,9 +434,9 @@ export interface TranslateProjectCaptionsOptions {
   egressConfirmed?: boolean;
   /** Exact destination displayed when the user confirmed egress. */
   consentDestination?: string;
-  /** Approval token for the estimated spend, from the client's cost prompt. */
-  costApproval?: VideoCostApproval;
-  /** Injection seam for tests; defaults to the shared lightweight caller. */
+  /** User-selected Video-mode model id, threaded from the agent dock. */
+  model?: string;
+  /** Injection seam for tests; defaults to the current-model caller. */
   callLLM?: LLMCallFn;
 }
 
@@ -376,7 +445,6 @@ export interface TranslateProjectCaptionsResult {
   track: CaptionTimelineTrack;
   /** Cues the model dropped; they keep their source text. */
   skipped: string[];
-  estimatedCostCents: number;
 }
 
 /**
@@ -393,11 +461,10 @@ const pendingTranslations = new Map<
  * Translates a caption track into `targetLanguage` and stores the result as a
  * second caption track, hidden by default so existing renders are unchanged.
  *
- * The LLM call leaves the machine, so it passes the same two gates as cloud
- * transcription: an explicit per-provider egress consent and a cost approval.
- * The spend is then debited from the project budget inside the same locked
- * project update that writes the track, so concurrent runs cannot both pass a
- * cap that only one of them fits under.
+ * The LLM call leaves the machine, so it still passes an explicit per-provider
+ * egress consent. Cost is deliberately not gated here: translation runs on the
+ * model the user has already selected for Video Mode, with no separate spend
+ * approval or budget debit.
  */
 export function translateProjectCaptions(
   projectId: string,
@@ -437,22 +504,13 @@ async function runTranslation(
     );
   }
 
-  const credentials = { ...resolveApiCredentials() };
-  const providerKey = resolveTranslationProviderKey(credentials);
-  const estimatedCostCents = estimateTranslationCostCents({
-    charCount: cues.reduce((total, cue) => total + cue.text.length, 0),
-  });
-  const scopeId = `translate:${projectId}:${sourceTrack.id}:${targetLanguage}:${providerKey}`;
-  enforceProjectBudget(project, estimatedCostCents);
+  const providerKey = resolveTranslationProviderKey();
 
   // Consent is written server-side on first confirmation so a later run from the
   // agent tool does not need the client to resend it (the render path's pattern).
   const consented = await ensureTranslationConsent(project, providerKey, {
     egressConfirmed: options.egressConfirmed,
     consentDestination: options.consentDestination,
-    costApproval: options.costApproval,
-    scopeId,
-    estimatedCostCents,
   });
 
   const { cues: translatedCues, fallbackCueIds } = await translateCues({
@@ -461,7 +519,10 @@ async function runTranslation(
     sourceLanguage: sourceTrack.language,
     callLLM:
       options.callLLM ??
-      buildLightweightLLMCaller({ maxTokens: 2_048, credentials }),
+      buildClaudeTranslationCaller({
+        model: options.model,
+        cwd: getVideoProjectRoot(projectId),
+      }),
   });
 
   const previous = consented.timeline?.tracks.find(
@@ -479,10 +540,6 @@ async function runTranslation(
   if (previous) track.hidden = previous.hidden ?? true;
 
   const project_ = await updateProjectDocument(projectId, (current) => {
-    // Re-check against the freshest project: another run may have spent the
-    // headroom between the read above and this locked update.
-    enforceProjectBudget(current, estimatedCostCents);
-    const spentUsd = (current.budget?.spentUsd ?? 0) + estimatedCostCents / 100;
     const currentTrack = current.timeline?.tracks.find(
       (item) => item.id === track.id && item.kind === 'caption',
     );
@@ -493,27 +550,12 @@ async function runTranslation(
       withTrack.timeline = retimeTimelineCaptions(withTrack.timeline);
     return {
       ...withTrack,
-      budget: { ...(withTrack.budget ?? { capUsd: 5, spentUsd: 0 }), spentUsd },
       settings: {
         ...(withTrack.settings ?? {}),
         translationLanguage: targetLanguage,
         captionTranslationProviderId: providerKey,
       },
     };
-  });
-
-  logUsage({
-    callType: 'other',
-    provider: providerKey,
-    unitType: 'caption_cue',
-    unitCount: translatedCues.length,
-    totalCostUsd: estimatedCostCents / 100,
-    metadata: {
-      project_id: projectId,
-      source_track_id: sourceTrack.id,
-      target_language: targetLanguage,
-      caller: 'video-mode',
-    },
   });
 
   const storedTrack = project_.timeline?.tracks.find(
@@ -524,13 +566,12 @@ async function runTranslation(
     project: project_,
     track: storedTrack ?? track,
     skipped: fallbackCueIds,
-    estimatedCostCents,
   };
 }
 
 /**
- * Applies the egress-consent and cost gates, persisting a first-time consent so
- * the user is asked once per provider rather than on every translation.
+ * Applies the egress-consent gate, persisting a first-time consent so the user
+ * is asked once per provider rather than on every translation.
  */
 async function ensureTranslationConsent(
   project: VideoProject,
@@ -538,9 +579,6 @@ async function ensureTranslationConsent(
   input: {
     egressConfirmed?: boolean;
     consentDestination?: string;
-    costApproval?: VideoCostApproval;
-    scopeId: string;
-    estimatedCostCents: number;
   },
 ): Promise<VideoProject> {
   const existing =
@@ -561,27 +599,12 @@ async function ensureTranslationConsent(
       `Translating captions sends their text to ${providerKey}. Confirm before continuing.`,
     );
   }
-  enforceVideoCostApproval(project, {
-    estimatedCents: input.estimatedCostCents,
-    scopeId: input.scopeId,
-    approval:
-      input.costApproval ??
-      readVideoCostApproval(
-        project.settings?.captionTranslationCostApprovals?.[providerKey],
-      ),
-  });
-  if (existing && !input.costApproval) return project;
+  if (existing) return project;
   return updateProjectDocument(project.id, (current) => ({
     ...current,
     settings: {
       ...(current.settings ?? {}),
       captionTranslationProviderId: providerKey,
-      captionTranslationCostApprovals: input.costApproval
-        ? {
-            ...(current.settings?.captionTranslationCostApprovals ?? {}),
-            [providerKey]: input.costApproval,
-          }
-        : current.settings?.captionTranslationCostApprovals,
       captionTranslationEgressConsents: {
         ...(current.settings?.captionTranslationEgressConsents ?? {}),
         [providerKey]: {

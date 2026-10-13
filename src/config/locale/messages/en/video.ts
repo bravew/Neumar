@@ -845,11 +845,8 @@ export default {
         noProvider: 'No provider configured',
         consent:
           'Caption text leaves this machine and is sent to {provider} for translation.',
-        estimate: '{cues} cues · estimated cost ${cost}',
         partial:
           '{count} cues could not be translated and keep their original text.',
-        costApprovalRequired:
-          'This translation costs more than the auto-approve limit. Approve the cost and retry.',
         languages: {
           en: 'English',
           zh: 'Chinese',

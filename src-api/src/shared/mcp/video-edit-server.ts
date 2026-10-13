@@ -1079,7 +1079,6 @@ function toolCallResult(
         hidden: result.track.hidden,
         cueCount: result.track.clips.length,
         skipped: result.skipped,
-        estimatedCostCents: result.estimatedCostCents,
       });
     }
     return mutationResult(

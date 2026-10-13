@@ -1188,7 +1188,7 @@ export interface VideoAgentToolOptions {
 
 type JsonContainer = Record<string, unknown> | unknown[];
 
-/** Runs paid translation through the service using only previously saved approvals. */
+/** Runs translation through the service using only previously saved consent. */
 export function translateVideoAgentCaptions(
   projectId: string,
   call: Extract<VideoAgentToolCall, { name: 'translate' }>,

@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { VideoProjectEditorActions } from '@/components/video/editorTypes';
 import { TranslateCaptionsDialog } from '@/components/video/transcript/TranslateCaptionsDialog';
-import { VideoApiError } from '@/shared/hooks/useVideoProject';
 import { LanguageProvider } from '@/shared/providers/language-provider';
 import type { VideoProject } from '@/shared/types/video';
 
@@ -74,7 +73,7 @@ function mount(p: VideoProject, translateCaptions = vi.fn()) {
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('translation destination and cost consent', () => {
+describe('translation destination and consent', () => {
   it('does not reuse consent recorded for an old destination', async () => {
     const p = project();
     p.settings = {
@@ -99,38 +98,19 @@ describe('translation destination and cost consent', () => {
     );
   });
 
-  it('requires a separate cost confirmation and sends the returned approval token', async () => {
-    const translate = vi
-      .fn()
-      .mockRejectedValueOnce(
-        new VideoApiError('cost approval', 402, {
-          code: 'cost-approval-required',
-          detail: { approvalToken: 'token', estimatedCents: 80 },
-        }),
-      )
-      .mockResolvedValueOnce({
-        project: project(),
-        skipped: [],
-        estimatedCostCents: 80,
-      });
+  it('forwards the selected Video-mode model without a cost gate', async () => {
+    const translate = vi.fn().mockResolvedValueOnce({
+      project: project(),
+      skipped: [],
+    });
     mount(project(), translate);
     await screen.findByText(/Provider: https:\/\/new.example/);
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: /^Translate$/ }));
     await waitFor(() =>
-      expect(screen.getAllByRole('checkbox')).toHaveLength(2),
-    );
-    expect(screen.getByRole('button', { name: /^Translate$/ })).toBeDisabled();
-    fireEvent.click(screen.getAllByRole('checkbox')[1]!);
-    fireEvent.click(screen.getByRole('button', { name: /^Translate$/ }));
-    await waitFor(() =>
-      expect(translate).toHaveBeenLastCalledWith(
+      expect(translate).toHaveBeenCalledWith(
         expect.objectContaining({
-          costApproval: expect.objectContaining({
-            token: 'token',
-            approvedCents: 80,
-            approvedBy: 'user',
-          }),
+          model: expect.any(String),
         }),
       ),
     );

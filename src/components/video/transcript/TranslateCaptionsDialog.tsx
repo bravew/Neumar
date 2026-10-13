@@ -20,6 +20,7 @@ import {
 } from '@/shared/types/video';
 
 import type { VideoProjectEditorActions } from '../editorTypes';
+import { useVideoAgentModel } from '../useVideoAgentModel';
 
 interface TranslateCaptionsDialogProps {
   open: boolean;
@@ -37,6 +38,7 @@ export function TranslateCaptionsDialog({
 }: TranslateCaptionsDialogProps) {
   const { t } = useLanguage();
   const labels = t.video.editor.transcript.translate;
+  const { modelId } = useVideoAgentModel(project.id);
   const captionTracks = useMemo(
     () =>
       (project.timeline?.tracks ?? []).filter(
@@ -56,11 +58,6 @@ export function TranslateCaptionsDialog({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [skipped, setSkipped] = useState<string[] | null>(null);
-  const [costPrompt, setCostPrompt] = useState<{
-    token: string;
-    cents: number;
-  } | null>(null);
-  const [costConfirmed, setCostConfirmed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -99,22 +96,12 @@ export function TranslateCaptionsDialog({
   }, [refresh, labels.noProvider]);
 
   const sourceTrack = captionTracks.find((track) => track.id === sourceTrackId);
-  const charCount = (sourceTrack?.clips ?? []).reduce(
-    (total, clip) => total + clip.text.length,
-    0,
-  );
-  const estimatedCents =
-    charCount > 0 ? Math.max(1, Math.ceil((charCount / 3_000) * 3)) : 0;
   // A stored consent is valid only for the destination returned by the server now.
   const egressConfirmed =
     Boolean(destination) &&
     (confirmedDestination === destination ||
       project.settings?.captionTranslationEgressConsents?.[destination]
         ?.confirmed === true);
-  const resetCost = () => {
-    setCostPrompt(null);
-    setCostConfirmed(false);
-  };
 
   const translate = async () => {
     setBusy(true);
@@ -126,49 +113,18 @@ export function TranslateCaptionsDialog({
         sourceTrackId,
         consentDestination: destination,
         egressConfirmed,
-        costApproval:
-          costPrompt && costConfirmed
-            ? {
-                token: costPrompt.token,
-                approvedCents: costPrompt.cents,
-                approvedAt: new Date().toISOString(),
-                approvedBy: 'user',
-              }
-            : undefined,
+        model: modelId,
       });
       actions.onProjectUpdated?.(result.project);
       setSkipped(result.skipped);
       if (result.skipped.length === 0) onOpenChange(false);
     } catch (error) {
+      setFailure(error instanceof Error ? error.message : labels.failed);
       if (
         error instanceof VideoApiError &&
-        error.data.code === 'cost-approval-required'
+        error.data.code === 'cloud-egress-consent-required'
       ) {
-        const detail = error.data.detail;
-        if (
-          detail &&
-          typeof detail === 'object' &&
-          'approvalToken' in detail &&
-          typeof detail.approvalToken === 'string' &&
-          'estimatedCents' in detail &&
-          typeof detail.estimatedCents === 'number'
-        ) {
-          setCostPrompt({
-            token: detail.approvalToken,
-            cents: detail.estimatedCents,
-          });
-          setCostConfirmed(false);
-        }
-        setFailure(labels.costApprovalRequired);
-      } else {
-        setFailure(error instanceof Error ? error.message : labels.failed);
-        if (
-          error instanceof VideoApiError &&
-          error.data.code === 'cloud-egress-consent-required'
-        ) {
-          resetCost();
-          setRefresh((value) => value + 1);
-        }
+        setRefresh((value) => value + 1);
       }
     } finally {
       setBusy(false);
@@ -194,7 +150,6 @@ export function TranslateCaptionsDialog({
             disabled={busy}
             onChange={(event) => {
               setSourceTrackId(event.target.value);
-              resetCost();
             }}
             className="border-border bg-background text-foreground rounded border px-2 py-1.5"
           >
@@ -217,7 +172,6 @@ export function TranslateCaptionsDialog({
                 (code) => code === event.target.value,
               );
               if (language) setTargetLanguage(language);
-              resetCost();
             }}
             className="border-border bg-background text-foreground rounded border px-2 py-1.5"
           >
@@ -257,25 +211,6 @@ export function TranslateCaptionsDialog({
             )}
           </span>
         </label>
-        <p className="text-muted-foreground text-xs">
-          {labels.estimate
-            .replace('{cues}', String(sourceTrack?.clips.length ?? 0))
-            .replace(
-              '{cost}',
-              ((costPrompt?.cents ?? estimatedCents) / 100).toFixed(2),
-            )}
-        </p>
-        {costPrompt ? (
-          <label className="flex items-start gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={costConfirmed}
-              disabled={busy}
-              onChange={(event) => setCostConfirmed(event.target.checked)}
-            />
-            <span>{labels.costApprovalRequired}</span>
-          </label>
-        ) : null}
         {skipped ? (
           <p className="text-muted-foreground text-xs">
             {labels.partial.replace('{count}', String(skipped.length))}
@@ -304,8 +239,7 @@ export function TranslateCaptionsDialog({
               !sourceTrackId ||
               !egressConfirmed ||
               !configured ||
-              sourceTrack?.language === targetLanguage ||
-              Boolean(costPrompt && !costConfirmed)
+              sourceTrack?.language === targetLanguage
             }
             onClick={() => void translate()}
           >

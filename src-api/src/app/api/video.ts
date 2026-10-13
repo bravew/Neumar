@@ -966,7 +966,6 @@ const projectSettingsSchema = z.object({
   sourceTranscriptionCostApprovals: costApprovalRecordSchema.optional(),
   captionTranslationProviderId: z.string().min(1).max(512).optional(),
   captionTranslationEgressConsents: egressConsentRecordSchema.optional(),
-  captionTranslationCostApprovals: costApprovalRecordSchema.optional(),
   translationLanguage: captionTranslationLanguageSchema.optional(),
   loudnessTargetLufs: z
     .union([loudnessTargetSchema, z.literal('off')])
@@ -4535,14 +4534,7 @@ const translateCaptionsSchema = z.object({
   sourceTrackId: z.string().min(1).max(120).optional(),
   consentDestination: z.string().min(1).max(512).optional(),
   egressConfirmed: z.boolean().optional(),
-  costApproval: z
-    .object({
-      token: z.string().min(1),
-      approvedCents: z.number().optional(),
-      approvedAt: z.string().optional(),
-      approvedBy: z.enum(['user', 'system']).optional(),
-    })
-    .optional(),
+  model: z.string().min(1).max(512).optional(),
 });
 
 videoRoutes.post(
@@ -4557,7 +4549,7 @@ videoRoutes.post(
           sourceTrackId: body.sourceTrackId,
           consentDestination: body.consentDestination,
           egressConfirmed: body.egressConfirmed,
-          costApproval: body.costApproval,
+          model: body.model,
         }),
       );
     } catch (error) {

@@ -856,11 +856,8 @@ export default {
         noProvider: 'No hay proveedor configurado',
         consent:
           'El texto de los subtítulos sale de este equipo y se envía a {provider} para traducirlo.',
-        estimate: '{cues} subtítulos · coste estimado ${cost}',
         partial:
           '{count} subtítulos no se pudieron traducir y conservan su texto original.',
-        costApprovalRequired:
-          'Esta traducción supera el límite de aprobación automática. Aprueba el coste y vuelve a intentarlo.',
         languages: {
           en: 'Inglés',
           zh: 'Chino',

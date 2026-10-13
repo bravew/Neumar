@@ -852,11 +852,8 @@ export default {
         noProvider: 'Nenhum provedor configurado',
         consent:
           'O texto das legendas sai deste computador e é enviado ao {provider} para tradução.',
-        estimate: '{cues} legendas · custo estimado ${cost}',
         partial:
           '{count} legendas não puderam ser traduzidas e mantêm o texto original.',
-        costApprovalRequired:
-          'Esta tradução ultrapassa o limite de aprovação automática. Aprove o custo e tente novamente.',
         languages: {
           en: 'Inglês',
           zh: 'Chinês',

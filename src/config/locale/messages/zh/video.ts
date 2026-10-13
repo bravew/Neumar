@@ -819,9 +819,7 @@ export default {
         providerLabel: '服务提供方',
         noProvider: '未配置服务提供方',
         consent: '字幕文本将离开本机并发送至 {provider} 进行翻译。',
-        estimate: '{cues} 条字幕 · 预计费用 ${cost}',
         partial: '{count} 条字幕未能翻译，将保留原文。',
-        costApprovalRequired: '本次翻译超出自动批准额度。请批准费用后重试。',
         languages: {
           en: '英语',
           zh: '中文',

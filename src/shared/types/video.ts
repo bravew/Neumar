@@ -430,15 +430,6 @@ export interface VideoProjectSettings {
     string,
     { confirmed: boolean; confirmedAt: string }
   >;
-  captionTranslationCostApprovals?: Record<
-    string,
-    {
-      token: string;
-      approvedCents?: number;
-      approvedAt?: string;
-      approvedBy?: 'user' | 'system';
-    }
-  >;
   musicProviderId?: 'elevenlabs-music' | 'stable-audio';
   musicProviderModel?: string;
   loudnessTargetLufs?: VideoLoudnessTargetSetting;
@@ -467,19 +458,14 @@ export interface VideoCaptionTranslateRequest {
   consentDestination?: string;
   /** User confirmed the cue text leaves the machine for this provider. */
   egressConfirmed?: boolean;
-  costApproval?: {
-    token: string;
-    approvedCents?: number;
-    approvedAt?: string;
-    approvedBy?: 'user' | 'system';
-  };
+  /** User-selected Video-mode model id, threaded from the agent dock. */
+  model?: string;
 }
 
 export interface VideoCaptionTranslateResult {
   project: VideoProject;
   /** Ids of cues the model dropped; they keep their source-language text. */
   skipped: string[];
-  estimatedCostCents: number;
 }
 
 export interface VideoTranscriptSelectionContext {

@@ -699,15 +699,6 @@ export interface VideoProjectSettings {
     string,
     { confirmed: boolean; confirmedAt: string }
   >;
-  captionTranslationCostApprovals?: Record<
-    string,
-    {
-      token: string;
-      approvedCents?: number;
-      approvedAt?: string;
-      approvedBy?: 'user' | 'system';
-    }
-  >;
   musicProviderId?: MusicProviderId;
   musicProviderModel?: string;
   youtubeRightsAck?: {

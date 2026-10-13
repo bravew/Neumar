@@ -4,17 +4,27 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { queryMock } = vi.hoisted(() => ({ queryMock: vi.fn() }));
+
 vi.mock('@/shared/db', () => ({
   getDatabase: () => ({
     prepare: () => ({ get: () => undefined, run: () => undefined }),
   }),
 }));
 vi.mock('@/shared/db/operations', () => ({ getSetting: () => undefined }));
+// Translation now runs through the Claude Code runtime (the current Video-mode
+// model), not a raw fetch. Mock the SDK query so the route can be exercised
+// without spawning the CLI.
+vi.mock('@anthropic-ai/claude-agent-sdk/core', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('@anthropic-ai/claude-agent-sdk/core')
+    >();
+  return { ...actual, query: queryMock };
+});
 
 import { videoRoutes } from '@/app/api/video';
 
-import { buildVideoCostApprovalToken } from '@/shared/video/cost-approval';
-import { estimateTranslationCostCents } from '@/shared/video/cost-estimator';
 import { getProject, writeProject } from '@/shared/video/store';
 import type { VideoProject } from '@/shared/video/types';
 
@@ -73,9 +83,15 @@ function projectFixture(over: Partial<VideoProject> = {}): VideoProject {
   } as unknown as VideoProject;
 }
 
-const ESTIMATED_CENTS = estimateTranslationCostCents({
-  charCount: 'hello world'.length + 'second line'.length,
-});
+/** A successful single-turn SDK query answering with the given result text. */
+function claudeResult(text: string) {
+  return {
+    async *[Symbol.asyncIterator]() {
+      yield { type: 'result', subtype: 'success', result: text };
+    },
+    close: vi.fn(),
+  };
+}
 
 beforeEach(async () => {
   workDir = await fs.mkdtemp(
@@ -85,6 +101,10 @@ beforeEach(async () => {
   vi.stubEnv('ANTHROPIC_API_KEY', '');
   vi.stubEnv('OPENAI_API_KEY', '');
   vi.stubEnv('ANTHROPIC_BASE_URL', '');
+  queryMock.mockReset();
+  queryMock.mockImplementation(() =>
+    claudeResult('[{"i":0,"text":"hola"},{"i":1,"text":"segunda"}]'),
+  );
   await writeProject(projectFixture(), { snapshot: false });
 });
 afterEach(async () => {
@@ -106,7 +126,6 @@ function translate(body: Record<string, unknown>) {
 
 describe('caption translation route', () => {
   it('reports the actual destination without exposing credentials', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
     vi.stubEnv('ANTHROPIC_BASE_URL', 'https://proxy.example/v1');
     const response = await videoRoutes.request(
       '/caption-translation/destination',
@@ -138,39 +157,6 @@ describe('caption translation route', () => {
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({
       code: 'cloud-egress-consent-required',
-    });
-  });
-
-  it('auto-approves a translation under the project auto-approve floor', async () => {
-    const response = await translate({
-      targetLanguage: 'es',
-      consentDestination: 'https://api.anthropic.com',
-      egressConfirmed: true,
-    });
-    // 1 cent is below the 25-cent default floor, so the cost gate lets it
-    // through. No provider credentials are configured, so the call itself
-    // fails — past both gates, which is what this asserts.
-    expect(ESTIMATED_CENTS).toBeLessThan(25);
-    expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({ code: 'provider-failed' });
-  });
-
-  it('asks for cost approval once the estimate clears the floor', async () => {
-    await writeProject(
-      projectFixture({
-        settings: { autoApproveUnderCents: 1 },
-      } as Partial<VideoProject>),
-      { snapshot: false },
-    );
-    const response = await translate({
-      targetLanguage: 'es',
-      consentDestination: 'https://api.anthropic.com',
-      egressConfirmed: true,
-    });
-    expect(ESTIMATED_CENTS).toBeGreaterThanOrEqual(1);
-    expect(response.status).toBe(402);
-    expect(await response.json()).toMatchObject({
-      code: 'cost-approval-required',
     });
   });
 
@@ -216,23 +202,7 @@ describe('caption translation route', () => {
     ).toMatchObject({ confirmed: true });
   });
 
-  it('stores a hidden translation with unique cue IDs and debits its budget', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            content: [
-              {
-                type: 'text',
-                text: '[{"i":0,"text":"hola"},{"i":1,"text":"segunda"}]',
-              },
-            ],
-          }),
-          { status: 200 },
-        ),
-    );
-    vi.stubGlobal('fetch', fetchMock);
+  it('stores a hidden translation with unique cue IDs and no budget debit', async () => {
     const response = await translate({
       targetLanguage: 'es',
       egressConfirmed: true,
@@ -248,60 +218,9 @@ describe('caption translation route', () => {
       'track-caption-es:cap-1',
       'track-caption-es:cap-2',
     ]);
-    expect(stored.budget?.spentUsd).toBe(ESTIMATED_CENTS / 100);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('preserves unrelated edits and stores explicit cost approval for agent retries', async () => {
-    await writeProject(
-      projectFixture({ settings: { autoApproveUnderCents: 1 } }),
-      { snapshot: false },
-    );
-    const first = await translate({
-      targetLanguage: 'es',
-      egressConfirmed: true,
-      consentDestination: 'https://api.anthropic.com',
-    });
-    const gate = (await first.json()) as { detail: { approvalToken: string } };
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => {
-        const current = await getProject('caption-translate-route');
-        await writeProject(
-          { ...current, name: 'Concurrent edit' },
-          { snapshot: false },
-        );
-        return new Response(
-          JSON.stringify({
-            content: [
-              {
-                type: 'text',
-                text: '[{"i":0,"text":"hola"},{"i":1,"text":"segunda"}]',
-              },
-            ],
-          }),
-        );
-      }),
-    );
-    const response = await translate({
-      targetLanguage: 'es',
-      egressConfirmed: true,
-      consentDestination: 'https://api.anthropic.com',
-      costApproval: {
-        token: gate.detail.approvalToken,
-        approvedCents: ESTIMATED_CENTS,
-        approvedBy: 'user',
-      },
-    });
-    expect(response.status).toBe(200);
-    const current = await getProject('caption-translate-route');
-    expect(current.name).toBe('Concurrent edit');
-    expect(
-      current.settings?.captionTranslationCostApprovals?.[
-        'https://api.anthropic.com'
-      ]?.token,
-    ).toBe(gate.detail.approvalToken);
+    // Cost is intentionally not tracked for translation.
+    expect(stored.budget?.spentUsd).toBe(0);
+    expect(queryMock).toHaveBeenCalledTimes(1);
   });
 
   it('preserves transcription and translation consent settings through PATCH', async () => {
@@ -345,58 +264,5 @@ describe('caption translation route', () => {
     expect(await response.json()).toMatchObject({
       code: 'cloud-egress-consent-required',
     });
-  });
-
-  it('rejects over-budget work before contacting the provider', async () => {
-    await writeProject(projectFixture({ budget: { capUsd: 0, spentUsd: 0 } }), {
-      snapshot: false,
-    });
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-    const response = await translate({
-      targetLanguage: 'es',
-      egressConfirmed: true,
-      consentDestination: 'https://api.anthropic.com',
-    });
-    expect(response.status).toBe(402);
-    expect(await response.json()).toMatchObject({ code: 'budget-exceeded' });
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('accepts a saved destination-scoped cost approval before calling the provider', async () => {
-    await writeProject(
-      projectFixture({
-        settings: {
-          captionTranslationEgressConsents: {
-            'https://api.anthropic.com': {
-              confirmed: true,
-              confirmedAt: new Date().toISOString(),
-            },
-          },
-          captionTranslationCostApprovals: {
-            'https://api.anthropic.com': {
-              token: buildVideoCostApprovalToken(
-                'caption-translate-route',
-                `translate:caption-translate-route:track-caption-main:es:https://api.anthropic.com`,
-                ESTIMATED_CENTS,
-              ),
-              approvedCents: ESTIMATED_CENTS,
-              approvedAt: new Date().toISOString(),
-              approvedBy: 'user',
-            },
-          },
-        },
-      } as Partial<VideoProject>),
-      { snapshot: false },
-    );
-
-    const response = await translate({
-      targetLanguage: 'es',
-      consentDestination: 'https://api.anthropic.com',
-    });
-    // No provider credentials are configured in this test, so the call itself
-    // fails — but it fails past both gates, which is what this asserts.
-    expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({ code: 'provider-failed' });
   });
 });
