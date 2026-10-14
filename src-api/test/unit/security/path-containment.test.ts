@@ -11,10 +11,17 @@
  *  - `isPathInsideRoot` runs against a real temporary tree, so the sibling,
  *    symlink, and not-yet-created write target are measured facts.
  *  - the `/files/*` routes are driven over HTTP to prove the helper is what the
- *    routes actually consult, including the write case where the file does not
- *    exist yet and only its parent can be resolved.
+ *    routes actually consult, including directory creation where the target does
+ *    not exist yet and only its parent can be resolved.
  */
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -26,8 +33,34 @@ let tempRoot: string;
 let home: string;
 let appDir: string;
 let workspace: string;
+let trustedTemp: string;
+let trustedVolumes: string;
 
 const mockGetSetting = vi.fn();
+const mockExecFile = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
+);
+
+vi.mock('child_process', () => ({
+  execFile: Object.assign(vi.fn(), {
+    [Symbol.for('nodejs.util.promisify.custom')]: mockExecFile,
+  }),
+}));
+
+// Keep the real resolver and filesystem. Only map the route's fixed desktop
+// roots into isolated fixtures: on Linux tmpdir() is already trusted via /tmp,
+// and on macOS a checkout or fixture can also sit under trusted /Volumes.
+vi.mock('path', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('path')>();
+  return {
+    ...actual,
+    resolve: (...parts: string[]) => {
+      if (parts.length === 1 && parts[0] === '/tmp') return trustedTemp;
+      if (parts.length === 1 && parts[0] === '/Volumes') return trustedVolumes;
+      return actual.resolve(...parts);
+    },
+  };
+});
 
 vi.mock('@/config/constants', () => ({
   APP_DIR_NAME: 'neumar-test',
@@ -64,14 +97,22 @@ beforeEach(async () => {
   home = path.join(tempRoot, 'home');
   appDir = path.join(tempRoot, 'appdata');
   workspace = path.join(tempRoot, 'workspace');
+  trustedTemp = path.join(tempRoot, 'trusted-temp');
+  trustedVolumes = path.join(tempRoot, 'trusted-volumes');
   await mkdir(home, { recursive: true });
   await mkdir(appDir, { recursive: true });
   await mkdir(workspace, { recursive: true });
+  await mkdir(trustedTemp, { recursive: true });
+  await mkdir(trustedVolumes, { recursive: true });
+  vi.stubEnv('TEMP', trustedTemp);
+  vi.stubEnv('TMP', trustedTemp);
+  mockExecFile.mockClear();
   mockGetSetting.mockReturnValue(workspace);
 });
 
 afterEach(async () => {
   mockGetSetting.mockReset();
+  vi.unstubAllEnvs();
   await rm(tempRoot, { recursive: true, force: true });
 });
 
@@ -175,6 +216,38 @@ describe('/files routes containment', () => {
     });
   });
 
+  for (const root of ['home', 'appdata', 'trusted-temp', 'trusted-volumes']) {
+    it.skipIf(root === 'trusted-volumes' && process.platform !== 'darwin')(
+      `reads a file under the trusted ${root} root outside the workspace`,
+      async () => {
+        const target = path.join(tempRoot, root, 'note.txt');
+        await writeFile(target, 'trusted');
+
+        const response = await post('/read', { path: target });
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ content: 'trusted' });
+      },
+    );
+  }
+
+  it('reads a workspace symlink whose target is in another trusted root', async () => {
+    await writeFile(path.join(home, 'note.txt'), 'trusted');
+    await symlink(home, path.join(workspace, 'trusted-link'));
+
+    const response = await post('/read', {
+      path: path.join(workspace, 'trusted-link', 'note.txt'),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ content: 'trusted' });
+  });
+
+  it('opens a directory under the trusted temporary root', async () => {
+    const response = await post('/open', { path: trustedTemp });
+
+    expect(response.status).toBe(200);
+    expect(mockExecFile).toHaveBeenCalledOnce();
+  });
+
   it('refuses a sibling directory that shares a prefix with the workspace', async () => {
     const sibling = path.join(tempRoot, 'workspace-other');
     await mkdir(sibling, { recursive: true });
@@ -187,7 +260,7 @@ describe('/files routes containment', () => {
     expect(response.status).toBe(403);
   });
 
-  it('refuses a read through a symlink that leaves the workspace', async () => {
+  it('refuses a read through a symlink whose target is outside all trusted roots', async () => {
     const outside = path.join(tempRoot, 'outside');
     await mkdir(outside, { recursive: true });
     await writeFile(path.join(outside, 'secret.txt'), 'secret');
@@ -199,16 +272,20 @@ describe('/files routes containment', () => {
     expect(response.status).toBe(403);
   });
 
-  it('refuses a write whose new file sits under a symlinked parent that leaves the workspace', async () => {
+  it('refuses to create a directory under a symlinked parent outside all trusted roots', async () => {
     const outside = path.join(tempRoot, 'outside');
     await mkdir(outside, { recursive: true });
     await symlink(outside, path.join(workspace, 'escape'));
 
-    // The file does not exist yet, so only the symlinked parent is resolvable.
+    // /open creates a missing directory only after checking its resolved parent.
     const response = await post('/open', {
-      path: path.join(workspace, 'escape', 'created.txt'),
+      path: path.join(workspace, 'escape', 'created'),
       createIfMissing: true,
     });
     expect(response.status).toBe(403);
+    await expect(access(path.join(outside, 'created'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    expect(mockExecFile).not.toHaveBeenCalled();
   });
 });
