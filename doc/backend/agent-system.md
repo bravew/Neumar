@@ -464,9 +464,9 @@ Agent profiles define pre-configured agent personas for multi-agent delegation.
 | `default_mcp_servers`          | JSON                  | MCP servers to attach                                         |
 | `default_skills`               | JSON                  | Skills to activate                                            |
 | `system_prompt`                | TEXT                  | Custom system prompt                                          |
-| `max_concurrent_tasks`         | INT                   | Concurrency limit (default: 1)                                |
-| `max_delegation_depth`         | INT                   | Delegation chain limit (default: 3)                           |
-| `allowed_delegates`            | JSON                  | Whitelist of profile IDs this agent can delegate to           |
+| `max_concurrent_tasks`         | INT                   | Concurrency limit (default: 1), enforced by `core/queue-manager.ts` |
+| `max_delegation_depth`         | INT                   | Stored only. No code reads it to limit delegation.            |
+| `allowed_delegates`            | JSON                  | Stored only. No code reads it to restrict delegation.         |
 | `status`                       | TEXT                  | `active`, `paused`, `archived`                                |
 | `default_thinking_config`      | TEXT (JSON, nullable) | Per-profile thinking defaults (Migration 002)                 |
 

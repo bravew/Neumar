@@ -84,7 +84,7 @@ AI provider settings are stored in the `settings` table in SQLite and managed vi
 
 | Setting Key | Description |
 |---|---|
-| `activeProvider` | Active agent: `claude` / `codex` / `deepagents` |
+| `activeProvider` | Active agent: `claude` / `codex` |
 | `anthropicApiKey` | Anthropic API key (if not using Claude CLI auth) |
 | `openaiApiKey` | OpenAI API key |
 | `claudeCodePath` | Override Claude Code CLI path |

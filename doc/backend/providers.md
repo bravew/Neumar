@@ -20,7 +20,6 @@ for both agent and sandbox providers:
 │  │ Agent Registry   │ ← Plugin-based   │
 │  │  • claude        │   registration   │
 │  │  • codex         │                  │
-│  │  • deepagents    │                  │
 │  │  • a2a           │                  │
 │  │  • gemini-local  │                  │
 │  │  • http-agent    │                  │
@@ -49,7 +48,6 @@ for both agent and sandbox providers:
 |----------|-----------|-------------|-----------|----------|
 | Claude | `sdk` | `native` | `native` | API key |
 | Codex | `cli` | `none` | `orchestrated` | Binary |
-| DeepAgents | `sdk` | `none` | `native` | — |
 | A2A | `a2a` | `none` | `native` | Base URL |
 | Gemini Local | `cli` | `shim` | `orchestrated` | Binary |
 | Cursor Local | `cli` | `none` | `none` | Binary |

@@ -249,29 +249,6 @@ export const OPENAI_COMPAT_CONFIG_SCHEMA = {
   },
 };
 
-/**
- * JSON Schema for DeepAgents configuration
- */
-export const DEEPAGENTS_CONFIG_SCHEMA = {
-  type: 'object',
-  properties: {
-    apiKey: {
-      type: 'string',
-      description: 'API key for the underlying LLM provider',
-    },
-    model: {
-      type: 'string',
-      default: DEFAULT_AGENT_MODEL,
-      description: 'Model to use',
-    },
-    workDir: {
-      type: 'string',
-      default: DEFAULT_WORK_DIR,
-      description: 'Working directory for file operations',
-    },
-  },
-};
-
 // ============================================================================
 // Built-in Plugin Metadata
 // ============================================================================
@@ -359,25 +336,4 @@ export const OPENAI_COMPAT_METADATA: AgentProviderMetadata = {
   supportsSkills: 'none',
   supportsPlanMode: 'orchestrated',
   requiresApiKey: true,
-};
-
-/**
- * Metadata for built-in DeepAgents adapter
- */
-export const DEEPAGENTS_METADATA: AgentProviderMetadata = {
-  type: 'deepagents',
-  name: 'DeepAgents',
-  version: '1.0.0',
-  description:
-    'DeepAgents.js framework integration using LangGraph. Supports multiple LLM providers.',
-  configSchema: DEEPAGENTS_CONFIG_SCHEMA,
-  builtin: true,
-  supportsPlan: true,
-  supportsStreaming: true,
-  supportsSandbox: false,
-  tags: ['langgraph', 'deepagents', 'multi-provider'],
-  transport: 'sdk',
-  supportsMcp: 'none',
-  supportsSkills: 'none',
-  supportsPlanMode: 'orchestrated',
 };

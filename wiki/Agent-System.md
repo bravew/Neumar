@@ -11,8 +11,7 @@ At startup, agent plugins self-register with a central registry:
 ```
 AgentRegistry
 ├── ClaudeAgent     (claude-agent-sdk)
-├── CodexAgent      (Codex CLI)
-└── DeepAgentsAgent (DeepAgents API)
+└── CodexAgent      (Codex CLI)
 ```
 
 The active agent is selected in Settings → Providers. Switching takes effect immediately for new tasks.
