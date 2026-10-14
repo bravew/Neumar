@@ -358,12 +358,24 @@ export function compileTranscriptRestore(
       // timeline edge, and fail when the source once had a cue on that seam but
       // no longer does — a restore that leaves the captions out of sync with
       // the restored speech must not report success.
+      // A track with cues from another source is not this restore's concern.
+      // An empty track is only an error when no other caption track can speak
+      // for this source: alone it is indistinguishable from "every generated
+      // cue was deleted", but beside a sourced track it is just an extra track
+      // the user added, and it must not block a restore that is in sync.
+      const sourcedCaptionTrack = timeline.tracks.some(
+        (track) =>
+          track.kind === 'caption' &&
+          track.clips.some((cue) => captionMatchesSource(cue, input.match)),
+      );
       for (const captions of timeline.tracks) {
         if (captions.kind !== 'caption') continue;
         const sourced = captions.clips.filter((cue) =>
           captionMatchesSource(cue, input.match),
         );
-        if (!sourced.length && captions.clips.length) continue;
+        if (!sourced.length && (captions.clips.length || sourcedCaptionTrack)) {
+          continue;
+        }
         let seam = sourced.filter((cue) =>
           cueMeetsSeam(cue, touchesA, target, reverse),
         );
