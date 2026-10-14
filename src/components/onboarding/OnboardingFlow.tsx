@@ -48,7 +48,11 @@ export function OnboardingFlow() {
   const idea = visibleIdeas(listIdeas(), feedback)[0];
 
   const finish = async () => {
-    saveSettings({ ...draft, planMode: 'on' });
+    // `draft` holds the plan mode in effect: the one the user stored, or the
+    // fresh-install default (`defaultSettings.planMode`) when none was ever
+    // stored. Completion runs on a setup rerun too, so forcing 'on' here
+    // would discard an explicit off or auto.
+    saveSettings(draft);
     await Promise.all([
       syncSettingsWithBackend(),
       saveSettingItem('onboardingCompleted', 'true'),
