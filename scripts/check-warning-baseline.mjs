@@ -13,6 +13,12 @@
  * carries an owner, a reason, an expiry date, and a regression test. Removing
  * warnings is always allowed; the run prints how to record the reduction with
  * `--update` so the same change lowers the baseline.
+ *
+ * The committed baseline is also compared against the one on the base ref, so
+ * regenerating the file with `--update` cannot record growth. Broad
+ * file-scoped suppressions are keyed separately from line-scoped ones, so
+ * widening `eslint-disable-next-line` to `eslint-disable` fails even when the
+ * per-rule count is unchanged.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -25,6 +31,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const SRC_ROOT = join(ROOT, 'src');
 const BASELINE_PATH = join(ROOT, 'scripts', 'lint-warning-baseline.json');
+const BASELINE_REPO_PATH = 'scripts/lint-warning-baseline.json';
 const OXLINT_BIN =
   process.env.OXLINT_BIN?.trim() ||
   join(
@@ -43,19 +50,72 @@ const SCANNED_EXTENSIONS = new Set([
   '.mjs',
   '.cjs',
 ]);
+/** A directive only counts inside a comment. Matching the bare word would also
+ *  count the string literals that tests and docs use to describe one. */
 const SUPPRESSION_DIRECTIVE =
-  /\b(?:eslint|oxlint)-disable(?:-next-line|-line)?\b(.*)$/;
+  /(?:\/\/|\/\*)\s*(?:eslint|oxlint)-disable(-next-line|-line)?\b(.*)$/;
+/** A file- or block-scoped directive suppresses everything after it; a
+ *  next-line or line directive covers one line. They are different risks, so
+ *  the baseline keys them apart and widening one to the other is growth. */
+const BROAD_SUPPRESSION = 'eslint-disable';
 /** Comments spell plugin rules `react-hooks/exhaustive-deps`; oxlint reports
  *  them as `react-hooks(exhaustive-deps)`. Normalize so both sides compare. */
 const PLUGIN_RULE = /^([a-z0-9-]+)\/(.+)$/;
 const EXCEPTION_KINDS = new Set(['warning', 'suppression']);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const BASELINE_VERSION = 1;
+const BASELINE_VERSION = 2;
 
 const update = process.argv.includes('--update');
 
 function toPosix(p) {
   return p.split(sep).join('/');
+}
+
+/**
+ * Base ref for the baseline comparison. `BASE_REF` lets CI name the pull
+ * request base; `GITHUB_BASE_REF` is the GitHub-provided fallback; locally the
+ * default is `origin/main`. An explicitly named base that cannot be resolved
+ * is an error, not a reason to skip the comparison.
+ */
+function baseRef() {
+  const explicit = process.env.BASE_REF?.trim();
+  if (explicit) return { ref: explicit, required: true };
+  const fromGithub = process.env.GITHUB_BASE_REF?.trim();
+  if (fromGithub) return { ref: `origin/${fromGithub}`, required: true };
+  return { ref: 'origin/main', required: false };
+}
+
+/**
+ * Reads the baseline as committed on the base ref. Returns null when an
+ * optional base ref or the file is unavailable, so a shallow clone or a first
+ * introduction never fails spuriously. An explicitly requested base that
+ * cannot be read is a failure, because silently skipping the comparison would
+ * let a regenerated baseline pass.
+ */
+function readBaseBaseline(failures) {
+  const { ref, required } = baseRef();
+  const result = spawnSync('git', ['show', `${ref}:${BASELINE_REPO_PATH}`], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (result.error || result.status !== 0) {
+    if (required) {
+      failures.push(
+        `Cannot resolve base ref ${ref}. Fetch it (\`git fetch origin\`) or unset BASE_REF so the gate falls back to origin/main.`,
+      );
+    }
+    return null;
+  }
+  try {
+    return { ref, baseline: JSON.parse(result.stdout) };
+  } catch {
+    if (required) {
+      failures.push(
+        `Cannot resolve base ref ${ref}. Fetch it (\`git fetch origin\`) or unset BASE_REF so the gate falls back to origin/main.`,
+      );
+    }
+    return null;
+  }
 }
 
 function bump(counts, file, rule) {
@@ -138,13 +198,14 @@ async function collectSuppressions() {
     for (const line of text.split('\n')) {
       const match = SUPPRESSION_DIRECTIVE.exec(line);
       if (!match) continue;
-      const rest = match[1].split('--')[0].replace(/\*\/\s*$/, '');
+      const scope = match[1] ? '' : `${BROAD_SUPPRESSION}:`;
+      const rest = match[2].split('--')[0].replace(/\*\/\s*$/, '');
       const rules = rest
         .split(',')
         .map((rule) => normalizeRule(rule.trim()))
         .filter(Boolean);
       for (const rule of rules.length > 0 ? rules : ['(all)']) {
-        bump(counts, rel, rule);
+        bump(counts, rel, `${scope}${rule}`);
       }
     }
   }
@@ -309,6 +370,46 @@ async function main() {
   }
 
   if (update) {
+    // `--update` may record a reduction, never growth. The floor is the
+    // committed baseline file, plus the base ref when it is resolvable, so
+    // regenerating the file cannot adopt whatever the branch happens to
+    // contain.
+    const committed = await readBaseline();
+    const floors = [];
+    if (committed)
+      floors.push({ label: 'the committed baseline', baseline: committed });
+    const base = readBaseBaseline([]);
+    if (base) floors.push({ label: base.ref, baseline: base.baseline });
+
+    const growth = [];
+    for (const { label, baseline } of floors) {
+      for (const kind of ['warnings', 'suppressions']) {
+        const diff = compare(
+          kind === 'warnings' ? 'warning' : 'suppression',
+          kind === 'warnings' ? warnings : suppressions,
+          fromPlain(baseline[kind]),
+          new Map(),
+        );
+        for (const entry of diff.growth) {
+          growth.push({
+            kind: kind === 'warnings' ? 'warning' : 'suppression',
+            label,
+            ...entry,
+          });
+        }
+      }
+    }
+    if (growth.length > 0) {
+      console.error(
+        'Warning baseline gate FAILED: --update would record growth.',
+      );
+      for (const { kind, label, file, rule, count, base: from } of growth) {
+        console.error(
+          `  - ${file}: ${kind} for ${rule} grew from ${from} to ${count} against ${label}. Fix it, or add a reviewed exception to scripts/lint-warning-baseline.json.`,
+        );
+      }
+      process.exit(1);
+    }
     await writeBaseline(warnings, suppressions);
     return;
   }
@@ -340,14 +441,52 @@ async function main() {
     allowances,
   );
 
+  // The committed file is compared against the base ref as well, so a branch
+  // that edits the baseline cannot lower the bar it is measured against.
+  const base = readBaseBaseline(failures);
+  if (base) {
+    const baseWarningDiff = compare(
+      'warning',
+      fromPlain(baseline.warnings),
+      fromPlain(base.baseline.warnings),
+      new Map(),
+    );
+    for (const { file, rule, count, base: from } of baseWarningDiff.growth) {
+      failures.push(
+        `${file}: baseline warning for ${rule} grew from ${from} to ${count} against ${base.ref}. Lowering the bar in scripts/lint-warning-baseline.json is not a fix.`,
+      );
+    }
+    const baseSuppressionDiff = compare(
+      'suppression',
+      fromPlain(baseline.suppressions),
+      fromPlain(base.baseline.suppressions),
+      new Map(),
+    );
+    for (const {
+      file,
+      rule,
+      count,
+      base: from,
+    } of baseSuppressionDiff.growth) {
+      failures.push(
+        `${file}: baseline suppression for ${rule} grew from ${from} to ${count} against ${base.ref}. Lowering the bar in scripts/lint-warning-baseline.json is not a fix.`,
+      );
+    }
+  }
+
   for (const { file, rule, count, allowed, base } of warningDiff.growth) {
     failures.push(
       `${file}: ${rule} grew from ${base} to ${count} (allowed ${allowed}). Fix the warning or add a reviewed exception to scripts/lint-warning-baseline.json.`,
     );
   }
   for (const { file, rule, count, allowed, base } of suppressionDiff.growth) {
+    // A file- or block-scoped directive covers every following line, so it is
+    // reported as a new suppression rather than a count change.
+    const label = rule.startsWith(`${BROAD_SUPPRESSION}:`)
+      ? `new suppression: ${rule.slice(BROAD_SUPPRESSION.length + 1)} is now disabled for the whole file or block (was ${base} line-scoped)`
+      : `suppression for ${rule} grew from ${base} to ${count}`;
     failures.push(
-      `${file}: suppression for ${rule} grew from ${base} to ${count} (allowed ${allowed}). Remove the suppression, fix the underlying issue, or add a reviewed exception to scripts/lint-warning-baseline.json.`,
+      `${file}: ${label} (allowed ${allowed}). Remove the suppression, fix the underlying issue, or add a reviewed exception to scripts/lint-warning-baseline.json.`,
     );
   }
 

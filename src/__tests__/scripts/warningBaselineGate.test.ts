@@ -58,16 +58,49 @@ async function writeBaseline(root: string, baseline: Partial<Baseline>) {
   );
 }
 
-function runGate(root: string, args: string[] = []) {
+function runGate(
+  root: string,
+  args: string[] = [],
+  env: Record<string, string> = {},
+) {
   return spawnSync(
     process.execPath,
     [path.join(root, 'scripts', 'check-warning-baseline.mjs'), ...args],
     {
       cwd: root,
       encoding: 'utf8',
-      env: { ...process.env, OXLINT_BIN, OXLINT_CONFIG },
+      env: {
+        ...process.env,
+        BASE_REF: '',
+        GITHUB_BASE_REF: '',
+        OXLINT_BIN,
+        OXLINT_CONFIG,
+        ...env,
+      },
     },
   );
+}
+
+function git(root: string, args: string[]) {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  if (result.status !== 0) throw new Error(result.stderr);
+  return result.stdout.trim();
+}
+
+async function commitBase(root: string) {
+  git(root, ['init', '--quiet']);
+  git(root, ['add', '.']);
+  git(root, [
+    '-c',
+    'user.email=t@example.com',
+    '-c',
+    'user.name=t',
+    'commit',
+    '--quiet',
+    '-m',
+    'baseline',
+  ]);
+  git(root, ['update-ref', 'refs/remotes/origin/epic/188-merge-gate', 'HEAD']);
 }
 
 async function makeTree(fixture: 'clean' | 'failing') {
@@ -105,6 +138,95 @@ function exception(overrides: Record<string, string> = {}) {
 }
 
 describe('warning baseline gate', () => {
+  it('rejects regenerated warning counts against the epic PR base', async () => {
+    const root = await makeTree('clean');
+    await writeBaseline(root, cleanBaseline);
+    await commitBase(root);
+    await cp(
+      path.join(FIXTURE_ROOT, 'failing.test.tsx'),
+      path.join(root, 'src/components/Fixture.tsx'),
+    );
+    await writeBaseline(root, {
+      warnings: { 'src/components/Fixture.tsx': { [RULE]: 2 } },
+      suppressions: { 'src/components/Fixture.tsx': { [RULE]: 2 } },
+    });
+    const result = runGate(root, [], {
+      GITHUB_BASE_REF: 'epic/188-merge-gate',
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('baseline warning');
+  });
+
+  it('fails when an explicitly selected PR base is unavailable', async () => {
+    const root = await makeTree('clean');
+    await writeBaseline(root, cleanBaseline);
+    const result = runGate(root, [], { BASE_REF: 'origin/absent' });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('Cannot resolve base ref');
+  });
+
+  it('rejects a broader suppression even when its per-rule count is unchanged', async () => {
+    const root = await makeTree('clean');
+    await writeBaseline(root, cleanBaseline);
+    await commitBase(root);
+    const file = path.join(root, 'src/components/Fixture.tsx');
+    await writeFile(
+      file,
+      (await readFile(file, 'utf8')).replace(
+        'eslint-disable-next-line',
+        'eslint-disable',
+      ),
+    );
+    const result = runGate(root, [], {
+      BASE_REF: 'origin/epic/188-merge-gate',
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('new suppression');
+  });
+
+  it('does not record warning growth with --update', async () => {
+    const root = await makeTree('failing');
+    await writeBaseline(root, cleanBaseline);
+    const before = await readFile(
+      path.join(root, 'scripts/lint-warning-baseline.json'),
+      'utf8',
+    );
+    const result = runGate(root, ['--update']);
+    expect(result.status).toBe(1);
+    expect(
+      await readFile(
+        path.join(root, 'scripts/lint-warning-baseline.json'),
+        'utf8',
+      ),
+    ).toBe(before);
+  });
+
+  it('passes a warning removal and records the lower counts', async () => {
+    const root = await makeTree('failing');
+    await writeBaseline(root, {
+      warnings: { 'src/components/Fixture.tsx': { [RULE]: 2 } },
+      suppressions: { 'src/components/Fixture.tsx': { [RULE]: 2 } },
+    });
+    await commitBase(root);
+    await cp(
+      path.join(FIXTURE_ROOT, 'clean.test.tsx'),
+      path.join(root, 'src/components/Fixture.tsx'),
+    );
+    const result = runGate(root, ['--update'], {
+      BASE_REF: 'origin/epic/188-merge-gate',
+    });
+    expect(result.status).toBe(0);
+    const written = JSON.parse(
+      await readFile(
+        path.join(root, 'scripts/lint-warning-baseline.json'),
+        'utf8',
+      ),
+    ) as Baseline;
+    expect(written.warnings).toEqual(cleanBaseline.warnings);
+    expect(
+      runGate(root, [], { BASE_REF: 'origin/epic/188-merge-gate' }).status,
+    ).toBe(0);
+  });
   it('passes when warnings and suppressions match the baseline', async () => {
     const root = await makeTree('clean');
     await writeBaseline(root, cleanBaseline);

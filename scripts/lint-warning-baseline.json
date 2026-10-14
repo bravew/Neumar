@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "note": "Frozen frontend lint debt. Growth fails `pnpm check:warning-baseline`; record reductions with `node scripts/check-warning-baseline.mjs --update`.",
+  "version": 2,
+  "note": "Frozen frontend lint debt. Growth fails `pnpm check:warning-baseline`; record reductions with `node scripts/check-warning-baseline.mjs --update`. Suppressions keyed `eslint-disable:<rule>` cover a whole file or block; the bare rule name covers one line.",
   "warnings": {
     "src/app/pages/Approvals.tsx": {
       "react(refs)": 1,
