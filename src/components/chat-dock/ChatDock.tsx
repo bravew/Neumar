@@ -11,6 +11,7 @@ import {
   IDEAS_PREFILL_EVENT,
   takeComposerPrefill,
 } from '@/shared/ideas/prefill';
+import { markPendingFirstPrompt } from '@/shared/lib/pending-initial-prompt';
 import { generateSessionId } from '@/shared/lib/session';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -48,11 +49,6 @@ export function ChatDock({
   // Set once the user picks New chat, so opening on the latest session never
   // overrides that choice.
   const [startedNew, setStartedNew] = useState(false);
-  // The first prompt of a chat this dock created, sent once its thread mounts.
-  const [firstPrompt, setFirstPrompt] = useState<{
-    taskId: string;
-    text: string;
-  } | null>(null);
   const { tasks, status, reload } = useSidebarTasks();
   const latestId = tasks.find((task) => task.id !== pageTaskId)?.id;
   const current = taskId ? tasks.find((task) => task.id === taskId) : undefined;
@@ -69,7 +65,6 @@ export function ChatDock({
 
   const startNewChat = () => {
     setStartedNew(true);
-    setFirstPrompt(null);
     onTaskId(null);
     setListOpen(false);
   };
@@ -116,9 +111,12 @@ export function ChatDock({
       task_index: 1,
       prompt: content,
     });
+    // Record the handoff before the thread mounts. The registry outlives this
+    // component, so closing the dock or switching chats before the lazy thread
+    // connects no longer drops the prompt and leaves an unstarted task.
+    markPendingFirstPrompt(id, content);
     setDraft('');
     if (chip) setDismissedPayload(chip.payload);
-    setFirstPrompt({ taskId: id, text: content });
     onTaskId(id);
     reload();
   };
@@ -131,7 +129,6 @@ export function ChatDock({
           status={status}
           activeId={taskId}
           onSelect={(id) => {
-            setFirstPrompt(null);
             onTaskId(id);
             setListOpen(false);
           }}
@@ -161,9 +158,6 @@ export function ChatDock({
           <Suspense fallback={null}>
             <DockThread
               taskId={taskId}
-              firstPrompt={
-                firstPrompt?.taskId === taskId ? firstPrompt.text : undefined
-              }
               promptPrefix={
                 chip
                   ? {
