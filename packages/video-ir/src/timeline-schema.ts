@@ -442,6 +442,23 @@ export const CaptionTokenSchema = z
     path: ['endMs'],
   });
 
+export const CaptionWordSchema = z
+  .object({
+    text: z.string(),
+    startMs: z.number().int().min(0),
+    endMs: z.number().int().min(0),
+  })
+  .strict();
+
+export const CaptionSourceAnchorSchema = z
+  .object({
+    sourceMediaId: z.string().min(1),
+    sourceElementId: z.string().min(1),
+    sourceStartMs: z.number().int().min(0),
+    sourceEndMs: z.number().int().min(0),
+  })
+  .strict();
+
 const BaseClipSchema = z.object({
   id: z.string().min(1),
   name: z.string().optional(),
@@ -485,6 +502,8 @@ export const CaptionTimelineClipSchema = BaseClipSchema.extend({
   captionGroupId: z.string().min(1).optional(),
   text: z.string(),
   tokens: z.array(CaptionTokenSchema).optional(),
+  words: z.array(CaptionWordSchema).optional(),
+  sourceAnchor: CaptionSourceAnchorSchema.optional(),
   style: SubtitleStyleSchema.optional(),
 }).strict();
 

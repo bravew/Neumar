@@ -1,4 +1,10 @@
+import type { z } from 'zod';
+
 import type { FrameRate } from './timebase.js';
+import type {
+  CaptionSourceAnchorSchema,
+  CaptionWordSchema,
+} from './timeline-schema.js';
 import type { TransitionTiming } from './transition-params.js';
 
 export type TimelineSchemaId = 'neuma.video.timeline.v1';
@@ -302,13 +308,8 @@ export interface CaptionTimelineClip extends BaseTimelineClip {
   text: string;
   tokens?: CaptionToken[];
   /** Timeline-absolute word timings used by generated caption renderers. */
-  words?: Array<{ text: string; startMs: number; endMs: number }>;
-  sourceAnchor?: {
-    sourceMediaId: string;
-    sourceElementId: string;
-    sourceStartMs: number;
-    sourceEndMs: number;
-  };
+  words?: Array<z.infer<typeof CaptionWordSchema>>;
+  sourceAnchor?: z.infer<typeof CaptionSourceAnchorSchema>;
   style?: SubtitleStyle;
 }
 
