@@ -36,6 +36,11 @@ import { getAppMcpConfigPath } from '@/config/constants';
 
 import { buildCallbackHtml } from '@/shared/auth/oauth-client';
 import { saveExternalMcpTokens } from '@/shared/mcp/external-client/tokens';
+import { NetworkPolicyDenied, safeFetch } from '@/shared/network-policy/fetch';
+import {
+  externalApiPolicy,
+  trustedLocalPolicy,
+} from '@/shared/network-policy/schema';
 import { createLogger } from '@/shared/utils/logger';
 
 const logger = createLogger('McpRemoteOAuth');
@@ -64,6 +69,63 @@ const activeServers = new Map<string, Server>();
 const FLOW_TIMEOUT_MS = 10 * 60 * 1000;
 const FLOW_COMPLETION_GRACE_MS = 30 * 1000;
 
+/**
+ * OAuth discovery, registration, and token exchange all take their target from
+ * server-supplied metadata, so every request goes through `safeFetch` with a
+ * policy that resolves and classifies the destination address.
+ *
+ * Only the server the user actually configured gets the local exception, and
+ * only for its own origin. A metadata document that points at `localhost`, or a
+ * redirect that lands there, is still a public integration reaching inward, so
+ * it stays on the external policy and is refused.
+ *
+ * Redirects are not followed: the OAuth SDK appends well-known paths to the
+ * URLs it was given, and an unexpected 3xx is a target change this policy
+ * cannot classify. The 401 body that several providers return for the
+ * protected-resource probe still comes back intact.
+ */
+function oauthFetch(serverUrl: string) {
+  const server = new URL(serverUrl);
+  const localServer = isLoopbackHostname(server.hostname);
+  return async (url: string | URL, init?: RequestInit): Promise<Response> => {
+    const target = new URL(url);
+    const policy =
+      localServer && target.origin === server.origin
+        ? trustedLocalPolicy()
+        : externalApiPolicy();
+    if (
+      init?.body != null &&
+      typeof init.body !== 'string' &&
+      !(init.body instanceof URLSearchParams)
+    ) {
+      throw new Error('Unsupported OAuth request body');
+    }
+    const result = await safeFetch(target.toString(), policy, {
+      method: init?.method,
+      headers: Object.fromEntries(new Headers(init?.headers)),
+      body: init?.body?.toString(),
+      timeoutMs: 15_000,
+      maxBytes: 1024 * 1024,
+      maxRedirects: 0,
+      signal: init?.signal ?? undefined,
+    });
+    return new Response(new Uint8Array(result.body), {
+      status: result.status,
+      headers: result.headers,
+    });
+  };
+}
+
+/** Node's `URL.hostname` keeps the brackets on an IPv6 literal. */
+function isLoopbackHostname(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    hostname === '::1'
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -79,21 +141,28 @@ export async function initiateMcpOAuth(
   appName: string,
 ): Promise<{ authUrl: string; state: string; redirectUri: string }> {
   const state = crypto.randomBytes(32).toString('base64url');
+  const fetchFn = oauthFetch(serverUrl);
 
   // 1. Discover auth server from the MCP server's protected-resource metadata
   let authServerBase: string = serverUrl;
   try {
-    const resourceMeta =
-      await discoverOAuthProtectedResourceMetadata(serverUrl);
+    const resourceMeta = await discoverOAuthProtectedResourceMetadata(
+      serverUrl,
+      undefined,
+      fetchFn,
+    );
     if (resourceMeta.authorization_servers?.length) {
       authServerBase = resourceMeta.authorization_servers[0]!;
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof NetworkPolicyDenied) throw error;
     // Server may not advertise resource metadata; try the server URL directly
   }
 
   // 2. Discover OAuth authorization server metadata
-  const metadata = await discoverAuthorizationServerMetadata(authServerBase);
+  const metadata = await discoverAuthorizationServerMetadata(authServerBase, {
+    fetchFn,
+  });
   if (!metadata) {
     throw new Error(
       `Could not discover OAuth metadata from ${authServerBase}. ` +
@@ -124,6 +193,7 @@ export async function initiateMcpOAuth(
   let clientInfo: OAuthClientInformationMixed;
   try {
     clientInfo = await registerClient(authServerBase, {
+      fetchFn,
       metadata,
       clientMetadata: {
         client_name: appName,
@@ -134,6 +204,8 @@ export async function initiateMcpOAuth(
       },
     });
   } catch (dcrErr) {
+    callbackServer.close();
+    if (dcrErr instanceof NetworkPolicyDenied) throw dcrErr;
     // If the server advertises a registration endpoint but rejected us (403),
     // it means we are not on the approved-client list. Don't fall through with
     // an invalid client_id — the resulting auth URL would just show an error.
@@ -269,6 +341,7 @@ async function handleCallback(
 
   try {
     const tokens = await exchangeAuthorization(flow.authServerBase, {
+      fetchFn: oauthFetch(flow.serverUrl),
       metadata: flow.metadata,
       clientInformation: flow.clientInfo,
       authorizationCode: code,
