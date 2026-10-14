@@ -69,6 +69,9 @@ const passingResults = {
   RUN_E2E: 'false',
   QUALITY_RESULT: 'success',
   TEST_RESULT: 'success',
+  API_CHECKS_RESULT: 'success',
+  VIDEO_IR_RESULT: 'success',
+  RUST_RESULT: 'skipped',
   BUILD_RESULT: 'success',
   BROWSER_E2E_RESULT: 'skipped',
 };
@@ -86,7 +89,8 @@ describe('ci.yml triggers', () => {
     expect(workflow).not.toContain("contains(github.head_ref, 'release-v')");
     const draftGate =
       "github.event_name != 'pull_request' || !github.event.pull_request.draft";
-    expect(workflow.split(draftGate)).toHaveLength(3);
+    // quality, test, api-checks, video-ir, rust-checks.
+    expect(workflow.split(draftGate)).toHaveLength(6);
   });
 
   it('does not exempt dependency-bot actors', () => {
@@ -101,7 +105,7 @@ describe('ci.yml triggers', () => {
       .filter((line) => line.startsWith('uses:'));
     expect(uses.length).toBeGreaterThan(0);
     for (const use of uses) {
-      expect(use).toMatch(/^uses: [^@\s]+@[0-9a-f]{40}( # v\d+)?$/);
+      expect(use).toMatch(/^uses: [^@\s]+@[0-9a-f]{40}( # .+)?$/);
     }
   });
 });
@@ -110,7 +114,7 @@ describe('CI Gate aggregate job', () => {
   it('depends on every required job and always evaluates', () => {
     const block = extractJobBlock('ci-gate');
     expect(block).toMatch(
-      /^ {4}needs: \[quality, test, browser-e2e, build\]$/m,
+      /^ {4}needs:\n {6}\[quality, test, api-checks, video-ir, rust-checks, browser-e2e, build\]$/m,
     );
     expect(block).toMatch(/^ {4}if: always\(\)$/m);
   });
@@ -135,6 +139,8 @@ describe('CI Gate aggregate job', () => {
     for (const key of [
       'QUALITY_RESULT',
       'TEST_RESULT',
+      'API_CHECKS_RESULT',
+      'VIDEO_IR_RESULT',
       'BUILD_RESULT',
     ] as const) {
       expect(runGate({ ...passingResults, [key]: 'failure' }).status).not.toBe(
@@ -150,11 +156,22 @@ describe('CI Gate aggregate job', () => {
     for (const key of [
       'QUALITY_RESULT',
       'TEST_RESULT',
+      'API_CHECKS_RESULT',
+      'VIDEO_IR_RESULT',
       'BUILD_RESULT',
     ] as const) {
       const result = runGate({ ...passingResults, [key]: 'skipped' });
       expect(result.status).not.toBe(0);
       expect(result.stdout).toContain("expected 'success'");
+    }
+  });
+
+  it('accepts the Rust skip that the job scopes to src-tauri changes', () => {
+    expect(runGate(passingResults).status).toBe(0);
+    for (const result of ['failure', 'cancelled'] as const) {
+      const run = runGate({ ...passingResults, RUST_RESULT: result });
+      expect(run.status).not.toBe(0);
+      expect(run.stdout).toContain('Rust Checks finished');
     }
   });
 

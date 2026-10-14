@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 /**
  * Regression coverage for issue #197: `pnpm validate` does not run API lint,
  * API test-file typechecking, the shared video IR suite, or Rust checks, so
- * those gaps reached main. These tests pin the added jobs and exercise the
- * aggregate gate's decision logic the way GitHub runs it, including the single
- * accepted Rust skip.
+ * those gaps reached main. These tests pin the added jobs and the boundary
+ * conditions that make them meaningful. The aggregate gate's decision logic is
+ * exercised in ci-workflow-gate.test.ts.
  */
 const workflowPath = path.resolve(process.cwd(), '.github/workflows/ci.yml');
 const workflow = readFileSync(workflowPath, 'utf-8');
@@ -28,54 +27,6 @@ function extractJobBlock(jobId: string): string {
   }
   return block.join('\n');
 }
-
-function extractRunScript(jobId: string): string {
-  const block = extractJobBlock(jobId);
-  const lines = block.split('\n');
-  const runIndex = lines.findIndex((line) => /^\s+run: \|$/.test(line));
-  if (runIndex === -1) throw new Error(`job "${jobId}" has no "run: |" step`);
-
-  const body: string[] = [];
-  for (let i = runIndex + 1; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (line.trim() !== '' && !/^\s{8,}/.test(line)) break;
-    body.push(line);
-  }
-  return body
-    .map((line) => line.replace(/^ {8}/, ''))
-    .join('\n')
-    .trim();
-}
-
-const GATE_SCRIPT = extractRunScript('ci-gate');
-
-function runGate(env: Record<string, string>): {
-  status: number;
-  stdout: string;
-} {
-  try {
-    const stdout = execFileSync('bash', ['-c', GATE_SCRIPT], {
-      env: { PATH: process.env.PATH ?? '', ...env },
-      encoding: 'utf-8',
-    });
-    return { status: 0, stdout };
-  } catch (error) {
-    const failure = error as { status?: number; stdout?: string };
-    return { status: failure.status ?? 1, stdout: failure.stdout ?? '' };
-  }
-}
-
-const passingResults = {
-  IS_DRAFT_PR: 'false',
-  RUN_E2E: 'false',
-  QUALITY_RESULT: 'success',
-  TEST_RESULT: 'success',
-  API_CHECKS_RESULT: 'success',
-  VIDEO_IR_RESULT: 'success',
-  RUST_RESULT: 'skipped',
-  BUILD_RESULT: 'success',
-  BROWSER_E2E_RESULT: 'skipped',
-};
 
 describe('ci.yml extended checks', () => {
   it('adds the checks pnpm validate does not run', () => {
@@ -99,6 +50,20 @@ describe('ci.yml extended checks', () => {
     );
   });
 
+  it('builds the shared video IR before the API type check', () => {
+    // The API tsconfig resolves @neumar/video-ir through the package's built
+    // lib/. Without this step every importer reports TS2307, which reads as a
+    // source error. The step must precede the tsc invocation.
+    const block = extractJobBlock('api-checks');
+    const buildIndex = block.indexOf('pnpm --filter @neumar/video-ir build');
+    const typecheckIndex = block.indexOf(
+      'pnpm --filter neumar-api exec tsc -p tsconfig.json --noEmit',
+    );
+    expect(buildIndex).toBeGreaterThan(-1);
+    expect(typecheckIndex).toBeGreaterThan(-1);
+    expect(buildIndex).toBeLessThan(typecheckIndex);
+  });
+
   it('scopes the Rust job to src-tauri changes with an explicit skip reason', () => {
     const block = extractJobBlock('rust-checks');
     expect(block).toContain(
@@ -109,67 +74,21 @@ describe('ci.yml extended checks', () => {
     );
   });
 
+  it('checks Rust source without requiring staged bundle artifacts', () => {
+    // tauri.conf.json points at an externalBin sidecar and native resource
+    // globs that only exist after scripts/build.sh stages them. Compiling the
+    // source must not depend on them, and the override must stay scoped to the
+    // cargo invocation so the rest of the manifest is still processed.
+    const block = extractJobBlock('rust-checks');
+    expect(block).toContain(
+      'TAURI_CONFIG: \'{"bundle":{"externalBin":[],"resources":[]}}\'',
+    );
+    expect(block).not.toContain('pnpm install');
+    expect(block).toContain('libwebkit2gtk-4.1-dev');
+  });
+
   it('fetches full history so base-aware gates can resolve the PR base', () => {
     expect(extractJobBlock('quality')).toContain('fetch-depth: 0');
     expect(extractJobBlock('rust-checks')).toContain('fetch-depth: 0');
-  });
-
-  it('pins every action reference to a full commit SHA', () => {
-    const uses = workflow
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith('uses:'));
-    expect(uses.length).toBeGreaterThan(0);
-    for (const use of uses) {
-      expect(use).toMatch(/^uses: [^@\s]+@[0-9a-f]{40}( # .+)?$/);
-    }
-  });
-});
-
-describe('CI Gate aggregate job', () => {
-  it('depends on every required job and always evaluates', () => {
-    const block = extractJobBlock('ci-gate');
-    for (const job of [
-      'quality',
-      'test',
-      'api-checks',
-      'video-ir',
-      'rust-checks',
-      'browser-e2e',
-      'build',
-    ]) {
-      expect(block).toContain(job);
-    }
-    expect(block).toMatch(/^ {4}if: always\(\)$/m);
-  });
-
-  it('passes when every required job succeeded and Rust was skipped', () => {
-    expect(runGate(passingResults).status).toBe(0);
-  });
-
-  it('fails when an extended check fails, is cancelled, or is skipped', () => {
-    for (const key of ['API_CHECKS_RESULT', 'VIDEO_IR_RESULT'] as const) {
-      expect(runGate({ ...passingResults, [key]: 'failure' }).status).not.toBe(
-        0,
-      );
-      expect(
-        runGate({ ...passingResults, [key]: 'cancelled' }).status,
-      ).not.toBe(0);
-      expect(runGate({ ...passingResults, [key]: 'skipped' }).status).not.toBe(
-        0,
-      );
-    }
-  });
-
-  it('accepts a skipped Rust job but not a failed one', () => {
-    expect(runGate({ ...passingResults, RUST_RESULT: 'skipped' }).status).toBe(
-      0,
-    );
-    expect(
-      runGate({ ...passingResults, RUST_RESULT: 'failure' }).status,
-    ).not.toBe(0);
-    expect(
-      runGate({ ...passingResults, RUST_RESULT: 'cancelled' }).status,
-    ).not.toBe(0);
   });
 });
