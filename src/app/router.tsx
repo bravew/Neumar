@@ -53,13 +53,10 @@ export const router = createBrowserRouter([
               </RouteFallback>
             ),
           },
-          // V1 task view. Kept as a reversible assumption (issue #223): the
-          // retirement decision is open and V2 parity is unproven. V1 alone
-          // mounts ExtractSkillDialog, MemoryAuditPill, RunningIndicator, and
-          // WorkspaceRouter. No in-app link targets it (all go to /task-v2),
-          // but old bookmarks, external links, and the docs capture scripts
-          // under src-video/ still use /task/:taskId. Retiring it needs the
-          // maintainer's decision plus a redirect test.
+          // Keep V1 alongside V2 per the maintainer's decision on issue #223:
+          // https://github.com/bravew/Neumar/issues/223#issuecomment-6176446031
+          // Video docs/capture tooling still uses V1, and complete V2 parity
+          // has not been established. No redirect or retirement is included.
           {
             path: 'task/:taskId',
             element: (
