@@ -19,17 +19,22 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { copyFile, mkdir, rm } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { constants as fsConstants } from 'node:fs';
+import { copyFile, lstat, mkdir, realpath, rm } from 'node:fs/promises';
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  posix,
+  relative,
+} from 'node:path';
 
 import type { AgentProvider } from '@/core/agent/types';
 
 import { createFile } from '@/shared/db/operations';
-import {
-  appendJsonl,
-  getProjectDir,
-  resolveProjectPath,
-} from '@/shared/services/design-mode/fs';
+import { appendJsonl, getProjectDir } from '@/shared/services/design-mode/fs';
 import {
   getDesignProject,
   patchDesignProject,
@@ -43,7 +48,6 @@ import {
   getVideoAssetsDir,
   getVideoProjectRoot,
   mediaItemFromPath,
-  updateProjectDocument,
 } from '@/shared/video/store';
 
 import type { SkillArtifact, SkillOperationResult } from './runner';
@@ -236,44 +240,33 @@ async function publishVideo(
   // source against the project) would reject it. Copy the validated artifact
   // into the project assets dir and attach it with the same content-dedupe the
   // normal path uses.
-  const assetsDir = getVideoAssetsDir(projectId);
-  await mkdir(assetsDir, { recursive: true });
-  const dest = join(
-    assetsDir,
+  const projectRoot = getVideoProjectRoot(projectId);
+  const dest = await publishExclusively(
+    projectRoot,
+    getVideoAssetsDir(projectId),
     `${randomUUID().replace(/-/g, '').slice(0, 8)}_${sanitizeName(basename(artifact.path))}`,
+    artifact.path,
   );
-  await copyFile(artifact.path, dest);
-  const item = await mediaItemFromPath(
-    dest,
-    'user',
-    getVideoProjectRoot(projectId),
-  );
-  const { asset } = await attachCopiedProjectAsset(
-    projectId,
-    item,
-    artifact.sha256,
-  );
-  // Record provenance without touching the timeline: timeline edits stay on the
-  // existing explicit apply tools. Preserve any pre-existing provenance when the
-  // content deduped onto an asset the project already held.
-  await updateProjectDocument(projectId, (project) => ({
-    ...project,
-    assets: project.assets.map((entry) =>
-      entry.id === asset.id
-        ? {
-            ...entry,
-            provenance: entry.provenance ?? {
-              provider: 'ffmpeg-skill',
-              model: 'ffmpeg-skill',
-              prompt: toolName,
-              attribution: 'Managed FFmpeg skill operation',
-            },
-          }
-        : entry,
-    ),
-    updatedAt: new Date().toISOString(),
-  }));
-  return asset.path;
+  try {
+    const item = await mediaItemFromPath(dest, 'user', projectRoot);
+    item.provenance = {
+      provider: 'ffmpeg-skill',
+      model: 'ffmpeg-skill',
+      prompt: toolName,
+      attribution: 'Managed FFmpeg skill operation',
+    };
+    // Persist provenance with the asset in one write. Content deduplication
+    // retains the existing asset and its provenance without changing it.
+    const { asset } = await attachCopiedProjectAsset(
+      projectId,
+      item,
+      artifact.sha256,
+    );
+    return asset.path;
+  } catch (error) {
+    await removeQuietly(dest);
+    throw error;
+  }
 }
 
 async function publishDesign(
@@ -281,15 +274,19 @@ async function publishDesign(
   artifact: SkillArtifact,
   toolName: string,
 ): Promise<string> {
-  const relative = `assets/generated/ffmpeg-skill-${sanitizeName(basename(artifact.path))}`;
-  const dest = resolveProjectPath(projectId, relative);
-  await mkdir(dirname(dest.absolutePath), { recursive: true });
-  await copyFile(artifact.path, dest.absolutePath);
+  const generatedDir = 'assets/generated';
+  const dest = await publishExclusively(
+    getProjectDir(projectId),
+    join(getProjectDir(projectId), generatedDir),
+    `ffmpeg-skill-${sanitizeName(basename(artifact.path))}`,
+    artifact.path,
+  );
+  const relativePath = posix.join(generatedDir, basename(dest));
   const output: DesignOutput = {
     id: `asset_${randomUUID().slice(0, 10)}`,
     kind: mediaKind(artifact.path),
-    path: dest.relativePath,
-    mime: mimeForPath(dest.relativePath),
+    path: relativePath,
+    mime: mimeForPath(relativePath),
     provider: 'ffmpeg-skill',
     model: toolName,
     createdAt: new Date().toISOString(),
@@ -297,24 +294,43 @@ async function publishDesign(
   // Append the output without flipping the project to `complete`: the ffmpeg
   // skill can run mid-conversation, so a single artifact must not end the
   // project (unlike the media dispatcher's terminal `addProjectOutput`).
-  const project = await getDesignProject(projectId);
-  await patchDesignProject(projectId, {
-    outputs: [
-      output,
-      ...project.outputs.filter((item) => item.id !== output.id),
-    ],
-  });
-  await appendJsonl(join(getProjectDir(projectId), 'provenance/assets.jsonl'), {
-    assetId: output.id,
-    projectId,
-    path: output.path,
-    provider: output.provider,
-    model: output.model,
-    kind: output.kind,
-    source: 'managed-ffmpeg-skill',
-    createdAt: output.createdAt,
-  });
-  return dest.relativePath;
+  try {
+    const project = await getDesignProject(projectId);
+    await patchDesignProject(projectId, {
+      outputs: [
+        output,
+        ...project.outputs.filter((item) => item.id !== output.id),
+      ],
+    });
+    await appendJsonl(
+      join(getProjectDir(projectId), 'provenance/assets.jsonl'),
+      {
+        assetId: output.id,
+        projectId,
+        path: output.path,
+        provider: output.provider,
+        model: output.model,
+        kind: output.kind,
+        source: 'managed-ffmpeg-skill',
+        createdAt: output.createdAt,
+      },
+    );
+  } catch (error) {
+    // Drop only this output's record (it may already be in the manifest) and
+    // the file it describes, so neither outlives the failed publication.
+    await getDesignProject(projectId)
+      .then((project) =>
+        patchDesignProject(projectId, {
+          outputs: project.outputs.filter((item) => item.id !== output.id),
+        }),
+      )
+      .catch((cleanupError: unknown) =>
+        logger.warn('ffmpeg_skill_record_cleanup_failed', cleanupError),
+      );
+    await removeQuietly(dest);
+    throw error;
+  }
+  return relativePath;
 }
 
 async function publishTask(artifact: SkillArtifact): Promise<string> {
@@ -325,24 +341,123 @@ async function publishTask(artifact: SkillArtifact): Promise<string> {
       'No task session is bound to this run, so the output cannot be attributed.',
     );
   }
-  const outputDir = join(workDir, 'output');
-  await mkdir(outputDir, { recursive: true });
-  const name = sanitizeName(basename(artifact.path));
-  const dest = join(outputDir, name);
-  await copyFile(artifact.path, dest);
-  createFile({
-    task_id: session.taskId,
-    name,
-    type: fileTypeFor(name),
-    path: dest,
-    preview: 'Managed FFmpeg skill output',
-    provenance: JSON.stringify({
-      provider: 'ffmpeg-skill',
-      model: 'ffmpeg-skill',
-      source: 'managed-ffmpeg-skill',
-    }),
-  });
+  const dest = await publishExclusively(
+    workDir,
+    join(workDir, 'output'),
+    sanitizeName(basename(artifact.path)),
+    artifact.path,
+  );
+  const name = basename(dest);
+  try {
+    createFile({
+      task_id: session.taskId,
+      name,
+      type: fileTypeFor(name),
+      path: dest,
+      preview: 'Managed FFmpeg skill output',
+      provenance: JSON.stringify({
+        provider: 'ffmpeg-skill',
+        model: 'ffmpeg-skill',
+        source: 'managed-ffmpeg-skill',
+      }),
+    });
+  } catch (error) {
+    // A file with no library row is invisible to the task, so undo the copy.
+    await removeQuietly(dest);
+    throw error;
+  }
   return dest;
+}
+
+const PUBLICATION_ATTEMPTS = 8;
+
+/**
+ * Copy a validated artifact to `<parentDir>/<name>` without overwriting or
+ * following anything that already exists there, and return the path written.
+ *
+ * Staging validation cannot see the destination: its parent belongs to the
+ * session workspace or project, so a pre-existing deliverable or a symlink
+ * planted there would otherwise be replaced or redirected by the final write.
+ * `COPYFILE_EXCL` makes creation atomic, so a name collision with an earlier
+ * output moves on to a fresh name and a link at the destination is refused.
+ *
+ * Containment is checked on the resolved parent, but the returned path keeps
+ * the caller's own spelling. On macOS a workspace under `/var` resolves to
+ * `/private/var`, and a stored path must still be one the workspace can find.
+ */
+async function publishExclusively(
+  ownerRoot: string,
+  parentDir: string,
+  name: string,
+  sourcePath: string,
+): Promise<string> {
+  await assertParentInsideRoot(ownerRoot, parentDir);
+  const extension = extname(name);
+  const stem = basename(name, extension);
+  for (let attempt = 0; attempt < PUBLICATION_ATTEMPTS; attempt += 1) {
+    const candidate = join(
+      parentDir,
+      attempt === 0 ? name : `${stem}-${randomUUID().slice(0, 8)}${extension}`,
+    );
+    try {
+      await copyFile(sourcePath, candidate, fsConstants.COPYFILE_EXCL);
+      return candidate;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      // `lstat` does not follow the final component, so a link is detected
+      // even when it dangles.
+      if ((await lstat(candidate)).isSymbolicLink()) {
+        throw new Error(
+          `Refusing to publish "${basename(candidate)}": the destination is a symbolic link.`,
+        );
+      }
+    }
+  }
+  throw new Error(
+    `Could not allocate a free output name for "${name}" after ${PUBLICATION_ATTEMPTS} attempts.`,
+  );
+}
+
+/**
+ * Create `parentDir` under `ownerRoot`, one component at a time, and verify its
+ * real path stays inside the root. Each component is resolved before the next
+ * is created, so a link that escapes the root is refused before anything is
+ * created outside it.
+ */
+async function assertParentInsideRoot(
+  ownerRoot: string,
+  parentDir: string,
+): Promise<void> {
+  await mkdir(ownerRoot, { recursive: true });
+  const root = await realpath(ownerRoot);
+  const components = relative(ownerRoot, parentDir)
+    .split(/[\\/]/)
+    .filter(Boolean);
+  if (components.includes('..') || isAbsolute(relative(ownerRoot, parentDir))) {
+    throw new Error('Refusing to publish outside the owner root.');
+  }
+  let current = root;
+  for (const component of components) {
+    await mkdir(join(current, component)).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    });
+    current = await realpath(join(current, component));
+    const fromRoot = relative(root, current);
+    if (
+      fromRoot === '..' ||
+      fromRoot.startsWith(`..${posix.sep}`) ||
+      fromRoot.startsWith('..\\') ||
+      isAbsolute(fromRoot)
+    ) {
+      throw new Error('Refusing to publish outside the owner root.');
+    }
+  }
+}
+
+async function removeQuietly(filePath: string): Promise<void> {
+  await rm(filePath, { force: true }).catch(() => {
+    // The publication failure is the error the caller sees.
+  });
 }
 
 /** Remove the per-run staging directory the runner left behind. Best-effort. */
