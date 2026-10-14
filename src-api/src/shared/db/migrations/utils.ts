@@ -16,13 +16,18 @@ export function hasColumn(
   return cols.some((c) => c.name === column);
 }
 
-/** Conditionally add a column if it doesn't exist yet. */
+/** Add a missing column; an absent required table is schema corruption. */
 export function addColumnIfMissing(
   db: Database.Database,
   table: string,
   column: string,
   definition: string,
 ): void {
+  if (!hasTable(db, table)) {
+    throw new Error(
+      `Cannot add column ${table}.${column}: required table ${table} does not exist`,
+    );
+  }
   if (!hasColumn(db, table, column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
