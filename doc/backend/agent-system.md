@@ -56,15 +56,12 @@ The agent system uses a **registry + plugin** architecture for extensible agent 
 │  • Planning instruction templates            │
 │  • Workspace isolation rules                 │
 └─────────────────────────────────────────────┘
-        │
-┌───────▼─────────────────────────────────────┐
-│             MCP Shim Layer                   │
-│      (src/core/agent/mcp-shim.ts)           │
-│                                              │
-│  Bridges MCP tools when provider metadata   │
-│  declares shim support                      │
-└─────────────────────────────────────────────┘
 ```
+
+MCP tools reach an adapter through its own runtime, not through a shared layer:
+Claude via the Agent SDK `mcpServers` option, and Codex, Cursor Agent and Kimi
+over the loopback subprocess bridge. See [MCP Shim](#mcp-shim-unused) below for
+the unused shim and the exact per-adapter paths.
 
 ## `BaseAgent` Abstract Class
 
@@ -647,28 +644,41 @@ When it trips, it logs a warning and emits a transient
 `isProgress: true`. The transient message nudges the agent to stop retrying or
 change approach without creating a durable chat message.
 
-## Delegation Service
+## Delegation
 
-`DelegationService` (`src/shared/services/delegation.ts`) manages agent-to-agent task routing:
+Agent-to-agent task routing through a `DelegationService` was retired in #271:
+the module (`src/shared/services/delegation.ts`) had no live caller. The
+`agent_profiles` delegation columns (`max_delegation_depth`, `allowed_delegates`)
+remain in the schema and migrations but are stored-only; see the profile field
+table above. Multi-agent work today runs through agent profiles and the task
+parent/child link, not through a delegation service.
 
-- **`delegate(parentTaskId, request)`** — creates a child task linked to a parent, validates assignee profile status, enforces depth limits and allowed-delegates whitelist
-- **`getDelegationDepth(taskId)`** — walks the parent chain to determine current depth
-- **`resolveAgentConfig(taskConfig, profile, globalSettings)`** — priority: task override → profile defaults → global settings → system defaults
-- Emits `task.delegated` activity events
+## MCP Shim (unused)
 
-## MCP Shim
+`src/core/agent/mcp-shim.ts` is a provider-agnostic bridge that translates MCP
+tools into OpenAI and Gemini tool formats. It is **not wired to any provider**.
+No adapter instantiates `McpShim`, so no provider receives MCP tools through it,
+and no plugin declares `supportsMcp: 'shim'`. The only caller is its own test at
+`src-api/test/integration/mcp-shim.test.ts`.
 
-The MCP Shim (`src/core/agent/mcp-shim.ts`) bridges MCP tools for providers whose
-metadata declares `supportsMcp: 'shim'`. Providers that declare `native` use
-their runtime's own tool surface, and providers that declare `none` do not
-receive MCP tools.
+Two integrations do give non-Claude runtimes MCP tools, and neither uses this
+shim:
+
+- **Subprocess bridge** (`src/shared/mcp/subprocess-bridge/`) — mints per-run
+  bearer tokens and renders loopback `mcp_servers` entries for CLIs that read
+  their own MCP config. Codex receives them as `--config mcp_servers.*`; Cursor
+  Agent as a workspace `.cursor/mcp.json`; Kimi over ACP `mcpServers`.
+- **Native SDK MCP** — Claude passes `mcpServers` straight to the Agent SDK.
+
+Providers that declare `supportsMcp: 'native'` use one of those paths. Providers
+that declare `none` receive no MCP tools at all.
+
+Shim API, if it is ever wired up:
 
 - `McpShim.initialize()` — loads MCP servers and collects tool definitions
 - `McpShim.getToolDefinitions()` — returns tools in a generic format
 - `McpShim.executeTool(call)` — routes and executes a tool call against the originating MCP server
 - Format converters: `toOpenAITools()`, `toGeminiTools()`, `fromOpenAIToolCall()`, `fromGeminiToolCall()`
-- Claude, Open Agent SDK, Pi Local, and any other provider with native support
-  do not use the shim.
 
 ## Agent Transport & Capability Model
 
@@ -815,6 +825,7 @@ mise, nvm, fnm, asdf, Cargo, and Bun locations in addition to the process PATH.
 - Session resume via `--resume` flag
 - Model aliases: `auto`, `pro`, `flash`, `flash-lite`
 - Plan mode: `orchestrated` (via BaseAgent)
+- MCP support: `none` — no MCP server config is passed to the CLI
 
 ### Pi Local Agent
 

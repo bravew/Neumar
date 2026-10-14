@@ -11,7 +11,8 @@ describe('Gemini Local Adapter', () => {
       expect(meta.type).toBe('gemini-local');
       expect(meta.transport).toBe('cli');
       expect(meta.requiresBinary).toBe(true);
-      expect(meta.supportsMcp).toBe('shim');
+      // The adapter passes no MCP config to the CLI, so it advertises none.
+      expect(meta.supportsMcp).toBe('none');
       expect(meta.supportsSkills).toBe('none');
       expect(meta.supportsPlanMode).toBe('orchestrated');
       expect(meta.supportsResume).toBe(true);

@@ -62,6 +62,7 @@ maintenance. Each page covers a specific domain and can be read independently.
 | [Multichannel Gateway](backend/gateway.md)      | Gateway adapters, routing, and voice integration                                            |
 | [Web Search](backend/search.md)                 | Multi-provider search registry and routing                                                  |
 | [Speech](backend/speech.md)                     | TTS/STT architecture, local models, and voice cloning                                       |
+| [Parked Integrations](backend/parked-integrations.md) | Capabilities present but deliberately unfinished, with integration status and revisit dates |
 
 ### Desktop Shell (`src-tauri/`)
 
