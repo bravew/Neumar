@@ -6836,7 +6836,7 @@ function createVideoEditMutationTools(options: VideoEditServerOptions = {}) {
     ),
     tool(
       'video_translate',
-      'Translate caption cues into a hidden language track using saved destination consent and cost approval. Obtain missing approvals in the UI before retrying.',
+      'Translate caption cues into a hidden language track using saved destination consent. There is no separate cost approval and no budget debit; the call runs on the Video Mode model already selected.',
       {
         projectId: PROJECT_ID_SCHEMA,
         reasoning: REASONING_SCHEMA,
