@@ -227,15 +227,12 @@ export class ClaudeProvider implements ISandboxProvider {
     // Detect runtime
     let runtime = 'python';
     let runtimeArgs: string[] = [filePath];
-    let isPython = true;
 
     if (ext === '.js' || ext === '.mjs') {
       runtime = 'node';
-      isPython = false;
     } else if (ext === '.ts' || ext === '.mts') {
       runtime = 'npx';
       runtimeArgs = ['tsx', filePath];
-      isPython = false;
     }
 
     // Add script args
@@ -246,42 +243,22 @@ export class ClaudeProvider implements ISandboxProvider {
     logger.info(`Running script: ${filePath}`);
     logger.info(`Runtime: ${runtime}, Args: ${runtimeArgs.join(' ')}`);
 
-    // Install packages OUTSIDE the sandbox first
     if (options?.packages && options.packages.length > 0) {
-      logger.info(`Installing packages: ${options.packages.join(', ')}`);
-      try {
-        if (isPython) {
-          // Use pip to install Python packages
-          const pipCmd = `pip install ${options.packages.join(' ')}`;
-          logger.info(`Running: ${pipCmd}`);
-          execSync(pipCmd, {
-            cwd: workDir,
-            encoding: 'utf-8',
-            stdio: 'pipe',
-            timeout: 60000, // 60 second timeout for package installation
-          });
-        } else {
-          // Use npm to install Node.js packages
-          const npmCmd = `npm install ${options.packages.join(' ')}`;
-          logger.info(`Running: ${npmCmd}`);
-          execSync(npmCmd, {
-            cwd: workDir,
-            encoding: 'utf-8',
-            stdio: 'pipe',
-            timeout: 60000,
-          });
-        }
-        logger.info('Packages installed successfully');
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : String(error);
-        logger.error(`Failed to install packages: ${errMsg}`);
-        return {
-          stdout: '',
-          stderr: `Failed to install packages: ${errMsg}`,
-          exitCode: 1,
-          duration: Date.now() - startTime,
-        };
-      }
+      // Accept registry names and exact numeric versions only. Never accept
+      // flags, URLs, paths, shell expressions, or package-manager config.
+      const specification =
+        ext === '.py'
+          ? /^[A-Za-z0-9][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*(?:==[0-9]+(?:\.[0-9]+)*)?$/
+          : /^(?:@[a-z0-9][a-z0-9_-]*\/)?[a-z0-9][a-z0-9_-]*(?:\.[a-z0-9_-]+)*(?:@[0-9]+(?:\.[0-9]+)*)?$/;
+      const invalid = options.packages.some((pkg) => !specification.test(pkg));
+      return {
+        stdout: '',
+        stderr: invalid
+          ? 'Invalid package specification: only registry names and exact numeric versions are accepted.'
+          : 'Package installation is disabled: this adapter has no verified sandbox boundary for package lifecycle hooks or build backends.',
+        exitCode: 1,
+        duration: Date.now() - startTime,
+      };
     }
 
     return new Promise((resolve) => {
@@ -352,11 +329,11 @@ export class ClaudeProvider implements ISandboxProvider {
       isolation: 'process', // Uses OS-level sandboxing
       supportedRuntimes: ['node', 'python', 'bun'],
       supportsPooling: false,
-      // ASRT is beta and the adapter currently runs `pip`/`npm install` outside
-      // the sandbox. Mark reduced until adapter migrates to settings/library API.
+      // Keep reduced enforcement until the adapter migrates to the
+      // settings/library API and verifies lifecycle isolation.
       enforcement: 'reduced',
       reducedIsolationReason:
-        'ASRT is beta; out-of-sandbox package installation reduces hard isolation guarantees.',
+        'ASRT is beta; package installation is disabled pending a verified lifecycle isolation boundary.',
       supportsNetworkPolicy: true,
       supportsReadDeny: true,
       supportsWriteAllowlist: true,
@@ -396,7 +373,7 @@ export const CLAUDE_SANDBOX_METADATA: SandboxProviderMetadata = {
   supportsPooling: false,
   enforcement: 'reduced',
   reducedIsolationReason:
-    'ASRT is beta; out-of-sandbox package installation reduces hard isolation guarantees.',
+    'ASRT is beta; package installation is disabled pending a verified lifecycle isolation boundary.',
   supportsNetworkPolicy: true,
   supportsReadDeny: true,
   supportsWriteAllowlist: true,
