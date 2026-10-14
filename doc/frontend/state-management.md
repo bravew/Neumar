@@ -1,5 +1,5 @@
 ---
-summary: "React state patterns (Context API, hooks, local state), database abstraction layer (SQLite + IndexedDB), and data flow architecture"
+summary: "React state patterns (Context API, hooks, local state), the API-backed database client, and data flow architecture"
 read_when:
   - Understanding how state flows through the application
   - Working with the database layer
@@ -22,7 +22,7 @@ The frontend uses a mix of React built-in state management and lightweight exter
 | **useSyncExternalStore** | OS-level | System theme detection (dark/light mode media query) |
 | **Custom hooks** | Feature-scoped | `useAgent` (V1), `useProviders`, `useVitePreview` |
 | **Local state** | Component-scoped | `useState`, `useRef` for per-component data |
-| **Database** | Persistent | SQLite/IndexedDB for sessions, tasks, messages, settings |
+| **Database** | Persistent | API-backed SQLite for sessions, tasks, messages, settings |
 | **In-memory cache** | Performance | `settingsCache` map for synchronous settings access |
 
 Context providers use React 19's `<Context value={...}>` syntax (replacing the legacy
@@ -74,25 +74,37 @@ persistence. The frontend only displays messages from the SSE stream; it does no
 agent messages to the database. This eliminates duplicate writes and ensures consistency
 across multiple clients observing the same task.
 
-## Database Abstraction Layer
+## Database Client
 
-The `src/shared/db/database.ts` module implements a **dual-backend storage abstraction**:
+The `src/shared/db/database.ts` module is an **API client**, not a storage engine. Every
+entity operation is an HTTP call to the API server's `/db` routes:
 
 ```
-┌─────────────────────────────────────────────┐
-│          Unified Database API               │
-│  (createSession, saveTasks, getMessages...) │
-└────────────┬───────────────┬────────────────┘
-             │               │
-     ┌───────▼───────┐ ┌────▼──────────┐
-     │    SQLite      │ │   IndexedDB   │
-     │ (Tauri plugin) │ │  (Browser)    │
-     └───────────────┘ └───────────────┘
+┌──────────────────────────────────────────────────┐
+│            Frontend database client              │
+│  (createSession, saveTasks, getMessages, ...)    │
+│  src/shared/db/database.ts                       │
+└────────────────────────┬─────────────────────────┘
+                         │ fetch(`${API_BASE_URL}/db`)
+                         ▼
+┌──────────────────────────────────────────────────┐
+│        API server (src-api/src/app/api/db.ts)    │
+│        better-sqlite3, one SQLite database       │
+└──────────────────────────────────────────────────┘
 ```
 
-**Environment detection:** checks for `window.__TAURI_INTERNALS__` to select the backend.
+The same client serves the browser and the desktop webview, so there is no environment
+detection and no second storage backend. The API server owns the SQLite file and the
+versioned migrations under `src-api/src/shared/db/migrations/`.
 
-**Schema** (9 tables + 3 virtual tables):
+Settings are the one exception: `src/shared/db/settings.ts` reads the `settings` table
+through the Tauri SQL plugin when it is available, and mirrors a JSON copy into
+`localStorage` for synchronous reads. Backend-synced keys fall back to
+`POST /providers/settings/sync` when the local copy is missing a key. The only other
+browser-side storage in the app is a small IndexedDB cache of video waveform peaks
+(`src/components/video/timeline/waveformCache.ts`), which is unrelated to application data.
+
+**Schema** (the tables this client reaches through `/db`):
 
 | Table | Key Columns | Purpose |
 |-------|-------------|---------|
@@ -102,12 +114,11 @@ The `src/shared/db/database.ts` module implements a **dual-backend storage abstr
 | `files` | id, task_id, name, type, path, is_favorite | Generated file library |
 | `media_versions` | id, task_id, artifact_id, version_number, path, type | Artifact version tracking |
 | `settings` | key, value, updated_at | User preferences |
-| `memories` | id, content, category, importance, source, has_embedding | Long-term memory records |
-| `embedding_cache` | content_hash, model, embedding (BLOB), dim | Embedding dedup cache |
-| `session_memory_chunks` | id, task_id, chunk_index, content, has_embedding | Session transcript chunks |
-| `vec_memories` | memory_id, embedding (virtual — sqlite-vec) | Vector ANN index for memories |
-| `vec_session_chunks` | chunk_id, embedding (virtual — sqlite-vec) | Vector ANN index for session chunks |
-| `memories_fts` | content (virtual — FTS5) | Full-text search index for memories |
+
+The memory system (`memories`, `embedding_cache`, `session_memory_chunks`, and the
+`sqlite-vec` / FTS5 virtual tables) lives in the same database but is reached through the
+`/memory` routes rather than `/db`; see [Memory System](../backend/memory.md) and the
+[Database Schema](../reference/database-schema.md) for the full table list.
 
 ## Settings Layer
 

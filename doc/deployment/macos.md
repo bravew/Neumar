@@ -42,7 +42,7 @@ This is a three-layer desktop AI agent application:
 
 | Layer          | Technology                          | Purpose                        |
 | -------------- | ----------------------------------- | ------------------------------ |
-| **Frontend**   | React 19 + Vite 7 + Tailwind CSS 4 | Desktop UI (Tauri webview)     |
+| **Frontend**   | React 19 + Vite 8 + Tailwind CSS 4 | Desktop UI (Tauri webview)     |
 | **Backend API** | Node.js + Hono 4 + Claude Agent SDK | AI agent orchestration         |
 | **Desktop Shell** | Tauri 2 + Rust + SQLite          | Native wrapper & sidecar mgmt  |
 
@@ -64,12 +64,14 @@ This is a three-layer desktop AI agent application:
 | ------------------ | ---------- | ---------------------------------------------- |
 | Xcode CLI Tools    | Latest     | C/C++ compiler, linker, macOS SDK              |
 | Homebrew           | Latest     | Package manager                                |
-| Node.js            | 20 or 22 LTS | JavaScript runtime for the API server        |
-| pnpm               | 9+         | Fast, disk-efficient package manager           |
+| Node.js            | 22 LTS     | JavaScript runtime for the API server        |
+| pnpm               | 11.x (pinned via `packageManager`) | Fast, disk-efficient package manager |
 | Rust (via rustup)  | Stable     | Compile Tauri shell & native binaries          |
 | Git                | Latest     | Source control (ships with Xcode CLI Tools)    |
 
-> **Note on Node.js versions:** The CI pipeline and `@yao-pkg/pkg` binary targets use Node 20. Node 22 LTS works fine for local development and builds. Either version is supported.
+> **Note on Node.js versions:** CI (`.github/workflows/ci.yml` and `build.yml`) uses Node 22,
+> and the `@yao-pkg/pkg` binary targets in `src-api/package.json` are `node22-*`. `.nvmrc`
+> currently selects Node 25, which is end of life; use a supported Node 22 patch to match CI.
 
 ### API Keys (required for runtime)
 
@@ -165,7 +167,8 @@ brew --version
 
 ### 4.2 Install Node.js (LTS)
 
-Node.js 20 or 22 LTS are both supported. The project's `pkg` binary targets use `node20`.
+Node.js 22 LTS is the supported runtime. CI and the project's `pkg` binary targets use
+`node22`.
 
 **Option A — Direct via Homebrew (simplest):**
 
@@ -201,15 +204,16 @@ npm --version
 
 ### 4.3 Install pnpm
 
-pnpm is required — the project uses pnpm workspaces.
+pnpm is required. The project uses pnpm workspaces and pins the version in the root
+`package.json` `packageManager` field (currently `pnpm@11.22.0`).
 
 ```bash
-# Option A — via Homebrew
+# Option A: via Homebrew
 brew install pnpm
 
-# Option B — via Corepack (built into Node.js)
+# Option B: via Corepack (built into Node.js), which honours the pinned version
 corepack enable
-corepack prepare pnpm@latest --activate
+corepack prepare pnpm@11.22.0 --activate
 
 # Option C — via npm
 npm install -g pnpm
@@ -219,7 +223,7 @@ npm install -g pnpm
 
 ```bash
 pnpm --version
-# 9.x.x or 10.x.x
+# 11.x.x
 ```
 
 ### 4.4 Install Rust (via rustup)
@@ -292,7 +296,7 @@ Expected output:
 Xcode CLT: /Library/Developer/CommandLineTools
 Homebrew:   Homebrew 4.x.x
 Node.js:    v22.x.x
-pnpm:       9.x.x
+pnpm:       11.22.0
 Rust:       rustc 1.8x.x (...)
 Cargo:      cargo 1.8x.x (...)
 Git:        git version 2.x.x
@@ -320,13 +324,14 @@ cd <repo-name>
 
 ### 5.2 Install All Dependencies
 
-The project uses pnpm workspaces with two packages: root (frontend) and `src-api` (backend).
+The project uses pnpm workspaces. `pnpm-workspace.yaml` lists the root package, `src-api`,
+`src-video`, and everything under `packages/*` (including `packages/video-ir`).
 
 ```bash
 pnpm install
 ```
 
-This installs dependencies for both packages in one go. Expected output: ~1000+ packages, takes ~30-60 seconds.
+This installs dependencies for every workspace member in one go. Expected output: ~1000+ packages, takes ~30-60 seconds.
 
 **Verify the workspace structure:**
 
@@ -477,13 +482,13 @@ pnpm dev:web
 ### 7.4 Code Quality Checks
 
 ```bash
-# Run all checks (lint + typecheck + format)
+# Run the root quality gate
 pnpm validate
 
 # Individual checks
-pnpm lint           # ESLint (frontend)
+pnpm lint           # oxlint (frontend)
 pnpm typecheck:all  # TypeScript (frontend + API)
-pnpm format:check   # Prettier format check
+pnpm format:check   # oxfmt format check
 ```
 
 ---

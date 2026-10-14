@@ -87,8 +87,9 @@ pnpm dev:web        # Web-only frontend via Vite (port 3420)
 3. **Tauri config update** — `update_tauri_config()` auto-detects native addon directories and adds their resource glob patterns to `tauri.conf.json`; the original config is backed up before modification and restored on exit via a shell trap
 4. **@yao-pkg/pkg** compiles → platform-specific native binary
 
-*CI builds* (`.github/workflows/build.yml`):
-1. **Bun compile** (`bun build --compile`) → platform-specific native binary directly
+*CI builds* (`.github/workflows/build.yml`): CI runs the same `./scripts/build.sh <target>`
+entry point on its runners, so local and CI sidecars come from the same esbuild plus
+`@yao-pkg/pkg` path.
 
 Both produce the binary at `src-api/dist/<binaryName>-{target}`
 
@@ -133,10 +134,13 @@ The project uses **oxlint** for linting and **oxfmt** for formatting (migrated f
 ### Validation
 
 ```bash
-pnpm validate         # lint + typecheck:all + format:check
+pnpm validate         # root quality gate, no test suite
 ```
 
-Runs linting, TypeScript type checking for both frontend and backend, and formatting checks in sequence.
+Runs branding, linting, the locale/design/routing/plugin/skill consistency checks,
+TypeScript type checking for both frontend and backend, formatting checks, and the
+component-size check. It does not run a test suite. The exact script is in the
+[root `package.json`](../../package.json).
 
 ## Testing
 
@@ -289,7 +293,9 @@ Every test run starts with a clean environment:
 
 ## Release Process
 
-Releases follow a **tag-driven** model: CI builds only run when a `v*` tag is pushed to `main`. Normal commits to `main` never trigger a build.
+Releases follow a **tag-driven** model: the build workflow runs when a `v*` tag is pushed
+and on manual dispatch. Normal commits to `main` never trigger a build. A release workflow
+creates the version bump and tag; see [`.github/workflows/release.yml`](../../.github/workflows/release.yml).
 
 ### Cutting a Release
 
@@ -366,17 +372,17 @@ Commits that don't match the pattern are silently omitted from the auto-generate
 
 | Step | Description |
 |------|-------------|
-| Matrix strategy | Linux, Windows, macOS (Intel + ARM) |
+| Matrix strategy | `macos-arm64` is the only uncommented matrix entry; Linux, Windows, and macOS Intel entries are present but commented out |
 | System deps | WebKit GTK (Linux) |
-| Toolchains | Node.js 20, pnpm (latest via action-setup@v4), Bun, Rust |
-| API sidecar | Bun compile for each platform |
+| Toolchains | Node.js 22 (setup-node), pnpm via `pnpm/action-setup`, Rust |
+| API sidecar | `./scripts/build.sh <target>` runs esbuild plus `@yao-pkg/pkg` with `node22` targets |
 | CLI bundle | Optional Node.js + Claude Code + Codex — **off by default** (~100 MB extra); enable via `with_cli: true` input |
 | Windows signing | Azure Key Vault + [relic](https://github.com/sassoftware/relic) — installs Go binary when `AZURE_CLIENT_ID` is set |
 | macOS signing | Certificate import → `security import` into temp keychain |
 | macOS notarization | API key (`APPLE_API_KEY` + `APPLE_API_ISSUER` + `APPLE_API_KEY_CONTENT`) preferred; Apple ID fallback |
 | Frontend | `pnpm build` (Vite) |
-| Desktop app | `tauri-action` (builds + signs) |
-| Artifacts | DEB/RPM, MSI/EXE/NSIS ZIP, DMG/APP tar.gz (includes `.sig` files for auto-updater) |
+| Desktop app | `./scripts/build.sh` runs `pnpm tauri build` (builds + signs) |
+| Artifacts | DEB/RPM/AppImage, MSI/EXE/NSIS ZIP, DMG/APP tar.gz (includes `.sig` files for auto-updater) |
 | Release | GitHub release (draft) with all artifacts; repo name read from `branding.json` |
 | R2 publish | Uploads installers + `latest.json` to Cloudflare R2 CDN via `scripts/r2-upload.sh` |
 
