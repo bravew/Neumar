@@ -1,4 +1,4 @@
-import type { Options } from '@anthropic-ai/claude-agent-sdk';
+import type { HookCallback, Options } from '@anthropic-ai/claude-agent-sdk';
 import { query } from '@anthropic-ai/claude-agent-sdk/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -404,6 +404,174 @@ describe('Claude permission policy', () => {
       expect(permission).not.toHaveProperty('default_to_no');
       abortController.abort();
       await decision;
+    });
+  });
+
+  /**
+   * Permission precedence at the dispatch boundary: the options
+   * `applyPermissionPolicy` hands to `query()`, driven the way the SDK drives
+   * them (the `canUseTool` callback in an interactive run, the `PreToolUse`
+   * hook plus the final allow-list in a headless one).
+   */
+  describe('rule precedence matrix', () => {
+    const TOOL = 'WebFetch';
+    const TOOL_INPUT = { url: 'https://example.com' };
+
+    type Rule = 'allow' | 'ask' | 'deny';
+    type Outcome = 'allow' | 'prompt' | 'deny';
+
+    function registryFor(rule: Rule): ToolPermissionRegistry {
+      return new ToolPermissionRegistry({
+        alwaysAllow: rule === 'allow' ? [TOOL] : [],
+        alwaysDeny: rule === 'deny' ? [TOOL] : [],
+        alwaysAsk: rule === 'ask' ? [TOOL] : [],
+      });
+    }
+
+    /** Options as the adapter builds them for a run. */
+    function dispatchOptions(
+      rule: Rule,
+      preApproved: boolean,
+      interactive: boolean,
+      pending = new Map<string, PendingPermission>(),
+    ): Options {
+      const registry = registryFor(rule);
+      const allowedTools = preApproved ? [TOOL] : ['Read'];
+      const taskId = interactive ? 'task-1' : undefined;
+      return applyPermissionPolicy(
+        {
+          cwd: '/work/session-1',
+          additionalDirectories: [],
+          allowedTools,
+          permissionMode: 'default',
+          canUseTool: buildCanUseTool(
+            new DenialTracker(),
+            registry,
+            pending,
+            taskId,
+            'session-1',
+            new LoopGuard(),
+          ),
+        },
+        { registry, taskId, autoApprove: undefined },
+      );
+    }
+
+    function preToolUseHook(options: Options) {
+      const hook = options.hooks?.PreToolUse?.[0]?.hooks[0];
+      expect(hook).toBeTypeOf('function');
+      return hook!;
+    }
+
+    function callHook(hook: HookCallback) {
+      return hook(
+        {
+          hook_event_name: 'PreToolUse',
+          session_id: 'session-1',
+          transcript_path: '/tmp/transcript',
+          cwd: '/work/session-1',
+          tool_name: TOOL,
+          tool_input: TOOL_INPUT,
+          tool_use_id: 'tool-1',
+        },
+        'tool-1',
+        { signal: new AbortController().signal },
+      );
+    }
+
+    /** What the dispatch layer decides for one matrix cell. */
+    async function outcome(
+      rule: Rule,
+      preApproved: boolean,
+      interactive: boolean,
+    ): Promise<Outcome> {
+      const pending = new Map<string, PendingPermission>();
+      const options = dispatchOptions(rule, preApproved, interactive, pending);
+
+      if (interactive) {
+        const abortController = new AbortController();
+        const decision = options.canUseTool!(
+          TOOL,
+          TOOL_INPUT,
+          callOptions({ signal: abortController.signal }),
+        );
+        const prompted = pending.size > 0;
+        if (prompted) {
+          expect(publish).toHaveBeenCalledWith(
+            'task-1',
+            expect.objectContaining({ type: 'permission_request' }),
+          );
+          abortController.abort();
+          await decision;
+          return 'prompt';
+        }
+        const result = await decision;
+        expect(publish).not.toHaveBeenCalled();
+        if (!result) throw new Error('Missing permission decision');
+        return result.behavior;
+      }
+
+      // Headless: `permissionPrompts: 'none'` drops the callback, so the tool
+      // runs only if the final allow-list keeps it and the hook does not deny.
+      expect(options.canUseTool).toBeUndefined();
+      const allowed = options.allowedTools ?? [];
+      if (!allowed.includes(TOOL)) return 'deny';
+      const hookResult = await callHook(preToolUseHook(options));
+      return 'hookSpecificOutput' in hookResult &&
+        hookResult.hookSpecificOutput?.hookEventName === 'PreToolUse' &&
+        hookResult.hookSpecificOutput.permissionDecision === 'deny'
+        ? 'deny'
+        : 'allow';
+    }
+
+    it.each([
+      // rule, pre-approved, interactive, expected
+      ['allow', true, true, 'allow'],
+      ['allow', false, true, 'allow'],
+      ['ask', true, true, 'prompt'],
+      ['ask', false, true, 'prompt'],
+      ['deny', true, true, 'deny'],
+      ['deny', false, true, 'deny'],
+      ['allow', true, false, 'allow'],
+      ['allow', false, false, 'deny'],
+      ['ask', true, false, 'deny'],
+      ['ask', false, false, 'deny'],
+      ['deny', true, false, 'deny'],
+      ['deny', false, false, 'deny'],
+    ] as const)(
+      'rule=%s preApproved=%s interactive=%s → %s',
+      async (rule, preApproved, interactive, expected) => {
+        await expect(outcome(rule, preApproved, interactive)).resolves.toBe(
+          expected,
+        );
+      },
+    );
+
+    it('keeps a classification-based ask pre-approved (Bash stays allowed)', async () => {
+      // The run's allow-list is the approval for a default-classification ask.
+      // Only an explicit alwaysAsk rule overrides it.
+      const registry = new ToolPermissionRegistry();
+      const options = applyPermissionPolicy(
+        {
+          cwd: '/work/session-1',
+          allowedTools: ['Bash'],
+          permissionMode: 'default',
+          canUseTool: buildCanUseTool(
+            new DenialTracker(),
+            registry,
+            new Map(),
+            'task-1',
+            'session-1',
+            new LoopGuard(),
+          ),
+        },
+        { registry, taskId: 'task-1', autoApprove: undefined },
+      );
+
+      await expect(
+        options.canUseTool!('Bash', { command: 'ls' }, callOptions()),
+      ).resolves.toMatchObject({ behavior: 'allow' });
+      expect(publish).not.toHaveBeenCalled();
     });
   });
 

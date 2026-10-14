@@ -15,7 +15,7 @@
  *   `permissionPrompts: 'none'` and denies anything its rules don't allow.
  *   Only the run's explicit `allowedTools` still run, with `Edit`/`Write`
  *   narrowed to the session's workspace directories. A `PreToolUse` hook
- *   still applies the Bash danger check and registry deny rules, because
+ *   still applies the Bash danger check and explicit deny/ask rules, because
  *   `permissionPrompts: 'none'` never calls `canUseTool` and the SDK
  *   auto-approves bare allow rules on its own.
  */
@@ -138,8 +138,8 @@ export function allowTool(input: unknown): {
 /**
  * Bare allow rules taken out of a host-approved run's SDK `allowedTools`,
  * keyed by that run's registry. `canUseTool` treats them as the SDK did —
- * approved without a prompt — but still applies deny rules and the Bash
- * danger check.
+ * approved without a prompt — but explicit deny/ask rules and the Bash
+ * danger check still take precedence.
  */
 const preApprovedRules = new WeakMap<ToolPermissionRegistry, string[]>();
 
@@ -409,14 +409,24 @@ export function buildCanUseTool(
         }
       }
     }
-    // 2. Check registry rules (deny → ask → classification → allow)
+    // 2. Explicit deny → explicit ask → run pre-approval → registry defaults.
     const decision = permissionRegistry.evaluate(toolName, effectiveInput);
     if (decision === 'deny') {
       denialTracker.record(toolName, summarizeInput(effectiveInput));
       return { behavior: 'deny', message: 'Blocked by permission rules' };
     }
-    // The run's allowedTools pre-approve the tool, as the SDK rule did.
-    if (preApproved) return allowTool(effectiveInput);
+    // The run's allowedTools pre-approve the tool, as the SDK rule did, but an
+    // explicit ask rule outranks that pre-approval: an allow-list is not an
+    // answer to a prompt the user asked to see. A classification-based ask
+    // (Bash, Task) is not an explicit rule, so pre-approval still stands for
+    // it, and the ask flow below refuses an explicit ask that has no task to
+    // answer it.
+    if (
+      preApproved &&
+      !permissionRegistry.hasAlwaysAskRule(toolName, effectiveInput)
+    ) {
+      return allowTool(effectiveInput);
+    }
     if (decision === 'allow') {
       // 2b. Auto-classifier check for execute/destructive tools (feature-flagged)
       const classifier = getAutoClassifier();
