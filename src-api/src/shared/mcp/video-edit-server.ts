@@ -2613,10 +2613,17 @@ export function createVideoEditTools(options: VideoEditServerOptions = {}) {
  */
 const SELF_RESOLVING_TOOLS = new Set(['video_apply_timeline_ops']);
 
-type CallableVideoToolHandler = (
-  args: Record<string, unknown>,
-  extra: unknown,
-) => Promise<CallToolResult>;
+/**
+ * Tools are looked up by name, so a caller cannot know which input shape it
+ * is passing. The handler is declared with method syntax so each tool's own
+ * handler (`args` inferred from its zod shape) stays assignable here through
+ * parameter bivariance, and valid input compiles without a cast.
+ */
+type VideoToolArgs = { projectId?: string } & Record<string, unknown>;
+
+type CallableVideoToolHandler = {
+  bivarianceHack(args: VideoToolArgs, extra: unknown): Promise<CallToolResult>;
+}['bivarianceHack'];
 
 type ResolvedVideoTool<Tool extends { name: string }> = Omit<
   Tool,
@@ -2624,10 +2631,7 @@ type ResolvedVideoTool<Tool extends { name: string }> = Omit<
 > & { handler: CallableVideoToolHandler };
 
 function withVideoRefResolution<
-  Tool extends {
-    name: string;
-    handler: (args: never, extra: unknown) => Promise<CallToolResult>;
-  },
+  Tool extends { name: string; handler: CallableVideoToolHandler },
 >(
   tools: readonly Tool[],
   options: VideoEditServerOptions,
@@ -2636,8 +2640,10 @@ function withVideoRefResolution<
     const inner = definition.handler;
     return {
       ...definition,
-      handler: async (args: never, extra: unknown): Promise<CallToolResult> => {
-        const input = args as unknown as { projectId?: string };
+      handler: async (
+        args: VideoToolArgs,
+        extra: unknown,
+      ): Promise<CallToolResult> => {
         const execute = async () => {
           if (
             SELF_RESOLVING_TOOLS.has(definition.name) ||
@@ -2645,14 +2651,16 @@ function withVideoRefResolution<
           ) {
             return inner(args, extra);
           }
-          let resolved: unknown;
+          let resolved: VideoToolArgs;
           try {
-            const project = await loadProjectForTool(input.projectId, options);
+            const project = await loadProjectForTool(args.projectId, options);
+            // Ref resolution only swaps ref strings for ids, so an object
+            // payload stays an object of the same shape.
             resolved = resolveVideoRefs({
               value: args,
               project,
               refs: selectionResolverRefs(options),
-            });
+            }) as VideoToolArgs;
           } catch (error) {
             return errorResult(
               error instanceof VideoRefResolutionError
@@ -2662,9 +2670,9 @@ function withVideoRefResolution<
                   : String(error),
             );
           }
-          return inner(resolved as never, extra);
+          return inner(resolved, extra);
         };
-        const projectId = input.projectId ?? activeContext(options).projectId;
+        const projectId = args.projectId ?? activeContext(options).projectId;
         if (!projectId) return execute();
         return runLoggedVideoOperation({
           projectId,
@@ -2674,7 +2682,7 @@ function withVideoRefResolution<
         });
       },
     };
-  }) as unknown as Array<ResolvedVideoTool<Tool>>;
+  });
 }
 
 function buildVideoEditTools(options: VideoEditServerOptions) {
