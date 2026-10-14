@@ -153,10 +153,18 @@ interface PublishedReference {
  * Publish a validated artifact into the originating mode's ownership and return
  * an authorized reference. Never publishes a partial or cancelled result: the
  * caller re-checks status/verified/preview before invoking.
+ *
+ * `signal` is the run's abort signal, checked once more immediately before the
+ * copy. A cancel can land after the child process exited but before this
+ * handoff, and the runner has already returned a completed result by then, so
+ * without this check a Stop that arrived in that window would still produce a
+ * deliverable. The check is here rather than in the caller because this is the
+ * last point before bytes reach the workspace.
  */
 export async function publishFfmpegSkillArtifact(
   result: SkillOperationResult,
   toolName: string,
+  signal?: AbortSignal,
 ): Promise<SkillOperationResult> {
   const artifact = result.artifact;
   if (
@@ -168,6 +176,22 @@ export async function publishFfmpegSkillArtifact(
   ) {
     await discardStagingOf(artifact);
     return result;
+  }
+
+  if (signal?.aborted) {
+    await discardStagingOf(artifact);
+    return {
+      ...result,
+      status: 'cancelled',
+      artifactCreated: false,
+      verified: false,
+      artifact: null,
+      error: {
+        kind: 'aborted',
+        message:
+          'The operation was cancelled and its output was not published.',
+      },
+    };
   }
 
   let reference: PublishedReference;
