@@ -36,6 +36,10 @@ import { detectBinaries } from '@/shared/services/ffmpeg';
 import { loadSkillFromDir } from '@/shared/skills/loader';
 import { parseMarkdownFrontmatter } from '@/shared/utils/frontmatter';
 import { createLogger } from '@/shared/utils/logger';
+import {
+  isPathInsideAnyRoot,
+  resolveThroughExistingAncestor,
+} from '@/shared/utils/path-validator';
 import { expandPath } from '@/shared/utils/paths';
 import {
   safeFetch,
@@ -59,25 +63,27 @@ interface FileEntry {
  * Trusted roots for file access in this desktop application.
  * Re-computed per request so that a changed workDir setting takes effect
  * without server restart.
+ *
+ * Roots keep the spelling the OS gives them; containment compares resolved
+ * paths and applies the case rule itself, so lowercasing here would only make
+ * `realpath` fail on a case-sensitive volume.
  */
 function getAllowedRoots(): string[] {
-  const norm = (p: string) =>
-    process.platform === 'win32' ? p.toLowerCase() : p;
   const roots = new Set<string>();
-  roots.add(norm(getHomeDir()));
-  roots.add(norm(getAppDir()));
+  roots.add(getHomeDir());
+  roots.add(getAppDir());
 
   // Use the configured workDir (resolves correctly in Tauri sidecar)
   const workDir = getSetting('workDir');
-  if (workDir) roots.add(norm(path.resolve(expandPath(workDir))));
+  if (workDir) roots.add(path.resolve(expandPath(workDir)));
 
   const tempDir =
     process.platform === 'win32'
       ? process.env.TEMP || process.env.TMP || 'C:\\Windows\\Temp'
       : '/tmp';
-  roots.add(norm(tempDir));
+  roots.add(tempDir);
 
-  if (process.platform === 'darwin') roots.add('/Volumes/');
+  if (process.platform === 'darwin') roots.add('/Volumes');
 
   return [...roots];
 }
@@ -86,13 +92,16 @@ function getAllowedRoots(): string[] {
  * Check that a resolved absolute path falls within a trusted root.
  *
  * Trusted roots: user home, app data dir, configured workDir, temp dir,
- * and /Volumes/ on macOS (external drives are valid for desktop use).
+ * and /Volumes on macOS (external drives are valid for desktop use).
+ *
+ * Containment is decided on the resolved path, so a symlink inside a root that
+ * points outside it is rejected, and a sibling that shares a string prefix with
+ * a root (`/tmp-other` against `/tmp`) is rejected too. A write target that
+ * does not exist yet resolves through its nearest existing parent, so a
+ * symlinked parent that escapes the root is caught before the write.
  */
 function isAllowedPath(resolvedPath: string): boolean {
-  const norm = (p: string) =>
-    process.platform === 'win32' ? p.toLowerCase() : p;
-  const normalized = norm(resolvedPath);
-  return getAllowedRoots().some((root) => normalized.startsWith(root));
+  return isPathInsideAnyRoot(getAllowedRoots(), resolvedPath);
 }
 
 /**
@@ -104,24 +113,27 @@ function isAllowedPath(resolvedPath: string): boolean {
  * workDir (which may itself live on an external volume or in temp).
  */
 function getDeletableSessionRoots(): string[] {
-  const norm = (p: string) =>
-    process.platform === 'win32' ? p.toLowerCase() : p;
   const roots = new Set<string>();
-  roots.add(norm(path.resolve(getAppDir())));
+  roots.add(path.resolve(getAppDir()));
   const workDir = getSetting('workDir');
-  if (workDir) roots.add(norm(path.resolve(expandPath(workDir))));
+  if (workDir) roots.add(path.resolve(expandPath(workDir)));
   return [...roots];
 }
 
 function isDeletableSessionDir(resolvedPath: string): boolean {
-  const norm = (p: string) =>
-    process.platform === 'win32' ? p.toLowerCase() : p;
-  const normalized = norm(resolvedPath);
-  if (path.basename(path.dirname(normalized)) !== 'sessions') {
+  if (path.basename(path.dirname(resolvedPath)) !== 'sessions') {
     return false;
   }
-  const workspaceRoot = path.dirname(path.dirname(normalized));
-  return getDeletableSessionRoots().some((root) => workspaceRoot === root);
+  // The workspace root must *be* a trusted root, not merely sit inside one:
+  // the rule is `sessions/<name>` directly under the app data dir or workDir.
+  // Both sides are resolved, so a symlinked workspace root is compared as the
+  // directory it really is.
+  const workspaceRoot = path.dirname(path.dirname(resolvedPath));
+  const resolvedWorkspace = resolveThroughExistingAncestor(workspaceRoot);
+  if (resolvedWorkspace === null) return false;
+  return getDeletableSessionRoots().some(
+    (root) => resolveThroughExistingAncestor(root) === resolvedWorkspace,
+  );
 }
 
 /**

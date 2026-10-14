@@ -99,7 +99,12 @@ vi.mock('fs/promises', () => ({
   access: (...args: unknown[]) => mockAccess(...args),
 }));
 
-vi.mock('node:fs', () => ({
+// Partial: the route's containment check calls `lstatSync` and `realpathSync`
+// through the `fs` specifier, which this mock also replaces. Dropping them
+// would make every containment check fail closed and hide the behavior under
+// test, so the real implementations stay.
+vi.mock('node:fs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs')>()),
   createReadStream: vi.fn(),
   statSync: vi.fn().mockReturnValue({
     isFile: () => true,
@@ -107,6 +112,32 @@ vi.mock('node:fs', () => ({
     size: 100,
   }),
 }));
+
+/**
+ * Containment is decided by resolving real paths. The block below simulates
+ * win32 by rewriting `process.platform` and building `C:\workspace\...`
+ * strings, but the filesystem underneath is the host's, so those paths cannot
+ * be resolved and every request would be refused before the argv under test is
+ * built.
+ *
+ * This seam exists only for that block: it is enabled in the win32
+ * `beforeEach` and cleared in its `afterEach`, and it is never enabled for the
+ * darwin or linux blocks, which use real `/tmp` paths. Containment itself is
+ * covered against a real tree in `test/unit/security/path-containment.test.ts`.
+ */
+const simulatedPlatform = vi.hoisted(() => ({ active: false }));
+
+vi.mock('@/shared/utils/path-validator', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/shared/utils/path-validator')>();
+  return {
+    ...actual,
+    isPathInsideAnyRoot: (roots: readonly string[], target: string) =>
+      simulatedPlatform.active || actual.isPathInsideAnyRoot(roots, target),
+    isPathInsideRoot: (root: string, target: string) =>
+      simulatedPlatform.active || actual.isPathInsideRoot(root, target),
+  };
+});
 
 const { mockExec, mockExecFile } = vi.hoisted(() => ({
   mockExec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
@@ -328,6 +359,7 @@ describe('Files API', () => {
           if (platform === 'win32') {
             mockGetSetting.mockReturnValue('C:\\workspace');
             vi.stubEnv('SystemRoot', 'C:\\Windows');
+            simulatedPlatform.active = true;
           }
           mockExecFile.mockImplementation(async (binary: string) => {
             if (binary === 'which' || binary.endsWith('where.exe')) {
@@ -338,6 +370,7 @@ describe('Files API', () => {
         });
 
         afterEach(() => {
+          simulatedPlatform.active = false;
           mockGetSetting.mockReturnValue('/tmp/test-workspace');
         });
 
