@@ -17,6 +17,11 @@ import {
   getTask,
 } from '@/shared/db';
 import type { Message, Session, Task } from '@/shared/db';
+import {
+  markPendingFirstPrompt,
+  readPendingFirstPrompt,
+  resetPendingFirstPromptsForTests,
+} from '@/shared/lib/pending-initial-prompt';
 
 const agentMocks = vi.hoisted(() => ({
   addMessage: vi.fn(),
@@ -179,6 +184,26 @@ describe('InitialMessageSender', () => {
     expect(createMessage).not.toHaveBeenCalled();
     expect(agentMocks.runAgent).not.toHaveBeenCalled();
     expect(screen.getByTestId('location-state')).toHaveTextContent('null');
+  });
+
+  it('delivers a dock-created prompt the dock never handed off', async () => {
+    // The dock created the task, then unmounted before its lazy thread
+    // connected, so nothing ran and no message was persisted. Opening the full
+    // view must pick the prompt up from the pending registry. The task row
+    // already reports status 'running', which is exactly the state the DB
+    // heuristic would treat as "already handled".
+    resetPendingFirstPromptsForTests();
+    markPendingFirstPrompt('task-1', 'Draft a launch plan');
+    vi.mocked(getTask).mockResolvedValue(task({ status: 'running' }));
+    vi.mocked(getMessagesByTaskId).mockResolvedValue([]);
+
+    renderSender({});
+
+    await waitFor(() => expect(agentMocks.runAgent).toHaveBeenCalledTimes(1));
+    expect(createMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'Draft a launch plan' }),
+    );
+    expect(readPendingFirstPrompt('task-1')).toBeNull();
   });
 });
 
