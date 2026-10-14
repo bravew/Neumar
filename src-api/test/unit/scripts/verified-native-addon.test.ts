@@ -241,6 +241,13 @@ describe('verified native addon download and cache', () => {
       'better_sqlite3.node',
     );
     writeFileSync(repackedAddon, fixture.addonBytes);
+    // Repacking identical content can yield identical bytes (GNU tar with equal
+    // mtimes and a zeroed gzip header), so add a file to guarantee the archive
+    // differs while the addon inside stays exactly the pinned one.
+    writeFileSync(
+      join(dir, 'staging-repacked', 'build', 'repack-marker.txt'),
+      'repacked',
+    );
     execFileSync('tar', [
       'czf',
       repacked.archivePath,
