@@ -37,21 +37,12 @@
     "current": 393,
     "target": 350
   },
-  "src/components/design/ExportsDrawer.tsx": { "current": 371, "target": 350 },
   "src/components/design/FileViewer.tsx": {
     "current": 466,
     "target": 350
   },
-  "src/components/design/NewProjectPanel.tsx": {
-    "current": 359,
-    "target": 350
-  },
   "src/components/design/ProjectView.tsx": {
     "current": 472,
-    "target": 350
-  },
-  "src/components/design/ProjectChatSidebar.tsx": {
-    "current": 360,
     "target": 350
   },
   "src/components/design/file-viewer-utils.tsx": {
@@ -66,29 +57,16 @@
     "current": 378,
     "target": 350
   },
-  "src/components/home/AgentMessages.tsx": { "current": 528, "target": 350 },
   "src/components/design/tabs/ExamplesTab.tsx": {
     "current": 677,
-    "target": 350
-  },
-  "src/components/design/tabs/DesignSystemsTab.tsx": {
-    "current": 391,
     "target": 350
   },
   "src/components/design/tabs/PromptTemplatesTab.tsx": {
     "current": 373,
     "target": 350
   },
-  "src/components/profiles/detail/ProfileDetailSidebar.tsx": {
-    "current": 416,
-    "target": 350
-  },
   "src/components/profiles/ProfileDialog.tsx": {
     "current": 445,
-    "target": 350
-  },
-  "src/components/profiles/wizard/ConfigureStep.tsx": {
-    "current": 393,
     "target": 350
   },
   "src/components/profiles/wizard/ProfileWizard.tsx": {
@@ -141,10 +119,6 @@
   },
   "src/components/settings/tabs/ConnectorSettings.tsx": {
     "current": 707,
-    "target": 350
-  },
-  "src/components/settings/tabs/DesignModeSettings.tsx": {
-    "current": 382,
     "target": 350
   },
   "src/components/settings/tabs/DataSettings.tsx": {
@@ -220,14 +194,6 @@
   "src/components/task/TaskV2Thread.tsx": { "current": 624, "target": 350 },
   "src/components/workspace/media/MediaWorkspace.tsx": {
     "current": 556,
-    "target": 350
-  },
-  "src/components/video/preview/RemotionTimelineComposition.tsx": {
-    "current": 362,
-    "target": 350
-  },
-  "src/components/video/StepPreviewCanvas.tsx": {
-    "current": 361,
     "target": 350
   },
   "src/components/video/timeline/Timeline.tsx": {
