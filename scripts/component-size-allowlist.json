@@ -125,10 +125,6 @@
     "current": 561,
     "target": 350
   },
-  "src/components/settings/tabs/gateway/ChannelList.tsx": {
-    "current": 702,
-    "target": 350
-  },
   "src/components/settings/tabs/HookSettings.tsx": {
     "current": 365,
     "target": 350
