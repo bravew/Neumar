@@ -1,9 +1,7 @@
 export default {
   // 欢迎界面 — 产品第一印象
-  inputPlaceholder: '描述您的需求...',
   reply: '回复...',
   replyWhileRunning: '补充信息...',
-  welcomeTitle: '需要我帮您创造什么？',
   welcomeSubtitle:
     '您的 AI 智能体，擅长编程、写作、分析和创意工作 — 只需描述您的需求。',
   greeting: {
@@ -48,15 +46,6 @@ export default {
 
   // 快捷操作
   quickActions: {
-    createSlides: '创建演示文稿',
-    createSlidesPrompt: '帮我创建一个专业的演示文稿',
-    buildWebsite: '搭建网站',
-    buildWebsitePrompt: '帮我搭建一个现代化的网站',
-    developApps: '开发应用',
-    developAppsPrompt: '帮我开发一个新应用',
-    design: '设计界面',
-    designPrompt: '帮我设计一个用户界面',
-    more: '更多',
     moreIdeas: '更多想法',
     back: '返回',
   },

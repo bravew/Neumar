@@ -1,8 +1,6 @@
 export default {
-  inputPlaceholder: 'Décrivez ce dont vous avez besoin...',
   reply: 'Répondre...',
   replyWhileRunning: 'Ajouter du contexte...',
-  welcomeTitle: 'Que puis-je vous aider à créer ?',
   welcomeSubtitle:
     "Votre agent IA pour le développement, la rédaction, l'analyse et le travail créatif — décrivez simplement ce dont vous avez besoin.",
   greeting: {
@@ -38,15 +36,6 @@ export default {
   noRecentFolders: 'Aucun dossier récent',
 
   quickActions: {
-    createSlides: 'Créer des slides',
-    createSlidesPrompt: 'Crée une présentation professionnelle pour moi',
-    buildWebsite: 'Créer un site web',
-    buildWebsitePrompt: 'Crée un site web moderne pour moi',
-    developApps: 'Créer une app',
-    developAppsPrompt: 'Développe une nouvelle application pour moi',
-    design: 'Designer une UI',
-    designPrompt: 'Conçois une interface utilisateur pour moi',
-    more: 'Plus',
     moreIdeas: 'Plus d’idées',
     back: 'Retour',
   },
