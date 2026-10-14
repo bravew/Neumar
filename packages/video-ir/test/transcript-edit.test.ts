@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyTimelineOps,
+  TimelineOpSchema,
+  TimelineSchema,
+  CaptionTimelineClipSchema,
   compileTranscriptCut,
   compileTranscriptRestore,
   deriveTranscriptWordStates,
@@ -485,6 +488,53 @@ function restoreMiddle(cut: Timeline) {
 }
 
 describe('transcript synchronization regressions', () => {
+  it('round-trips generated caption snapshots through operation validation and inverses', () => {
+    const original = linkedSpeech();
+    const ops = compileTranscriptCut({
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 5,
+      idFactory: ids(),
+    });
+    const parsed = ops.map((op) =>
+      TimelineOpSchema.parse(JSON.parse(JSON.stringify(op))),
+    );
+    expect(parsed).toEqual(ops);
+    const applied = applyTimelineOps(original, parsed);
+    expect(TimelineSchema.parse(applied.timeline)).toEqual(applied.timeline);
+    const inverses = applied.inverses.map((op) => TimelineOpSchema.parse(op));
+    expect(applyTimelineOps(applied.timeline, inverses).timeline).toEqual(
+      original,
+    );
+    expect(applyTimelineOps(original, parsed).timeline).toEqual(
+      applied.timeline,
+    );
+  });
+
+  it('rejects unknown caption fields, including nested word and anchor fields', () => {
+    const track = generatedCue('over', 1);
+    if (track.kind !== 'caption') throw new Error('Missing caption track');
+    const cue = track.clips[0]!;
+    expect(CaptionTimelineClipSchema.parse(cue)).toEqual(cue);
+    for (const invalid of [
+      { ...cue, unknown: true },
+      { ...cue, words: [{ ...cue.words![0]!, unknown: true }] },
+      { ...cue, sourceAnchor: { ...cue.sourceAnchor!, unknown: true } },
+    ]) {
+      expect(CaptionTimelineClipSchema.safeParse(invalid).success).toBe(false);
+      expect(
+        TimelineOpSchema.safeParse({
+          kind: 'clip.insert',
+          trackId: track.id,
+          clip: invalid,
+          at: cue.startMs,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   it.each([1, 2])(
     'cuts caption tokens and restores linked speech once at %sx',
     (speed) => {
