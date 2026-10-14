@@ -6,6 +6,10 @@ import { ChevronDown, MessagesSquare } from 'lucide-react';
 
 import { ScopingCard } from '@/components/ideas/ScopingCard';
 import { useSidebarTasks } from '@/components/layout/sidebar-shell/useSidebarTasks';
+import {
+  AUTOMATION_SCOPE_EVENT,
+  takeAutomationScope,
+} from '@/shared/automation/scope-request';
 import { createSession, createTask } from '@/shared/db';
 import {
   IDEAS_PREFILL_EVENT,
@@ -44,7 +48,10 @@ export function ChatDock({
   const pageContext = usePageContextValue();
   const [dismissedPayload, setDismissedPayload] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
-  const [scopeQuestions, setScopeQuestions] = useState<string[] | null>(null);
+  const [scope, setScope] = useState<{
+    category: string;
+    questions: string[];
+  } | null>(null);
   const [listOpen, setListOpen] = useState(false);
   // Set once the user picks New chat, so opening on the latest session never
   // overrides that choice.
@@ -80,19 +87,22 @@ export function ChatDock({
       setListOpen(false);
       setDraft(prompt);
     };
-    const onScope = (event: Event) => {
-      const detail = event instanceof CustomEvent ? event.detail : undefined;
-      if (!Array.isArray(detail?.questions)) return;
+    // A request made while the dock was closed waits in the registry, so it is
+    // claimed on mount as well as from the event.
+    const onScope = () => {
+      const request = takeAutomationScope();
+      if (request === null) return;
       setStartedNew(true);
       onTaskId(null);
       setListOpen(false);
-      setScopeQuestions(detail.questions);
+      setScope(request);
     };
+    onScope();
     window.addEventListener(IDEAS_PREFILL_EVENT, onPrefill);
-    window.addEventListener('automation:scope', onScope);
+    window.addEventListener(AUTOMATION_SCOPE_EVENT, onScope);
     return () => {
       window.removeEventListener(IDEAS_PREFILL_EVENT, onPrefill);
-      window.removeEventListener('automation:scope', onScope);
+      window.removeEventListener(AUTOMATION_SCOPE_EVENT, onScope);
     };
   }, [onTaskId]);
 
@@ -179,13 +189,25 @@ export function ChatDock({
           void send();
         }}
       >
-        {scopeQuestions ? (
+        {scope ? (
           <ScopingCard
             title={t.task.dockTitle}
-            questions={scopeQuestions.slice(0, 3)}
+            questions={scope.questions.slice(0, 3)}
             onSubmit={(answers) => {
-              setDraft(answers.filter(Boolean).join('\n'));
-              setScopeQuestions(null);
+              // Label each answer with its question and lead with the chosen
+              // category, so the run keeps what the user picked. The draft is
+              // a single-line input that drops newlines, hence the separator.
+              const answered = scope.questions
+                .slice(0, 3)
+                .map((question, index) => [question, answers[index]] as const)
+                .filter(([, answer]) => Boolean(answer))
+                .map(([question, answer]) => `${question} ${answer}`);
+              setDraft(
+                [`Automation category: ${scope.category}`, ...answered].join(
+                  '; ',
+                ),
+              );
+              setScope(null);
             }}
           />
         ) : null}
