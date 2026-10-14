@@ -1,8 +1,27 @@
-import { describe, expect, it, vi } from 'vitest';
+import path from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { jsonReq } from '../../helpers/request-factory';
 
 // ---- Mock heavy dependencies ----
+
+vi.mock('path', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('path')>();
+  return {
+    ...actual,
+    resolve: (...parts: string[]) =>
+      process.platform === 'win32'
+        ? actual.win32.resolve('C:\\workspace', ...parts)
+        : actual.resolve(...parts),
+  };
+});
+
+function resolvedPath(input: string): string {
+  return process.platform === 'win32'
+    ? path.win32.resolve('C:\\workspace', input)
+    : path.resolve(input);
+}
 
 vi.mock('@/shared/utils/logger', () => ({
   createLogger: () => ({
@@ -89,9 +108,18 @@ vi.mock('node:fs', () => ({
   }),
 }));
 
+const { mockExec, mockExecFile } = vi.hoisted(() => ({
+  mockExec: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
+  mockExecFile: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
+}));
+
 vi.mock('child_process', () => ({
-  exec: vi.fn(),
-  execFile: vi.fn(),
+  exec: Object.assign(vi.fn(), {
+    [Symbol.for('nodejs.util.promisify.custom')]: mockExec,
+  }),
+  execFile: Object.assign(vi.fn(), {
+    [Symbol.for('nodejs.util.promisify.custom')]: mockExecFile,
+  }),
 }));
 
 vi.mock('@/config/constants', () => ({
@@ -271,14 +299,219 @@ describe('Files API', () => {
   // GET /detect-editor
   // ============================================================================
 
-  describe('GET /detect-editor', () => {
-    it.skip('returns an editor result (shells out — tested in E2E)', async () => {
+  describe('shell-free file opening', () => {
+    beforeEach(() => {
+      mockExec.mockClear();
+      mockExecFile.mockReset();
+      mockStat.mockResolvedValue({ isDirectory: () => false });
+      mockAccess.mockResolvedValue(undefined);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllEnvs();
+    });
+
+    const names = [
+      '"; touch pwned; "',
+      '`touch pwned`',
+      '$(touch pwned)',
+      '-leading dash with spaces.txt',
+      'résumé 中文 & %PATH% ! ^.txt',
+    ];
+
+    for (const platform of ['darwin', 'linux', 'win32'] as const) {
+      describe(platform, () => {
+        beforeEach(() => {
+          vi.spyOn(process, 'platform', 'get').mockReturnValue(platform);
+          // Exercise Windows path rules on any host without touching its filesystem.
+          if (platform === 'win32') {
+            mockGetSetting.mockReturnValue('C:\\workspace');
+            vi.stubEnv('SystemRoot', 'C:\\Windows');
+          }
+          mockExecFile.mockImplementation(async (binary: string) => {
+            if (binary === 'which' || binary.endsWith('where.exe')) {
+              throw new Error('Editor not installed');
+            }
+            return { stdout: '', stderr: '' };
+          });
+        });
+
+        afterEach(() => {
+          mockGetSetting.mockReturnValue('/tmp/test-workspace');
+        });
+
+        for (const route of ['/open', '/open-in-editor']) {
+          it.each(names)(
+            `${route} passes literal filename %s`,
+            async (name) => {
+              const input =
+                platform === 'win32'
+                  ? `C:\\workspace\\${name}`
+                  : `/tmp/${name}`;
+              const resolved = resolvedPath(input);
+              const { filesRoutes } = await import('@/app/api/files');
+              const res = await filesRoutes.request(
+                jsonReq(route, { path: input }),
+              );
+              expect(res.status).toBe(200);
+              expect(mockExec).not.toHaveBeenCalled();
+              const call = mockExecFile.mock.calls.at(-1);
+              if (platform === 'win32') {
+                expect(call).toEqual([
+                  'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+                  [
+                    '-NoLogo',
+                    '-NoProfile',
+                    '-NonInteractive',
+                    '-Command',
+                    '$ErrorActionPreference = "Stop"; Invoke-Item -LiteralPath $env:NEUMAR_OPEN_PATH',
+                  ],
+                  expect.objectContaining({
+                    shell: false,
+                    env: expect.objectContaining({
+                      NEUMAR_OPEN_PATH: resolved,
+                    }),
+                  }),
+                ]);
+              } else {
+                expect(call).toEqual([
+                  platform === 'darwin' ? 'open' : 'xdg-open',
+                  platform === 'darwin'
+                    ? [
+                        ...(route === '/open-in-editor' ? ['-t'] : []),
+                        '--',
+                        resolved,
+                      ]
+                    : [resolved],
+                  { shell: false },
+                ]);
+              }
+            },
+          );
+        }
+
+        it('opens a leading-dash relative path as an absolute operand', async () => {
+          if (platform !== 'win32')
+            mockGetSetting.mockReturnValue(process.cwd());
+          const { filesRoutes } = await import('@/app/api/files');
+          const res = await filesRoutes.request(
+            jsonReq('/open', { path: '-file.txt' }),
+          );
+          expect(res.status).toBe(200);
+          expect(mockExec).not.toHaveBeenCalled();
+          const call = mockExecFile.mock.calls.at(-1);
+          expect(
+            platform === 'win32'
+              ? call?.[2].env.NEUMAR_OPEN_PATH
+              : call?.[1].at(-1),
+          ).toBe(resolvedPath('-file.txt'));
+        });
+
+        it('opens directories without a shell', async () => {
+          mockStat.mockResolvedValue({ isDirectory: () => true });
+          const { filesRoutes } = await import('@/app/api/files');
+          const res = await filesRoutes.request(
+            jsonReq('/open', {
+              path:
+                platform === 'win32'
+                  ? 'C:\\workspace\\folder & name'
+                  : '/tmp/folder & name',
+            }),
+          );
+          expect(res.status).toBe(200);
+          expect(mockExec).not.toHaveBeenCalled();
+          expect(mockExecFile.mock.calls.at(-1)?.[2].shell).toBe(false);
+        });
+
+        it('discovers editors using a fixed executable and arguments', async () => {
+          mockExecFile.mockResolvedValue({
+            stdout:
+              platform === 'win32'
+                ? 'C:\\Apps\\Cursor\\bin\\cursor.cmd\r\n'
+                : '/usr/bin/cursor\n',
+            stderr: '',
+          });
+          const { filesRoutes } = await import('@/app/api/files');
+          const res = await filesRoutes.request('/detect-editor');
+          expect(await res.json()).toMatchObject({
+            editor: 'Cursor',
+            command: 'cursor',
+          });
+          expect(mockExec).not.toHaveBeenCalled();
+          expect(mockExecFile.mock.calls[0]).toEqual([
+            platform === 'win32' ? 'C:\\Windows\\System32\\where.exe' : 'which',
+            ['cursor'],
+            { shell: false },
+          ]);
+        });
+
+        it('opens in a discovered editor without executing a Windows cmd shim', async () => {
+          mockExecFile.mockResolvedValue({
+            stdout:
+              platform === 'win32'
+                ? 'C:\\Apps\\Cursor\\bin\\cursor.cmd\r\n'
+                : '/usr/bin/cursor\n',
+            stderr: '',
+          });
+          const input =
+            platform === 'win32'
+              ? 'C:\\workspace\\file & %PATH%.txt'
+              : '/tmp/file $(touch pwned).txt';
+          const { filesRoutes } = await import('@/app/api/files');
+          const res = await filesRoutes.request(
+            jsonReq('/open-in-editor', { path: input }),
+          );
+          expect(await res.json()).toMatchObject({
+            success: true,
+            editor: 'Cursor',
+          });
+          expect(mockExec).not.toHaveBeenCalled();
+          expect(mockExecFile.mock.calls.at(-1)).toEqual([
+            platform === 'win32'
+              ? 'C:\\Apps\\Cursor\\Cursor.exe'
+              : '/usr/bin/cursor',
+            ['--', resolvedPath(input)],
+            { shell: false },
+          ]);
+        });
+
+        it('returns 500 if the opener fails', async () => {
+          mockExecFile.mockRejectedValue(new Error('Launch failed'));
+          mockExec.mockRejectedValueOnce(new Error('Launch failed'));
+          const { filesRoutes } = await import('@/app/api/files');
+          const res = await filesRoutes.request(
+            jsonReq('/open', {
+              path:
+                platform === 'win32'
+                  ? 'C:\\workspace\\file.txt'
+                  : '/tmp/file.txt',
+            }),
+          );
+          expect(res.status).toBe(500);
+          expect(await res.json()).toMatchObject({ success: false });
+        });
+      });
+    }
+
+    it('rejects missing, denied and nonexistent paths before launching', async () => {
       const { filesRoutes } = await import('@/app/api/files');
-      const res = await filesRoutes.request('/detect-editor');
-      expect(res.status).toBe(200);
-      const body = (await res.json()) as Record<string, unknown>;
-      expect(body).toHaveProperty('success', true);
-      expect(body).toHaveProperty('editor');
+      for (const route of ['/open', '/open-in-editor']) {
+        expect((await filesRoutes.request(jsonReq(route, {}))).status).toBe(
+          400,
+        );
+        expect(
+          (await filesRoutes.request(jsonReq(route, { path: '/etc/secret' })))
+            .status,
+        ).toBe(403);
+        mockStat.mockRejectedValueOnce(new Error('ENOENT'));
+        expect(
+          (await filesRoutes.request(jsonReq(route, { path: '/tmp/missing' })))
+            .status,
+        ).toBe(404);
+      }
+      expect(mockExec).not.toHaveBeenCalled();
+      expect(mockExecFile).not.toHaveBeenCalled();
     });
   });
 
