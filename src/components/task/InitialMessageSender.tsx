@@ -20,6 +20,10 @@ import {
 } from '@/shared/db';
 import type { Message, Task } from '@/shared/db';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
+import {
+  clearPendingFirstPrompt,
+  readPendingFirstPrompt,
+} from '@/shared/lib/pending-initial-prompt';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { randomUUID } from '@/shared/utils/uuid';
 
@@ -79,25 +83,6 @@ function hasExistingInitialRun(
     messages.length > 0 ||
     (!!task && INITIAL_SEND_ALREADY_HANDLED_STATUSES.has(task.status))
   );
-}
-
-/** Converts V1 DB messages to AG-UI message format for agent.setMessages(). */
-export function dbMessagesToAGUI(messages: Message[]) {
-  type AGUIMsg =
-    | { id: string; role: 'user'; content: string }
-    | { id: string; role: 'assistant'; content: string };
-  const result: AGUIMsg[] = [];
-
-  for (const msg of messages) {
-    const id = msg.message_id ?? String(msg.id);
-    if (msg.type === 'user' && msg.content) {
-      result.push({ id, role: 'user', content: msg.content });
-    } else if (msg.type === 'text' && msg.content) {
-      result.push({ id, role: 'assistant', content: msg.content });
-    }
-  }
-
-  return result;
 }
 
 /**
@@ -206,16 +191,27 @@ export function InitialMessageSender({
   // runtimeConnectionStatus transitions: disconnected → connecting → connected.
   // Only fire when 'connected' — the agent from useAgent() is then the real one
   // (from copilotkit.getAgent()), not a provisional placeholder.
+  //
+  // The prompt comes from navigation state when this view created the task, and
+  // from the pending registry when the dock created it and never delivered the
+  // handoff (closed, or the full view opened before its lazy thread connected).
+  // The registry is the authority for "created but not yet run", so it also
+  // overrides the DB heuristic below, which cannot tell an unstarted task from
+  // a running one.
   useEffect(() => {
     if (startedRef.current) return;
     if (dispatchedInitialSendTaskIds.has(taskId)) return;
     if (copilotkit.runtimeConnectionStatus !== 'connected') return;
     const state = location.state as LocationState | null;
-    if (!state?.prompt) return;
+    const pendingPrompt = readPendingFirstPrompt(taskId);
+    const initialPrompt = state?.prompt ?? pendingPrompt;
+    if (!initialPrompt) return;
 
     startedRef.current = true;
     dispatchedInitialSendTaskIds.add(taskId);
-    const attachments = state.attachments;
+    if (pendingPrompt !== null) clearPendingFirstPrompt(taskId);
+    const fromPendingRegistry = state?.prompt === undefined;
+    const attachments = state?.attachments;
 
     if (import.meta.env.DEV && attachments?.length) {
       console.warn(
@@ -246,7 +242,10 @@ export function InitialMessageSender({
 
       const locState = location.state as LocationState | null;
       const taskWorkDir = locState?.workDir;
-      if (!createdTaskThisMountRef.current) {
+      // The registry already proved this prompt has not run, so the DB
+      // heuristic (which treats a freshly created task as already handled)
+      // must not veto it.
+      if (!createdTaskThisMountRef.current && !fromPendingRegistry) {
         const [existingTask, existingMessages] = await Promise.all([
           getTask(taskId).catch(() => null),
           getMessagesByTaskId(taskId).catch(() => []),
@@ -277,7 +276,7 @@ export function InitialMessageSender({
       }
 
       const { prompt, imageBlocks } = buildAgentPrompt(
-        state.prompt!,
+        initialPrompt,
         resolvedAttachments,
       );
 
