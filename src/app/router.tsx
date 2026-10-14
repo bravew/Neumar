@@ -53,6 +53,13 @@ export const router = createBrowserRouter([
               </RouteFallback>
             ),
           },
+          // V1 task view. Kept as a reversible assumption (issue #223): the
+          // retirement decision is open and V2 parity is unproven. V1 alone
+          // mounts ExtractSkillDialog, MemoryAuditPill, RunningIndicator, and
+          // WorkspaceRouter. No in-app link targets it (all go to /task-v2),
+          // but old bookmarks, external links, and the docs capture scripts
+          // under src-video/ still use /task/:taskId. Retiring it needs the
+          // maintainer's decision plus a redirect test.
           {
             path: 'task/:taskId',
             element: (

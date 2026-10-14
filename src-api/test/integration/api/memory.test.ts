@@ -536,4 +536,39 @@ describe('Memory API', () => {
       expect(body).toHaveProperty('consolidation');
     });
   });
+
+  // ── HTTP-only unavailable routes (issue #223) ──
+  //
+  // Both routes need an LLM callback an HTTP request cannot supply, so they
+  // answer 501. The regression this guards is the message: it previously
+  // named alternatives that do not exist ("use the MCP tool", "startup
+  // scheduling"), which sent callers to another dead end.
+
+  describe('POST /entities/extract', () => {
+    it('answers 501 with a reason that names no unreachable alternative', async () => {
+      const { memoryRoutes } = await import('@/app/api/memory');
+      const res = await memoryRoutes.request('/entities/extract', {
+        method: 'POST',
+      });
+      expect(res.status).toBe(501);
+      const body = (await res.json()) as { error: string; message: string };
+      expect(body.error).toBe('not_available_over_http');
+      expect(body.message).toContain('LLM callback');
+      expect(body.message).not.toMatch(/MCP tool/i);
+    });
+  });
+
+  describe('POST /consolidate', () => {
+    it('answers 501 with a reason that names no unreachable alternative', async () => {
+      const { memoryRoutes } = await import('@/app/api/memory');
+      const res = await memoryRoutes.request('/consolidate', {
+        method: 'POST',
+      });
+      expect(res.status).toBe(501);
+      const body = (await res.json()) as { error: string; message: string };
+      expect(body.error).toBe('not_available_over_http');
+      expect(body.message).toContain('LLM callback');
+      expect(body.message).not.toMatch(/settings UI|startup scheduling/i);
+    });
+  });
 });
