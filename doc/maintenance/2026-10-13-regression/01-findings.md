@@ -1,6 +1,6 @@
 # Findings and evidence
 
-Baseline: `c0926618`, reviewed 2026-10-13. Line numbers below refer to that commit. P0 means urgent containment, P1 means fix before expanding the affected feature, and P2 means planned cleanup. “Confirmed” means the stated code behavior is visible in source or a recorded probe; it does not mean an exploit or full application scenario was executed.
+Baseline: `c0926618`, reviewed 2026-10-13. Line numbers below refer to that commit. P0 means urgent containment, P1 means fix before expanding the affected feature, and P2 means planned cleanup. “Confirmed” means the stated code behavior is visible in source or a recorded probe; it does not mean an exploit or full application scenario was executed. Every “Act on” finding and every “Consider” item except the deferred SDK requirements has an issue in [the issue index](04-epics-and-issues.md), and the rules behind them are in [LESSONS.md](../../../LESSONS.md).
 
 ## Act on: security and execution boundaries
 
@@ -77,6 +77,24 @@ The June audit's hotspots still exist. Historical sizes below come from that loc
 The sidebar reduction is progress. The allowlist also shrank from 69 to 68 entries; do not claim uniformly increasing debt. The current size gate only scans frontend components, leaving API routes, hooks, and stores outside its coverage. Prefer extraction along verified responsibilities to introducing a new universal engine during regression work.
 
 Tracked docs still claim browser IndexedDB fallback in `doc/system/overview.md:41,119` and `doc/frontend/state-management.md:25,88`, while the current frontend database abstraction uses the API-backed store. They also list Vite 7/TypeScript 5.8 and Node 20 build targets. Update these from actual manifests, database call paths, and CI, not by changing date/version headings alone.
+
+## Reference practice behind each fix
+
+These references describe the class of fix, so the proposed change is not only this review's opinion. They do not replace the repository's own helpers: use `safeFetch`, `path-validator.ts`, and `getAppDir()` where they apply. Each fix is tracked in [the issue index](04-epics-and-issues.md).
+
+| Finding | Practice the fix follows |
+| --- | --- |
+| S1 | Bind to a specific interface instead of the unrestricted address ([CWE-1327](https://cwe.mitre.org/data/definitions/1327.html)). Node listens on the unspecified address when `host` is omitted ([`server.listen`](https://nodejs.org/api/net.html)). Authenticate critical functions ([CWE-306](https://cwe.mitre.org/data/definitions/306.html)). |
+| S2, S3 | Avoid the shell and pass arguments as an array to a fixed binary; validate what remains ([OWASP OS Command Injection Defense](https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html), [CWE-78](https://cwe.mitre.org/data/definitions/78.html)). [`execFile`](https://nodejs.org/api/child_process.html) does not spawn a shell by default. |
+| S4, containment at `files.ts:92` | Resolve real paths and refuse link following where it escapes the root ([CWE-22](https://cwe.mitre.org/data/definitions/22.html), [CWE-59](https://cwe.mitre.org/data/definitions/59.html)). Create the final file exclusively instead of checking then writing ([CWE-367](https://cwe.mitre.org/data/definitions/367.html), [`COPYFILE_EXCL`](https://nodejs.org/api/fs.html)). |
+| S5 | Pass an `AbortSignal` into the child process and check it again before the next side effect ([`child_process` `signal` option](https://nodejs.org/api/child_process.html)). |
+| S6 | An explicit deny or ask outranks a broad grant ([CWE-863](https://cwe.mitre.org/data/definitions/863.html)). |
+| S7 | Validate resolved addresses and every redirect, bind DNS to the connection, and bound time and size ([OWASP SSRF Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html), [CWE-918](https://cwe.mitre.org/data/definitions/918.html)). |
+| S8 | Treat missing peer metadata as untrusted ([CWE-636](https://cwe.mitre.org/data/definitions/636.html)). |
+| S9 | Verify a digest before using downloaded code ([CWE-494](https://cwe.mitre.org/data/definitions/494.html)). |
+| Tauri `csp: null` | Stage a restrictive policy after checking what the app loads ([Tauri CSP](https://v2.tauri.app/security/csp/)). |
+| Merge gate | A required check that is skipped can report success, so require one stable aggregate job ([GitHub, skipped but required checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)). Lint workflow files with [actionlint](https://github.com/rhysd/actionlint). |
+| R1 to R6 | No external standard applies. The practice is the project's own: test the real boundary, derive the schema from the type, and inject the seam ([LESSONS.md](../../../LESSONS.md)). |
 
 ## Dismissed or not established
 

@@ -1,6 +1,6 @@
 # Development plan
 
-Status: ready for checkpoint review, not yet implemented. Baseline `c0926618`. Finding IDs refer to [the evidence register](01-findings.md). The first objective is containment and reliable validation; deletion and restructuring follow verified caller maps.
+Status: tracked as epics #188 to #194, not yet implemented. Baseline `c0926618`. Finding IDs refer to [the evidence register](01-findings.md). Issue numbers and the epic workflow are in [the issue index](04-epics-and-issues.md). The first objective is containment and reliable validation; deletion and restructuring follow verified caller maps.
 
 ## Throughput and ownership
 
@@ -9,7 +9,21 @@ Status: ready for checkpoint review, not yet implemented. Baseline `c0926618`. F
 3. **Shared mutable state.** Serialize edits to `package.json`, `pnpm-lock.yaml`, locale modules, the size allowlist, `http-daemon.ts`, `video-edit-server.ts`, and common video IR schemas. Assign one owner per shared file during each batch. Rebase and rerun affected integration tests after another stream changes a shared contract.
 4. **Smallest safe decomposition.** Seven checkpoints below; several contain small independent PRs. No single “cleanup everything” PR. No new framework, dependency upgrade, or generic abstraction is required just to start this work.
 
+## Execution model
+
+Each checkpoint is an epic with a branch `epic/<issue>-<slug>`. Each unit of work is a sub-issue that one agent implements in its own git worktree, as a PR into the epic branch with `Closes #<sub-issue>`. When every sub-issue is closed, one epic PR merges the branch into `main`. [The issue index](04-epics-and-issues.md) has the commands, the blockers between sub-issues, and the merge order across epics.
+
+Every implementation PR follows the same rules, taken from [LESSONS.md](../../../LESSONS.md).
+
+- Write the regression test first at the boundary the user reaches (route, MCP handler, bridge, lifecycle). A test of the inner function alone does not close a finding.
+- Show that the test fails on the reviewed baseline and passes after the change.
+- Run the checks on the exact head to be merged and record its sha, plus the Node and pnpm versions.
+- One goal per commit, with only the owned files staged. Migrate every caller and delete the superseded path in the same PR.
+- Never raise a threshold or allowlist ceiling to make a check pass.
+
 ## 1. Establish a reproducible merge gate
+
+**Tracking:** epic #188, sub-issues #195 to #199. **Lessons:** a check that skips your change is not validation; never raise a ceiling to pass; stub the seam, not the environment.
 
 **Likely files:** `.github/workflows/ci.yml`, existing workflow checks, root/API package scripts and configs, `src-api/test/unit/agent-runtimes/resolve.test.ts`, repository rulesets through a separately approved settings change.
 
@@ -40,6 +54,8 @@ Inspect Actions on the exact PR head. Deliberately introduce a reversible failur
 
 ## 2. Contain host execution and external I/O
 
+**Tracking:** epic #189, sub-issues #200 to #207. **Lessons:** never build a shell command from a controlled value; a name check is not a network policy; validate containment on the resolved path. Reference practice is listed in [the findings](01-findings.md#reference-practice-behind-each-fix).
+
 **Likely files:** `src-api/src/http-daemon.ts`, `app/middleware/jwt.ts`, `app/api/{sandbox,files}.ts`, `extensions/sandbox/claude.ts`, `shared/network-policy/`, identified URL consumers, `shared/services/external-mcp/auth.ts`, `src-api/scripts/build.mjs`, Tauri configuration where necessary.
 
 **Work:**
@@ -58,6 +74,8 @@ Inspect Actions on the exact PR head. Deliberately introduce a reversible failur
 
 ## 3. Repair FFmpeg publication, cancellation, and permission priority
 
+**Tracking:** epic #190, sub-issues #208 to #210. **Lessons:** a unit test that stops short of the real boundary does not prove the feature; a claim in a PR body is a claim to verify at the final path.
+
 **Likely files:** `shared/services/ffmpeg-skill/{runner,handoff,policy}.ts`, `shared/mcp/ffmpeg-skill-server.ts`, relevant bridge/run cancellation wiring, `extensions/agent/claude/permissions.ts`, corresponding API tests.
 
 **Work:**
@@ -73,6 +91,8 @@ Inspect Actions on the exact PR head. Deliberately introduce a reversible failur
 **Exit:** S4-S6 closed with tests that fail on the reviewed baseline and pass after the fix. Direct runner unit tests alone do not satisfy cancellation acceptance.
 
 ## 4. Restore transcript and shell integration contracts
+
+**Tracking:** epic #191, sub-issues #211 to #216. **Lessons:** derive a contract and its validator from one source; reproduce on the surface the caller uses; a default must never overwrite a value the user set.
 
 **Likely files:** `packages/video-ir/src/{timeline-schema,timeline-types,transcript-edit}.ts`, transcript UI/store and API route tests, `ChatDock.tsx`, `InitialMessageSender.tsx`, `OutcomeAutomationLists.tsx`, `OnboardingFlow.tsx`, relevant locales.
 
@@ -93,6 +113,8 @@ Inspect Actions on the exact PR head. Deliberately introduce a reversible failur
 
 ## 5. Remove proven orphans and obsolete allowances
 
+**Tracking:** epic #192, sub-issues #217 to #221. **Lessons:** migrate every caller and delete the old path in the same wave; never raise an allowlist ceiling.
+
 **Likely files:** the dead-code candidate islands in `01-findings.md`, tests/locales used exclusively by retired code, `scripts/component-size-allowlist.json`; manifests/lockfile only after a dependency is proven unused.
 
 **Work:**
@@ -110,6 +132,8 @@ Inspect Actions on the exact PR head. Deliberately introduce a reversible failur
 **Exit:** a small documented removal batch passes checks. Counts of deleted lines are secondary to preserved behavior.
 
 ## 6. Resolve architecture ownership and reduce the highest-risk modules
+
+**Tracking:** epic #193, sub-issues #222 to #228. **Lessons:** fix the type instead of casting around it in tests; a failed read or migration means unknown, not empty; app-owned data goes through `getAppDir()`.
 
 **Likely files:** channel/runtime contract docs, `core/agent/`, `shared/channels/`, `shared/services/gateway/`, legacy Slack wiring, video tool wrapper and schemas, DB migration utilities/tests, shared catalogs, selected hooks/components, tracked `doc/` architecture pages.
 
@@ -130,6 +154,8 @@ Inspect Actions on the exact PR head. Deliberately introduce a reversible failur
 
 ## 7. Make maintenance recurring and contributor quality reviewable
 
+**Tracking:** epic #194, sub-issues #229 to #231. **Lessons:** merge only the reviewed head; a claim in a PR body is a claim to verify. The incident format follows blameless postmortem practice ([Google SRE](https://sre.google/sre-book/postmortem-culture/)), recording the failed contract and the gate that missed it instead of judging a person.
+
 **Likely files/settings:** `doc/maintenance/`, contribution/PR templates if adopted, existing validation scripts, narrowly scoped CI reports, repository rulesets after separate approval.
 
 **Work:**
@@ -148,12 +174,16 @@ Inspect Actions on the exact PR head. Deliberately introduce a reversible failur
 
 ## Open decisions before dependent implementation
 
-- Is remote HTTP operation required by default launchers, or only explicit remote mode? Inventory callers first; default loopback is the proposed containment.
-- Should explicit `alwaysAsk` override run pre-approval? Recommended yes, consistent with explicit user choice. Preserve explicit deny regardless.
-- Should transcript restore ignore unrelated empty caption tracks, and which translation operations consume project budgets?
-- Retire `/task/:taskId` with tested redirects, or maintain V1 compatibility? Both routes are currently live.
-- Keep, implement, or retire test-only services, social publishing adapters and dormant plugin APIs after caller/consumer review?
-- Who owns weekly maintenance and security follow-up, and what solo-maintainer review exception is acceptable?
+Each decision has an issue. Record the answer there, before the dependent change merges.
+
+- Is remote HTTP operation required by default launchers, or only explicit remote mode? Inventory callers first; default loopback is the proposed containment. (#200)
+- Should explicit `alwaysAsk` override run pre-approval? Recommended yes, consistent with explicit user choice. Preserve explicit deny regardless. (#210)
+- Should transcript restore ignore unrelated empty caption tracks, and which translation operations consume project budgets? (#216)
+- Retire `/task/:taskId` with tested redirects, or maintain V1 compatibility? Both routes are currently live. (#223)
+- Keep, implement, or retire test-only services, social publishing adapters and dormant plugin APIs after caller/consumer review? (#221)
+- Who owns weekly maintenance and security follow-up, and what solo-maintainer review exception is acceptable? (#199 and #230)
+- Which channel runtime becomes canonical once the responsibility matrix exists? (#222)
+- Is a restrictive Tauri CSP compatible with the preview, WebUI, and sandboxed content workflows? (#207)
 
 The user selected contract mapping before channel consolidation and visibility review before changing placeholder features. Those decisions permit the investigations above; they do not authorize silently choosing a new channel runtime or implementing all stubs.
 

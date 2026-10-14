@@ -22,6 +22,14 @@ as one contributor's local setup, not shared project context. `.cursor/` is trac
 but currently holds only [codacy.mdc](.cursor/rules/codacy.mdc); shared rules
 belong in this file, so agents reading either entry point see them.
 
+## Lessons
+
+Before changing code, read [LESSONS.md](LESSONS.md): what recent merged work got
+wrong and the rule that would have caught it. Each lesson carries its evidence and
+a "Seen" count of review days. A lesson seen on three review days moves into this
+file. When a review or a corrective PR finds a new failure pattern, add it there
+with a PR, commit, or `path:line` as evidence.
+
 ## Working agreement
 
 ### 1. Read the structure before you change it

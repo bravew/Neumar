@@ -1,6 +1,6 @@
 # PR lessons and contributor quality policy
 
-Reviewed 2026-10-13 against `c0926618`. This is a retrospective assessment of changes and gates. It does not infer malicious intent, identify an agent from product references, or recommend reverting large PRs wholesale.
+Reviewed 2026-10-13 against `c0926618`. The rules that came out of this review are in [LESSONS.md](../../../LESSONS.md) at the repository root, where agents read them. This page keeps the PR-level evidence behind them. This is a retrospective assessment of changes and gates. It does not infer malicious intent, identify an agent from product references, or recommend reverting large PRs wholesale.
 
 ## What the merge system actually required
 
@@ -69,6 +69,8 @@ The seven matching-head premerge failure cases were #176, #106, #26, #24, #3, #2
 | Initial snapshot → current OpenCode baseline failure | PATH stubs left hardcoded host search roots live. | Inject filesystem discovery and assert precedence with controlled fixtures. |
 | June architecture warnings → current large tool modules | The component-only size gate misses API tools, routes, hooks and stores. | Baseline-aware size/complexity review outside components; extract a tested responsibility instead of raising ceilings. |
 
+The checks above are built in epic #188 (merge gate, sub-issues #195 to #199) and epic #194 (PR template, weekly review, policy records). Each row corresponds to a rule in [LESSONS.md](../../../LESSONS.md).
+
 `pnpm validate` is not the test suite, API lint, API test-file typecheck, Rust validation, or video IR tests. CI also runs a smaller quality subset than the full root gate. “Validate passed” must always name the checks it actually represents.
 
 The current 453 frontend warnings pass the root gate. Track their baseline and reject newly introduced correctness warnings/suppressions in changed files, then retire existing ones in bounded batches. Avoid a bulk warning cleanup that changes behavior without regression tests.
@@ -85,7 +87,7 @@ The user selected an agent policy and attribution gate, with no speculative name
 
 For every new contribution, record the human accountable for landing it, the authoring tool/session when known, intended scope, exact verified commit, and checks omitted with reasons. Store private session URLs/identifiers outside public documentation; public PR metadata may use an opaque local reference. Record `unknown` when attribution is unavailable rather than guessing.
 
-A quality incident record contains the introducing PR/commit, reproducible scenario, severity, review/check gap, attribution evidence, repair PR, verification, date, maintainer disposition, and appeal status. Two reviewers or a maintainer with an independent verification artifact confirm the incident before it counts. Attach code evidence, not opinions about style or individuals.
+A quality incident record contains the introducing PR/commit, reproducible scenario, severity, review/check gap, attribution evidence, repair PR, verification, date, maintainer disposition, and appeal status. Two reviewers or a maintainer with an independent verification artifact confirm the incident before it counts. Attach code evidence, not opinions about style or individuals. The record follows blameless postmortem practice ([Google SRE](https://sre.google/sre-book/postmortem-culture/)). It names the contract that failed and the gate that missed it. The template and the empty blocklist schema are issue #231.
 
 ### Proposed thresholds
 

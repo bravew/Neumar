@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 @AGENTS.md
+@LESSONS.md
 
 The shared working agreement, commands, architecture, and conventions live in
 [AGENTS.md](AGENTS.md). Update that file for rules shared by all coding agents;

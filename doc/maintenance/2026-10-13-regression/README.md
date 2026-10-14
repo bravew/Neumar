@@ -1,12 +1,15 @@
 # Regression review and maintenance plan
 
-Date: 2026-10-13. Reviewed baseline: `c0926618`, version 26.10.1. Status: review completed; remediation checkpoints proposed, not executed. This document records a sampled architecture and regression review, not certification of every file or dependency.
+Date: 2026-10-13. Reviewed baseline: `c0926618`, version 26.10.1. Status: review completed; remediation tracked as GitHub epics #188 to #194, not yet executed. This document records a sampled architecture and regression review, not certification of every file or dependency.
 
 ## Start here
 
 1. [Findings and evidence](01-findings.md) records current defects, dead-code candidates, architecture drift, and verification limits.
 2. [Development plan](02-development-plan.md) gives seven independently verifiable checkpoints, their dependencies, and decisions needed before implementation.
 3. [PR lessons and contributor policy](03-lessons-and-contributors.md) records merge failures, validation gaps, and the evidence required for probation or blocking.
+4. [Epics and issues](04-epics-and-issues.md) indexes the seven epics and 37 sub-issues, the worktree and epic-branch workflow, and the files that two streams must not edit at once.
+
+The rules this review produced live in [LESSONS.md](../../../LESSONS.md) at the repository root, which [AGENTS.md](../../../AGENTS.md) tells every agent to read before changing code. The documents here hold the evidence behind those rules. Add new lessons to the root file, not to these pages.
 
 The main problem is that changes can merge without exercising their contracts. Recent examples include FFmpeg publication and cancellation, transcript schema validation, chat-dock prompt handoff, and permission precedence. Earlier security boundaries also need review. Removing unused code will help, but it cannot substitute for fixing these paths and preventing another unchecked merge.
 
@@ -33,7 +36,7 @@ The local runner used Node v26.11.1 and the pinned pnpm 11.22.0. Repeat the fail
 - Trace callers and visibility of unsupported API actions first. Hide misleading controls or document intentional capability limitations; feature implementation requires a separate behavior decision.
 - Keep the review and plan in `doc/`. Existing local work is outside this deliverable.
 
-The requested recurring cleanup is defined as a maintenance process in checkpoint 7. No scheduler, repository setting, contributor access restriction, issue, or external post has been created by this documentation work.
+The requested recurring cleanup is defined as a maintenance process in checkpoint 7. Each checkpoint became an epic with its own branch, and each unit of work became a sub-issue ([index](04-epics-and-issues.md)). No scheduler, repository setting, contributor access restriction, or external post has been created. The epic branches are pushed, but no implementation has started.
 
 ## Review coverage and prior architecture work
 
@@ -45,4 +48,4 @@ No malicious code or live service credential was identified in the inspected are
 
 ## Completion for this deliverable
 
-The documentation review is complete when the files and source links have been checked, the root gate result and test failure are reported, and only these docs are committed locally. Implementation is complete only after the relevant checkpoints have their own before/after regression evidence and verification. The current plan does not claim those fixes have landed.
+The documentation review is complete when the files and source links have been checked, the root gate result and test failure are reported, and the documents, `LESSONS.md`, and the `AGENTS.md` pointer are committed locally. Implementation is complete only after each epic's sub-issues have merged into its epic branch with before/after regression evidence, and the epic PR has merged into `main` on a head that passed the epic's checks. The current plan does not claim those fixes have landed.
