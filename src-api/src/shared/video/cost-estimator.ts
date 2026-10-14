@@ -52,25 +52,6 @@ export function estimateAsrCostCents(input: {
   return Math.ceil(minutes * CLOUD_ASR_CENTS_PER_MINUTE);
 }
 
-// Deliberately conservative: this is also the figure shown to the user for
-// approval, so over-estimating is safer than under-estimating. Characters are
-// the real token driver for translation, not cue count.
-const CHARS_PER_KILOTOKEN = 3_000;
-const CENTS_PER_KILOTOKEN = 3;
-
-/**
- * Estimated cost of translating caption text with a cloud LLM. Floors at 1 cent
- * for any non-empty input so a rounding-to-zero never bypasses the cost gate.
- */
-export function estimateTranslationCostCents(input: {
-  charCount: number;
-}): number {
-  const chars = Math.max(0, input.charCount);
-  if (chars === 0) return 0;
-  const kilotokens = chars / CHARS_PER_KILOTOKEN;
-  return Math.max(1, Math.ceil(kilotokens * CENTS_PER_KILOTOKEN));
-}
-
 function estimateSceneCost(scene: StoryboardScene) {
   const plan = scene.assetPlan;
   if (plan.kind === 'ai-image') {
