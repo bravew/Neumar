@@ -32,13 +32,6 @@ describe('harness profiles', () => {
         transport: 'cli',
       })?.id,
     ).toBe('codex-cli-default');
-
-    expect(
-      resolveHarnessProfile({
-        provider: 'deepagents',
-        model: 'claude-sonnet-4-20250514',
-      }),
-    ).toBeUndefined();
   });
 
   it('merges nested profile defaults without dropping base capabilities', () => {

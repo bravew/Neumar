@@ -149,6 +149,29 @@ credentials, blocked/link-local IPs, unsupported protocols, and non-HTTPS public
 URLs are rejected. Immich requests use manual redirect handling so redirects do
 not silently bypass the desktop policy.
 
+### Unimplemented: Per-Session Egress Proxy
+
+Hard egress isolation for a sandbox that allows exactly one outbound socket
+would need a per-session proxy bound to `127.0.0.1:<random>`, with every
+request validated through `validateRequestTarget()` and scanned for the session
+canary before forwarding. No provider in this tree routes through such a proxy
+today, so it is not implemented. Codex sandbox blocks localhost, the native
+provider runs in-process, and ASRT uses its own egress hook.
+
+Constraints for whoever implements it, kept here because the retired
+`network-policy/proxy.ts` placeholder was the only record of them:
+
+- Bind `127.0.0.1` only. Never `0.0.0.0`.
+- Validate Host/SNI on every CONNECT and every plain HTTP request through
+  `validateRequestTarget()`, not only at startup.
+- For HTTPS, intercept only at the CONNECT layer (`host:port`). Do not terminate
+  TLS, so the proxy cannot read the body.
+- For HTTP, scan URL, path, headers, and body for the session canary before
+  forwarding and refuse the request on a hit.
+- Call `recordNetworkPolicyAudit()` on every decision: allow, deny, redirect,
+  timeout, canary blocked.
+- Treat the proxy as untrusted. Fail closed when upstream validation throws.
+
 ### Tool Output Defense
 
 Tool and MCP outputs are normalized and inspected before they re-enter provider

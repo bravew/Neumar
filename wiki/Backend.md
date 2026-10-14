@@ -37,8 +37,7 @@ src-api/
 │   ├── extensions/
 │   │   ├── agent/
 │   │   │   ├── claude/       Claude Agent SDK integration
-│   │   │   ├── codex/        Codex integration
-│   │   │   └── deepagents/   DeepAgents integration
+│   │   │   └── codex/        Codex integration
 │   │   ├── sandbox/          Native / Claude / Codex sandbox
 │   │   └── mcp/              Sandbox MCP server
 │   │
@@ -177,13 +176,12 @@ Providers include Claude (multiple models), Codex, and others. The active provid
 
 ## Agent Plugins
 
-Three agent implementations are registered at startup:
+Two agent implementations are registered at startup:
 
 | Plugin | Class | Backend |
 |---|---|---|
 | `claude` | `ClaudeAgent` | `@anthropic-ai/claude-agent-sdk` |
 | `codex` | `CodexAgent` | OpenAI Codex CLI |
-| `deepagents` | `DeepAgentsAgent` | DeepAgents API |
 
 All extend `BaseAgent` and implement the two-phase execution interface. See [[Agent System]] for details.
 

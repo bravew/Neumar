@@ -30,18 +30,11 @@ import {
   getConnectorApprovalGateway,
   type ConnectorApprovalGateway,
 } from './approval';
-import {
-  connectorToolToDeepAgentsTool,
-  type DeepAgentsConnectorTool,
-} from './deepagents';
 import { connectorToolToOpenAITool, type OpenAIConnectorTool } from './openai';
 
-export type ConnectorToolShape = 'anthropic' | 'openai' | 'deepagents';
+export type ConnectorToolShape = 'anthropic' | 'openai';
 
-export type RuntimeConnectorTool =
-  | AnthropicConnectorTool
-  | OpenAIConnectorTool
-  | DeepAgentsConnectorTool;
+export type RuntimeConnectorTool = AnthropicConnectorTool | OpenAIConnectorTool;
 
 export interface BinderRunContext extends ConnectorRunContext {
   runId: string;
@@ -268,8 +261,7 @@ function convertConnectorTool(
   shape: ConnectorToolShape,
 ): RuntimeConnectorTool {
   if (shape === 'anthropic') return connectorToolToAnthropicTool(tool);
-  if (shape === 'openai') return connectorToolToOpenAITool(tool);
-  return connectorToolToDeepAgentsTool(tool);
+  return connectorToolToOpenAITool(tool);
 }
 
 function toolVisibleOnSurface(
@@ -495,8 +487,4 @@ function hashLabel(label: string): string {
   return createHash('sha256').update(label).digest('hex').slice(0, 16);
 }
 
-export type {
-  AnthropicConnectorTool,
-  DeepAgentsConnectorTool,
-  OpenAIConnectorTool,
-};
+export type { AnthropicConnectorTool, OpenAIConnectorTool };

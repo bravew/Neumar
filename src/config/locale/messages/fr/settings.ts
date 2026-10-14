@@ -1695,7 +1695,6 @@ export default {
   gatewayConnectionError: 'Impossible de se connecter au serveur API',
 
   // Session Safety
-  sessionSafety: 'Sécurité de session',
   // Model descriptions (used in model picker UI)
   modelDescBalanced: 'Équilibré (par défaut)',
   modelDescMostCapable: 'Plus performant',
@@ -1720,12 +1719,6 @@ export default {
   modelDescCodexCheaper: 'Optimisé pour Codex. Moins cher et plus rapide',
   modelDescFastEfficient: 'Rapide et efficace',
   modelDescOptimizedMini: 'Modèle mini optimisé',
-
-  sessionBudgetGuard: 'Gardien de budget de session',
-  sessionBudgetDescription:
-    "Prévenir les coûts incontrôlés et les boucles d'agent",
-  sessionCostLimit: 'Limite de coût par session (USD)',
-  toolCallRateLimit: "Limite d'appels d'outils (par minute)",
 
   budgetPolicies: 'Politiques budgétaires',
   budgetDescription:

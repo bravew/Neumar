@@ -1682,11 +1682,6 @@ export default {
   modelDescOptimizedMini: 'Optimized mini model',
 
   // Session Safety
-  sessionSafety: 'Session Safety',
-  sessionBudgetGuard: 'Session Budget Guard',
-  sessionBudgetDescription: 'Prevent runaway costs and agent loops',
-  sessionCostLimit: 'Per-session cost limit (USD)',
-  toolCallRateLimit: 'Tool call rate limit (per minute)',
 
   // Budget Policies
   budgetPolicies: 'Budget Policies',

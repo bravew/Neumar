@@ -1706,12 +1706,6 @@ export default {
   modelDescFastEfficient: 'Rápido e eficiente',
   modelDescOptimizedMini: 'Modelo mini otimizado',
 
-  sessionSafety: 'Segurança de sessão',
-  sessionBudgetGuard: 'Guardião de orçamento de sessão',
-  sessionBudgetDescription: 'Prevenir custos descontrolados e loops de agente',
-  sessionCostLimit: 'Limite de custo por sessão (USD)',
-  toolCallRateLimit: 'Limite de chamadas de ferramentas (por minuto)',
-
   budgetPolicies: 'Políticas de orçamento',
   budgetDescription:
     'Defina limites de gastos por escopo e período. As políticas de parada forçada bloqueiam chamadas do agente quando o limite é atingido.',

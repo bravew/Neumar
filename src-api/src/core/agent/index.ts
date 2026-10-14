@@ -39,7 +39,6 @@ const logger = createLogger('Agents');
  * Currently supported providers:
  * - Claude Agent SDK (default)
  * - Codex CLI (OpenAI)
- * - DeepAgents.js (optional)
  *
  * Usage:
  * ```typescript
@@ -52,13 +51,6 @@ const logger = createLogger('Agents');
  * const agent = createAgent({
  *   provider: "codex",
  *   apiKey: "your-openai-key"
- * });
- *
- * // Use DeepAgents.js
- * const agent = createAgent({
- *   provider: "deepagents",
- *   apiKey: "your-api-key",
- *   model: "claude-sonnet-4-20250514"
  * });
  *
  * // Run agent
@@ -116,9 +108,6 @@ export {
 export { CodexAgent } from '@/extensions/agent/codex';
 export { KimiAgent, kimiPlugin } from '@/extensions/agent/kimi';
 export { default as codexPlugin } from '@/extensions/agent/codex';
-// DeepAgents adapter is a stub and not exported publicly. To re-enable, see
-// dev-doc/follow-up/deepagents-revival.md (write when ready) and re-add the
-// re-export plus include the plugin in `builtinAgentPlugins` below.
 export {
   GeminiLocalAgent,
   createGeminiLocalAgent,
@@ -181,11 +170,6 @@ export {
 
 /**
  * All built-in agent plugins.
- *
- * deepagentsPlugin is intentionally excluded — the adapter is a stub
- * (run/plan/execute return placeholder text). Step 3 of the Phase 2
- * agent-loop plan (dev-doc/plan/2026-04-23-phase-2-agent-loop-agui.md)
- * is deferred indefinitely; re-add to this list once the harness ships.
  */
 export const builtinAgentPlugins: AgentPlugin[] = [
   a2aPlugin,
@@ -248,13 +232,6 @@ export function getAvailableProviders(): AgentProvider[] {
  * const agent = createAgent({
  *   provider: "claude",
  *   workDir: "/path/to/workspace"
- * });
- *
- * // Create DeepAgents.js agent
- * const agent = createAgent({
- *   provider: "deepagents",
- *   apiKey: process.env.ANTHROPIC_API_KEY,
- *   model: "claude-sonnet-4-20250514"
  * });
  * ```
  */

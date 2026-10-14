@@ -1590,11 +1590,6 @@ export default {
   modelDescOptimizedMini: '优化迷你模型',
 
   // Session Safety
-  sessionSafety: '会话安全',
-  sessionBudgetGuard: '会话预算守护',
-  sessionBudgetDescription: '防止失控成本和代理循环',
-  sessionCostLimit: '单次会话成本上限 (USD)',
-  toolCallRateLimit: '工具调用速率限制 (每分钟)',
 
   budgetPolicies: '预算策略',
   budgetDescription:

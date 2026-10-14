@@ -1628,8 +1628,6 @@ export default {
   checkFailed: 'जाँच विफल — पुनः प्रयास करें',
 
   // Session Safety
-  sessionSafety: 'सत्र सुरक्षा',
-  sessionBudgetGuard: 'सत्र बजट गार्ड',
   // Model descriptions (used in model picker UI)
   modelDescBalanced: 'संतुलित (डिफ़ॉल्ट)',
   modelDescMostCapable: 'सर्वाधिक सक्षम',
@@ -1648,10 +1646,6 @@ export default {
   modelDescCodexCheaper: 'Codex के लिए अनुकूलित। सस्ता और तेज़',
   modelDescFastEfficient: 'तेज़ और कुशल',
   modelDescOptimizedMini: 'अनुकूलित मिनी मॉडल',
-
-  sessionBudgetDescription: 'अनियंत्रित लागत और एजेंट लूप रोकें',
-  sessionCostLimit: 'प्रति-सत्र लागत सीमा (USD)',
-  toolCallRateLimit: 'टूल कॉल दर सीमा (प्रति मिनट)',
 
   budgetPolicies: 'बजट नीतियां',
   budgetDescription:

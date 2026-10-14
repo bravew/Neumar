@@ -99,7 +99,7 @@ Key patterns:
 **Role:** Agent orchestration, external integrations, persistent state
 
 Core subsystems:
-- **Agent registry** — plugin-based (Claude, Codex, DeepAgents)
+- **Agent registry** — plugin-based (Claude, Codex)
 - **MCP manager** — built-in + user-configured servers
 - **Memory system** — SQLite + sqlite-vec ANN + FTS5
 - **Linear pipeline** — autonomous ticket-to-PR orchestration

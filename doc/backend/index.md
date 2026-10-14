@@ -60,8 +60,7 @@ src-api/
 │   ├── extensions/               # Concrete implementations
 │   │   ├── agent/
 │   │   │   ├── claude/index.ts   # Claude Agent SDK integration
-│   │   │   ├── codex/index.ts    # Codex agent integration
-│   │   │   └── deepagents/index.ts # DeepAgents.js integration
+│   │   │   └── codex/index.ts    # Codex agent integration
 │   │   ├── sandbox/
 │   │   │   ├── native.ts         # Native process execution (no isolation)
 │   │   │   ├── claude.ts         # Claude sandbox runtime (srt CLI)
