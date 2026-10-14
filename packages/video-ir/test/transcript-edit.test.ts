@@ -719,6 +719,38 @@ describe('transcript synchronization regressions', () => {
     },
   );
 
+  it('restores when a sourced cue track sits beside an unrelated empty track', () => {
+    const original = timeline([clip({ id: 'v' })]);
+    original.tracks.push(generatedCue('main', 1));
+    const input = {
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 5,
+    };
+    const cut = applyTimelineOps(
+      original,
+      compileTranscriptCut({ ...input, idFactory: ids() }),
+    ).timeline;
+    // The user added a second, empty caption track. It holds nothing from this
+    // source, so it must not block a restore the sourced track can complete.
+    cut.tracks.push({
+      id: 'track-caption-extra',
+      kind: 'caption',
+      name: 'Captions 2',
+      muted: false,
+      locked: false,
+      order: 31,
+      clips: [],
+    });
+    const restore = compileTranscriptRestore({ ...input, timeline: cut });
+    expect(restore.ok).toBe(true);
+    if (!restore.ok) throw new Error(restore.reason);
+    const restored = applyTimelineOps(cut, restore.ops).timeline;
+    expect(restored.durationMs).toBe(original.durationMs);
+  });
+
   it('fails safely instead of leaving generated captions behind', () => {
     const original = timeline([clip({ id: 'v' })]);
     original.tracks.push(generatedCue('main', 1));
