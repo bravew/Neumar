@@ -14,6 +14,10 @@ This is the architecture documentation for a cross-platform desktop AI agent app
 The documentation has been split into focused, topic-based pages for easier reading and
 maintenance. Each page covers a specific domain and can be read independently.
 
+## Maintenance and regression reviews
+
+- [2026-10-13 regression review and development plan](maintenance/2026-10-13-regression/README.md): verified findings, cleanup checkpoints, PR lessons, and contributor quality policy.
+
 ## Documentation Map
 
 ### System Overview
