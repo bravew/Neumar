@@ -40,13 +40,15 @@ Migrations run at app startup via the Tauri SQL plugin:
 | # | Migration | Description |
 |---|-----------|-------------|
 | 1 | `initial_schema` | `sessions`, `tasks` (including `work_dir`), `messages` (with `message_id` unique index), `files`, `media_versions`, `settings`, plus all indexes |
-| 2 | `add_message_cost_usage_model` | Adds `cost` (REAL), `usage_input` (INTEGER), `usage_output` (INTEGER), `model` (TEXT) columns to `messages` |
-| 3 | `add_message_cache_usage` | Adds `usage_cache_read` (INTEGER), `usage_cache_creation` (INTEGER) columns to `messages` |
+| 2–5 | `add_message_cost`, `add_message_usage_input`, `add_message_usage_output`, `add_message_model` | Adds `cost` (REAL), `usage_input` (INTEGER), `usage_output` (INTEGER), `model` (TEXT) columns to `messages` |
+| 6–7 | `add_message_usage_cache_read`, `add_message_usage_cache_creation` | Adds the cache token columns to `messages` |
+| 8–10 | `add agui_type to messages`, `add run_id to messages`, `add step_name to messages` | Adds the AG-UI columns to `messages` |
 
 All tables use `IF NOT EXISTS` for idempotent execution. The backend database module
-(`src-api/src/shared/db/index.ts`) uses a consolidated two-migration system (001 init + 002 catchup)
-that produces the same schema. The Tauri SQLite plugin and backend `better-sqlite3`
-instance produce identical schemas.
+(`src-api/src/shared/db/index.ts`) owns the same schema through its own versioned migrations
+(`src-api/src/shared/db/migrations/`) on `better-sqlite3`. The Tauri SQLite plugin holds the
+desktop-local `settings` copy that `src/shared/db/settings.ts` reads directly; the rest of
+the application data is served by the API through the `/db` routes.
 
 ## Sidecar Management
 
