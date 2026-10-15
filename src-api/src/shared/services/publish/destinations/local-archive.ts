@@ -47,9 +47,10 @@ export class LocalArchiveAdapter implements PublishDestinationAdapter {
     this.rootDir = options.rootDir ?? path.join(getAppDir(), 'archive');
     this.now = options.now ?? (() => new Date());
     this.indexFile = options.indexFile;
-    // Only the default root has a legacy predecessor. An injected root is a
-    // test or caller's own directory and must not be touched.
-    this.migrateLegacyRoot = options.rootDir === undefined;
+    // Only the default app directory can adopt the old home archive. An
+    // app-data override or caller-injected root must stay isolated from it.
+    this.migrateLegacyRoot =
+      options.rootDir === undefined && !process.env.NEUMAR_APP_DATA_DIR?.trim();
   }
 
   capabilities(): DestinationCapabilities {
@@ -154,7 +155,7 @@ export class LocalArchiveAdapter implements PublishDestinationAdapter {
    */
   private async adoptLegacyArchive(): Promise<void> {
     const legacyRoot = path.join(
-      getAppDir(),
+      path.dirname(path.dirname(this.rootDir)),
       LEGACY_ARCHIVE_DIR_NAME,
       'archive',
     );
