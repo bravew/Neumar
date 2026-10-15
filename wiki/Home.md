@@ -10,7 +10,7 @@ Neuma combines a React 19 frontend, a Hono 4 backend, and a Tauri 2 desktop shel
 
 | Capability | Details |
 |---|---|
-| **AI Agents** | Claude Code, Codex, DeepAgents — plug-in registry |
+| **AI Agents** | Claude Code, Codex — plug-in registry |
 | **Two-Phase Execution** | Plan → approval → execute; user stays in control |
 | **Real-Time Streaming** | SSE-based live progress with per-message cost tracking |
 | **Artifact Preview** | Interactive HTML/React renderer, PDF viewer, syntax-highlighted code |

@@ -124,7 +124,7 @@ Update provider configuration.
 **Request:**
 ```json
 {
-  "activeProvider": "claude | codex | deepagents",
+  "activeProvider": "claude | codex",
   "claudeCodePath": "/path/to/claude"
 }
 ```

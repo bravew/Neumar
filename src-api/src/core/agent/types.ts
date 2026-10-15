@@ -2,7 +2,7 @@
  * Agent SDK Abstraction Layer - Type Definitions
  *
  * This module defines the common interfaces for different agent implementations.
- * Supports: Claude Agent SDK, DeepAgents.js, and custom implementations.
+ * Supports: Claude Agent SDK and custom implementations.
  */
 
 // ============================================================================
@@ -339,7 +339,6 @@ export interface PlanStep {
 export type AgentProvider =
   | 'claude'
   | 'codex'
-  | 'deepagents'
   | 'open-agent-sdk'
   | 'openai-compat'
   | 'gemini'
@@ -787,7 +786,7 @@ export interface ExecuteOptions extends AgentOptions {
 
 /**
  * Base interface for all agent implementations.
- * Each provider (Claude, DeepAgents, etc.) must implement this interface.
+ * Each provider (Claude, Codex, etc.) must implement this interface.
  */
 export interface IAgent {
   /** Provider name */

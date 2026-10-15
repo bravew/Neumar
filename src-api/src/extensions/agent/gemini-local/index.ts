@@ -3,7 +3,7 @@
  *
  * Integrates the Gemini CLI (local binary) as an agent provider.
  * Uses JSONL streaming output, supports session resume via --resume flag.
- * MCP tools available through the MCP shim layer.
+ * No MCP servers are passed to the CLI, so it runs without MCP tools.
  */
 
 import { spawn } from 'child_process';
@@ -89,7 +89,9 @@ const GEMINI_LOCAL_METADATA: AgentProviderMetadata = {
   defaultModel: 'auto',
   tags: ['google', 'gemini', 'cli', 'local'],
   transport: 'cli',
-  supportsMcp: 'shim',
+  // `executeGemini()` passes only the prompt, model and --resume to the CLI.
+  // No MCP server config is written, so this adapter gets no MCP tools.
+  supportsMcp: 'none',
   supportsSkills: 'none',
   supportsPlanMode: 'orchestrated',
   requiresBinary: true,

@@ -19,7 +19,7 @@ const context: BinderRunContext = {
 };
 
 describe('connector binder materialization', () => {
-  it('materializes Anthropic, OpenAI, and DeepAgents tool shapes', () => {
+  it('materializes Anthropic and OpenAI tool shapes', () => {
     const policy = allowAllPolicy();
     const [anthropic] = materializeTools({
       catalog: [connectedGithub()],
@@ -33,13 +33,6 @@ describe('connector binder materialization', () => {
       shape: 'openai',
       policy,
     });
-    const deepagents = materializeTools({
-      catalog: [connectedGithub()],
-      context,
-      shape: 'deepagents',
-      policy,
-    });
-
     expect(anthropic).toMatchObject({
       name: 'github.github_search_repositories',
       input_schema: { type: 'object' },
@@ -52,13 +45,6 @@ describe('connector binder materialization', () => {
           description: expect.stringContaining('[needs confirmation]'),
           parameters: expect.objectContaining({ type: 'object' }),
         }),
-      }),
-    );
-    expect(deepagents).toContainEqual(
-      expect.objectContaining({
-        name: 'github.github_search_repositories',
-        schema: expect.objectContaining({ type: 'object' }),
-        metadata: expect.objectContaining({ connectorTool: true }),
       }),
     );
   });

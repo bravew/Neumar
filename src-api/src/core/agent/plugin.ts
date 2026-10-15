@@ -249,29 +249,6 @@ export const OPENAI_COMPAT_CONFIG_SCHEMA = {
   },
 };
 
-/**
- * JSON Schema for DeepAgents configuration
- */
-export const DEEPAGENTS_CONFIG_SCHEMA = {
-  type: 'object',
-  properties: {
-    apiKey: {
-      type: 'string',
-      description: 'API key for the underlying LLM provider',
-    },
-    model: {
-      type: 'string',
-      default: DEFAULT_AGENT_MODEL,
-      description: 'Model to use',
-    },
-    workDir: {
-      type: 'string',
-      default: DEFAULT_WORK_DIR,
-      description: 'Working directory for file operations',
-    },
-  },
-};
-
 // ============================================================================
 // Built-in Plugin Metadata
 // ============================================================================
@@ -355,29 +332,11 @@ export const OPENAI_COMPAT_METADATA: AgentProviderMetadata = {
   defaultModel: 'seed-1-8-251228',
   tags: ['openai', 'byteplus', 'modelark'],
   transport: 'http',
-  supportsMcp: 'shim',
-  supportsSkills: 'none',
-  supportsPlanMode: 'orchestrated',
-  requiresApiKey: true,
-};
-
-/**
- * Metadata for built-in DeepAgents adapter
- */
-export const DEEPAGENTS_METADATA: AgentProviderMetadata = {
-  type: 'deepagents',
-  name: 'DeepAgents',
-  version: '1.0.0',
-  description:
-    'DeepAgents.js framework integration using LangGraph. Supports multiple LLM providers.',
-  configSchema: DEEPAGENTS_CONFIG_SCHEMA,
-  builtin: true,
-  supportsPlan: true,
-  supportsStreaming: true,
-  supportsSandbox: false,
-  tags: ['langgraph', 'deepagents', 'multi-provider'],
-  transport: 'sdk',
+  // No MCP server reaches this adapter. `McpShim` is never instantiated
+  // outside its own test, and the agentic loop only offers the built-in
+  // file/shell/media/search tools from `openai-compat/tools.ts`.
   supportsMcp: 'none',
   supportsSkills: 'none',
   supportsPlanMode: 'orchestrated',
+  requiresApiKey: true,
 };

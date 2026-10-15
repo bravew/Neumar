@@ -23,7 +23,7 @@ and per-tier access policy -- behind a single contract surfaced in
 | Catalog contract              | `src-api/src/shared/connectors/catalog.ts`, `seed.ts`                                                                                                                          |
 | Bounded JSON I/O              | `src-api/src/shared/connectors/bounded-json.ts`                                                                                                                                |
 | Composio provider             | `src-api/src/shared/connectors/providers/composio/{provider,client,config,credentials,credentials-cache,access-token,catalog-cache,toolkits,curated-tools,curation,errors,oauth-state}.ts` |
-| Binder (per-runtime tool emit)| `src-api/src/shared/connectors/binder/{anthropic,openai,deepagents,design-mode,approval,index}.ts`                                                                              |
+| Binder (per-runtime tool emit)| `src-api/src/shared/connectors/binder/{anthropic,openai,design-mode,approval,index}.ts`                                                                              |
 | Feature flag                  | `src-api/src/shared/connectors/feature-flag.ts`                                                                                                                                |
 | MCP bridge subprocess         | `src-api/src/shared/mcp/subprocess-bridge/connectors-bridge.ts`, `index.ts`                                                                                                    |
 | Per-provider MCP servers      | `src-api/src/shared/mcp/{connectors-server,box-server,dropbox-server,onedrive-server}.ts`                                                                                       |
@@ -57,7 +57,7 @@ Connection flow returns `ComposioConnectionStart { kind: 'redirect_required', re
 
 ## Binder
 
-Runtime-specific binders (`binder/anthropic.ts`, `binder/openai.ts`, `binder/deepagents.ts`, `binder/design-mode.ts`) turn enabled connector tools into the tool schema the underlying agent expects. `binder/approval.ts` injects the per-tool approval gate.
+Runtime-specific binders (`binder/anthropic.ts`, `binder/openai.ts`, `binder/design-mode.ts`) turn enabled connector tools into the tool schema the underlying agent expects. `binder/approval.ts` injects the per-tool approval gate.
 
 ## MCP Bridge
 
