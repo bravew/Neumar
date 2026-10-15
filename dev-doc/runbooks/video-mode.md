@@ -159,8 +159,8 @@ visual tracks. Hide the source track and show the translated one to switch the
 burned-in language. A newly translated track starts **hidden**, so an existing
 render is unchanged until someone opts in.
 
-The call leaves the machine, so it passes the same two gates as cloud
-transcription and then debits the project budget:
+The call leaves the machine, so it passes one gate: explicit egress consent.
+There is no separate spend approval and no project-budget debit.
 
 1. **Egress consent** — `settings.captionTranslationEgressConsents[providerKey]`,
    written server-side on the first confirmed run so the user is asked once per
@@ -169,14 +169,11 @@ transcription and then debits the project budget:
    A fresh confirmation includes `consentDestination`; a changed destination
    requires a new confirmation. Missing consent returns 422
    `cloud-egress-consent-required`.
-2. **Cost approval** — `estimateTranslationCostCents({ charCount })` against
-   `enforceVideoCostApproval`, scoped
-   `translate:${projectId}:${sourceTrackId}:${targetLanguage}:${destination}`. Returns 402
-   `cost-approval-required` when the estimate clears
-   `settings.autoApproveUnderCents`.
-3. **Budget debit** — `enforceProjectBudget` and the spend write run inside the
-   *same* locked `updateProjectDocument` closure that writes the track, so two
-   concurrent translations cannot both pass a cap only one of them fits under.
+
+Translation runs on the model the user already selected for Video Mode, so the
+spend it incurs is the ordinary agent spend for that model. It is not estimated
+up front, not gated behind a cost approval, and not debited against the project
+budget. The SDK's `total_cost_usd` for the call is currently discarded.
 
 Concurrent requests for the same project + track + language share one in-flight
 task, so a double click is not billed twice.
@@ -190,11 +187,11 @@ than one. Those per-language paths are reported in
 **Agent tool.** `translate` / `video_translate` calls the same translation
 service with `lang` and optional `sourceTrackId` (the primary caption track is
 used when omitted). It creates a hidden translated track and returns its id,
-cue count, skipped cue ids and estimated cost. Agents supply no fresh egress
-confirmation or cost approval: the service requires saved consent for the exact
-configured destination and applies saved cost approval, the auto-approve floor
-and the project budget gate. If approval is missing, use the UI to obtain it
-before retrying. External MCP clients in proposal mode cannot execute translation.
+cue count and skipped cue ids. Agents supply no fresh egress confirmation: the
+service requires saved consent for the exact configured destination. There is
+no cost approval to obtain and no budget gate to clear, so an agent never needs
+to send the user to the UI before retrying. External MCP clients in proposal
+mode cannot execute translation.
 
 Known limits of translation:
 

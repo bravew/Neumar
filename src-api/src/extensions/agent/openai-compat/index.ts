@@ -496,6 +496,7 @@ export class OpenAICompatAgent extends BaseAgent {
             this.config.apiKey || '',
             this.config.baseUrl || '',
             model,
+            session.abortController.signal,
           );
         } else {
           yield* generateVideoDirect(

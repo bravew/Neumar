@@ -61,6 +61,7 @@ import { getApprovalManager } from '@/core/approval-manager';
 import * as queueManager from '@/core/queue-manager';
 
 import { APP_DISPLAY_NAME } from '@/config/branding';
+import { daemonListenerConfig } from '@/config/daemon-listener';
 import { loadConfig } from '@/config/loader.js';
 
 import {
@@ -473,10 +474,18 @@ export async function start() {
   // If the server isn't listening yet, the user sees "Unable to check
   // dependencies". Start accepting connections first, then initialize
   // heavy subsystems.
-  appLogger.info(`Server starting on http://localhost:${port}`);
+  // Local operation binds to the loopback interface. Remote mode is the only
+  // case that listens on every interface, and it refuses to start without
+  // configured WebUI credentials, so an exposed daemon is never an
+  // unauthenticated one.
+  const listener = daemonListenerConfig();
+  appLogger.info(
+    `Server starting on http://${listener.hostname}:${port}${listener.remote ? ' (remote access enabled)' : ''}`,
+  );
 
   server = serve({
     fetch: app.fetch,
+    hostname: listener.hostname,
     port,
   });
 

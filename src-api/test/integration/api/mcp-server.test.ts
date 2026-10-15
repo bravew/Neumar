@@ -19,10 +19,29 @@ import {
 } from '@/shared/services/external-mcp/auth';
 import { writeDaemonRecord } from '@/shared/services/external-mcp/daemon-record';
 
-function app() {
+/**
+ * Node `IncomingMessage` metadata that `@hono/node-server` exposes as
+ * `c.env.incoming` (`{ incoming, outgoing }`). The external MCP auth middleware
+ * fails closed when the peer address is absent, so route tests supply an
+ * explicit request context instead of relying on the missing-address default.
+ */
+type PeerEnv = { incoming?: { socket?: { remoteAddress?: string } } };
+
+const LOOPBACK_PEER: PeerEnv = {
+  incoming: { socket: { remoteAddress: '127.0.0.1' } },
+};
+
+const NON_LOOPBACK_PEER: PeerEnv = {
+  incoming: { socket: { remoteAddress: '203.0.113.9' } },
+};
+
+function app(env: PeerEnv = LOOPBACK_PEER) {
   const hono = new Hono();
   hono.route('/mcp/server', mcpServerRoutes);
-  return hono;
+  return {
+    request: (input: Request | string | URL, init?: RequestInit) =>
+      hono.request(input, init, env),
+  };
 }
 
 function authHeaders(token?: string): Record<string, string> {
@@ -96,6 +115,41 @@ describe('External MCP daemon facade', () => {
     const res = await app().request('/mcp/server/projects');
     expect(res.status).toBe(401);
     expect((await jsonOf(res)).code).toBe('UNAUTHORIZED');
+  });
+
+  it('rejects command routes when the peer address cannot be determined', async () => {
+    saveSetting('externalMcpEnabled', 'true');
+    const res = await app({}).request('/mcp/server/projects', {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(401);
+    expect((await jsonOf(res)).code).toBe('UNAUTHORIZED');
+  });
+
+  it('rejects command routes from a non-loopback peer', async () => {
+    saveSetting('externalMcpEnabled', 'true');
+    const res = await app(NON_LOOPBACK_PEER).request('/mcp/server/projects', {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(401);
+    expect((await jsonOf(res)).code).toBe('UNAUTHORIZED');
+  });
+
+  it('rejects command routes from a loopback peer with an invalid secret', async () => {
+    saveSetting('externalMcpEnabled', 'true');
+    const res = await app().request('/mcp/server/projects', {
+      headers: { Authorization: 'Bearer not-the-secret' },
+    });
+    expect(res.status).toBe(401);
+    expect((await jsonOf(res)).code).toBe('UNAUTHORIZED');
+  });
+
+  it('serves command routes to a loopback peer with a valid secret', async () => {
+    saveSetting('externalMcpEnabled', 'true');
+    const res = await app().request('/mcp/server/projects', {
+      headers: authHeaders(),
+    });
+    expect(res.status).toBe(200);
   });
 
   it('returns FEATURE_DISABLED when the feature flag is off', async () => {

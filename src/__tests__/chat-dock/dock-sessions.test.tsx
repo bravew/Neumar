@@ -8,6 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ChatDock } from '@/components/chat-dock/ChatDock';
 import type { Task } from '@/shared/db';
+import {
+  readPendingFirstPrompt,
+  resetPendingFirstPromptsForTests,
+} from '@/shared/lib/pending-initial-prompt';
 
 const db = vi.hoisted(() => ({
   tasks: [] as Partial<Task>[],
@@ -22,19 +26,10 @@ vi.mock('@/shared/db', () => ({
 }));
 
 // The real thread needs a CopilotKit runtime; the dock only decides which
-// task it mounts and with what first prompt.
+// task it mounts and records the pending first prompt for.
 vi.mock('@/components/chat-dock/DockThread', () => ({
-  DockThread: ({
-    taskId,
-    firstPrompt,
-  }: {
-    taskId: string;
-    firstPrompt?: string;
-  }) => (
-    <p data-testid="dock-thread">
-      {taskId}
-      {firstPrompt ? ` first:${firstPrompt}` : ''}
-    </p>
+  DockThread: ({ taskId }: { taskId: string }) => (
+    <p data-testid="dock-thread">{taskId}</p>
   ),
 }));
 
@@ -95,6 +90,7 @@ describe('ChatDock sessions', () => {
     ];
     db.createTask.mockClear();
     db.createSession.mockClear();
+    resetPendingFirstPromptsForTests();
   });
 
   it('opens on the most recent session', async () => {
@@ -140,8 +136,12 @@ describe('ChatDock sessions', () => {
       screen.getByTestId('chat-dock-input'),
       'draft a post{Enter}',
     );
-    expect(await screen.findByTestId('dock-thread')).toHaveTextContent(
-      'first:draft a post',
+    const thread = await screen.findByTestId('dock-thread');
+    expect(thread).not.toHaveTextContent('none');
+    // The dock records the handoff instead of holding it in component state,
+    // so closing or switching chats before the thread connects cannot drop it.
+    expect(readPendingFirstPrompt(thread.textContent ?? '')).toBe(
+      'draft a post',
     );
     expect(db.createTask).toHaveBeenCalledWith(
       expect.objectContaining({ prompt: 'draft a post', task_index: 1 }),
