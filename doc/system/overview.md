@@ -12,13 +12,13 @@ title: "System Overview"
 This is a cross-platform desktop AI agent application that executes natural language
 tasks through a two-phase workflow: **planning** (the agent proposes steps) → **execution**
 (the user approves, the agent runs with tool access). It integrates multiple AI agent backends
-(Claude, Codex, DeepAgents, A2A, Gemini Local, OpenCode, Cursor, HTTP Agent, and
+(Claude, Codex, A2A, Gemini Local, OpenCode, Cursor, HTTP Agent, and
 additional detected local runtimes) and supports extensibility through
 the Model Context Protocol (MCP), an MCP shim for non-Claude providers, a custom skills system,
 agent profiles for multi-agent delegation, user templates for quick-start presets,
 a provider-agnostic media generation service for image and video creation,
 cloud storage and personal media browsing for connected libraries and stock catalogs,
-session budget guards for cost and safety control,
+scoped budget policies for cost control,
 an end-to-end speech system for voice input (STT) and text-to-speech output (TTS),
 and an **AG-UI protocol layer** with CopilotKit V2 runtime for standards-based agent streaming.
 

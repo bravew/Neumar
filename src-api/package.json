@@ -85,7 +85,6 @@
     "@slack/types": "^3.1.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.3",
-    "@types/pdf-parse": "1.1.5",
     "@types/picomatch": "^4.0.3",
     "@types/ws": "^8.18.1",
     "@yao-pkg/pkg": "^6.22.0",

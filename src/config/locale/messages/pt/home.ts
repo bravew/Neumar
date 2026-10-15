@@ -1,9 +1,7 @@
 export default {
   // Welcome screen — first impression of the product
-  inputPlaceholder: 'Descreva o que você precisa...',
   reply: 'Responder...',
   replyWhileRunning: 'Adicionar contexto...',
-  welcomeTitle: 'No que posso ajudar você a criar?',
   welcomeSubtitle:
     'Seu agente de IA para programação, escrita, análise e trabalho criativo — basta descrever o que você precisa.',
   greeting: {
@@ -40,15 +38,6 @@ export default {
 
   // Quick action buttons on the home screen
   quickActions: {
-    createSlides: 'Criar slides',
-    createSlidesPrompt: 'Crie uma apresentação profissional para mim',
-    buildWebsite: 'Criar um site',
-    buildWebsitePrompt: 'Construa um site moderno para mim',
-    developApps: 'Criar um app',
-    developAppsPrompt: 'Desenvolva um novo aplicativo para mim',
-    design: 'Design de UI',
-    designPrompt: 'Crie uma interface de usuário para mim',
-    more: 'Mais',
     moreIdeas: 'Mais ideias',
     back: 'Voltar',
   },

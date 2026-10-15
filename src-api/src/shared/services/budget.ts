@@ -1,8 +1,7 @@
 /**
  * Budget Service
  *
- * Comprehensive budget policy enforcement on top of the lightweight
- * session budget guard (session-budget.ts). Policies are per-scope
+ * Comprehensive budget policy enforcement. Policies are per-scope
  * (global, provider, model, agent_profile, project, automation) and
  * per-period (monthly, weekly, daily).
  *

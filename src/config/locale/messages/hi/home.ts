@@ -1,9 +1,7 @@
 export default {
   // Welcome screen — first impression of the product
-  inputPlaceholder: 'बताएँ आपको क्या चाहिए...',
   reply: 'उत्तर दें...',
   replyWhileRunning: 'संदर्भ जोड़ें...',
-  welcomeTitle: 'मैं आपके लिए क्या बना सकता हूँ?',
   welcomeSubtitle:
     'कोडिंग, लेखन, विश्लेषण और रचनात्मक कार्य के लिए आपका AI एजेंट — बस बताएँ आपको क्या चाहिए।',
   greeting: {
@@ -40,15 +38,6 @@ export default {
 
   // Quick action buttons on the home screen
   quickActions: {
-    createSlides: 'स्लाइड बनाएँ',
-    createSlidesPrompt: 'मेरे लिए एक पेशेवर प्रस्तुति बनाएँ',
-    buildWebsite: 'वेबसाइट बनाएँ',
-    buildWebsitePrompt: 'मेरे लिए एक आधुनिक वेबसाइट बनाएँ',
-    developApps: 'ऐप बनाएँ',
-    developAppsPrompt: 'मेरे लिए एक नया ऐप्लिकेशन विकसित करें',
-    design: 'UI डिज़ाइन करें',
-    designPrompt: 'मेरे लिए एक यूज़र इंटरफ़ेस डिज़ाइन करें',
-    more: 'और',
     moreIdeas: 'और विचार',
     back: 'वापस',
   },

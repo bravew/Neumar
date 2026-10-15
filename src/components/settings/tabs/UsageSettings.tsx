@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AlertTriangle, BarChart3, Info, Table, Trash2 } from 'lucide-react';
 
-import { API_BASE_URL } from '@/config';
 import type { UsageSummary } from '@/shared/db/usage-api';
 import { clearUsageLogs, fetchUsageSummary } from '@/shared/db/usage-api';
 import { cn } from '@/shared/lib/utils';
@@ -23,18 +22,11 @@ import { UsageRequestLog } from '../components/usage/UsageRequestLog';
 import { UsageSummaryCards } from '../components/usage/UsageSummaryCards';
 import { UsageToolStats } from '../components/usage/UsageToolStats';
 
-type SubTab = 'logs' | 'providers' | 'models' | 'tools' | 'safety' | 'budget';
+type SubTab = 'logs' | 'providers' | 'models' | 'tools' | 'budget';
 type ViewMode = 'chart' | 'table';
 type SourceFilter = 'all' | 'desktop' | 'channel';
 
-const SUB_TABS: SubTab[] = [
-  'logs',
-  'providers',
-  'models',
-  'tools',
-  'safety',
-  'budget',
-];
+const SUB_TABS: SubTab[] = ['logs', 'providers', 'models', 'tools', 'budget'];
 
 export function UsageSettings() {
   const { t } = useLanguage();
@@ -53,7 +45,6 @@ export function UsageSettings() {
     providers: t.settings.usageProviderStats,
     models: t.settings.usageModelStats,
     tools: t.settings.usageToolStats,
-    safety: t.settings.sessionSafety,
     budget: t.settings.budgetPolicies,
   };
 
@@ -269,7 +260,6 @@ export function UsageSettings() {
               source={sourceFilter === 'all' ? undefined : sourceFilter}
             />
           )}
-          {subTab === 'safety' && <SessionSafetySettings />}
           {subTab === 'budget' && <BudgetPolicies />}
         </>
       )}
@@ -280,118 +270,6 @@ export function UsageSettings() {
         <p className="text-muted-foreground text-[11px] leading-relaxed">
           {t.settings.usageEstimateDisclaimer}
         </p>
-      </div>
-    </div>
-  );
-}
-
-function SessionSafetySettings() {
-  const { t } = useLanguage();
-  const [costLimit, setCostLimit] = useState('10');
-  const [rateLimit, setRateLimit] = useState('20');
-  const [enabled, setEnabled] = useState(true);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    (async () => {
-      try {
-        const [c, r, e] = await Promise.all([
-          fetch(`${API_BASE_URL}/db/settings/maxSessionCostUsd`, {
-            signal: ac.signal,
-          }).then((res) => res.json()),
-          fetch(`${API_BASE_URL}/db/settings/maxToolCallsPerMinute`, {
-            signal: ac.signal,
-          }).then((res) => res.json()),
-          fetch(`${API_BASE_URL}/db/settings/sessionBudgetEnabled`, {
-            signal: ac.signal,
-          }).then((res) => res.json()),
-        ]);
-        if (c.value) setCostLimit(c.value);
-        if (r.value) setRateLimit(r.value);
-        if (e.value === 'false') setEnabled(false);
-      } catch {
-        // Use defaults
-      }
-    })();
-    return () => ac.abort();
-  }, []);
-
-  const saveSetting = async (key: string, value: string) => {
-    try {
-      await fetch(`${API_BASE_URL}/db/settings/${key}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value }),
-      });
-    } catch {
-      // ignore
-    }
-  };
-
-  return (
-    <div className="space-y-6 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-foreground text-sm font-medium">
-            {t.settings.sessionBudgetGuard}
-          </h3>
-          <p className="text-muted-foreground text-xs">
-            {t.settings.sessionBudgetDescription}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            const next = !enabled;
-            setEnabled(next);
-            saveSetting('sessionBudgetEnabled', String(next));
-          }}
-          className={cn(
-            'relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors',
-            enabled ? 'bg-foreground' : 'bg-muted',
-          )}
-        >
-          <span
-            className={cn(
-              'bg-background inline-block size-4 rounded-full transition-transform',
-              enabled ? 'translate-x-4' : 'translate-x-0.5',
-            )}
-          />
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        <div>
-          <label className="text-foreground mb-1 block text-xs font-medium">
-            {t.settings.sessionCostLimit}
-          </label>
-          <input
-            type="number"
-            min="0.01"
-            step="1"
-            value={costLimit}
-            onChange={(e) => setCostLimit(e.target.value)}
-            onBlur={() => saveSetting('maxSessionCostUsd', costLimit)}
-            disabled={!enabled}
-            className="border-border bg-background text-foreground h-8 w-32 rounded-md border px-2 text-sm disabled:opacity-50"
-          />
-        </div>
-
-        <div>
-          <label className="text-foreground mb-1 block text-xs font-medium">
-            {t.settings.toolCallRateLimit}
-          </label>
-          <input
-            type="number"
-            min="1"
-            step="1"
-            value={rateLimit}
-            onChange={(e) => setRateLimit(e.target.value)}
-            onBlur={() => saveSetting('maxToolCallsPerMinute', rateLimit)}
-            disabled={!enabled}
-            className="border-border bg-background text-foreground h-8 w-32 rounded-md border px-2 text-sm disabled:opacity-50"
-          />
-        </div>
       </div>
     </div>
   );
