@@ -7,6 +7,11 @@ import {
   DockThread,
   resetDockFirstSendForTests,
 } from '@/components/chat-dock/DockThread';
+import {
+  markPendingFirstPrompt,
+  readPendingFirstPrompt,
+  resetPendingFirstPromptsForTests,
+} from '@/shared/lib/pending-initial-prompt';
 
 const runtime = vi.hoisted(() => ({
   status: 'connecting',
@@ -46,24 +51,34 @@ vi.mock('@/shared/hooks/useTaskModelSelector', () => ({
 describe('DockThread', () => {
   beforeEach(() => {
     resetDockFirstSendForTests();
+    resetPendingFirstPromptsForTests();
     runtime.status = 'connecting';
     runtime.submit.mockClear();
   });
 
   it('sends the first prompt once, after the runtime connects', () => {
-    const { rerender, unmount } = render(
-      <DockThread taskId="t1" firstPrompt="hello" />,
-    );
+    markPendingFirstPrompt('t1', 'hello');
+    const { rerender, unmount } = render(<DockThread taskId="t1" />);
     expect(runtime.submit).not.toHaveBeenCalled();
 
     runtime.status = 'connected';
-    rerender(<DockThread taskId="t1" firstPrompt="hello" />);
+    rerender(<DockThread taskId="t1" />);
     expect(runtime.submit).toHaveBeenCalledExactlyOnceWith('hello');
 
     // A remount (StrictMode, keyed provider) must not send it again.
     unmount();
-    render(<DockThread taskId="t1" firstPrompt="hello" />);
+    render(<DockThread taskId="t1" />);
     expect(runtime.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it('delivers a prompt the dock never handed off, on a later mount', () => {
+    // The dock created the task and unmounted before the lazy thread
+    // connected. The registry, not component state, keeps the handoff.
+    markPendingFirstPrompt('t3', 'survive the close');
+    runtime.status = 'connected';
+    render(<DockThread taskId="t3" />);
+    expect(runtime.submit).toHaveBeenCalledExactlyOnceWith('survive the close');
+    expect(readPendingFirstPrompt('t3')).toBeNull();
   });
 
   it('does not send for an existing session', () => {

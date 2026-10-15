@@ -14,11 +14,18 @@ const words = ['one', 'two.', 'three', 'four'].map((text, i) => ({
   endMs: i * 100 + 100,
 }));
 
-function project(trims: Array<[number, number, number]>): VideoProject {
+function project(
+  trims: Array<[number, number, number]>,
+  transcriptWords = words,
+): VideoProject {
   return {
     sources: [{ id: 's', mediaItemId: 'a' }],
     sourceAnalyses: [
-      { id: 'an', sourceId: 's', transcript: { engine: 't', words } },
+      {
+        id: 'an',
+        sourceId: 's',
+        transcript: { engine: 't', words: transcriptWords },
+      },
     ],
     timeline: {
       schema: 'neuma.video.timeline.v1',
@@ -108,6 +115,51 @@ describe('SourceTranscriptPanel', () => {
       sourceId: 's',
       startIndex: 1,
       endIndex: 2,
+    });
+  });
+
+  it('clears the selection when the selected source transcript is replaced', () => {
+    const original = project([[0, 0, 400]]);
+    const view = render(
+      <LanguageProvider>
+        <SourceTranscriptPanel project={original} />
+      </LanguageProvider>,
+    );
+    fireEvent.mouseDown(screen.getByText('two.'));
+    fireEvent.mouseDown(screen.getByText('three'), { shiftKey: true });
+    expect(useTranscriptSelectionStore.getState().selection).not.toBeNull();
+
+    // Replacement keys on word timings, so retime as a re-transcription would.
+    const replacement = words.map((word) => ({
+      text: `${word.text}-new`,
+      startMs: word.startMs + 10,
+      endMs: word.endMs + 10,
+    }));
+    view.rerender(
+      <LanguageProvider>
+        <SourceTranscriptPanel project={project([[0, 0, 400]], replacement)} />
+      </LanguageProvider>,
+    );
+    expect(screen.getByText('two.-new')).toBeTruthy();
+    expect(useTranscriptSelectionStore.getState().selection).toBeNull();
+  });
+
+  it('keeps the selection when the transcript is unchanged', () => {
+    const view = render(
+      <LanguageProvider>
+        <SourceTranscriptPanel project={project([[0, 0, 400]])} />
+      </LanguageProvider>,
+    );
+    fireEvent.mouseDown(screen.getByText('two.'));
+    view.rerender(
+      <LanguageProvider>
+        <SourceTranscriptPanel project={project([[0, 0, 200]])} />
+      </LanguageProvider>,
+    );
+    expect(useTranscriptSelectionStore.getState().selection).toEqual({
+      sourceId: 's',
+      startIndex: 1,
+      endIndex: 1,
     });
   });
 

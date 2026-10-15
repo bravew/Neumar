@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyTimelineOps,
+  TimelineOpSchema,
+  TimelineSchema,
+  CaptionTimelineClipSchema,
   compileTranscriptCut,
   compileTranscriptRestore,
   deriveTranscriptWordStates,
@@ -485,6 +488,53 @@ function restoreMiddle(cut: Timeline) {
 }
 
 describe('transcript synchronization regressions', () => {
+  it('round-trips generated caption snapshots through operation validation and inverses', () => {
+    const original = linkedSpeech();
+    const ops = compileTranscriptCut({
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 5,
+      idFactory: ids(),
+    });
+    const parsed = ops.map((op) =>
+      TimelineOpSchema.parse(JSON.parse(JSON.stringify(op))),
+    );
+    expect(parsed).toEqual(ops);
+    const applied = applyTimelineOps(original, parsed);
+    expect(TimelineSchema.parse(applied.timeline)).toEqual(applied.timeline);
+    const inverses = applied.inverses.map((op) => TimelineOpSchema.parse(op));
+    expect(applyTimelineOps(applied.timeline, inverses).timeline).toEqual(
+      original,
+    );
+    expect(applyTimelineOps(original, parsed).timeline).toEqual(
+      applied.timeline,
+    );
+  });
+
+  it('rejects unknown caption fields, including nested word and anchor fields', () => {
+    const track = generatedCue('over', 1);
+    if (track.kind !== 'caption') throw new Error('Missing caption track');
+    const cue = track.clips[0]!;
+    expect(CaptionTimelineClipSchema.parse(cue)).toEqual(cue);
+    for (const invalid of [
+      { ...cue, unknown: true },
+      { ...cue, words: [{ ...cue.words![0]!, unknown: true }] },
+      { ...cue, sourceAnchor: { ...cue.sourceAnchor!, unknown: true } },
+    ]) {
+      expect(CaptionTimelineClipSchema.safeParse(invalid).success).toBe(false);
+      expect(
+        TimelineOpSchema.safeParse({
+          kind: 'clip.insert',
+          trackId: track.id,
+          clip: invalid,
+          at: cue.startMs,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   it.each([1, 2])(
     'cuts caption tokens and restores linked speech once at %sx',
     (speed) => {
@@ -668,6 +718,38 @@ describe('transcript synchronization regressions', () => {
       );
     },
   );
+
+  it('restores when a sourced cue track sits beside an unrelated empty track', () => {
+    const original = timeline([clip({ id: 'v' })]);
+    original.tracks.push(generatedCue('main', 1));
+    const input = {
+      timeline: original,
+      match: MATCH,
+      words: TEXT_WORDS,
+      startIndex: 3,
+      endIndex: 5,
+    };
+    const cut = applyTimelineOps(
+      original,
+      compileTranscriptCut({ ...input, idFactory: ids() }),
+    ).timeline;
+    // The user added a second, empty caption track. It holds nothing from this
+    // source, so it must not block a restore the sourced track can complete.
+    cut.tracks.push({
+      id: 'track-caption-extra',
+      kind: 'caption',
+      name: 'Captions 2',
+      muted: false,
+      locked: false,
+      order: 31,
+      clips: [],
+    });
+    const restore = compileTranscriptRestore({ ...input, timeline: cut });
+    expect(restore.ok).toBe(true);
+    if (!restore.ok) throw new Error(restore.reason);
+    const restored = applyTimelineOps(cut, restore.ops).timeline;
+    expect(restored.durationMs).toBe(original.durationMs);
+  });
 
   it('fails safely instead of leaving generated captions behind', () => {
     const original = timeline([clip({ id: 'v' })]);

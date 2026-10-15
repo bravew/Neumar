@@ -1,6 +1,7 @@
 import { AsyncList } from '@/components/common/async-list';
 import type { AsyncListStatus } from '@/components/common/async-list';
 import { ScopingCard } from '@/components/ideas/ScopingCard';
+import { requestAutomationScope } from '@/shared/automation/scope-request';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { Automation } from '@/shared/types/automation';
 
@@ -33,12 +34,8 @@ export function OutcomeAutomationLists({
   ] as const;
 
   const openCategory = (category: string) => {
+    requestAutomationScope({ category, questions: [...questions] });
     window.dispatchEvent(new CustomEvent('shell:open-dock'));
-    window.dispatchEvent(
-      new CustomEvent('automation:scope', {
-        detail: { category, questions: [...questions] },
-      }),
-    );
   };
 
   return (

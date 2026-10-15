@@ -105,9 +105,8 @@ export function TaskDetailV2Page() {
 
   // Load history from DB — independent of CopilotKit agent lifecycle.
   // Uses the full-fidelity converter (message-tree), which rebuilds toolCalls
-  // and tool-result messages. The lightweight one in InitialMessageSender
-  // keeps only prose, which left replayed threads as a wall of narration with
-  // no tool calls to group.
+  // and tool-result messages so replayed threads group their tool calls
+  // instead of reading as a wall of narration.
   const [history, setHistory] = useState<{
     taskId: string;
     messages: AGUIMessage[];
