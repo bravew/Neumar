@@ -5,7 +5,7 @@
  * Uses Node.js fs module for reliable filesystem access.
  */
 
-import { exec, execFile } from 'child_process';
+import { execFile } from 'child_process';
 import { constants as fsConstants } from 'fs';
 import * as fs from 'fs/promises';
 import { createReadStream, statSync } from 'node:fs';
@@ -36,6 +36,10 @@ import { detectBinaries } from '@/shared/services/ffmpeg';
 import { loadSkillFromDir } from '@/shared/skills/loader';
 import { parseMarkdownFrontmatter } from '@/shared/utils/frontmatter';
 import { createLogger } from '@/shared/utils/logger';
+import {
+  isPathInsideAnyRoot,
+  resolveThroughExistingAncestor,
+} from '@/shared/utils/path-validator';
 import { expandPath } from '@/shared/utils/paths';
 import {
   safeFetch,
@@ -43,7 +47,6 @@ import {
 } from '@/shared/utils/url-validator';
 import { VIDEO_PROJECTS_DIRNAME } from '@/shared/video/store';
 
-const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 const logger = createLogger('FilesAPI');
 
@@ -60,25 +63,27 @@ interface FileEntry {
  * Trusted roots for file access in this desktop application.
  * Re-computed per request so that a changed workDir setting takes effect
  * without server restart.
+ *
+ * Roots keep the spelling the OS gives them; containment compares resolved
+ * paths and applies the case rule itself, so lowercasing here would only make
+ * `realpath` fail on a case-sensitive volume.
  */
 function getAllowedRoots(): string[] {
-  const norm = (p: string) =>
-    process.platform === 'win32' ? p.toLowerCase() : p;
   const roots = new Set<string>();
-  roots.add(norm(getHomeDir()));
-  roots.add(norm(getAppDir()));
+  roots.add(getHomeDir());
+  roots.add(getAppDir());
 
   // Use the configured workDir (resolves correctly in Tauri sidecar)
   const workDir = getSetting('workDir');
-  if (workDir) roots.add(norm(path.resolve(expandPath(workDir))));
+  if (workDir) roots.add(path.resolve(expandPath(workDir)));
 
   const tempDir =
     process.platform === 'win32'
       ? process.env.TEMP || process.env.TMP || 'C:\\Windows\\Temp'
       : '/tmp';
-  roots.add(norm(tempDir));
+  roots.add(tempDir);
 
-  if (process.platform === 'darwin') roots.add('/Volumes/');
+  if (process.platform === 'darwin') roots.add('/Volumes');
 
   return [...roots];
 }
@@ -87,13 +92,16 @@ function getAllowedRoots(): string[] {
  * Check that a resolved absolute path falls within a trusted root.
  *
  * Trusted roots: user home, app data dir, configured workDir, temp dir,
- * and /Volumes/ on macOS (external drives are valid for desktop use).
+ * and /Volumes on macOS (external drives are valid for desktop use).
+ *
+ * Containment is decided on the resolved path, so a symlink inside a root that
+ * points outside it is rejected, and a sibling that shares a string prefix with
+ * a root (`/tmp-other` against `/tmp`) is rejected too. A write target that
+ * does not exist yet resolves through its nearest existing parent, so a
+ * symlinked parent that escapes the root is caught before the write.
  */
 function isAllowedPath(resolvedPath: string): boolean {
-  const norm = (p: string) =>
-    process.platform === 'win32' ? p.toLowerCase() : p;
-  const normalized = norm(resolvedPath);
-  return getAllowedRoots().some((root) => normalized.startsWith(root));
+  return isPathInsideAnyRoot(getAllowedRoots(), resolvedPath);
 }
 
 /**
@@ -105,24 +113,27 @@ function isAllowedPath(resolvedPath: string): boolean {
  * workDir (which may itself live on an external volume or in temp).
  */
 function getDeletableSessionRoots(): string[] {
-  const norm = (p: string) =>
-    process.platform === 'win32' ? p.toLowerCase() : p;
   const roots = new Set<string>();
-  roots.add(norm(path.resolve(getAppDir())));
+  roots.add(path.resolve(getAppDir()));
   const workDir = getSetting('workDir');
-  if (workDir) roots.add(norm(path.resolve(expandPath(workDir))));
+  if (workDir) roots.add(path.resolve(expandPath(workDir)));
   return [...roots];
 }
 
 function isDeletableSessionDir(resolvedPath: string): boolean {
-  const norm = (p: string) =>
-    process.platform === 'win32' ? p.toLowerCase() : p;
-  const normalized = norm(resolvedPath);
-  if (path.basename(path.dirname(normalized)) !== 'sessions') {
+  if (path.basename(path.dirname(resolvedPath)) !== 'sessions') {
     return false;
   }
-  const workspaceRoot = path.dirname(path.dirname(normalized));
-  return getDeletableSessionRoots().some((root) => workspaceRoot === root);
+  // The workspace root must *be* a trusted root, not merely sit inside one:
+  // the rule is `sessions/<name>` directly under the app data dir or workDir.
+  // Both sides are resolved, so a symlinked workspace root is compared as the
+  // directory it really is.
+  const workspaceRoot = path.dirname(path.dirname(resolvedPath));
+  const resolvedWorkspace = resolveThroughExistingAncestor(workspaceRoot);
+  if (resolvedWorkspace === null) return false;
+  return getDeletableSessionRoots().some(
+    (root) => resolveThroughExistingAncestor(root) === resolvedWorkspace,
+  );
 }
 
 /**
@@ -957,57 +968,95 @@ files.post('/video-thumbnail', async (c) => {
   }
 });
 
+const CODE_EDITORS = [
+  { name: 'Cursor', command: 'cursor', windowsExecutable: 'Cursor.exe' },
+  { name: 'VS Code', command: 'code', windowsExecutable: 'Code.exe' },
+  {
+    name: 'VS Code Insiders',
+    command: 'code-insiders',
+    windowsExecutable: 'Code - Insiders.exe',
+  },
+  { name: 'Sublime Text', command: 'subl', windowsExecutable: 'subl.exe' },
+  { name: 'Atom', command: 'atom' },
+  { name: 'WebStorm', command: 'webstorm' },
+  { name: 'PyCharm', command: 'pycharm' },
+];
+
+function windowsSystemPath(...parts: string[]): string {
+  return path.win32.join(
+    process.env.SystemRoot || 'C:\\Windows',
+    'System32',
+    ...parts,
+  );
+}
+
+async function findEditor(editors = CODE_EDITORS) {
+  for (const editor of editors) {
+    try {
+      const { stdout } = await execFileAsync(
+        process.platform === 'win32' ? windowsSystemPath('where.exe') : 'which',
+        [editor.command],
+        { shell: false },
+      );
+      let executable = stdout.trim().split(/\r?\n/)[0];
+      if (!executable) continue;
+      // Windows editor CLIs are often cmd shims. Launch the native executable
+      // instead, so a filename never passes through cmd argument expansion.
+      if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(executable)) {
+        if (!editor.windowsExecutable) continue;
+        executable = path.win32.join(
+          path.win32.dirname(executable),
+          '..',
+          editor.windowsExecutable,
+        );
+        await fs.access(executable);
+      }
+      return { ...editor, executable };
+    } catch {
+      // Editor not installed, try the next one.
+    }
+  }
+  return null;
+}
+
+async function openWithDefaultApp(filePath: string, textEditor = false) {
+  if (process.platform === 'win32') {
+    // The command is fixed. The literal path travels in an environment variable
+    // and is consumed by LiteralPath, with no shell or wildcard expansion.
+    await execFileAsync(
+      windowsSystemPath('WindowsPowerShell', 'v1.0', 'powershell.exe'),
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '$ErrorActionPreference = "Stop"; Invoke-Item -LiteralPath $env:NEUMAR_OPEN_PATH',
+      ],
+      { shell: false, env: { ...process.env, NEUMAR_OPEN_PATH: filePath } },
+    );
+  } else {
+    await execFileAsync(
+      process.platform === 'darwin' ? 'open' : 'xdg-open',
+      process.platform === 'darwin'
+        ? [...(textEditor ? ['-t'] : []), '--', filePath]
+        : [filePath],
+      { shell: false },
+    );
+  }
+}
+
 /**
  * Detect available code editors
  * GET /files/detect-editor
  */
 files.get('/detect-editor', async (c) => {
-  const platform = process.platform;
-
-  // Common editors to check (in priority order)
-  const editors = [
-    {
-      name: 'Cursor',
-      command: 'cursor',
-      check: platform === 'darwin' ? 'cursor' : 'cursor.cmd',
-    },
-    {
-      name: 'VS Code',
-      command: 'code',
-      check: platform === 'darwin' ? 'code' : 'code.cmd',
-    },
-    {
-      name: 'VS Code Insiders',
-      command: 'code-insiders',
-      check: 'code-insiders',
-    },
-    {
-      name: 'Sublime Text',
-      command: platform === 'darwin' ? 'subl' : 'subl',
-      check: 'subl',
-    },
-    { name: 'Atom', command: 'atom', check: 'atom' },
-    { name: 'WebStorm', command: 'webstorm', check: 'webstorm' },
-    { name: 'PyCharm', command: 'pycharm', check: 'pycharm' },
-  ];
-
-  for (const editor of editors) {
-    try {
-      // Check if editor command exists
-      const checkCmd =
-        platform === 'win32'
-          ? `where ${editor.check}`
-          : `which ${editor.check}`;
-      await execAsync(checkCmd);
-      return c.json({
-        success: true,
-        editor: editor.name,
-        command: editor.command,
-      });
-    } catch {
-      // Editor not found, try next
-      continue;
-    }
+  const editor = await findEditor();
+  if (editor) {
+    return c.json({
+      success: true,
+      editor: editor.name,
+      command: editor.command,
+    });
   }
 
   // No editor found, will use system default
@@ -1045,57 +1094,18 @@ files.post('/open-in-editor', async (c) => {
       return c.json({ error: 'File does not exist' }, 404);
     }
 
-    const platform = process.platform;
-
-    // Try to find an editor
-    const editors = [
-      { name: 'Cursor', command: 'cursor' },
-      { name: 'VS Code', command: 'code' },
-      { name: 'VS Code Insiders', command: 'code-insiders' },
-      { name: 'Sublime Text', command: 'subl' },
-    ];
-
-    let editorCommand: string | null = null;
-    let editorName = 'Default Editor';
-
-    for (const editor of editors) {
-      try {
-        const checkCmd =
-          platform === 'win32'
-            ? `where ${editor.command}`
-            : `which ${editor.command}`;
-        await execAsync(checkCmd);
-        editorCommand = editor.command;
-        editorName = editor.name;
-        break;
-      } catch {
-        continue;
-      }
-    }
+    const editor = await findEditor(CODE_EDITORS.slice(0, 4));
+    const editorName = editor?.name ?? 'Default Editor';
 
     logger.debug(`Opening in editor (${editorName}): ${filePath}`);
 
     try {
-      if (editorCommand) {
-        if (platform === 'win32') {
-          await execAsync(`${editorCommand} "${resolvedPath}"`, {
-            shell: 'cmd.exe',
-          });
-        } else {
-          await execAsync(`${editorCommand} "${resolvedPath}"`);
-        }
+      if (editor) {
+        await execFileAsync(editor.executable, ['--', resolvedPath], {
+          shell: false,
+        });
       } else {
-        // Fallback to system default
-        if (platform === 'darwin') {
-          await execAsync(`open -t "${resolvedPath}"`);
-        } else if (platform === 'win32') {
-          const escapedPath = resolvedPath.replace(/"/g, '""');
-          await execAsync(`cmd /c start "" "${escapedPath}"`, {
-            shell: 'cmd.exe',
-          });
-        } else {
-          await execAsync(`xdg-open "${resolvedPath}"`);
-        }
+        await openWithDefaultApp(resolvedPath, true);
       }
       return c.json({ success: true, editor: editorName });
     } catch (execError) {
@@ -1177,32 +1187,10 @@ files.post('/open', async (c) => {
       }
     }
 
-    // Open file with system default application
-    const platform = process.platform;
-
     logger.debug(`Opening ${isDirectory ? 'directory' : 'file'}: ${filePath}`);
 
     try {
-      if (platform === 'darwin') {
-        // macOS
-        await execAsync(`open "${filePath}"`);
-      } else if (platform === 'win32') {
-        // Windows - use explorer.exe for directories, start for files
-        if (isDirectory) {
-          // Use explorer to open directories
-          await execAsync(`explorer "${filePath}"`, { shell: 'cmd.exe' });
-        } else {
-          // Use start command with cmd /c for files
-          // Escape path properly for Windows cmd
-          const escapedPath = filePath.replace(/"/g, '""');
-          await execAsync(`cmd /c start "" "${escapedPath}"`, {
-            shell: 'cmd.exe',
-          });
-        }
-      } else {
-        // Linux
-        await execAsync(`xdg-open "${filePath}"`);
-      }
+      await openWithDefaultApp(filePath);
       logger.debug('Opened successfully');
       return c.json({ success: true });
     } catch (execError) {

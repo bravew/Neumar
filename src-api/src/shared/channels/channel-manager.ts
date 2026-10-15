@@ -33,6 +33,8 @@ import {
 import { loadUserScopedCredentials } from '@/shared/db/operations-slack-home';
 import type { ChannelConfig, ChannelUser } from '@/shared/db/types';
 import { loadUserScopedMcpServers } from '@/shared/mcp/per-user-loader';
+import { NetworkPolicyDenied, safeFetch } from '@/shared/network-policy/fetch';
+import { externalApiPolicy } from '@/shared/network-policy/schema';
 import {
   createSession as createAgentSession,
   deleteSession as deleteAgentSession,
@@ -108,6 +110,13 @@ const logger = createLogger('ChannelManager');
 
 /** Cap file uploads at 50 MB */
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Hard ceiling for the tool-result image download. CDN URLs in tool output
+ * expire within seconds, so a hop that has not answered by then is not worth
+ * waiting for. safeFetch applies this per hop.
+ */
+const TOOL_RESULT_IMAGE_TIMEOUT_MS = 30_000;
 
 function estimateTokens(text: string): number {
   // Rough estimate: ~4 chars per token
@@ -1426,6 +1435,7 @@ export class ChannelManager {
             workDir,
             collectedImageUrls,
             sessionStartMs,
+            agentSession.abortController.signal,
           );
           const result = await this.messageService.streamToChannel(
             plugin,
@@ -1443,6 +1453,7 @@ export class ChannelManager {
           workDir,
           collectedImageUrls,
           sessionStartMs,
+          agentSession.abortController.signal,
         );
         const { text, messageId: streamedMessageId } =
           await this.messageService.streamToChannel(
@@ -1860,6 +1871,7 @@ export class ChannelManager {
     workDir: string,
     collectedImageUrls?: string[],
     sessionStartMs?: number,
+    signal?: AbortSignal,
   ): AsyncIterable<string> {
     for await (const msg of agentGen) {
       if (msg.type === 'text' && msg.content) {
@@ -1923,8 +1935,12 @@ export class ChannelManager {
         if (urlMatches) {
           for (const m of urlMatches) {
             const url = m.replace(/^URL:\s*/i, '').trim();
-            // Defense-in-depth SSRF check — URL comes from MCP tool output, not
-            // directly from user input, but prompt injection could inject arbitrary URLs.
+            // The URL comes from MCP tool output, so prompt injection can put
+            // an arbitrary target here. The synchronous URL hint below rejects
+            // obvious literals early; safeFetch is the authoritative check. It
+            // validates the resolved IPv4/IPv6 address of every hop, including
+            // redirects, pins the connection to that address, and enforces the
+            // timeout and byte cap while reading the body.
             const urlCheck = validateBaseUrl(url);
             if (!urlCheck.valid) {
               logger.warn('Blocked tool-result image URL (SSRF)', {
@@ -1934,40 +1950,54 @@ export class ChannelManager {
               continue;
             }
             try {
-              const imgRes = await fetch(url, {
-                signal: AbortSignal.timeout(30_000),
+              const imgRes = await safeFetch(url, externalApiPolicy(), {
+                timeoutMs: TOOL_RESULT_IMAGE_TIMEOUT_MS,
+                maxBytes: MAX_UPLOAD_BYTES,
+                signal,
               });
-              if (imgRes.ok) {
-                const buf = Buffer.from(await imgRes.arrayBuffer());
-                if (buf.byteLength <= MAX_UPLOAD_BYTES) {
-                  const imgCheck = validateImageResponse(imgRes, buf);
-                  if (!imgCheck.valid) {
-                    logger.warn(
-                      'Tool-result URL did not return valid image data',
-                      { reason: imgCheck.reason, url: url.slice(0, 80) },
-                    );
-                    continue;
-                  }
-                  const tmpDir = path.join(os.tmpdir(), 'neuma-channel-media');
-                  await mkdir(tmpDir, { recursive: true });
-                  const tmpFile = path.join(
-                    tmpDir,
-                    `img-${crypto.randomUUID().slice(0, 8)}${imgCheck.ext}`,
-                  );
-                  await writeFile(tmpFile, buf);
-                  createdFiles.push(tmpFile);
-                  logger.info(
-                    `Downloaded tool-result image to ${path.basename(tmpFile)} (${buf.byteLength} bytes)`,
-                  );
-                }
-              } else {
+              if (imgRes.status < 200 || imgRes.status >= 300) {
                 logger.warn(
                   `Tool-result image download failed: ${imgRes.status}`,
                 );
                 // Still collect URL as fallback for delayed retry
                 collectedImageUrls?.push(url);
+                continue;
               }
+              const buf = imgRes.body;
+              // validateImageResponse only reads the content-type header; pass
+              // it a header-only Response so the body is not copied again.
+              const imgCheck = validateImageResponse(
+                new Response(null, { headers: imgRes.headers }),
+                buf,
+              );
+              if (!imgCheck.valid) {
+                logger.warn('Tool-result URL did not return valid image data', {
+                  reason: imgCheck.reason,
+                  url: url.slice(0, 80),
+                });
+                continue;
+              }
+              const tmpDir = path.join(os.tmpdir(), 'neuma-channel-media');
+              await mkdir(tmpDir, { recursive: true });
+              const tmpFile = path.join(
+                tmpDir,
+                `img-${crypto.randomUUID().slice(0, 8)}${imgCheck.ext}`,
+              );
+              await writeFile(tmpFile, buf);
+              createdFiles.push(tmpFile);
+              logger.info(
+                `Downloaded tool-result image to ${path.basename(tmpFile)} (${buf.byteLength} bytes)`,
+              );
             } catch (dlErr) {
+              if (dlErr instanceof NetworkPolicyDenied) {
+                // Denied targets are not retried and not advertised back to the
+                // channel as a remote link.
+                logger.warn('Blocked tool-result image URL (network policy)', {
+                  url: url.slice(0, 80),
+                  reason: dlErr.reason,
+                });
+                continue;
+              }
               logger.warn('Tool-result image download error', { err: dlErr });
               collectedImageUrls?.push(url);
             }

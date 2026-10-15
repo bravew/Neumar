@@ -45,6 +45,25 @@ function failure(error: unknown) {
   return textResult(`failed: ${message}`, true);
 }
 
+/**
+ * The request-scoped abort signal the MCP layer hands each handler.
+ *
+ * This is what a Stop reaches: the transport aborts the in-flight request, and
+ * the signal is the only thing that carries that fact down to the child
+ * process. Without it the runner's own abort handling is unreachable from a
+ * real run, because nothing ever aborts the signal it is given.
+ *
+ * The shape is read defensively: the SDK types the second handler argument as
+ * `unknown`, and an older transport that passes nothing must not crash a tool
+ * call. An absent signal means "not cancellable", which is what the runner
+ * already assumes.
+ */
+function requestSignal(extra: unknown): AbortSignal | undefined {
+  if (extra === null || typeof extra !== 'object') return undefined;
+  const signal = (extra as { signal?: unknown }).signal;
+  return signal instanceof AbortSignal ? signal : undefined;
+}
+
 export const ffmpegSkillTools = [
   tool(
     'ffmpeg_skill_catalog',
@@ -119,14 +138,20 @@ export const ffmpegSkillTools = [
           'Measure only. Rejects operations that would write a deliverable.',
         ),
     },
-    async ({ tool: toolName, args, preview }) => {
+    async ({ tool: toolName, args, preview }, extra) => {
       try {
+        const signal = requestSignal(extra);
         const result = await executeSkillOperation({
           tool: toolName,
           args,
           preview,
+          signal,
         });
-        const published = await publishFfmpegSkillArtifact(result, toolName);
+        const published = await publishFfmpegSkillArtifact(
+          result,
+          toolName,
+          signal,
+        );
         return textResult(
           JSON.stringify(published, null, 2),
           published.status !== 'completed',
