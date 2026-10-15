@@ -98,7 +98,7 @@ src/
 │
 ├── shared/                     # Shared logic and utilities
 │   ├── db/                     # Database abstraction layer
-│   │   ├── database.ts         # Dual-backend DB (SQLite / IndexedDB)
+│   │   ├── database.ts         # API client for the backend /db routes
 │   │   ├── settings.ts         # Settings persistence (cache + DB)
 │   │   └── types.ts            # TypeScript interfaces for all entities
 │   ├── hooks/                  # Custom React hooks
@@ -142,7 +142,7 @@ src/
 │   └── i18n/translations.ts    # Translation type definitions
 │
 ├── types/                      # Global type declarations
-│   └── react-markdown.d.ts     # Module augmentation
+│   └── hyperframes-player.d.ts # Module augmentation for the HyperFrames player
 ├── vite-env.d.ts               # Vite env types (ImportMetaEnv: VITE_API_PORT)
 │
 └── main.tsx                    # Application entry point
@@ -155,12 +155,13 @@ The application bootstraps through the following chain:
 ```
 index.html
   └── main.tsx
-        ├── Initialize settings from database (await)
+        ├── initWorkspaces()  ← registers workspace panel components
+        ├── initializeSettings() (await)
         ├── ErrorBoundary  ← catches unhandled React errors, shows recovery UI
         │   └── LanguageProvider  ← detects system language, loads translations
         │       └── ThemeProvider ← applies CSS variables, listens to OS theme
         │           └── RouterProvider ← renders matched route (lazy-loaded pages)
-        └── Database migration (automatic on first load)
+        └── startWorkspaceWatcher()  ← background file watcher, Tauri only
 ```
 
 Key bootstrap steps:
@@ -169,7 +170,7 @@ Key bootstrap steps:
 2. **Error boundary** — `react-error-boundary` wraps the entire tree with a fallback UI
 3. **Provider wrapping** — language and theme providers wrap the entire tree
 4. **Lazy routing** — page components are code-split via `React.lazy()` with `Suspense` fallbacks
-5. **Database migration** — creates/updates tables on first load (SQLite or IndexedDB)
+5. **Database migration** runs on the API server, which owns the SQLite database
 
 ## Routing
 

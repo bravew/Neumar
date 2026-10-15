@@ -158,7 +158,7 @@ DesignMode, task flows, and VideoMode. Plugin ids contain slashes
 | `GET`    | `/plugins/:id/config`                           | Read public config values from `metadata.neuma.configSchema`                |
 | `PUT`    | `/plugins/:id/config`                           | Validate and save plugin config; secret fields use the secret store         |
 | `GET`    | `/plugins/:id/preview`                          | Serve a design-system plugin's `components.html` preview for sandboxed iframes |
-| `POST`   | `/plugins/:id/apply`                            | Apply a plugin to `task`, `design`, or `video`; `chat` returns 501          |
+| `POST`   | `/plugins/:id/apply`                            | Apply a plugin to `task`, `design`, or `video`; `chat` returns 501 `not_available_over_http` (no apply step) |
 | `POST`   | `/plugins/install`                              | Install from `local`, `github`, `url`, or `marketplace` source              |
 | `POST`   | `/plugins/:id/enable`                           | Enable an installed or bundled plugin                                       |
 | `POST`   | `/plugins/:id/disable`                          | Disable an installed or bundled plugin                                      |
@@ -572,6 +572,8 @@ The feedback API is local-first: feedback is written to SQLite before any extern
 | `GET`    | `/memory/:id`            | Get a specific memory by ID                                         |
 | `PUT`    | `/memory/:id`            | Update a memory (Zod-validated)                                     |
 | `DELETE` | `/memory/:id`            | Delete a memory                                                     |
+| `POST`   | `/memory/entities/extract` | Always 501 `not_available_over_http`: extraction needs an LLM callback and has no HTTP or MCP trigger |
+| `POST`   | `/memory/consolidate`    | Always 501 `not_available_over_http`: consolidation needs an LLM callback and is not started automatically |
 
 ## Soul
 

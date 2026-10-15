@@ -36,11 +36,16 @@ The i18n needs are modest (6 languages, ~300 keys). A custom system provides typ
 translations, zero bundle overhead, and simple nested object access without the complexity
 of libraries like react-intl or i18next.
 
-## Why Dual Database Backend?
+## Why the API Owns the Database?
 
-SQLite (via Tauri plugin) is the primary persistence layer for the desktop app. IndexedDB
-fallback enables running the frontend as a standalone web app during development without
-Tauri, preserving the full development experience.
+The API server is the single writer of one SQLite database, opened with `better-sqlite3` in
+`src-api/src/shared/db/index.ts`. The frontend reaches it through the `/db` REST routes, so a
+browser client, the Tauri webview, and any second client all read and write the same data
+instead of keeping a private copy. `src/shared/db/database.ts` is that API client in both
+modes and holds no browser storage engine of its own. Settings are the exception: they read
+the Tauri SQL plugin directly and mirror a copy to `localStorage`, with the API copy
+authoritative for the keys it syncs. The only other browser storage is an IndexedDB cache
+of video waveform peaks, which holds no application data.
 
 ## Why pnpm Workspaces?
 
