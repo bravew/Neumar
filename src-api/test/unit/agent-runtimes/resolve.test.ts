@@ -239,17 +239,38 @@ describe('agent runtime binary resolution', () => {
   it('resolves npm-installed OpenCode through the shared extended PATH', () => {
     if (process.platform === 'win32') return;
 
-    const home = makeTempHome();
-    const npmGlobalBin = join(home, '.npm-global', 'bin');
-    const binaryPath = join(npmGlobalBin, 'opencode');
-    mkdirSync(npmGlobalBin, { recursive: true });
-    writeFileSync(binaryPath, '#!/bin/sh\n');
-    chmodSync(binaryPath, 0o755);
-    vi.stubEnv('HOME', home);
-    vi.stubEnv('PATH', '/usr/bin');
+    const home = '/tmp/neuma-resolve-home';
+    const binaryPath = join(home, '.npm-global', 'bin', 'opencode');
+    const existing = new Set([binaryPath]);
 
-    expect(resolveOnPath('opencode')).toEqual({
+    expect(
+      resolveOnPath('opencode', {
+        env: { HOME: home, PATH: '/usr/bin' },
+        pathExists: (path) => existing.has(path),
+        readDir: () => [],
+      }),
+    ).toEqual({
       path: binaryPath,
+      source: 'path',
+    });
+  });
+
+  it('prefers a Homebrew OpenCode over the npm-global install', () => {
+    if (process.platform === 'win32') return;
+
+    const home = '/tmp/neuma-resolve-home';
+    const homebrewPath = '/opt/homebrew/bin/opencode';
+    const npmGlobalPath = join(home, '.npm-global', 'bin', 'opencode');
+    const existing = new Set([homebrewPath, npmGlobalPath]);
+
+    expect(
+      resolveOnPath('opencode', {
+        env: { HOME: home, PATH: '/usr/bin' },
+        pathExists: (path) => existing.has(path),
+        readDir: () => [],
+      }),
+    ).toEqual({
+      path: homebrewPath,
       source: 'path',
     });
   });
