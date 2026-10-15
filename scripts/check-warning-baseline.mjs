@@ -108,12 +108,10 @@ function readBaseBaseline(failures) {
   }
   try {
     return { ref, baseline: JSON.parse(result.stdout) };
-  } catch {
-    if (required) {
-      failures.push(
-        `Cannot resolve base ref ${ref}. Fetch it (\`git fetch origin\`) or unset BASE_REF so the gate falls back to origin/main.`,
-      );
-    }
+  } catch (error) {
+    failures.push(
+      `Baseline ${BASELINE_REPO_PATH} on base ref ${ref} is not valid JSON: ${error.message}`,
+    );
     return null;
   }
 }

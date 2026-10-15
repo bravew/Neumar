@@ -28,19 +28,43 @@ const DEFAULT_MAX_LINES = 350;
 
 /**
  * Base ref for the ceiling comparison. `BASE_REF` lets CI name the pull
- * request base; locally it falls back to `origin/main`.
+ * request base; `GITHUB_BASE_REF` is the GitHub-provided fallback; locally the
+ * default is `origin/main`. An explicitly named base that cannot be resolved
+ * is an error, not a reason to skip the comparison.
  */
 function baseRef() {
-  return process.env.BASE_REF?.trim() || 'origin/main';
+  const explicit = process.env.BASE_REF?.trim();
+  if (explicit) return { ref: explicit, required: true };
+  const fromGithub = process.env.GITHUB_BASE_REF?.trim();
+  if (fromGithub) return { ref: `origin/${fromGithub}`, required: true };
+  return { ref: 'origin/main', required: false };
 }
 
 /**
- * Reads the allowlist as committed on the base ref. Returns null when the ref
- * or the file is unavailable (shallow clone, new branch, first introduction),
- * so the check never fails just because it cannot see a base.
+ * Reads the allowlist as committed on the base ref. Returns null when an
+ * optional base ref or the file is unavailable (shallow clone, new branch,
+ * first introduction). A required base ref that cannot be resolved is a
+ * failure, because skipping the comparison would let a raised ceiling pass; a
+ * resolved ref with no allowlist file is still allowed.
  */
-function readBaseAllowlist() {
-  const ref = baseRef();
+function readBaseAllowlist(failures) {
+  const { ref, required } = baseRef();
+  const resolved = spawnSync(
+    'git',
+    ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+    },
+  );
+  if (resolved.error || resolved.status !== 0) {
+    if (required) {
+      failures.push(
+        `Cannot resolve base ref ${ref}. Fetch it (\`git fetch origin\`) or unset BASE_REF so the check falls back to origin/main.`,
+      );
+    }
+    return null;
+  }
   const result = spawnSync('git', ['show', `${ref}:${ALLOWLIST_REPO_PATH}`], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -133,7 +157,13 @@ async function main() {
     process.exit(1);
   }
 
-  const base = readBaseAllowlist();
+  const baseFailures = [];
+  const base = readBaseAllowlist(baseFailures);
+  if (baseFailures.length > 0) {
+    console.error('Component size check FAILED:');
+    for (const f of baseFailures) console.error(`  - ${f}`);
+    process.exit(1);
+  }
   if (base) {
     const increases = findCeilingIncreases(base.allowlist, allowlist);
     if (increases.length > 0) {

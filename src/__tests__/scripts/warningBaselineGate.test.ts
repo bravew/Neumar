@@ -165,6 +165,27 @@ describe('warning baseline gate', () => {
     expect(result.stderr).toContain('Cannot resolve base ref');
   });
 
+  it.each([
+    ['an explicit PR base', { GITHUB_BASE_REF: 'epic/188-merge-gate' }],
+    ['the optional origin/main default', {}],
+  ])(
+    'reports a malformed baseline on %s as a parse failure',
+    async (_, env) => {
+      const root = await makeTree('clean');
+      await writeFile(
+        path.join(root, 'scripts', 'lint-warning-baseline.json'),
+        '{ not json',
+      );
+      await commitBase(root);
+      git(root, ['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+      await writeBaseline(root, cleanBaseline);
+      const result = runGate(root, [], env);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('is not valid JSON');
+      expect(result.stderr).not.toContain('Cannot resolve base ref');
+    },
+  );
+
   it('rejects a broader suppression even when its per-rule count is unchanged', async () => {
     const root = await makeTree('clean');
     await writeBaseline(root, cleanBaseline);

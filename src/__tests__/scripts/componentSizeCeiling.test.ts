@@ -50,7 +50,7 @@ function runChecker(root: string, env: Record<string, string> = {}) {
     {
       cwd: root,
       encoding: 'utf8',
-      env: { ...process.env, ...env },
+      env: { ...process.env, BASE_REF: '', GITHUB_BASE_REF: '', ...env },
     },
   );
 }
@@ -138,11 +138,44 @@ describe('component size ceiling comparison', () => {
     expect(result.status).toBe(0);
   });
 
-  it('passes when the base ref does not exist', async () => {
+  it('fails when an explicit base ref does not exist', async () => {
     const { root } = await makeRepo(baseline);
     await setAllowlist(root, { [COMPONENT]: { current: 500, target: 350 } });
 
     const result = runChecker(root, { BASE_REF: 'refs/heads/absent' });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Cannot resolve base ref');
+  });
+
+  it('fails when the GitHub PR base is not fetched', async () => {
+    const { root } = await makeRepo(baseline);
+    await setAllowlist(root, { [COMPONENT]: { current: 500, target: 350 } });
+
+    const result = runChecker(root, { GITHUB_BASE_REF: 'epic/absent' });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'Cannot resolve base ref origin/epic/absent',
+    );
+  });
+
+  it('compares a PR into an epic branch against that branch', async () => {
+    const { root, base } = await makeRepo(baseline);
+    git(root, ['update-ref', 'refs/remotes/origin/epic/x', base]);
+    await setAllowlist(root, { [COMPONENT]: { current: 500, target: 350 } });
+
+    const result = runChecker(root, { GITHUB_BASE_REF: 'epic/x' });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('against origin/epic/x');
+  });
+
+  it('skips the comparison when the optional origin/main default is absent', async () => {
+    const { root } = await makeRepo(baseline);
+    await setAllowlist(root, { [COMPONENT]: { current: 500, target: 350 } });
+
+    const result = runChecker(root);
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('no base allowlist to compare');

@@ -72,6 +72,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Warning baseline
+        run: pnpm check:warning-baseline
+
       - name: Type check (frontend + API)
         run: pnpm typecheck:all
 

@@ -93,6 +93,12 @@ describe('ci.yml triggers', () => {
     expect(workflow.split(draftGate)).toHaveLength(6);
   });
 
+  it('runs the warning baseline gate in the quality job', () => {
+    expect(extractJobBlock('quality')).toContain(
+      'run: pnpm check:warning-baseline',
+    );
+  });
+
   it('does not exempt dependency-bot actors', () => {
     expect(workflow).not.toContain("contains(github.actor, 'dependabot')");
     expect(workflow).not.toContain("contains(github.actor, 'renovate')");
