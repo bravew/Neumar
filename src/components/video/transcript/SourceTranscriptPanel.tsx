@@ -57,8 +57,28 @@ export function SourceTranscriptPanel({
   const setFollowPlayback = useTranscriptSelectionStore(
     (s) => s.setFollowPlayback,
   );
+  const clearSelection = useTranscriptSelectionStore((s) => s.clearSelection);
   const { t } = useLanguage();
   const labels = t.video.editor.transcript;
+
+  // A replaced transcript invalidates word indices selected against the old
+  // one. The keyed rows below remount on that change, so a ref inside a row
+  // starts at the new key and cannot see the replacement. Track the keys here,
+  // where the panel survives the remount and an unchanged transcript keeps a
+  // selection made elsewhere (the timeline row).
+  const transcriptKeys = useRef(new Map<string, string>());
+  useEffect(() => {
+    for (const view of views) {
+      const previous = transcriptKeys.current.get(view.sourceId);
+      transcriptKeys.current.set(view.sourceId, view.transcriptKey);
+      if (previous === undefined || previous === view.transcriptKey) continue;
+      if (
+        useTranscriptSelectionStore.getState().selection?.sourceId ===
+        view.sourceId
+      )
+        clearSelection();
+    }
+  }, [views, clearSelection]);
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
@@ -128,20 +148,6 @@ function SourceWords({
   const dragging = useRef(false);
   const activeRef = useRef<HTMLButtonElement | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-
-  // A replaced transcript invalidates its word-index selection. Mounting with
-  // an unchanged transcript keeps a selection made elsewhere (the timeline row).
-  const lastTranscriptKey = useRef(view.transcriptKey);
-  useEffect(() => {
-    if (lastTranscriptKey.current === view.transcriptKey) return;
-    lastTranscriptKey.current = view.transcriptKey;
-    if (
-      useTranscriptSelectionStore.getState().selection?.sourceId ===
-      view.sourceId
-    )
-      clearSelection();
-    setEditingIndex(null);
-  }, [view.transcriptKey, view.sourceId, clearSelection]);
 
   useEffect(() => {
     const stop = () => {

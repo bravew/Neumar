@@ -20,7 +20,6 @@ for both agent and sandbox providers:
 │  │ Agent Registry   │ ← Plugin-based   │
 │  │  • claude        │   registration   │
 │  │  • codex         │                  │
-│  │  • deepagents    │                  │
 │  │  • a2a           │                  │
 │  │  • gemini-local  │                  │
 │  │  • http-agent    │                  │
@@ -49,14 +48,13 @@ for both agent and sandbox providers:
 |----------|-----------|-------------|-----------|----------|
 | Claude | `sdk` | `native` | `native` | API key |
 | Codex | `cli` | `none` | `orchestrated` | Binary |
-| DeepAgents | `sdk` | `none` | `native` | — |
 | A2A | `a2a` | `none` | `native` | Base URL |
-| Gemini Local | `cli` | `shim` | `orchestrated` | Binary |
+| Gemini Local | `cli` | `none` | `orchestrated` | Binary |
 | Cursor Local | `cli` | `none` | `none` | Binary |
 | OpenCode Local | `cli` | `none` | `none` | Binary |
 | Kimi (local CLI) | `cli` | `native` | `orchestrated` | Binary, `NEUMA_AGENT_KIMI=1` |
 | HTTP Agent | `http` | `none` | `none` | Base URL |
-| OpenAI-Compat | `http` | `shim` | `none` | API key |
+| OpenAI-Compat | `http` | `none` | `none` | API key |
 ```
 
 The `/agent-runtimes/*` detection catalog is broader than this provider matrix. It

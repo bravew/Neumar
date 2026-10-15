@@ -9,6 +9,10 @@ import { parseAdditionalWorkDirs } from '@/shared/db/types';
 import { buildModelOverride } from '@/shared/hooks/agent-utils';
 import { useTaskModelSelector } from '@/shared/hooks/useTaskModelSelector';
 import { dbMessagesToAGUI } from '@/shared/lib/message-tree';
+import {
+  clearPendingFirstPrompt,
+  readPendingFirstPrompt,
+} from '@/shared/lib/pending-initial-prompt';
 import { AgUiProvider } from '@/shared/providers/agui-provider';
 
 /**
@@ -24,29 +28,28 @@ export function resetDockFirstSendForTests(): void {
 
 interface DockThreadProps {
   taskId: string;
-  /** Set for a chat the dock just created; sent once the runtime connects. */
-  firstPrompt?: string;
   promptPrefix?: { text: string; onUsed: () => void };
 }
 
 /** The task page's thread, mounted in the dock with its own agent runtime. */
 export function DockThread(props: DockThreadProps) {
+  // A chat this dock just created has no history to fetch, and it still owes
+  // its first prompt. Both facts come from the pending registry rather than a
+  // prop, so a dock that unmounted before the lazy thread connected does not
+  // lose the handoff.
+  const owesFirstPrompt = readPendingFirstPrompt(props.taskId) !== null;
   return (
     <AgUiProvider
       key={props.taskId}
       threadId={props.taskId}
-      isNewTask={!!props.firstPrompt}
+      isNewTask={owesFirstPrompt}
     >
       <DockThreadBody {...props} />
     </AgUiProvider>
   );
 }
 
-function DockThreadBody({
-  taskId,
-  firstPrompt,
-  promptPrefix,
-}: DockThreadProps) {
+function DockThreadBody({ taskId, promptPrefix }: DockThreadProps) {
   const { copilotkit } = useCopilotKit();
   const [historyMessages, setHistoryMessages] = useState<AGUIMessage[]>([]);
   const [workDir, setWorkDir] = useState<string>();
@@ -80,14 +83,20 @@ function DockThreadBody({
   }, [taskId]);
 
   // Same gate as InitialMessageSender: the agent from useAgent() is only the
-  // real one once the runtime reports `connected`.
+  // real one once the runtime reports `connected`. The prompt is read from the
+  // pending registry at send time, so a dock reopened after a close still
+  // delivers it. Claiming it here is what makes delivery exactly once: the
+  // dock, a remount, and the full task view all consult the same registry.
   const connected = copilotkit.runtimeConnectionStatus === 'connected';
   useEffect(() => {
-    if (!firstPrompt || !connected || !submitRef.current) return;
+    if (!connected || !submitRef.current) return;
     if (sentFirstPromptTaskIds.has(taskId)) return;
+    const prompt = readPendingFirstPrompt(taskId);
+    if (prompt === null) return;
     sentFirstPromptTaskIds.add(taskId);
-    submitRef.current(firstPrompt);
-  }, [connected, firstPrompt, taskId]);
+    clearPendingFirstPrompt(taskId);
+    submitRef.current(prompt);
+  }, [connected, taskId]);
 
   return (
     <TaskV2Thread

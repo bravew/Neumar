@@ -236,7 +236,13 @@ Task V2, Design chat, Video agent surfaces, and shared tool activity groups.
 
 ## Artifact Event Protocol (V2)
 
-When `artifactsV2` is enabled, the backend publishes structured artifact events alongside regular AG-UI events. These flow through the same `taskEventBus` and arrive at the client via the SSE subscription.
+**No producer exists yet.** The protocol, server validators and client reducer are
+implemented and tested, but nothing calls the `publishArtifact*` helpers, so no
+event reaches the bus and the panel stays empty even with `artifactsV2` on. The
+diagram below is the intended flow, not current behavior. See
+[Parked Integrations](../backend/parked-integrations.md#live-artifact-events-v2).
+
+When a producer is wired up and `artifactsV2` is enabled, the backend publishes structured artifact events alongside regular AG-UI events. These flow through the same `taskEventBus` and arrive at the client via the SSE subscription.
 
 ```
 Agent (tool call / PostToolUse hook)

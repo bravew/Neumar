@@ -16,13 +16,11 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { createWriteStream, readFileSync, realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import { extname, sep as pathSep } from 'node:path';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk/core';
 import { z } from 'zod';
@@ -30,6 +28,8 @@ import { z } from 'zod';
 import { isAssetsCatalogEnabled } from '@/shared/assets/flags';
 import { getAssetRegistry } from '@/shared/assets/registry';
 import { getSetting } from '@/shared/db/operations';
+import { NetworkPolicyDenied, safeFetch } from '@/shared/network-policy/fetch';
+import { externalApiPolicy } from '@/shared/network-policy/schema';
 import {
   startDesignMediaTask,
   waitDesignMediaTask,
@@ -254,9 +254,16 @@ async function saveDataUriToDisk(dataUri: string): Promise<string | null> {
  *
  * Agent-side `curl` frequently fails against provider CDNs (corporate or
  * sandbox proxies reject CONNECT — observed: `curl: (56) CONNECT tunnel
- * failed, 403`), and BytePlus URLs expire in ~24 h. Video downloads stream
- * directly to disk via `pipeline` so 20 MB payloads don't sit in RAM.
+ * failed, 403`), and BytePlus URLs expire in ~24 h.
+ *
+ * The URL is chosen by the provider, so the request goes through `safeFetch`,
+ * which validates the resolved address of every hop and pins the connection.
+ * `safeFetch` buffers the body, so `maxBytes` is what keeps a large or endless
+ * response from filling memory; this cap allows a 100 MB video, with headroom
+ * over the 20 MB payloads observed in practice.
  */
+const MAX_MEDIA_DOWNLOAD_BYTES = 100 * 1024 * 1024;
+
 async function downloadToDisk(
   url: string,
   opts: { prefix: 'image' | 'video'; ext?: string; timeoutMs: number },
@@ -266,36 +273,32 @@ async function downloadToDisk(
   if (!outDir) return null;
 
   try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(opts.timeoutMs),
+    // The URL is provider-returned, so it is untrusted: safeFetch validates
+    // the resolved address of every hop, pins the connection, and enforces
+    // the timeout and byte cap while the body is read.
+    const res = await safeFetch(url, externalApiPolicy(), {
+      timeoutMs: opts.timeoutMs,
+      maxBytes: MAX_MEDIA_DOWNLOAD_BYTES,
     });
-    if (!res.ok) {
+    if (res.status < 200 || res.status >= 300) {
       logger.warn(
         `${opts.prefix} download returned ${res.status}: ${url.slice(0, 80)}`,
       );
       return null;
     }
 
-    if (opts.prefix === 'video' && res.body) {
-      // Stream video bodies straight to disk; they can be 20 MB+ and we
-      // don't want both an ArrayBuffer and a Buffer copy in memory.
-      const ext = opts.ext ?? '.mp4';
-      const filename = `video_${randomUUID().slice(0, 8)}${ext}`;
-      const fullPath = path.join(outDir, filename);
-      await pipeline(
-        Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]),
-        createWriteStream(fullPath),
-      );
-      logger.info(`💾 Saved video to disk: ${filename}`);
-      return fullPath;
-    }
-
-    const ab = await res.arrayBuffer();
-    const buf = Buffer.from(ab);
+    const buf = res.body;
     if (buf.byteLength === 0) return null;
-    const ext = opts.ext ?? extFromContentType(res.headers.get('content-type'));
+    const ext =
+      opts.ext ?? extFromContentType(res.headers['content-type'] ?? null);
     return persistBuffer(buf, opts.prefix, ext, outDir);
   } catch (err) {
+    if (err instanceof NetworkPolicyDenied) {
+      logger.warn(
+        `${opts.prefix} download blocked by network policy (${err.reason}): ${url.slice(0, 80)}`,
+      );
+      return null;
+    }
     logger.warn(
       `${opts.prefix} download failed (${err instanceof Error ? err.message : String(err)}): ${url.slice(0, 80)}`,
     );

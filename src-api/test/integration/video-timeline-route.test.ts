@@ -2,6 +2,11 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import {
+  applyTimelineOps,
+  compileTranscriptCut,
+  TimelineOpSchema,
+} from '@neumar/video-ir';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { videoRoutes } from '@/app/api/video';
@@ -20,6 +25,7 @@ beforeEach(async () => {
   closeDatabase();
   workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'video-timeline-route-'));
   vi.stubEnv('NEUMA_VIDEO_WORKDIR', workDir);
+  vi.stubEnv('NEUMAR_APP_DATA_DIR', path.join(workDir, 'app-data'));
 });
 
 afterEach(async () => {
@@ -29,6 +35,68 @@ afterEach(async () => {
 });
 
 describe('video timeline route', () => {
+  it('persists compiler caption snapshots and reloads them through undo and redo', async () => {
+    const timeline = generatedCaptionTimeline();
+    await writeProject({ ...projectFixture(), timeline });
+    const ops = compileTranscriptCut({
+      timeline,
+      match: { assetIds: ['asset-source'] },
+      words: captionWords(),
+      startIndex: 1,
+      endIndex: 1,
+    });
+    expect(ops).toHaveLength(2);
+    const expected = applyTimelineOps(timeline, ops).timeline;
+    // Submit the compiler's actual before/after snapshots through the HTTP validator.
+    for (const op of ops) {
+      const response = await postTimeline('op', { op, source: 'user' });
+      expect(response.status).toBe(200);
+    }
+    await expectReloadedTimeline(expected);
+    const persisted = await getProject('project-1');
+    for (const entry of persisted.history!.entries) {
+      expect(TimelineOpSchema.parse(entry.op)).toEqual(entry.op);
+      const inverses = Array.isArray(entry.inverse)
+        ? entry.inverse
+        : [entry.inverse];
+      for (const inverse of inverses)
+        expect(TimelineOpSchema.parse(inverse)).toEqual(inverse);
+    }
+    for (const _op of ops) {
+      expect((await postTimeline('undo')).status).toBe(200);
+    }
+    await expectReloadedTimeline(timeline);
+    for (const _op of ops) {
+      expect((await postTimeline('redo')).status).toBe(200);
+    }
+    await expectReloadedTimeline(expected);
+  });
+
+  it('rejects unknown caption fields at the HTTP boundary without writing history', async () => {
+    const timeline = generatedCaptionTimeline();
+    await writeProject({ ...projectFixture(), timeline });
+    const before = await getProject('project-1');
+    const track = timeline.tracks[1]!;
+    if (track.kind !== 'caption') throw new Error('Missing caption track');
+    const cue = track.clips[0]!;
+    for (const clip of [
+      { ...cue, unexpected: true },
+      { ...cue, words: [{ ...cue.words![0]!, unexpected: true }] },
+      { ...cue, sourceAnchor: { ...cue.sourceAnchor!, unexpected: true } },
+    ]) {
+      const response = await postTimeline('op', {
+        op: {
+          kind: 'clip.insert',
+          trackId: track.id,
+          clip,
+          at: 0,
+        },
+      });
+      expect(response.status).toBe(400);
+      expect(await getProject('project-1')).toEqual(before);
+    }
+  });
+
   it('preserves markers when updating a timeline', async () => {
     await writeProject(projectFixture());
 
@@ -184,6 +252,76 @@ describe('video timeline route', () => {
     expect((await getProject('project-1')).timeline?.durationMs).toBe(6000);
   });
 });
+
+function captionWords() {
+  return ['one', 'two', 'three'].map((text, index) => ({
+    text,
+    startMs: index * 100,
+    endMs: (index + 1) * 100,
+  }));
+}
+
+function generatedCaptionTimeline(): VideoTimeline {
+  const words = captionWords();
+  const timing = {
+    sourceRef: { kind: 'asset' as const, assetId: 'asset-source' },
+    startMs: 0,
+    durationMs: 300,
+    trimStartMs: 0,
+    trimEndMs: 300,
+  };
+  return {
+    ...timelineFixture(),
+    durationMs: 300,
+    tracks: [
+      {
+        id: 'video',
+        kind: 'video',
+        name: 'Video',
+        muted: false,
+        locked: false,
+        order: 0,
+        clips: [{ id: 'source', kind: 'video', ...timing }],
+      },
+      {
+        id: 'captions',
+        kind: 'caption',
+        name: 'Captions',
+        muted: false,
+        locked: false,
+        order: 1,
+        clips: [
+          {
+            id: 'caption',
+            kind: 'caption',
+            ...timing,
+            text: words.map((word) => word.text).join(' '),
+            words,
+            sourceAnchor: {
+              sourceMediaId: 'asset-source',
+              sourceElementId: 'source',
+              sourceStartMs: 0,
+              sourceEndMs: 300,
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function postTimeline(action: 'op' | 'undo' | 'redo', body?: unknown) {
+  return videoRoutes.request(`/projects/project-1/timeline/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+}
+
+async function expectReloadedTimeline(expected: VideoTimeline) {
+  const persisted = await getProject('project-1');
+  expect(persisted.timeline).toEqual(expected);
+}
 
 function projectFixture(): VideoProject {
   return {

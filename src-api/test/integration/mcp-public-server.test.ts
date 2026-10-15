@@ -96,6 +96,9 @@ function writeInitialize(stdin: PassThrough) {
 describe('public MCP stdio against the daemon facade', () => {
   const app = new Hono();
   app.route('/mcp/server', mcpServerRoutes);
+  // Explicit loopback peer context: the external MCP auth middleware fails
+  // closed when `c.env.incoming.socket.remoteAddress` is absent.
+  const loopbackPeer = { incoming: { socket: { remoteAddress: '127.0.0.1' } } };
 
   beforeEach(() => {
     saveSetting('externalMcpEnabled', 'true');
@@ -114,11 +117,15 @@ describe('public MCP stdio against the daemon facade', () => {
       readSecret: ensureBridgeSecret,
       fetchImpl: async (input, init) => {
         const url = new URL(String(input));
-        return app.request(url.pathname + url.search, {
-          method: init?.method,
-          headers: init?.headers as Record<string, string> | undefined,
-          body: init?.body as string | undefined,
-        });
+        return app.request(
+          url.pathname + url.search,
+          {
+            method: init?.method,
+            headers: init?.headers as Record<string, string> | undefined,
+            body: init?.body as string | undefined,
+          },
+          loopbackPeer,
+        );
       },
     });
 
@@ -189,11 +196,15 @@ describe('public MCP stdio against the daemon facade', () => {
       readSecret: ensureBridgeSecret,
       fetchImpl: async (input, init) => {
         const url = new URL(String(input));
-        return app.request(url.pathname + url.search, {
-          method: init?.method,
-          headers: init?.headers as Record<string, string> | undefined,
-          body: init?.body as string | undefined,
-        });
+        return app.request(
+          url.pathname + url.search,
+          {
+            method: init?.method,
+            headers: init?.headers as Record<string, string> | undefined,
+            body: init?.body as string | undefined,
+          },
+          loopbackPeer,
+        );
       },
     });
     const { stdin, rpc, handle } = startStdio(client);
