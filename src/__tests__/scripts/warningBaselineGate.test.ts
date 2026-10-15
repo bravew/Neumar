@@ -165,6 +165,17 @@ describe('warning baseline gate', () => {
     expect(result.stderr).toContain('Cannot resolve base ref');
   });
 
+  it('passes when the resolved base predates the baseline file', async () => {
+    const root = await makeTree('clean');
+    await commitBase(root);
+    await writeBaseline(root, cleanBaseline);
+    const result = runGate(root, [], {
+      GITHUB_BASE_REF: 'epic/188-merge-gate',
+    });
+    expect(result.status).toBe(0);
+    expect(result.stderr).not.toContain('Cannot resolve base ref');
+  });
+
   it.each([
     ['an explicit PR base', { GITHUB_BASE_REF: 'epic/188-merge-gate' }],
     ['the optional origin/main default', {}],
