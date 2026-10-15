@@ -14,7 +14,7 @@ This document is the responsibility matrix requested by issue #222, part of epic
 #193. It records what each live channel provider actually does today, with a
 `path:line` citation for every cell and the live consumer named. It is a
 pre-migration inventory, not a design. No runtime is chosen here; see
-[Decision needed](#decision-needed).
+[Decision needed](#5-decision-needed).
 
 Evidence was read from the tree at `1bb20406de946723795f7f9fed20777b7fa00d58`,
 which is the head of `epic/193-architecture-ownership` and the commit this branch
