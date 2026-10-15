@@ -86,19 +86,20 @@ function baseRef() {
 }
 
 /**
- * Reads the baseline as committed on the base ref. Returns null when an
- * optional base ref or the file is unavailable, so a shallow clone or a first
- * introduction never fails spuriously. An explicitly requested base that
- * cannot be read is a failure, because silently skipping the comparison would
- * let a regenerated baseline pass.
+ * Reads the baseline as committed on the base ref. An explicitly requested base
+ * that cannot be resolved is a failure, because silently skipping the
+ * comparison would let a regenerated baseline pass. A resolved base without the
+ * baseline file is the first introduction of the gate, so it returns null
+ * instead of failing.
  */
 function readBaseBaseline(failures) {
   const { ref, required } = baseRef();
-  const result = spawnSync('git', ['show', `${ref}:${BASELINE_REPO_PATH}`], {
-    cwd: ROOT,
-    encoding: 'utf8',
-  });
-  if (result.error || result.status !== 0) {
+  const resolved = spawnSync(
+    'git',
+    ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`],
+    { cwd: ROOT, encoding: 'utf8' },
+  );
+  if (resolved.error || resolved.status !== 0) {
     if (required) {
       failures.push(
         `Cannot resolve base ref ${ref}. Fetch it (\`git fetch origin\`) or unset BASE_REF so the gate falls back to origin/main.`,
@@ -106,6 +107,11 @@ function readBaseBaseline(failures) {
     }
     return null;
   }
+  const result = spawnSync('git', ['show', `${ref}:${BASELINE_REPO_PATH}`], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (result.error || result.status !== 0) return null;
   try {
     return { ref, baseline: JSON.parse(result.stdout) };
   } catch (error) {
