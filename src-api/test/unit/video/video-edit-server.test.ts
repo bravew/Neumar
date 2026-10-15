@@ -2565,6 +2565,58 @@ describe('overlay preset catalog + save tools (video-to-template MVP)', () => {
     expect(await listUserOverlayPresets()).toHaveLength(0);
   });
 
+  it.each([
+    {
+      toolName: 'video_save_overlay_preset',
+      input: {
+        name: 'External preset',
+        basePresetId: 'html.marker-highlight',
+        controls: { text: 'Important', color: 'green' },
+      },
+    },
+    {
+      toolName: 'video_save_overlay_style_from_template',
+      input: {
+        name: 'External style',
+        basePresetId: 'html.marker-highlight',
+        controls: { text: 'Important', color: 'green' },
+        sourceId: 'reference-1',
+      },
+    },
+    {
+      toolName: 'video_save_user_overlay_document',
+      input: {
+        name: 'External document',
+        userConfirmed: true,
+        html: '<html><body>Live<script>window.__overlayReady = true;</script></body></html>',
+      },
+    },
+  ])(
+    'keeps $toolName proposal-only through the registered tool boundary',
+    async ({ toolName, input }) => {
+      const result = await findTool(toolName, {
+        clientKind: 'external-mcp',
+      }).handler(input, {});
+
+      expect(result.isError).not.toBe(true);
+      expect(JSON.parse(toolResultText(result) ?? '{}')).toMatchObject({
+        schema: 'neuma.video.mcp-proposal-required.v1',
+        projectId: 'project-1',
+        mode: 'proposal-only',
+        tool: toolName,
+      });
+      const { listUserOverlayPresets } =
+        await import('@/shared/video/overlays/user-presets');
+      const { listUserOverlayStyles } =
+        await import('@/shared/video/overlays/user-styles');
+      const { listUserOverlayDocuments } =
+        await import('@/shared/video/overlays/user-documents');
+      expect(await listUserOverlayPresets()).toEqual([]);
+      expect(await listUserOverlayStyles()).toEqual([]);
+      expect(await listUserOverlayDocuments()).toEqual([]);
+    },
+  );
+
   it('rejects saves against unknown base presets', async () => {
     const tool = findTool('video_save_overlay_preset');
     const result = await tool.handler(

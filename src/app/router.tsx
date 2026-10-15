@@ -53,6 +53,10 @@ export const router = createBrowserRouter([
               </RouteFallback>
             ),
           },
+          // Keep V1 alongside V2 per the maintainer's decision on issue #223:
+          // https://github.com/bravew/Neumar/issues/223#issuecomment-6176446031
+          // Video docs/capture tooling still uses V1, and complete V2 parity
+          // has not been established. No redirect or retirement is included.
           {
             path: 'task/:taskId',
             element: (

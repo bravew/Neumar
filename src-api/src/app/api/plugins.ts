@@ -321,11 +321,17 @@ pluginsRoutes.post(
     const id = c.req.param('id');
     const body = c.req.valid('json');
 
+    // Chat has no apply step: an enabled plugin's skills reach the agent on
+    // every run, and the marketplace "Use" action routes to Home with the
+    // plugin pre-attached. There is no UI caller for this branch, so the
+    // message names the supported path instead of a "follow-up checkpoint"
+    // that is not scheduled anywhere.
     if (body.surface === 'chat') {
       return c.json(
         {
-          error: 'not implemented',
-          message: 'Chat plugin apply ships in a follow-up checkpoint.',
+          error: 'not_available_over_http',
+          message:
+            'Chat has no apply step. Enable the plugin and start the task from Home; its skills are included in the run.',
         },
         501,
       );

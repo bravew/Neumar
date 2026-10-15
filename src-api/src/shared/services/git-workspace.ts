@@ -8,11 +8,10 @@
 import { exec } from 'child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs';
 import { copyFile, readdir, writeFile } from 'fs/promises';
-import { homedir } from 'os';
 import { basename, dirname, join } from 'path';
 import { promisify } from 'util';
 
-import { APP_DIR_NAME } from '@/config/constants';
+import { APP_DIR_NAME, getAppDir } from '@/config/constants';
 
 import { createLogger } from '@/shared/utils/logger';
 
@@ -23,11 +22,19 @@ const logger = createLogger('GitWorkspace');
 // Constants
 // ============================================================================
 
-/** Base directory for cached repos */
-const REPOS_DIR = join(homedir(), APP_DIR_NAME, 'repos');
+/**
+ * Base directory for cached repos. Resolved per call rather than at import
+ * time so a `NEUMAR_APP_DATA_DIR` override is honoured and tests or packaging
+ * never touch the developer's real home.
+ */
+function getReposDir(): string {
+  return join(getAppDir(), 'repos');
+}
 
-/** Base directory for task session worktrees */
-const SESSIONS_DIR = join(homedir(), APP_DIR_NAME, 'sessions');
+/** Base directory for task session worktrees. */
+function getSessionsDir(): string {
+  return join(getAppDir(), 'sessions');
+}
 
 // ============================================================================
 // Validation Helpers
@@ -57,7 +64,7 @@ function isValidRepoIdentifier(identifier: string): boolean {
 
 /**
  * Ensure base repo exists in cache and is up-to-date.
- * Location: ~/{APP_DIR_NAME}/repos/{owner}/{repo}
+ * Location: {app data dir}/repos/{owner}/{repo}
  *
  * - If repo doesn't exist: full clone with optional auth
  * - If exists: git fetch --all --prune
@@ -72,7 +79,7 @@ export async function ensureBaseRepo(
     throw new Error(`Invalid repo identifier: ${owner}/${repo}`);
   }
 
-  const baseRepoDir = join(REPOS_DIR, owner, repo);
+  const baseRepoDir = join(getReposDir(), owner, repo);
   const gitDir = join(baseRepoDir, '.git');
 
   if (existsSync(gitDir)) {
@@ -125,7 +132,7 @@ export async function ensureBaseRepo(
 
 /**
  * Create git worktree for a task with dedicated branch.
- * Location: ~/{APP_DIR_NAME}/sessions/{issueId}/{repoName}
+ * Location: {app data dir}/sessions/{issueId}/{repoName}
  *
  * Uses `git worktree add` to create an isolated working directory.
  * Does NOT checkout/pull on the base repo (avoids race conditions
@@ -146,7 +153,7 @@ export async function createTaskWorktree(
   }
 
   const repoName = basename(baseRepoPath);
-  const sessionPath = join(SESSIONS_DIR, issueIdentifier.toLowerCase());
+  const sessionPath = join(getSessionsDir(), issueIdentifier.toLowerCase());
   const worktreePath = join(sessionPath, repoName);
 
   logger.info(`Creating worktree: ${issueIdentifier} (branch: ${branchName})`);
@@ -355,15 +362,16 @@ export async function listActiveWorktrees(
  * Errors are logged but never block pipeline execution.
  */
 export async function refreshBaseRepos(): Promise<void> {
-  if (!existsSync(REPOS_DIR)) {
+  const reposDir = getReposDir();
+  if (!existsSync(reposDir)) {
     logger.info('No base repos to refresh');
     return;
   }
 
-  const owners = readdirSync(REPOS_DIR);
+  const owners = readdirSync(reposDir);
 
   for (const owner of owners) {
-    const ownerPath = join(REPOS_DIR, owner);
+    const ownerPath = join(reposDir, owner);
     if (!statSync(ownerPath).isDirectory()) continue;
 
     const repos = readdirSync(ownerPath);

@@ -487,12 +487,19 @@ memory.get('/entities/:id/graph', async (c) => {
   return c.json(graph);
 });
 
-// POST /memory/entities/extract — force entity extraction from recent memories
+// POST /memory/entities/extract: not available over HTTP.
+//
+// Extraction needs an LLM callback, and an HTTP request has no agent context
+// to supply one. The response names no workaround because none exists today:
+// no MCP tool triggers extraction, and nothing calls the exported
+// extractAndStoreEntities service. Naming an unreachable alternative would
+// repeat the problem this message replaces.
 memory.post('/entities/extract', async (c) => {
   return c.json(
     {
-      error:
-        'Entity extraction requires an LLM callback — use the MCP tool instead',
+      error: 'not_available_over_http',
+      message:
+        'Entity extraction needs an LLM callback and has no HTTP or MCP trigger; it runs only from a caller that supplies one.',
     },
     501,
   );
@@ -514,12 +521,17 @@ memory.post('/:id/unpin', async (c) => {
   return c.json(mem);
 });
 
-// POST /memory/consolidate — trigger consolidation run
+// POST /memory/consolidate: not available over HTTP.
+//
+// Consolidation needs an LLM callback, and startConsolidation has no caller,
+// so the previous advice ("use the settings UI or startup scheduling") named
+// two paths that cannot run. State the limit instead of the phantom fix.
 memory.post('/consolidate', async (c) => {
   return c.json(
     {
-      error:
-        'Consolidation requires an LLM callback — use the settings UI or startup scheduling',
+      error: 'not_available_over_http',
+      message:
+        'Consolidation needs an LLM callback and is not started automatically; it runs only from a caller that supplies one.',
     },
     501,
   );

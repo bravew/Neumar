@@ -1,6 +1,17 @@
-import { copyFile, link, mkdir, readFile, writeFile } from 'fs/promises';
-import { homedir } from 'os';
+import { existsSync } from 'fs';
+import {
+  copyFile,
+  link,
+  mkdir,
+  readFile,
+  rename,
+  writeFile,
+} from 'fs/promises';
 import path from 'path';
+
+import { getAppDir } from '@/config/constants';
+
+import { createLogger } from '@/shared/utils/logger';
 
 import type {
   DestinationCapabilities,
@@ -19,17 +30,27 @@ export interface LocalArchiveAdapterOptions {
   indexFile?: (filePath: string) => Promise<void>;
 }
 
+/** Pre-rebrand archive location, read once and migrated on first use. */
+const LEGACY_ARCHIVE_DIR_NAME = '.neuma';
+
+const logger = createLogger('PublishLocalArchive');
+
 export class LocalArchiveAdapter implements PublishDestinationAdapter {
   readonly kind = 'local-archive' as const;
 
   private readonly rootDir: string;
   private readonly now: () => Date;
   private readonly indexFile?: (filePath: string) => Promise<void>;
+  private readonly migrateLegacyRoot: boolean;
 
   constructor(options: LocalArchiveAdapterOptions = {}) {
-    this.rootDir = options.rootDir ?? path.join(homedir(), '.neuma', 'archive');
+    this.rootDir = options.rootDir ?? path.join(getAppDir(), 'archive');
     this.now = options.now ?? (() => new Date());
     this.indexFile = options.indexFile;
+    // Only the default app directory can adopt the old home archive. An
+    // app-data override or caller-injected root must stay isolated from it.
+    this.migrateLegacyRoot =
+      options.rootDir === undefined && !process.env.NEUMAR_APP_DATA_DIR?.trim();
   }
 
   capabilities(): DestinationCapabilities {
@@ -69,6 +90,7 @@ export class LocalArchiveAdapter implements PublishDestinationAdapter {
   async upload(input: PublishLegInput, ctx: LegContext): Promise<UploadHandle> {
     const plan = await this.plan(input);
     const targetDir = plan.targetPath ?? this.rootDir;
+    if (this.migrateLegacyRoot) await this.adoptLegacyArchive();
     await mkdir(targetDir, { recursive: true });
 
     const artifactName = path.basename(input.source.path);
@@ -123,6 +145,34 @@ export class LocalArchiveAdapter implements PublishDestinationAdapter {
 
   async abort(): Promise<void> {
     return;
+  }
+
+  /**
+   * Move a pre-rebrand `~/.neuma/archive` tree to the current archive root so
+   * archives published before the rebrand stay reachable. Idempotent: it does
+   * nothing once the new root exists. A failed move is logged and leaves the
+   * legacy tree untouched rather than deleting it.
+   */
+  private async adoptLegacyArchive(): Promise<void> {
+    const legacyRoot = path.join(
+      path.dirname(path.dirname(this.rootDir)),
+      LEGACY_ARCHIVE_DIR_NAME,
+      'archive',
+    );
+    if (legacyRoot === this.rootDir) return;
+    if (existsSync(this.rootDir) || !existsSync(legacyRoot)) return;
+
+    try {
+      await mkdir(path.dirname(this.rootDir), { recursive: true });
+      await rename(legacyRoot, this.rootDir);
+      logger.info(`Migrated legacy archive: ${legacyRoot} -> ${this.rootDir}`);
+    } catch (error) {
+      logger.warn(
+        `Failed to migrate legacy archive ${legacyRoot}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 }
 

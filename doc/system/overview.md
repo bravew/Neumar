@@ -38,7 +38,7 @@ all without manual intervention until final merge approval.
 | **Session safety** | Per-session cost caps and agent loop detection via SessionBudgetGuard |
 | **Workspace isolation** | All file operations are confined to user-configured workspace directories |
 | **Dual runtime** | Development runs processes separately; production bundles everything into a single app |
-| **Offline-capable persistence** | SQLite (desktop) with IndexedDB fallback (browser) |
+| **API-owned persistence** | One SQLite database owned by the API server; the frontend reaches it through the `/db` API in both browser and desktop modes |
 | **Long-term memory** | Persistent cross-session memory with hybrid vector + keyword search (sqlite-vec + FTS5) |
 | **Autonomous operation** | Linear integration pipeline runs end-to-end without human intervention (except final merge) |
 | **Voice I/O** | Provider-agnostic TTS/STT with streaming WebSocket STT, sentence-by-sentence TTS, and offline local models |
@@ -115,18 +115,24 @@ The application operates differently in development and production environments:
 |--------|-------------|------------|
 | **Frontend** | Vite dev server (port 3420) | Bundled into Tauri webview (`dist/`) |
 | **API Server** | Node.js process (port 5126) | Native sidecar binary (port 2620) |
-| **Database** | SQLite via Tauri plugin | SQLite via Tauri plugin |
-| **Browser fallback** | IndexedDB + localStorage | N/A (always Tauri) |
+| **Database** | SQLite through the API `/db` routes | SQLite through the API `/db` routes |
+| **Browser mode** | Same frontend and API, opened in a browser instead of the webview | N/A (always Tauri) |
 | **Hot reload** | Full HMR via Vite | Not applicable |
+
+The frontend has no separate browser database for application data.
+`src/shared/db/database.ts` is an API client for `${API_BASE_URL}/db` in both modes, and the
+API server owns the single SQLite database through `better-sqlite3`. Settings are the one
+layer that still reads the Tauri SQL plugin directly and mirrors a copy to `localStorage`;
+see [State Management](../frontend/state-management.md).
 
 ## Technology Stack
 
 | Layer | Technologies |
 |-------|-------------|
-| **Frontend** | React 19, Vite 7, TypeScript 5.8, Tailwind CSS 4, Radix UI, react-router-dom 7, react-markdown, react-error-boundary, @copilotkit/react-core, @assistant-ui/react, @ag-ui/client |
-| **Backend API** | Hono 4, Node.js, @anthropic-ai/claude-agent-sdk, @hono/zod-validator, @modelcontextprotocol/sdk, @linear/sdk, Zod 4, better-sqlite3, sqlite-vec, @huggingface/transformers, @hono/node-ws, sherpa-onnx-node, @ag-ui/encoder, @copilotkit/runtime |
+| **Frontend** | React 19, Vite 8, TypeScript 6, Tailwind CSS 4, Radix UI primitives, react-router-dom 7, streamdown, react-error-boundary, @copilotkit/react-core, @assistant-ui/react, @ag-ui/client |
+| **Backend API** | Hono 4, Node.js 22, @anthropic-ai/claude-agent-sdk, @hono/zod-validator, @modelcontextprotocol/sdk, @linear/sdk, Zod 4, better-sqlite3, sqlite-vec, @huggingface/transformers, @hono/node-ws, sherpa-onnx-node, @ag-ui/encoder, @copilotkit/runtime |
 | **Desktop Shell** | Tauri 2, Rust, tauri-plugin-sql (SQLite), tauri-plugin-shell, tauri-plugin-fs, tauri-plugin-dialog |
-| **Build Tools** | pnpm workspaces, esbuild, @yao-pkg/pkg (local), Bun compile (CI), TypeScript |
+| **Build Tools** | pnpm workspaces, esbuild, @yao-pkg/pkg (`node22` binary targets), TypeScript |
 | **CI/CD** | GitHub Actions, matrix builds (Linux/Windows/macOS) |
 
 ---

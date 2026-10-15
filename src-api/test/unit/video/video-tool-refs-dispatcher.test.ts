@@ -2,7 +2,15 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  it,
+  vi,
+} from 'vitest';
 
 import { createVideoEditTools } from '@/shared/mcp/video-edit-server';
 import { getProject, writeProject } from '@/shared/video/store';
@@ -40,6 +48,13 @@ describe('video-edit dispatcher ref resolution', () => {
     if (!found) throw new Error(`Tool ${name} not found`);
     return found;
   }
+
+  it('types the wrapped handler input so valid calls need no cast', () => {
+    type Handler = ReturnType<typeof findTool>['handler'];
+    expectTypeOf<Parameters<Handler>[0]['projectId']>().toEqualTypeOf<
+      string | undefined
+    >();
+  });
 
   it('resolves clipIndex for a named edit tool, not just the ops batch', async () => {
     const result = await findTool('video_set_clip_speed').handler(
