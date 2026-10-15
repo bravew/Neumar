@@ -14,9 +14,9 @@
  *  - Home directory as workspace → explicitly blocked (too broad)
  */
 
-import { realpathSync } from 'fs';
+import { lstatSync, realpathSync } from 'fs';
 import { homedir, platform } from 'os';
-import { resolve, sep } from 'path';
+import { dirname, join, resolve, sep } from 'path';
 
 import { getAppDir } from '@/config/constants';
 
@@ -426,4 +426,87 @@ function tryRealpath(p: string): string {
   }
   realpathCache.set(key, result);
   return result;
+}
+
+/**
+ * Resolve a path that may not exist yet.
+ *
+ * `realpath` fails on a missing path, so a write target cannot be resolved
+ * directly. Walk up to the nearest ancestor that does exist, resolve that, and
+ * re-append the components that are still missing. A symlinked parent is
+ * therefore resolved even when the file under it has not been created, which is
+ * exactly the case a write has to get right.
+ *
+ * Deliberately uncached. A cached "does not exist" answer would let a symlink
+ * appear at that component between the check and the write and still be treated
+ * as contained. The walk costs one `lstat` per component.
+ *
+ * Returns null when the walk reaches the filesystem root without finding an
+ * existing component, which means the path cannot be classified at all.
+ */
+export function resolveThroughExistingAncestor(
+  targetPath: string,
+): string | null {
+  const absolute = resolve(targetPath);
+  const missing: string[] = [];
+  let current = absolute;
+
+  for (;;) {
+    let exists = false;
+    try {
+      lstatSync(current);
+      exists = true;
+    } catch {
+      exists = false;
+    }
+    if (exists) {
+      let real: string;
+      try {
+        real = realpathSync(current);
+      } catch {
+        // Exists but cannot be resolved (a dangling link, or a permission
+        // error). Unresolvable is unknown, and unknown is not trusted.
+        return null;
+      }
+      return missing.length > 0 ? join(real, ...missing.reverse()) : real;
+    }
+    const parent = dirname(current);
+    if (parent === current) return null;
+    missing.push(current.slice(parent.length + 1));
+    current = parent;
+  }
+}
+
+/**
+ * Whether `targetPath` is the root itself or sits inside it.
+ *
+ * The comparison is on resolved paths, so a symlink inside the root that points
+ * outside it is not contained, and a sibling that merely shares a string prefix
+ * (`/tmp-other` against `/tmp`) is not contained either. The separator check is
+ * what rejects the sibling: a bare `startsWith` would accept it.
+ *
+ * A target that cannot be resolved through an existing ancestor returns false.
+ * An unresolvable path is unknown, not trusted.
+ */
+export function isPathInsideRoot(root: string, targetPath: string): boolean {
+  const resolvedRoot = resolveThroughExistingAncestor(root);
+  const resolvedTarget = resolveThroughExistingAncestor(targetPath);
+  if (resolvedRoot === null || resolvedTarget === null) return false;
+
+  const rootKey = normalizePath(resolvedRoot);
+  const targetKey = normalizePath(resolvedTarget);
+  if (targetKey === rootKey) return true;
+  return targetKey.startsWith(rootKey.endsWith(sep) ? rootKey : rootKey + sep);
+}
+
+/**
+ * Whether `targetPath` is inside any of `roots`. Used by callers that keep
+ * several legitimate trusted roots (home, app data dir, workDir, temp,
+ * external volumes) rather than a single workspace.
+ */
+export function isPathInsideAnyRoot(
+  roots: readonly string[],
+  targetPath: string,
+): boolean {
+  return roots.some((root) => isPathInsideRoot(root, targetPath));
 }

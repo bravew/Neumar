@@ -8,6 +8,8 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
+import { requireJwt } from '@/app/middleware/jwt';
+
 import {
   getBestProvider,
   getSandboxInfo,
@@ -26,6 +28,11 @@ import { createLogger } from '@/shared/utils/logger';
 const logger = createLogger('Sandbox');
 
 const sandbox = new Hono();
+
+sandbox.use('/exec', requireJwt);
+sandbox.use('/exec/*', requireJwt);
+sandbox.use('/run/*', requireJwt);
+sandbox.use('/stop-all', requireJwt);
 
 // Initialize sandbox module on first request (promise-guarded against concurrent calls)
 let initPromise: Promise<void> | null = null;
