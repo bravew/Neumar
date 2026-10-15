@@ -1,0 +1,946 @@
+{
+  "version": 2,
+  "note": "Frozen frontend lint debt. Growth fails `pnpm check:warning-baseline`; record reductions with `node scripts/check-warning-baseline.mjs --update`. Suppressions keyed `eslint-disable:<rule>` cover a whole file or block; the bare rule name covers one line.",
+  "warnings": {
+    "src/app/pages/Approvals.tsx": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/app/pages/Automation.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/app/pages/DesignMode/index.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/app/pages/Library.tsx": {
+      "react(preserve-manual-memoization)": 1
+    },
+    "src/app/pages/Onboarding.tsx": {
+      "react(refs)": 1
+    },
+    "src/app/pages/OrgView.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/app/pages/ProfileDetail.tsx": {
+      "react(refs)": 8
+    },
+    "src/app/pages/ProjectDetail.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/app/pages/Projects.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/app/pages/VideoMode/VideoProjectsLibrary.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/app/pages/VideoMode/index.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/app/pages/VideoMode/settings/MemoryPage.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/artifacts/AudioPreview.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/artifacts/live/HtmlFramePreview.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/artifacts/live/HtmlSandbox.tsx": {
+      "react(refs)": 3
+    },
+    "src/components/artifacts/live/IframeSandbox.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/artifacts/live/InlineFileRenderer.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/artifacts/live/LiveArtifactPanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/artifacts/live/SvgSandbox.tsx": {
+      "react(refs)": 2
+    },
+    "src/components/assets/AssetCatalogPickerDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/automation/AutomationCard.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/automation/AutomationCreateDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/automation/AutomationDetail.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/automation/HeartbeatDetailDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/dashboard/CostPanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/AssetGallery.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/design/AudioProviderControls.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/ChatPanelResizeHandle.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/CompareModal.tsx": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/design/DesignAssetsBrowserDialog.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/design/DesignEntrySidebar.tsx": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/design/DesignFolderCard.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/DesignQuestionsPane.tsx": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/DesignSystemCompanyIcon.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/DesignSystemComponentsPreview.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/design/DesignSystemLivePreview.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/design/DesignSystemPreviewModal.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/EntryView.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/ExportsDrawer.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/FileViewer.tsx": {
+      "react(set-state-in-effect)": 4
+    },
+    "src/components/design/FileViewerTargetCard.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/FileWorkspace.tsx": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/design/FileWorkspaceRow.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/NewProjectPanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/ProjectDesignSystemSwitcher.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/ProjectInstructionsDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/ProjectView.tsx": {
+      "react(set-state-in-effect)": 1,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/design/PromptLibraryDrawer.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/PromptTemplatePreviewModal.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/VirtualFileTreeList.tsx": {
+      "react(incompatible-library)": 1
+    },
+    "src/components/design/critique/DesignJuryCard.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/critique/use-critique-rollout.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/design-system-html.ts": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/design/tabs/DesignsTab.tsx": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/design/use-design-media-task-monitor.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/use-file-viewer-content.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/use-persistent-queued-design-sends.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/useChatArtifactReload.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/design/useFileWorkspaceController.ts": {
+      "react(set-state-in-effect)": 7,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/home/BudgetBanner.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/layout/sidebar-shell/SidebarShell.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/layout/sidebar-shell/recents/TasksRecents.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/layout/sidebar/DeleteConfirmDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/layout/sidebar/TaskItem.tsx": {
+      "react(set-state-in-effect)": 1,
+      "react(static-components)": 1
+    },
+    "src/components/library/CloudStorageLibraryTab.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/library/CloudStorageSearchOptionsDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/library/GraphView.tsx": {
+      "react(set-state-in-effect)": 1,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/library/MediaTimelineView.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/library/PluginConfigEditor.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/library/PluginInstallDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/library/PluginPreview.tsx": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/library/TimelineScrubber.tsx": {
+      "react(refs)": 6
+    },
+    "src/components/library/VirtualCardGrid.tsx": {
+      "react(incompatible-library)": 1
+    },
+    "src/components/library/assets/AssetPreviewDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/library/assets/AssetTextPreview.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/library/assets/AssetTile.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/library/assets/AssetsLibraryTab.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/library/assets/VirtualAssetGrid.tsx": {
+      "react(incompatible-library)": 1
+    },
+    "src/components/mermaid/MermaidView.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/onboarding/WelcomeStep.tsx": {
+      "react(refs)": 2
+    },
+    "src/components/pets/PetOverlay.tsx": {
+      "react(refs)": 10,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/pets/PetOverlayRoot.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/pets/usePetPosition.ts": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/pets/useReducedMotion.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/profiles/Combobox.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/profiles/SoulTemplatePicker.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/profiles/avatar-options.tsx": {
+      "react(static-components)": 2
+    },
+    "src/components/profiles/detail/OverviewTabContent.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/profiles/wizard/ProfileWizard.tsx": {
+      "react(refs)": 5
+    },
+    "src/components/search/SearchCommandDialog.tsx": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/settings/GoogleWorkspaceSection.tsx": {
+      "react(preserve-manual-memoization)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/OAuthCredentialsForm.tsx": {
+      "react(refs)": 1,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/settings/SettingsModal.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/SlackGatewaySettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/cloud-storage/CloudStorageConnectionsSection.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/cloud-storage/PathMappingsCard.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/cloud-storage/PersonalMediaConnectDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/cloud-storage/StockCatalogConnectDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/MemoryAuditPanel.tsx": {
+      "react(set-state-in-effect)": 3,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/settings/components/MemoryTable.tsx": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/settings/components/SlackChannelCombobox.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/WorkspaceRagCard.tsx": {
+      "react(set-state-in-effect)": 1,
+      "react-hooks(exhaustive-deps)": 2
+    },
+    "src/components/settings/components/usage/BudgetPolicies.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/usage/UsageDailyChart.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/usage/UsageModelChart.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/usage/UsageModelStats.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/usage/UsagePieCharts.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/usage/UsageProviderStats.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/usage/UsageRequestLog.tsx": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/components/usage/UsageToolStats.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/AccountSettings.tsx": {
+      "react(set-state-in-effect)": 3
+    },
+    "src/components/settings/tabs/AdvancedSettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/ConnectorSettings.tsx": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/DesignModeDependenciesSettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/DesignModeProjectLocationsSettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/DesignModeTelemetryRuns.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/GatewaySettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/MemorySettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/PetsSettings.tsx": {
+      "react(set-state-in-effect)": 2,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/settings/tabs/ProfileSettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/ProviderCredentialsFields.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/SecretsSettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/SkillsSettings.tsx": {
+      "react(set-state-in-effect)": 3
+    },
+    "src/components/settings/tabs/ThemeSettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/UsageSettings.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/WorkplaceSettings.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/settings/tabs/channel/AuditTab.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/channel/ChannelFallbackDiagnostics.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/channel/ConfigTab.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/channel/CredentialFields.tsx": {
+      "react(static-components)": 6
+    },
+    "src/components/settings/tabs/channel/GatewayChannelList.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/channel/RoutingRulesTable.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/channel/UsersTab.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/channel/useChannelActions.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/connectors/ConnectorToolList.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/connectors/hooks/useComposioConfig.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/connectors/hooks/useConnectorCatalog.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/connectors/hooks/useConnectorDetail.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/gateway/AuditLogViewer.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/gateway/ChannelList.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/settings/tabs/mcp/McpJsonHelper.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/settings/tabs/speech/hooks/useTtsTest.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/shared/ChatInput.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/shared/CloudStorageAssetPicker.tsx": {
+      "react(set-state-in-effect)": 2,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/shared/CloudStorageListView.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/shared/LazyImage.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/shared/McpSelector.tsx": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/shared/SlashCommandMenu.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/shared/chat-panel/GenUIRenderer.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/shared/chat-panel/ToolActivityGroup.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/shared/run-diagnostics/ExecutionDiagnosticsPanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/shared/useChatInputState.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/shared/useCloudStoragePickerItems.ts": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/DocumentPanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/ExtractSkillDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/FileDiffViewer.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/FileTreeItem.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/task/ImmichPublishedMediaPreview.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/InitialMessageSender.tsx": {
+      "react(refs)": 1
+    },
+    "src/components/task/LocalOutputArtifactPreviews.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/MemoryAuditPill.tsx": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/task/ParallelTaskDashboard.tsx": {
+      "react(purity)": 1
+    },
+    "src/components/task/RightSidebar.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/RunningIndicator.tsx": {
+      "react(preserve-manual-memoization)": 6
+    },
+    "src/components/task/SubAgentPanel.tsx": {
+      "react(purity)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/SubTasks.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/TaskComments.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/TaskGroupComponent.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/TaskV2Thread.tsx": {
+      "react(preserve-manual-memoization)": 1,
+      "react(refs)": 9
+    },
+    "src/components/task/TaskV2ToolCallGroup.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/task/virtual-computer/VirtualComputer.tsx": {
+      "react(set-state-in-effect)": 1,
+      "react(static-components)": 1
+    },
+    "src/components/ui/FileTypeIcon.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/video/AgentPlanPanel.tsx": {
+      "react(set-state-in-effect)": 1,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/video/LinkedAssetsBrowser.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/NewVideoProjectForm.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/ProjectEditor.tsx": {
+      "react(preserve-manual-memoization)": 2,
+      "react(set-state-in-effect)": 3
+    },
+    "src/components/video/SceneAudioCaptionInspector.tsx": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/components/video/SceneInspector.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/video/ShareModal.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/SideRail.tsx": {
+      "react(set-state-in-effect)": 4
+    },
+    "src/components/video/StepPreviewCanvas.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/StoragePanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/TranscriptView.tsx": {
+      "react(refs)": 2,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/assets/AssetRailAssetList.tsx": {
+      "react(incompatible-library)": 1
+    },
+    "src/components/video/assets/AssetRailFolderTree.tsx": {
+      "react(incompatible-library)": 1
+    },
+    "src/components/video/assets/AssetsRail.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/assets/ProjectAssetThumbnail.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/assets/useExternalAssetStatus.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/assets/useNewAssetTracker.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/capture/useCaptureRecorderController.ts": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/clipInspector/OverlayMotionTemplateSection.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/html-video/HtmlTemplateSection.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/overlays/ImportedOverlaySection.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/preview/CaptionOverlay.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/preview/EditorHandoffExport.tsx": {
+      "react(preserve-manual-memoization)": 2
+    },
+    "src/components/video/preview/PreviewRenderer.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/preview/RemotionPreview.tsx": {
+      "react(refs)": 21
+    },
+    "src/components/video/preview/RemotionTimelineComposition.tsx": {
+      "react(immutability)": 1
+    },
+    "src/components/video/preview/RenderControls.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/preview/WebCodecsPreview.tsx": {
+      "react(refs)": 19
+    },
+    "src/components/video/preview/WebCodecsPreviewModel.ts": {
+      "react(refs)": 1
+    },
+    "src/components/video/preview/overlays/VividOverlayLayer.tsx": {
+      "react(refs)": 1,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/video/preview/usePreviewViewMode.ts": {
+      "react(refs)": 1
+    },
+    "src/components/video/preview/usePreviewViewport.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/reference/FrameworkApplyPanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/reference/ReferencePanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/timeline/Timeline.tsx": {
+      "react(incompatible-library)": 1
+    },
+    "src/components/video/timeline/TimelineClipAdjustments.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/timeline/TimelineClipContent.tsx": {
+      "react(static-components)": 1,
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/video/timeline/TimelineClipThumbnail.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/video/timeline/TimelineMarkerInspector.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/timeline/TimelineMoveOverlay.tsx": {
+      "react(static-components)": 1
+    },
+    "src/components/video/timeline/TrackHeader.tsx": {
+      "react(set-state-in-effect)": 1,
+      "react(static-components)": 1
+    },
+    "src/components/video/timeline/WaveformCanvas.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/timeline/useTimelinePersistence.ts": {
+      "react(refs)": 4
+    },
+    "src/components/video/transcript/TranslateCaptionsDialog.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/transitions/TransitionTilePreview.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/useAgentAssetContext.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/useAgentDock.ts": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/useAgentPluginSubmit.ts": {
+      "react(preserve-manual-memoization)": 1,
+      "react(refs)": 1
+    },
+    "src/components/video/useRenderQueueJobs.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/useVideoAgentModel.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/video/variable-form/ControlFieldset.tsx": {
+      "react(refs)": 2
+    },
+    "src/components/video/variable-form/ControlTable.tsx": {
+      "react(refs)": 6
+    },
+    "src/components/workspace/WorkspaceDiffView.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/workspace/WorkspaceFileTree.tsx": {
+      "react(set-state-in-effect)": 1,
+      "react(static-components)": 1
+    },
+    "src/components/workspace/WorkspacePanel.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/components/workspace/media/ComparisonSlider.tsx": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/config/animation/hooks.ts": {
+      "react(refs)": 1
+    },
+    "src/shared/hooks/useAgentProfiles.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useAgentRuntimes.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useAgentSync.ts": {
+      "react(refs)": 1
+    },
+    "src/shared/hooks/useAuth.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useAutoScroll.ts": {
+      "react(refs)": 1
+    },
+    "src/shared/hooks/useAutomation.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useAutomationEvents.ts": {
+      "react(immutability)": 1,
+      "react(refs)": 1
+    },
+    "src/shared/hooks/useAutomationRuns.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useContextUsage.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useDesignChat.ts": {
+      "react(refs)": 2
+    },
+    "src/shared/hooks/useDesignMdState.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useDesignMode.ts": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/shared/hooks/useFileDiffs.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useLiveArtifacts.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useMarketplaceSources.ts": {
+      "react(set-state-in-effect)": 3
+    },
+    "src/shared/hooks/useMcpServers.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useMediaVersions.ts": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/shared/hooks/usePermissionRequests.ts": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/usePermissions.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/usePlanInterrupt.ts": {
+      "react(refs)": 2
+    },
+    "src/shared/hooks/usePlugins.ts": {
+      "react(set-state-in-effect)": 3
+    },
+    "src/shared/hooks/usePostRunEffects.ts": {
+      "react(refs)": 1
+    },
+    "src/shared/hooks/usePreviewUrl.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useProviders.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/usePublishJobs.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useQueueStatus.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useReducedMotionPreference.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useRunError.ts": {
+      "react(refs)": 1,
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useSkills.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useSubAgents.ts": {
+      "react(set-state-in-effect)": 2
+    },
+    "src/shared/hooks/useTaskEventSource.ts": {
+      "react(refs)": 1
+    },
+    "src/shared/hooks/useTaskTraceEvents.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useV2Artifacts.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useVideoPluginCandidates.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hooks/useVideoProject.ts": {
+      "react(set-state-in-effect)": 6
+    },
+    "src/shared/hooks/useVitePreview.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/hotkeys/useShortcut.ts": {
+      "react(refs)": 1
+    },
+    "src/shared/providers/theme-provider.tsx": {
+      "react(refs)": 1
+    },
+    "src/shared/video/useContentGraph.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/video/useFormSpec.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/video/useHtmlGallery.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/video/useHtmlSelection.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/video/useRenderStream.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/video/useTemplateSource.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/video/useVideoEngines.ts": {
+      "react(set-state-in-effect)": 1
+    },
+    "src/shared/video/useVideoFlags.ts": {
+      "react(set-state-in-effect)": 1
+    }
+  },
+  "suppressions": {
+    "src/app/pages/Home.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/app/pages/Setup.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/app/pages/TaskDetail.tsx": {
+      "react-hooks(exhaustive-deps)": 2
+    },
+    "src/app/pages/TaskDetailV2.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/artifacts/ArtifactPreview.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/design/use-design-chat-questions.ts": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/library/CloudStorageLibraryTab.tsx": {
+      "react-hooks(exhaustive-deps)": 2
+    },
+    "src/components/settings/components/MemoryExplorer.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/settings/components/Switch.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/settings/tabs/FetchModelsPanel.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/settings/tabs/GeneralSettings.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/settings/tabs/MCPSettings.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/shared/ChatInputAttachments.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/shared/ModelPicker.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/shared/ModelSearchMenu.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/shared/useModelOptions.ts": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/video/ExternalLinkPreviews.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/video/overlays/OverlayCardPreview.tsx": {
+      "react-hooks(exhaustive-deps)": 2
+    },
+    "src/components/video/preview/WebCodecsPreviewModel.ts": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/video/reference/ReferenceSectionPlayer.tsx": {
+      "jsx-a11y(media-has-caption)": 1
+    },
+    "src/components/workspace/WorkspaceRouter.tsx": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/components/workspace/registry.ts": {
+      "no-console": 1
+    },
+    "src/shared/hooks/useAgent.ts": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/shared/hooks/useTheme.ts": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/shared/hooks/useTraceStream.ts": {
+      "react-hooks(exhaustive-deps)": 1
+    },
+    "src/shared/lib/workspace-watcher.ts": {
+      "no-console": 1
+    }
+  },
+  "exceptions": []
+}
