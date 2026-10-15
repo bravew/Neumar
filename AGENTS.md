@@ -22,6 +22,14 @@ as one contributor's local setup, not shared project context. `.cursor/` is trac
 but currently holds only [codacy.mdc](.cursor/rules/codacy.mdc); shared rules
 belong in this file, so agents reading either entry point see them.
 
+## Lessons
+
+Before changing code, read [LESSONS.md](LESSONS.md): what recent merged work got
+wrong and the rule that would have caught it. Each lesson carries its evidence and
+a "Seen" count of review days. A lesson seen on three review days moves into this
+file. When a review or a corrective PR finds a new failure pattern, add it there
+with a PR, commit, or `path:line` as evidence.
+
 ## Working agreement
 
 ### 1. Read the structure before you change it
@@ -191,8 +199,9 @@ on a temporary `NEUMAR_APP_DATA_DIR`; if a dev API already holds port 5126 the r
 stops, unless `PLAYWRIGHT_REUSE_API=1`, which drives that server's real data.
 
 The exact `validate` command is in [package.json](package.json). It runs branding,
-frontend lint, locale/design/routing/dependency/plugin/skill consistency checks,
-frontend and API source typechecks, root and API formatting, and component size.
+frontend lint, the warning baseline gate, locale/design/routing/dependency/plugin/skill
+consistency checks, frontend and API source typechecks, root and API formatting, and
+component size.
 It does **not** run API lint, API test-file typechecking, Rust checks, video studio
 validation, or the shared IR test suite. Add the relevant workspace checks:
 
@@ -203,6 +212,32 @@ pnpm --filter @neumar/video-ir validate
 pnpm --filter @neumar/video validate
 cargo check --manifest-path src-tauri/Cargo.toml --locked
 ```
+
+### Existing lint and size debt is frozen, not forgiven
+
+`pnpm lint` exits 0 with 453 frontend correctness warnings, so a passing gate is not
+a clean one. Two checks keep that debt from growing while it is retired in bounded
+follow-ups:
+
+- [check-warning-baseline.mjs](scripts/check-warning-baseline.mjs) compares the
+  current per-file, per-rule warning counts and suppression comments against
+  [lint-warning-baseline.json](scripts/lint-warning-baseline.json). New warnings or
+  new `eslint-disable`/`oxlint-disable` comments fail the gate. Removing warnings
+  always passes, and the run prints the `pnpm baseline:warnings` command that records
+  the reduction in the same change. Growth is allowed only through an entry in the
+  baseline's `exceptions` array with a `kind`, `file`, `rule`, `owner`, `reason`, an
+  `expires` date, and a `regressionTest` that exists; a missing field, an expired
+  date, or a missing test fails the gate.
+- [check-component-size.mjs](scripts/check-component-size.mjs) refuses an allowlist
+  `current` ceiling raised above the base branch, in addition to the per-file line
+  caps. It reads the base allowlist from `BASE_REF`, defaulting to `origin/main`, and
+  skips the comparison when that ref or the file is unavailable, so a shallow clone
+  or a new branch does not fail spuriously. Set `BASE_REF` to the pull request base
+  in CI. Lowering a ceiling or removing an entry is always allowed.
+
+Do not raise a baseline count, a ceiling, or an exception to make a check pass; fix
+the cause, or extract the responsibility. See the LESSONS.md entry "Never raise a
+threshold or allowlist ceiling to make a check pass".
 
 For Rust changes, also use `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
 and relevant Cargo tests. For video docs/media, inspect the artifact and use
@@ -222,7 +257,9 @@ Root and API oxfmt configs ignore Markdown; review links, commands, and renderin
 directly. Lint/import/style rules live in `.oxlintrc.json`, `.oxfmtrc.jsonc`, and
 workspace equivalents. [check-component-size.mjs](scripts/check-component-size.mjs)
 scans only `src/components/**/*.tsx`: default 350 lines, with existing ceilings in
-[component-size-allowlist.json](scripts/component-size-allowlist.json).
+[component-size-allowlist.json](scripts/component-size-allowlist.json). Those
+ceilings may only shrink; see "Existing lint and size debt is frozen, not forgiven"
+above.
 
 ## Architecture and extension points
 
