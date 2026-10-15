@@ -20,10 +20,16 @@ import {
   registerExternalMcpRunSession,
 } from '@/shared/services/external-mcp/run-commands';
 
+/** Explicit loopback peer context: the external MCP auth middleware fails
+ * closed when `c.env.incoming.socket.remoteAddress` is absent. */
 function app() {
   const hono = new Hono();
   hono.route('/mcp/server', mcpServerRoutes);
-  return hono;
+  const env = { incoming: { socket: { remoteAddress: '127.0.0.1' } } };
+  return {
+    request: (input: Request | string | URL, init?: RequestInit) =>
+      hono.request(input, init, env),
+  };
 }
 
 function authHeaders(): Record<string, string> {

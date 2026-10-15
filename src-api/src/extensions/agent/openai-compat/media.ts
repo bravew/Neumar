@@ -12,7 +12,51 @@ import OpenAI from 'openai';
 
 import type { AgentMessage } from '@/core/agent/types';
 
+import { NetworkPolicyDenied, safeFetch } from '@/shared/network-policy/fetch';
+import { externalApiPolicy } from '@/shared/network-policy/schema';
+
 import type { ToolResult } from './tools';
+
+// ============================================================================
+// Provider asset download
+// ============================================================================
+
+/**
+ * Bound for downloading a provider-returned asset. The URL is chosen by the
+ * upstream provider (or by whatever the provider echoes back), so the request
+ * goes through safeFetch: it validates the resolved IPv4/IPv6 address of every
+ * hop including redirects, pins the connection to that address, and applies an
+ * explicit timeout and byte cap. A plain fetch() has none of those.
+ */
+const MEDIA_DOWNLOAD_TIMEOUT_MS = 60_000;
+const MAX_MEDIA_DOWNLOAD_BYTES = 100 * 1024 * 1024;
+
+type MediaDownload = { ok: true; body: Buffer } | { ok: false; error: string };
+
+async function downloadMediaAsset(
+  url: string,
+  signal?: AbortSignal,
+): Promise<MediaDownload> {
+  try {
+    const res = await safeFetch(url, externalApiPolicy(), {
+      timeoutMs: MEDIA_DOWNLOAD_TIMEOUT_MS,
+      maxBytes: MAX_MEDIA_DOWNLOAD_BYTES,
+      signal,
+    });
+    if (res.status < 200 || res.status >= 300) {
+      return { ok: false, error: `HTTP ${res.status}` };
+    }
+    return { ok: true, body: res.body };
+  } catch (err) {
+    if (err instanceof NetworkPolicyDenied) {
+      return { ok: false, error: `blocked by network policy: ${err.reason}` };
+    }
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
 
 // ============================================================================
 // Model Detection
@@ -46,24 +90,28 @@ export async function generateImage(
   baseUrl: string,
   model?: string,
   size?: string,
+  abortSignal?: AbortSignal,
 ): Promise<ToolResult> {
   try {
     const client = new OpenAI({ apiKey, baseURL: baseUrl });
     const imageModel = model || DEFAULT_IMAGE_MODEL;
 
-    const response = await client.images.generate({
-      model: imageModel,
-      prompt,
-      // BytePlus Seedream supports '2K' alongside standard OpenAI sizes
-      size: (size || '1024x1024') as
-        | '256x256'
-        | '512x512'
-        | '1024x1024'
-        | '1792x1024'
-        | '1024x1792',
-      n: 1,
-      response_format: 'url',
-    });
+    const response = await client.images.generate(
+      {
+        model: imageModel,
+        prompt,
+        // BytePlus Seedream supports '2K' alongside standard OpenAI sizes
+        size: (size || '1024x1024') as
+          | '256x256'
+          | '512x512'
+          | '1024x1024'
+          | '1792x1024'
+          | '1024x1792',
+        n: 1,
+        response_format: 'url',
+      },
+      { signal: abortSignal },
+    );
 
     const imageUrl = response.data?.[0]?.url;
     if (!imageUrl) {
@@ -75,17 +123,16 @@ export async function generateImage(
     const filename = `generated-image-${uniqueId}.png`;
     const filePath = join(workDir, filename);
 
-    const imageResponse = await fetch(imageUrl);
+    const imageResponse = await downloadMediaAsset(imageUrl, abortSignal);
     if (!imageResponse.ok) {
       return {
-        output: `Error downloading image: HTTP ${imageResponse.status}`,
+        output: `Error downloading image: ${imageResponse.error}`,
         isError: true,
       };
     }
 
-    const buffer = Buffer.from(await imageResponse.arrayBuffer());
     await fs.mkdir(workDir, { recursive: true });
-    await fs.writeFile(filePath, buffer);
+    await fs.writeFile(filePath, imageResponse.body);
 
     return {
       output: `Image generated successfully.\nModel: ${imageModel}\nSaved to: \`${filePath}\``,
@@ -211,17 +258,16 @@ export async function generateVideo(
         const filename = `generated-video-${uniqueId}.mp4`;
         const filePath = join(workDir, filename);
 
-        const videoResponse = await fetch(videoUrl, { signal: abortSignal });
+        const videoResponse = await downloadMediaAsset(videoUrl, abortSignal);
         if (!videoResponse.ok) {
           return {
-            output: `Error downloading video: HTTP ${videoResponse.status}`,
+            output: `Error downloading video: ${videoResponse.error}`,
             isError: true,
           };
         }
 
-        const buffer = Buffer.from(await videoResponse.arrayBuffer());
         await fs.mkdir(workDir, { recursive: true });
-        await fs.writeFile(filePath, buffer);
+        await fs.writeFile(filePath, videoResponse.body);
 
         return {
           output: `Video generated successfully.\nModel: ${videoModel}\nSaved to: \`${filePath}\``,
@@ -276,10 +322,19 @@ export async function* generateImageDirect(
   apiKey: string,
   baseUrl: string,
   model: string,
+  abortSignal?: AbortSignal,
 ): AsyncGenerator<AgentMessage> {
   yield { type: 'text', content: `Generating image with ${model}...\n\n` };
 
-  const result = await generateImage(prompt, workDir, apiKey, baseUrl, model);
+  const result = await generateImage(
+    prompt,
+    workDir,
+    apiKey,
+    baseUrl,
+    model,
+    undefined,
+    abortSignal,
+  );
 
   if (result.isError) {
     yield { type: 'error', message: result.output };

@@ -686,6 +686,7 @@ export async function executeTool(
         agentConfig?.baseUrl || '',
         args.model as string | undefined,
         args.size as string | undefined,
+        abortSignal,
       );
     case 'generate_video':
       return generateVideo(

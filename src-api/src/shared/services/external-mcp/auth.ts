@@ -28,7 +28,10 @@ function getRemoteAddress(c: Context): string | undefined {
 }
 
 export function isLoopbackRemote(remote: string | undefined): boolean {
-  if (!remote) return true;
+  // An absent peer address is unknown, not loopback. Fail closed: callers must
+  // supply an explicit loopback address (`c.env.incoming.socket.remoteAddress`,
+  // populated by `@hono/node-server`) rather than relying on missing metadata.
+  if (!remote) return false;
   return classifyIp(remote)?.classification === 'loopback';
 }
 

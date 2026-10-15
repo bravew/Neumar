@@ -1,8 +1,7 @@
-import { execFileSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import {
   copyFileSync,
   cpSync,
-  createWriteStream,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -16,10 +15,11 @@ import {
 } from 'fs';
 import { createRequire } from 'module';
 import { dirname, join, relative as pathRelative, resolve } from 'path';
-import { pipeline } from 'stream/promises';
 
 import { config } from 'dotenv';
 import { build } from 'esbuild';
+
+import { resolveVerifiedPrebuilt } from './lib/verified-native-addon.mjs';
 
 // Minimal logger shim — avoids bare console.* (forbidden in src-api/ per CLAUDE.md)
 const buildLog = (...args) => process.stdout.write(args.join(' ') + '\n');
@@ -235,74 +235,16 @@ const onnxruntimeShimPlugin = {
 };
 
 /**
- * Download a prebuilt better-sqlite3 native addon from GitHub releases.
- * Returns the path to the downloaded .node file, or null on failure.
- *
- * @param {string} version   - better-sqlite3 version (e.g. "12.6.2")
- * @param {number} abi       - NODE_MODULE_VERSION (e.g. 115 for Node 20)
- * @param {string} platform  - OS name: "darwin", "linux", "win32"
- * @param {string} arch      - CPU arch: "arm64", "x64"
- */
-async function downloadPrebuilt(version, abi, platform, arch) {
-  const tag = `v${version}`;
-  const tarName = `better-sqlite3-${tag}-node-v${abi}-${platform}-${arch}.tar.gz`;
-  const url = `https://github.com/WiseLibs/better-sqlite3/releases/download/${tag}/${tarName}`;
-
-  const cacheDir = resolve('dist/.native-cache');
-  const cachedFile = join(
-    cacheDir,
-    `better_sqlite3-node${abi}-${platform}-${arch}.node`,
-  );
-
-  if (existsSync(cachedFile)) {
-    buildLog(`[build] Using cached prebuilt: ${cachedFile}`);
-    return cachedFile;
-  }
-
-  buildLog(`[build] Downloading prebuilt: ${url}`);
-  mkdirSync(cacheDir, { recursive: true });
-
-  try {
-    const tarPath = join(cacheDir, tarName);
-    const res = await fetch(url, {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(60_000),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    await pipeline(res.body, createWriteStream(tarPath));
-
-    // Extract the .node file from the tarball
-    execFileSync('tar', ['xzf', tarPath, '-C', cacheDir], { stdio: 'pipe' });
-
-    // The prebuilt tar contains: build/Release/better_sqlite3.node
-    const extractedPath = join(
-      cacheDir,
-      'build',
-      'Release',
-      'better_sqlite3.node',
-    );
-    if (existsSync(extractedPath)) {
-      copyFileSync(extractedPath, cachedFile);
-      // Cleanup extracted files and tarball
-      execFileSync('rm', ['-rf', join(cacheDir, 'build'), tarPath], {
-        stdio: 'pipe',
-      });
-      buildLog(`[build] Prebuilt downloaded and cached: ${cachedFile}`);
-      return cachedFile;
-    }
-    throw new Error('better_sqlite3.node not found in tarball');
-  } catch (err) {
-    buildWarn(`[build] Failed to download prebuilt: ${err.message}`);
-    return null;
-  }
-}
-
-/**
  * Resolve the correct better_sqlite3.node for the pkg target.
  *
  * Strategy:
- * 1. If PKG_NODE_RANGE env var is set (e.g. "20"), download prebuilt for that ABI
- * 2. Fall back to locally compiled .node (works when system Node.js matches pkg target)
+ * 1. If PKG_NODE_RANGE env var is set (e.g. "20"), download the prebuilt for
+ *    that ABI. The download is verified against a reviewed digest before
+ *    extraction, and the cache is keyed by package version and target, so a
+ *    tampered archive, a poisoned cache entry, or a stale cache key fails the
+ *    build instead of silently entering it.
+ * 2. Fall back to locally compiled .node (works when system Node.js matches
+ *    pkg target)
  */
 async function resolveNativeAddon() {
   const dest = resolve('dist/better_sqlite3.node');
@@ -330,22 +272,20 @@ async function resolveNativeAddon() {
       } else {
         // Need prebuilt for a different ABI
         const arch = TARGET_ARCH === 'arm64' ? 'arm64' : 'x64';
-        const prebuilt = await downloadPrebuilt(
-          bsVersion,
+        const cacheDir = resolve('dist/.native-cache');
+        const prebuilt = await resolveVerifiedPrebuilt({
+          version: bsVersion,
           abi,
-          TARGET_PLATFORM,
+          platform: TARGET_PLATFORM,
           arch,
+          cacheDir,
+          log: buildLog,
+        });
+        copyFileSync(prebuilt, dest);
+        buildLog(
+          `[build] Copied verified prebuilt better_sqlite3.node to dist/`,
         );
-        if (prebuilt) {
-          copyFileSync(prebuilt, dest);
-          buildLog(`[build] Copied prebuilt better_sqlite3.node to dist/`);
-          return;
-        }
-        throw new Error(
-          `[build] No better_sqlite3 prebuilt available for target ABI ${abi}; ` +
-            `refusing to copy local ABI ${systemAbi}. Build with Node ${pkgNodeRange} ` +
-            'or provide a matching prebuilt native addon.',
-        );
+        return;
       }
     }
   }
