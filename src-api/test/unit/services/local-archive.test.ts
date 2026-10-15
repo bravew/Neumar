@@ -17,6 +17,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { APP_DIR_NAME } from '@/config/constants';
+
 import { LocalArchiveAdapter } from '@/shared/services/publish/destinations/local-archive';
 import type {
   LegContext,
@@ -45,7 +47,7 @@ function archiveTargetDir(rootDir: string): string {
   return join(rootDir, '2026', '05', '06', `${SHA.slice(0, 8)}-launch-video`);
 }
 
-describe('LocalArchiveAdapter honours NEUMAR_APP_DATA_DIR (#226)', () => {
+describe('LocalArchiveAdapter app-data isolation and legacy migration (#226)', () => {
   let dataDir: string;
   let scratch: string;
   let sourcePath: string;
@@ -93,33 +95,58 @@ describe('LocalArchiveAdapter honours NEUMAR_APP_DATA_DIR (#226)', () => {
     expect(readdirSync(fakeHome)).toEqual([]);
   });
 
-  it('migrates an existing .neuma archive to the new root on first write', async () => {
-    const legacyRoot = join(dataDir, '.neuma', 'archive');
+  it('migrates the predecessor ~/.neuma/archive on first write with no override', async () => {
+    delete process.env.NEUMAR_APP_DATA_DIR;
+    const legacyRoot = join(fakeHome, '.neuma', 'archive');
     const legacyArtifactDir = archiveTargetDir(legacyRoot);
     mkdirSync(legacyArtifactDir, { recursive: true });
     writeFileSync(join(legacyArtifactDir, 'old.mp4'), 'old');
+    const targetRoot = join(fakeHome, APP_DIR_NAME, 'archive');
 
     const adapter = new LocalArchiveAdapter({
       now: () => new Date('2026-05-06T12:00:00.000Z'),
     });
     await adapter.upload(legInput(sourcePath, 5), legContext);
 
-    // The legacy tree moved intact, so an archive published before the
-    // rebrand is still reachable at the new root.
-    expect(existsSync(join(legacyRoot, 'old.mp4'))).toBe(false);
+    expect(existsSync(join(legacyArtifactDir, 'old.mp4'))).toBe(false);
+    expect(existsSync(join(archiveTargetDir(targetRoot), 'old.mp4'))).toBe(
+      true,
+    );
+    expect(existsSync(join(archiveTargetDir(targetRoot), 'video.mp4'))).toBe(
+      true,
+    );
+  });
+
+  it('leaves the home archive untouched when an app-data override is set', async () => {
+    const legacyRoot = join(fakeHome, '.neuma', 'archive');
+    const legacyArtifactDir = archiveTargetDir(legacyRoot);
+    mkdirSync(legacyArtifactDir, { recursive: true });
+    writeFileSync(join(legacyArtifactDir, 'old.mp4'), 'old');
+    homedirSpy.mockClear();
+
+    const adapter = new LocalArchiveAdapter({
+      now: () => new Date('2026-05-06T12:00:00.000Z'),
+    });
+    await adapter.upload(legInput(sourcePath, 5), legContext);
+
+    expect(homedirSpy).not.toHaveBeenCalled();
+    expect(existsSync(join(legacyArtifactDir, 'old.mp4'))).toBe(true);
     expect(
       existsSync(join(archiveTargetDir(join(dataDir, 'archive')), 'old.mp4')),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       existsSync(join(archiveTargetDir(join(dataDir, 'archive')), 'video.mp4')),
     ).toBe(true);
   });
 
-  it('never touches a caller-injected root', async () => {
+  it('leaves the home archive untouched when a caller injects a root', async () => {
+    delete process.env.NEUMAR_APP_DATA_DIR;
     const injectedRoot = join(scratch, 'injected');
-    const legacyRoot = join(dataDir, '.neuma', 'archive');
-    mkdirSync(archiveTargetDir(legacyRoot), { recursive: true });
-    writeFileSync(join(archiveTargetDir(legacyRoot), 'old.mp4'), 'old');
+    const legacyRoot = join(fakeHome, '.neuma', 'archive');
+    const legacyArtifactDir = archiveTargetDir(legacyRoot);
+    mkdirSync(legacyArtifactDir, { recursive: true });
+    writeFileSync(join(legacyArtifactDir, 'old.mp4'), 'old');
+    homedirSpy.mockClear();
 
     const adapter = new LocalArchiveAdapter({
       rootDir: injectedRoot,
@@ -127,10 +154,13 @@ describe('LocalArchiveAdapter honours NEUMAR_APP_DATA_DIR (#226)', () => {
     });
     await adapter.upload(legInput(sourcePath, 5), legContext);
 
-    expect(existsSync(join(archiveTargetDir(legacyRoot), 'old.mp4'))).toBe(
+    expect(homedirSpy).not.toHaveBeenCalled();
+    expect(existsSync(join(legacyArtifactDir, 'old.mp4'))).toBe(true);
+    expect(existsSync(join(archiveTargetDir(injectedRoot), 'old.mp4'))).toBe(
+      false,
+    );
+    expect(existsSync(join(archiveTargetDir(injectedRoot), 'video.mp4'))).toBe(
       true,
     );
-    expect(existsSync(join(injectedRoot, '2026'))).toBe(true);
-    expect(readdirSync(fakeHome)).toEqual([]);
   });
 });
