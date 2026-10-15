@@ -140,4 +140,4 @@ Two fix issues also carry a decision. The permission priority in [#210](https://
 
 ## Known baseline
 
-`pnpm test:fast` fails at `src-api/test/unit/agent-runtimes/resolve.test.ts:251` on hosts with Homebrew OpenCode until [#195](https://github.com/bravew/Neumar/issues/195) lands. A PR that hits only that failure names it, with the sha it ran on, instead of calling it a regression.
+At baseline `c0926618`, `pnpm test:fast` fails at `src-api/test/unit/agent-runtimes/resolve.test.ts:251` on hosts with Homebrew OpenCode. Issue [#195](https://github.com/bravew/Neumar/issues/195) fixes this failure. Before that fix lands, a PR that hits only this failure should record its tested sha and identify the baseline failure.

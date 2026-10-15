@@ -1048,7 +1048,9 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             match event {
-                // Dock icon clicked on macOS (or taskbar on Windows) with no visible windows
+                // Dock icon clicked on macOS with no visible windows. Tauri only
+                // defines this variant on macOS, so the arm must not compile elsewhere.
+                #[cfg(target_os = "macos")]
                 tauri::RunEvent::Reopen { has_visible_windows, .. } => {
                     if !has_visible_windows {
                         show_main_window(app_handle);
