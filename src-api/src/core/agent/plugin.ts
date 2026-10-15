@@ -332,7 +332,10 @@ export const OPENAI_COMPAT_METADATA: AgentProviderMetadata = {
   defaultModel: 'seed-1-8-251228',
   tags: ['openai', 'byteplus', 'modelark'],
   transport: 'http',
-  supportsMcp: 'shim',
+  // No MCP server reaches this adapter. `McpShim` is never instantiated
+  // outside its own test, and the agentic loop only offers the built-in
+  // file/shell/media/search tools from `openai-compat/tools.ts`.
+  supportsMcp: 'none',
   supportsSkills: 'none',
   supportsPlanMode: 'orchestrated',
   requiresApiKey: true,
