@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "description": "Contributor policy blocklist. Empty by design. No contributor, vendor, model family, or agent session is named here. Entries are added only when the policy's evidence bar is met and a maintainer records a decision. See README.md and the contributor policy in ../2026-10-13-regression/03-lessons-and-contributors.md.",
+  "policy": {
+    "probation": "Two confirmed escaped material defects attributable to the same contributor or tool configuration within 90 days.",
+    "block": "Three confirmed material incidents within 90 days, including at least one repeated failure class after its documented correction, or a verified deliberate bypass of required validation.",
+    "reinstatement": "Repair outstanding incidents, demonstrate the failed contracts under the new gate, and pass three independently reviewed scoped contributions. A block is reviewed after 30 days and renewed only with stated evidence.",
+    "appeal": "An appeal can correct attribution, severity, or causation at any time. Link it from the entry's appealLink."
+  },
+  "schema": {
+    "entry": {
+      "required": [
+        "id",
+        "contributorReference",
+        "incidentRecords",
+        "evidence",
+        "affectedScope",
+        "effectiveDate",
+        "expiry",
+        "remediation",
+        "appealLink"
+      ],
+      "fields": {
+        "id": "Stable record id for this entry.",
+        "contributorReference": "Opaque reference to the demonstrated contributor or tool configuration. Never a vendor, model family, or agent session name.",
+        "incidentRecords": "Ids of the confirmed incident records behind this entry.",
+        "evidence": "Links to the confirming artifacts, such as incident records and verification runs.",
+        "affectedScope": "What is restricted and where.",
+        "effectiveDate": "ISO date the restriction starts.",
+        "expiry": "ISO date the entry is reviewed.",
+        "remediation": "What must be done to clear the entry.",
+        "appealLink": "Where an appeal is filed."
+      }
+    }
+  },
+  "entries": []
+}

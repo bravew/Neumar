@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "description": "Schema fixture. This entry is intentionally missing the required remediation field, so the check must reject it. It is not a real record.",
+  "schema": {
+    "entry": {
+      "required": [
+        "id",
+        "contributorReference",
+        "incidentRecords",
+        "evidence",
+        "affectedScope",
+        "effectiveDate",
+        "expiry",
+        "remediation",
+        "appealLink"
+      ]
+    }
+  },
+  "entries": [
+    {
+      "id": "example-0002",
+      "contributorReference": "opaque-ref-example",
+      "incidentRecords": ["incident-example-0003"],
+      "evidence": [
+        "doc/maintenance/incidents/records/incident-example-0003.md"
+      ],
+      "affectedScope": "Autonomous merge for the named repository surface.",
+      "effectiveDate": "2026-10-14",
+      "expiry": "2026-11-13",
+      "appealLink": "https://github.com/bravew/Neumar/issues/231"
+    }
+  ]
+}

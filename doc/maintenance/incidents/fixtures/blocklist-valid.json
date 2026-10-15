@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "description": "Schema fixture. The entry is a placeholder that exercises the blocklist schema; it is not a real record and names no contributor.",
+  "schema": {
+    "entry": {
+      "required": [
+        "id",
+        "contributorReference",
+        "incidentRecords",
+        "evidence",
+        "affectedScope",
+        "effectiveDate",
+        "expiry",
+        "remediation",
+        "appealLink"
+      ]
+    }
+  },
+  "entries": [
+    {
+      "id": "example-0001",
+      "contributorReference": "opaque-ref-example",
+      "incidentRecords": ["incident-example-0001", "incident-example-0002"],
+      "evidence": [
+        "doc/maintenance/incidents/records/incident-example-0001.md",
+        "doc/maintenance/incidents/records/incident-example-0002.md"
+      ],
+      "affectedScope": "Autonomous submission for the named repository surface.",
+      "effectiveDate": "2026-10-14",
+      "expiry": "2026-11-13",
+      "remediation": "Repair the outstanding incidents, demonstrate the failed contracts under the current gate, and pass three independently reviewed scoped contributions.",
+      "appealLink": "https://github.com/bravew/Neumar/issues/231"
+    }
+  ]
+}
