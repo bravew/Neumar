@@ -68,14 +68,58 @@ describe('ModelSearchMenu truncated option titles', () => {
     expect(selectionMark(options[0]!)).toHaveClass('opacity-100');
     expect(selectionMark(options[1]!)).toHaveClass('opacity-0');
   });
+
+  it("keeps a truncated disabled option's full name reachable while its reason stays in the row", () => {
+    const reason = 'Sign in to use this model';
+    const disabled = model('openrouter/google/gemini-2.5-pro-preview-06-05', {
+      disabled: true,
+      disabledReason: reason,
+    });
+
+    render(
+      <ModelSearchMenu
+        options={[disabled]}
+        activeModelId={null}
+        onSelect={vi.fn()}
+        groupLabels={{
+          claude: 'Claude',
+          codex: 'Codex',
+          other: 'Other providers',
+        }}
+        searchPlaceholder="Search models"
+        emptyLabel="No models"
+      />,
+    );
+
+    const option = screen.getByRole('option', {
+      name: `${disabled.label} OpenRouter · ${reason}`,
+    });
+    const name = within(option).getByText(disabled.label);
+
+    expect(name).toHaveClass('truncate');
+    expect(option).toHaveTextContent(`OpenRouter · ${reason}`);
+    // The disabled command item sets pointer-events-none, so its own title
+    // cannot appear on hover. The truncated name has to carry the full label
+    // on an element that still accepts the pointer.
+    expect(option.className).toContain('pointer-events-none');
+    expect(option).toHaveAttribute('data-disabled', 'true');
+    expect(option).not.toHaveAttribute('title', reason);
+
+    const disclosure = name.closest('[title]');
+    expect(disclosure).not.toBeNull();
+    expect(disclosure).not.toBe(option);
+    expect(disclosure).toHaveAttribute('title', disabled.label);
+    expect(disclosure).toHaveClass('pointer-events-auto');
+  });
 });
 
-function model(id: string): ModelOption {
+function model(id: string, overrides: Partial<ModelOption> = {}): ModelOption {
   return {
     id,
     label: id,
     description: 'OpenRouter',
     provider: 'openai-compat',
+    ...overrides,
   };
 }
 

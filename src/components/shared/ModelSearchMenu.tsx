@@ -190,8 +190,10 @@ export function ModelSearchMenu({
                       disabled={model.disabled}
                       // The label is truncated, and long catalog ids share a
                       // prefix, so the complete name stays available on hover.
-                      // A disabled row keeps its reason instead.
-                      title={model.disabledReason || model.label}
+                      // Disabled items set pointer-events-none, which hides a
+                      // title here; the truncated name carries it instead.
+                      // The reason is already rendered in the row.
+                      title={model.disabled ? undefined : model.label}
                       onSelect={() => {
                         if (!model.disabled) onSelect(model.id);
                       }}
@@ -209,7 +211,15 @@ export function ModelSearchMenu({
                         )}
                       />
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">
+                        <div
+                          className={cn(
+                            'truncate text-sm font-medium',
+                            // Opt back into hit testing so the native title can
+                            // appear despite the disabled item's pointer-events-none.
+                            model.disabled && 'pointer-events-auto',
+                          )}
+                          title={model.disabled ? model.label : undefined}
+                        >
                           {model.label}
                         </div>
                         {detail && (
