@@ -211,6 +211,39 @@ describe('video source transcript analysis', () => {
     ]);
   });
 
+  it('leaves overlapping speech unchanged when the overlap exceeds one second', async () => {
+    const result = await transcribeSourceMedia({
+      ...baseOptions({ workDir, cacheDir }),
+      extractAudio: vi.fn(async () => Buffer.from([0, 0])),
+      transcribeAudio: vi.fn(async () => ({
+        success: true,
+        provider: 'Local',
+        model: 'mock-whisper',
+        dataEgress: 'local' as const,
+        text: 'one two three',
+        duration: 3,
+        words: [
+          { word: 'one', startMs: 0, endMs: 2_000 },
+          { word: 'two', startMs: 999, endMs: 1_500 },
+          { word: 'three', startMs: 2_100, endMs: 2_500 },
+        ],
+      })),
+      resolveProviderInfo: () => ({ provider: 'Local', dataEgress: 'local' }),
+    });
+
+    expect(result.degraded).toBe(false);
+    expect(result.transcript.words).toEqual([
+      { text: 'one', startMs: 0, endMs: 2_000 },
+      { text: 'two', startMs: 999, endMs: 1_500 },
+      { text: 'three', startMs: 2_100, endMs: 2_500 },
+    ]);
+    expect(result.artifact.ranges).toEqual([
+      { id: 'source-1:w1', startMs: 0, endMs: 2_000, label: 'one' },
+      { id: 'source-1:w2', startMs: 999, endMs: 1_500, label: 'two' },
+      { id: 'source-1:w3', startMs: 2_100, endMs: 2_500, label: 'three' },
+    ]);
+  });
+
   it('leaves an isolated impossible word unchanged when duration is unknown', async () => {
     const result = await transcribeSourceMedia({
       ...baseOptions({ workDir, cacheDir }),

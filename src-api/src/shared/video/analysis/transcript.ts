@@ -43,7 +43,7 @@ const logger = createLogger('VideoTranscript');
 const DEFAULT_SOURCE_TRANSCRIPTION_PROVIDER = 'local';
 const RAW_PCM_MIME_TYPE = 'audio/pcm';
 const PCM_SAMPLE_RATE = 16_000;
-/** A provider time more than this far outside its spoken neighbors is an isolated error, not overlap. */
+/** A provider time more than this far outside the media is an isolated error, not overlap. */
 const ISOLATED_WORD_TIME_TOLERANCE_MS = 1_000;
 const dataEgressCacheSchema = z.enum(MEDIA_DATA_EGRESS);
 const analysisRangeCacheSchema = z.object({
@@ -536,14 +536,17 @@ async function writeTranscriptCache(
 
 /**
  * Replace one provider word whose time sits more than a second outside the
- * spoken order of its neighbors. The replacement is the linear point between
- * the nearest times that still agree with that order. Neighbors stay put, and
- * a missing, non-finite, or unusable duration does not become a bound.
+ * media. The replacement is the linear point between the nearest times that
+ * remain inside it. Neighbors stay put. Overlapping speech stays as returned,
+ * and a missing, non-finite, or unusable duration does not become a bound.
  */
 function repairIsolatedImpossibleWordTime(
   words: TranscriptSegment[],
   durationSec: number | undefined,
 ): TranscriptSegment[] {
+  const durationMs = usableDurationMs(durationSec);
+  if (durationMs === undefined) return words;
+
   const usable = words.filter(
     (word) =>
       word.text.trim().length > 0 &&
@@ -553,48 +556,50 @@ function repairIsolatedImpossibleWordTime(
   if (usable.length === 0) return words;
 
   const points = usable.flatMap((word) => [word.startMs, word.endMs]);
-  const durationMs =
-    typeof durationSec === 'number' &&
-    Number.isFinite(durationSec) &&
-    durationSec > 0
-      ? durationSec * 1000
-      : undefined;
-  const inRange = points.map(
-    (point) =>
-      point >= -ISOLATED_WORD_TIME_TOLERANCE_MS &&
-      (durationMs === undefined ||
-        point <= durationMs + ISOLATED_WORD_TIME_TOLERANCE_MS),
-  );
-  const backbone = longestNonDecreasing(points, inRange);
-  const trusted = inRange.map(
-    (inside, index) =>
-      backbone[index] === true ||
-      (inside && nearBackbone(points, backbone, index)),
-  );
-  const outlierIndexes = trusted.flatMap((isTrusted, index) =>
-    isTrusted ? [] : [index],
-  );
-  const wordIndex = isolatedWordIndex(outlierIndexes);
+  const insideMedia = points.map((point) => withinMedia(point, durationMs));
+  const wordIndex = isolatedOutsideWord(insideMedia);
   if (wordIndex === undefined) return words;
 
+  const outlierIndexes = [wordIndex * 2, wordIndex * 2 + 1].filter(
+    (index) => !insideMedia[index],
+  );
   const repaired = repairWordBoundaries({
     word: usable[wordIndex]!,
     outlierIndexes,
     points,
-    trusted,
+    trusted: insideMedia,
     durationMs,
   });
   if (!repaired) return words;
   return words.map((word) => (word === usable[wordIndex] ? repaired : word));
 }
 
+function usableDurationMs(durationSec: number | undefined): number | undefined {
+  return typeof durationSec === 'number' &&
+    Number.isFinite(durationSec) &&
+    durationSec > 0
+    ? durationSec * 1000
+    : undefined;
+}
+
+/** A time within one second of the media is overlap or rounding, not an isolated error. */
+function withinMedia(point: number, durationMs: number): boolean {
+  return (
+    point >= -ISOLATED_WORD_TIME_TOLERANCE_MS &&
+    point <= durationMs + ISOLATED_WORD_TIME_TOLERANCE_MS
+  );
+}
+
 /** One word, either one of its boundaries or both, and nothing else. */
-function isolatedWordIndex(outlierIndexes: number[]): number | undefined {
+function isolatedOutsideWord(insideMedia: boolean[]): number | undefined {
   const wordIndexes = [
-    ...new Set(outlierIndexes.map((index) => Math.floor(index / 2))),
+    ...new Set(
+      insideMedia.flatMap((inside, index) =>
+        inside ? [] : [Math.floor(index / 2)],
+      ),
+    ),
   ];
-  if (wordIndexes.length !== 1 || outlierIndexes.length > 2) return undefined;
-  return wordIndexes[0];
+  return wordIndexes.length === 1 ? wordIndexes[0] : undefined;
 }
 
 function repairWordBoundaries(input: {
@@ -618,22 +623,6 @@ function repairWordBoundaries(input: {
     else endMs = interpolated;
   }
   return endMs > startMs ? { ...input.word, startMs, endMs } : undefined;
-}
-
-function nearBackbone(
-  points: number[],
-  backbone: boolean[],
-  index: number,
-): boolean {
-  const previous = lastTrustedBefore(points, backbone, index);
-  const next = firstTrustedAfter(points, backbone, index);
-  const point = points[index]!;
-  return (
-    (previous === undefined ||
-      point >= previous.value - ISOLATED_WORD_TIME_TOLERANCE_MS) &&
-    (next === undefined ||
-      point <= next.value + ISOLATED_WORD_TIME_TOLERANCE_MS)
-  );
 }
 
 function lastTrustedBefore(
@@ -700,39 +689,6 @@ function interpolateBetween(
   span: number,
 ): number {
   return start + ((end - start) * offset) / span;
-}
-
-/** Longest non-decreasing chain among points the range check still accepts. */
-function longestNonDecreasing(
-  points: number[],
-  eligible: boolean[],
-): boolean[] {
-  const length = points.map(() => 0);
-  const previous = points.map(() => -1);
-  for (let index = 0; index < points.length; index += 1) {
-    if (!eligible[index]) continue;
-    let bestLength = 0;
-    let bestPrevious = -1;
-    for (let cursor = 0; cursor < index; cursor += 1) {
-      if (!eligible[cursor] || points[cursor]! > points[index]!) continue;
-      if (length[cursor]! > bestLength) {
-        bestLength = length[cursor]!;
-        bestPrevious = cursor;
-      }
-    }
-    length[index] = bestLength + 1;
-    previous[index] = bestPrevious;
-  }
-
-  let bestEnd = -1;
-  for (let index = 0; index < points.length; index += 1) {
-    if (length[index]! > (bestEnd < 0 ? 0 : length[bestEnd]!)) bestEnd = index;
-  }
-  const backbone = points.map(() => false);
-  for (let cursor = bestEnd; cursor >= 0; cursor = previous[cursor]!) {
-    backbone[cursor] = true;
-  }
-  return backbone;
 }
 
 function normalizeSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
