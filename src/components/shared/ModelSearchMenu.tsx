@@ -188,6 +188,10 @@ export function ModelSearchMenu({
                       key={model.id}
                       value={modelSearchText(model)}
                       disabled={model.disabled}
+                      // The label is truncated, and long catalog ids share a
+                      // prefix, so the complete name stays available on hover.
+                      // A disabled row keeps its reason instead.
+                      title={model.disabledReason || model.label}
                       onSelect={() => {
                         if (!model.disabled) onSelect(model.id);
                       }}
