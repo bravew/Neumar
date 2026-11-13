@@ -245,6 +245,57 @@ interface TdtGroup {
   truncated: boolean;
 }
 
+/** U+2014 EM DASH and U+2015 HORIZONTAL BAR. Hyphens and en dashes stay inside a word. */
+const EM_DASH = /[—―]/u;
+const LETTER_OR_DIGIT = /\p{L}|\p{N}/u;
+
+/**
+ * Split one piece on an em dash that has a letter or digit on both sides inside
+ * that piece. The dash stays on the left word. A dash at either end of the piece
+ * is left for the caller: the other side may be a different token.
+ */
+function splitEmDash(piece: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  for (let i = 0; i < piece.length; i++) {
+    const dash = piece[i];
+    const before = piece[i - 1];
+    const after = piece[i + 1];
+    if (
+      dash !== undefined &&
+      before !== undefined &&
+      after !== undefined &&
+      EM_DASH.test(dash) &&
+      LETTER_OR_DIGIT.test(before) &&
+      LETTER_OR_DIGIT.test(after)
+    ) {
+      parts.push(piece.slice(start, i + 1));
+      start = i + 1;
+    }
+  }
+  parts.push(piece.slice(start));
+  return parts.filter((part) => part.length > 0);
+}
+
+/**
+ * The piece continues a word that already ends in an em dash, and it begins with
+ * a letter or digit. The character before the dash is a letter or digit too, so
+ * this is a word boundary rather than a leading dash or punctuation.
+ */
+function continuesAfterEmDash(word: string, piece: string): boolean {
+  const dash = word[word.length - 1];
+  const beforeDash = word[word.length - 2];
+  const after = piece[0];
+  return (
+    dash !== undefined &&
+    beforeDash !== undefined &&
+    after !== undefined &&
+    EM_DASH.test(dash) &&
+    LETTER_OR_DIGIT.test(beforeDash) &&
+    LETTER_OR_DIGIT.test(after)
+  );
+}
+
 function groupsFromTdtResult(
   raw: unknown,
   duration: number,
@@ -330,17 +381,27 @@ function groupsFromTdtResult(
         flush();
         continue;
       }
-      if (!current) {
-        current = {
-          word: piece,
-          start,
-          end: start + span,
-          truncated,
-        };
-      } else {
-        current.word += piece;
-        current.end = Math.max(current.end, start + span);
-        current.truncated ||= truncated;
+      // One token can carry more than one em-dash-separated word, and the dash
+      // itself can be a separate token. Each word keeps this token's interval;
+      // splitting does not invent a boundary the model omitted.
+      const words = splitEmDash(piece);
+      for (let part = 0; part < words.length; part++) {
+        const word = words[part];
+        if (word === undefined) continue;
+        if (part > 0 || (current && continuesAfterEmDash(current.word, word)))
+          flush();
+        if (!current) {
+          current = {
+            word,
+            start,
+            end: start + span,
+            truncated,
+          };
+        } else {
+          current.word += word;
+          current.end = Math.max(current.end, start + span);
+          current.truncated ||= truncated;
+        }
       }
     }
   }
