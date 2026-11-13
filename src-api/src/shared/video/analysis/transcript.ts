@@ -43,6 +43,8 @@ const logger = createLogger('VideoTranscript');
 const DEFAULT_SOURCE_TRANSCRIPTION_PROVIDER = 'local';
 const RAW_PCM_MIME_TYPE = 'audio/pcm';
 const PCM_SAMPLE_RATE = 16_000;
+/** A provider time more than this far outside the media is an isolated error, not overlap. */
+const ISOLATED_WORD_TIME_TOLERANCE_MS = 1_000;
 const dataEgressCacheSchema = z.enum(MEDIA_DATA_EGRESS);
 const analysisRangeCacheSchema = z.object({
   id: z.string().optional(),
@@ -324,7 +326,10 @@ export function transcriptDataFromSttResult(result: STTResult): TranscriptData {
     startMs: word.startMs,
     endMs: word.endMs,
   }));
-  const words = normalizeSegments(wordSegments ?? segments).map(
+  const repairedWords = wordSegments
+    ? repairIsolatedImpossibleWordTime(wordSegments, result.duration)
+    : undefined;
+  const words = normalizeSegments(repairedWords ?? segments).map(
     (word): SubtitleWord => ({
       text: word.text,
       startMs: word.startMs,
@@ -527,6 +532,163 @@ async function writeTranscriptCache(
 ): Promise<SourceTranscriptResult> {
   await fs.writeFile(cachePath, `${JSON.stringify(entry, null, 2)}\n`);
   return { ...entry, cacheHit: false };
+}
+
+/**
+ * Replace one provider word whose time sits more than a second outside the
+ * media. The replacement is the linear point between the nearest times that
+ * remain inside it. Neighbors stay put. Overlapping speech stays as returned,
+ * and a missing, non-finite, or unusable duration does not become a bound.
+ */
+function repairIsolatedImpossibleWordTime(
+  words: TranscriptSegment[],
+  durationSec: number | undefined,
+): TranscriptSegment[] {
+  const durationMs = usableDurationMs(durationSec);
+  if (durationMs === undefined) return words;
+
+  const usable = words.filter(
+    (word) =>
+      word.text.trim().length > 0 &&
+      Number.isFinite(word.startMs) &&
+      Number.isFinite(word.endMs),
+  );
+  if (usable.length === 0) return words;
+
+  const points = usable.flatMap((word) => [word.startMs, word.endMs]);
+  const insideMedia = points.map((point) => withinMedia(point, durationMs));
+  const wordIndex = isolatedOutsideWord(insideMedia);
+  if (wordIndex === undefined) return words;
+
+  const outlierIndexes = [wordIndex * 2, wordIndex * 2 + 1].filter(
+    (index) => !insideMedia[index],
+  );
+  const repaired = repairWordBoundaries({
+    word: usable[wordIndex]!,
+    outlierIndexes,
+    points,
+    trusted: insideMedia,
+    durationMs,
+  });
+  if (!repaired) return words;
+  return words.map((word) => (word === usable[wordIndex] ? repaired : word));
+}
+
+function usableDurationMs(durationSec: number | undefined): number | undefined {
+  return typeof durationSec === 'number' &&
+    Number.isFinite(durationSec) &&
+    durationSec > 0
+    ? durationSec * 1000
+    : undefined;
+}
+
+/** A time within one second of the media is overlap or rounding, not an isolated error. */
+function withinMedia(point: number, durationMs: number): boolean {
+  return (
+    point >= -ISOLATED_WORD_TIME_TOLERANCE_MS &&
+    point <= durationMs + ISOLATED_WORD_TIME_TOLERANCE_MS
+  );
+}
+
+/** One word, either one of its boundaries or both, and nothing else. */
+function isolatedOutsideWord(insideMedia: boolean[]): number | undefined {
+  const wordIndexes = [
+    ...new Set(
+      insideMedia.flatMap((inside, index) =>
+        inside ? [] : [Math.floor(index / 2)],
+      ),
+    ),
+  ];
+  return wordIndexes.length === 1 ? wordIndexes[0] : undefined;
+}
+
+function repairWordBoundaries(input: {
+  word: TranscriptSegment;
+  outlierIndexes: number[];
+  points: number[];
+  trusted: boolean[];
+  durationMs: number | undefined;
+}): TranscriptSegment | undefined {
+  let startMs = input.word.startMs;
+  let endMs = input.word.endMs;
+  for (const outlier of input.outlierIndexes) {
+    const interpolated = interpolateIsolatedPoint({
+      index: outlier,
+      previous: lastTrustedBefore(input.points, input.trusted, outlier),
+      next: firstTrustedAfter(input.points, input.trusted, outlier),
+      durationMs: input.durationMs,
+    });
+    if (interpolated === undefined) return undefined;
+    if (outlier % 2 === 0) startMs = interpolated;
+    else endMs = interpolated;
+  }
+  return endMs > startMs ? { ...input.word, startMs, endMs } : undefined;
+}
+
+function lastTrustedBefore(
+  points: number[],
+  trusted: boolean[],
+  index: number,
+): { index: number; value: number } | undefined {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (trusted[cursor]) return { index: cursor, value: points[cursor]! };
+  }
+  return undefined;
+}
+
+function firstTrustedAfter(
+  points: number[],
+  trusted: boolean[],
+  index: number,
+): { index: number; value: number } | undefined {
+  for (let cursor = index + 1; cursor < points.length; cursor += 1) {
+    if (trusted[cursor]) return { index: cursor, value: points[cursor]! };
+  }
+  return undefined;
+}
+
+function pointsAfter(index: number): number {
+  return index + (index % 2 === 0 ? 2 : 1);
+}
+
+function interpolateIsolatedPoint(input: {
+  index: number;
+  previous: { index: number; value: number } | undefined;
+  next: { index: number; value: number } | undefined;
+  durationMs: number | undefined;
+}): number | undefined {
+  const { index, previous, next, durationMs } = input;
+  if (previous && next && next.index > previous.index) {
+    return interpolateBetween(
+      previous.value,
+      next.value,
+      index - previous.index,
+      next.index - previous.index,
+    );
+  }
+  if (previous && durationMs !== undefined) {
+    const endIndex = pointsAfter(index);
+    if (endIndex <= previous.index) return undefined;
+    return interpolateBetween(
+      previous.value,
+      durationMs,
+      index - previous.index,
+      endIndex - previous.index,
+    );
+  }
+  if (next && next.index > 0) {
+    return interpolateBetween(0, next.value, index, next.index);
+  }
+  return undefined;
+}
+
+function interpolateBetween(
+  start: number,
+  end: number,
+  offset: number,
+  span: number,
+): number {
+  return start + ((end - start) * offset) / span;
 }
 
 function normalizeSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
