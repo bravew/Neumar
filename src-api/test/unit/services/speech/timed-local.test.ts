@@ -100,6 +100,63 @@ describe('native TDT word timing', () => {
       ),
     ).toEqual([{ word: 'Hi', startMs: 100, endMs: 300 }]);
   });
+  it('times words separated by an em dash independently and keeps hyphens and en dashes joined', () => {
+    expect(
+      wordsFromTdtResult(
+        {
+          text: "innovative—it's well-known point–right",
+          tokens: [
+            '▁innovative',
+            '—',
+            "it's",
+            '▁well',
+            '-',
+            'known',
+            '▁point',
+            '–',
+            'right',
+          ],
+          timestamps: [0.1, 0.4, 0.5, 0.9, 1.2, 1.2, 1.6, 1.9, 2.0],
+          durations: [0.3, 0.1, 0.3, 0.3, 0, 0.2, 0.3, 0.1, 0.3],
+        },
+        3,
+      ),
+    ).toEqual([
+      { word: 'innovative—', startMs: 100, endMs: 500 },
+      { word: "it's", startMs: 500, endMs: 800 },
+      { word: 'well-known', startMs: 900, endMs: 1400 },
+      { word: 'point–right', startMs: 1600, endMs: 2300 },
+    ]);
+  });
+  it('times a horizontal bar as an em dash, with each side on its own interval', () => {
+    expect(
+      wordsFromTdtResult(
+        {
+          text: 'world―and',
+          tokens: ['▁world', '―', 'and'],
+          timestamps: [1.8, 2.1, 2.2],
+          durations: [0.3, 0.1, 0.2],
+        },
+        3,
+      ),
+    ).toEqual([
+      { word: 'world―', startMs: 1800, endMs: 2200 },
+      { word: 'and', startMs: 2200, endMs: 2400 },
+    ]);
+  });
+  it('keeps a leading or trailing em dash on its word', () => {
+    expect(
+      wordsFromTdtResult(
+        {
+          text: '—Hello world—',
+          tokens: ['▁—Hel', 'lo', '▁world—'],
+          timestamps: [0.12, 0.3, 1.8],
+          durations: [0.18, 0.2, 0.3],
+        },
+        3,
+      ).map((word) => word.word),
+    ).toEqual(['—Hello', 'world—']);
+  });
   it('drops a window-edge token whose native duration runs past the decode window', () => {
     expect(
       wordsFromTdtResult(
