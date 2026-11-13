@@ -155,6 +155,86 @@ describe('video source transcript analysis', () => {
     expect(transcribeAudio).toHaveBeenCalledTimes(1);
   });
 
+  it('repairs one isolated impossible word time without shifting its neighbors', async () => {
+    const result = await transcribeSourceMedia({
+      ...baseOptions({ workDir, cacheDir }),
+      extractAudio: vi.fn(async () => Buffer.from([0, 0])),
+      transcribeAudio: vi.fn(async () => ({
+        success: true,
+        provider: 'Local',
+        model: 'mock-whisper',
+        dataEgress: 'local' as const,
+        text: 'one two three',
+        duration: 2,
+        words: [
+          { word: 'one', startMs: 100, endMs: 400 },
+          { word: 'two', startMs: 3400, endMs: 404_200 },
+          { word: 'three', startMs: 1000, endMs: 1400 },
+        ],
+      })),
+      resolveProviderInfo: () => ({ provider: 'Local', dataEgress: 'local' }),
+    });
+
+    expect(result.degraded).toBe(false);
+    expect(result.transcript.words.map((word) => word.text)).toEqual([
+      'one',
+      'two',
+      'three',
+    ]);
+    expect(result.transcript.words[0]).toEqual({
+      text: 'one',
+      startMs: 100,
+      endMs: 400,
+    });
+    expect(result.transcript.words[2]).toEqual({
+      text: 'three',
+      startMs: 1000,
+      endMs: 1400,
+    });
+    expect(result.transcript.words[1]).toEqual({
+      text: 'two',
+      startMs: 600,
+      endMs: 800,
+    });
+    expect(result.transcript.segments).toEqual([
+      {
+        id: 'asr-1',
+        text: 'one two three',
+        startMs: 0,
+        endMs: 2000,
+      },
+    ]);
+    expect(result.artifact.ranges?.map((range) => range.label)).toEqual([
+      'one',
+      'two',
+      'three',
+    ]);
+  });
+
+  it('leaves an isolated impossible word unchanged when duration is unknown', async () => {
+    const result = await transcribeSourceMedia({
+      ...baseOptions({ workDir, cacheDir }),
+      extractAudio: vi.fn(async () => Buffer.from([0, 0])),
+      transcribeAudio: vi.fn(async () => ({
+        success: true,
+        provider: 'Local',
+        model: 'mock-whisper',
+        dataEgress: 'local' as const,
+        text: 'one two',
+        words: [
+          { word: 'one', startMs: 100, endMs: 400 },
+          { word: 'two', startMs: 20_300, endMs: 205_000 },
+        ],
+      })),
+      resolveProviderInfo: () => ({ provider: 'Local', dataEgress: 'local' }),
+    });
+
+    expect(result.transcript.words).toEqual([
+      { text: 'one', startMs: 100, endMs: 400 },
+      { text: 'two', startMs: 20_300, endMs: 205_000 },
+    ]);
+  });
+
   it('marks successful providers without word timestamps as degraded', async () => {
     const result = await transcribeSourceMedia({
       ...baseOptions({ workDir, cacheDir }),

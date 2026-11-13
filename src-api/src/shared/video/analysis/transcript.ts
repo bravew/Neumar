@@ -43,6 +43,8 @@ const logger = createLogger('VideoTranscript');
 const DEFAULT_SOURCE_TRANSCRIPTION_PROVIDER = 'local';
 const RAW_PCM_MIME_TYPE = 'audio/pcm';
 const PCM_SAMPLE_RATE = 16_000;
+/** A provider time more than this far outside its spoken neighbors is an isolated error, not overlap. */
+const ISOLATED_WORD_TIME_TOLERANCE_MS = 1_000;
 const dataEgressCacheSchema = z.enum(MEDIA_DATA_EGRESS);
 const analysisRangeCacheSchema = z.object({
   id: z.string().optional(),
@@ -324,7 +326,10 @@ export function transcriptDataFromSttResult(result: STTResult): TranscriptData {
     startMs: word.startMs,
     endMs: word.endMs,
   }));
-  const words = normalizeSegments(wordSegments ?? segments).map(
+  const repairedWords = wordSegments
+    ? repairIsolatedImpossibleWordTime(wordSegments, result.duration)
+    : undefined;
+  const words = normalizeSegments(repairedWords ?? segments).map(
     (word): SubtitleWord => ({
       text: word.text,
       startMs: word.startMs,
@@ -527,6 +532,207 @@ async function writeTranscriptCache(
 ): Promise<SourceTranscriptResult> {
   await fs.writeFile(cachePath, `${JSON.stringify(entry, null, 2)}\n`);
   return { ...entry, cacheHit: false };
+}
+
+/**
+ * Replace one provider word whose time sits more than a second outside the
+ * spoken order of its neighbors. The replacement is the linear point between
+ * the nearest times that still agree with that order. Neighbors stay put, and
+ * a missing, non-finite, or unusable duration does not become a bound.
+ */
+function repairIsolatedImpossibleWordTime(
+  words: TranscriptSegment[],
+  durationSec: number | undefined,
+): TranscriptSegment[] {
+  const usable = words.filter(
+    (word) =>
+      word.text.trim().length > 0 &&
+      Number.isFinite(word.startMs) &&
+      Number.isFinite(word.endMs),
+  );
+  if (usable.length === 0) return words;
+
+  const points = usable.flatMap((word) => [word.startMs, word.endMs]);
+  const durationMs =
+    typeof durationSec === 'number' &&
+    Number.isFinite(durationSec) &&
+    durationSec > 0
+      ? durationSec * 1000
+      : undefined;
+  const inRange = points.map(
+    (point) =>
+      point >= -ISOLATED_WORD_TIME_TOLERANCE_MS &&
+      (durationMs === undefined ||
+        point <= durationMs + ISOLATED_WORD_TIME_TOLERANCE_MS),
+  );
+  const backbone = longestNonDecreasing(points, inRange);
+  const trusted = inRange.map(
+    (inside, index) =>
+      backbone[index] === true ||
+      (inside && nearBackbone(points, backbone, index)),
+  );
+  const outlierIndexes = trusted.flatMap((isTrusted, index) =>
+    isTrusted ? [] : [index],
+  );
+  const wordIndex = isolatedWordIndex(outlierIndexes);
+  if (wordIndex === undefined) return words;
+
+  const repaired = repairWordBoundaries({
+    word: usable[wordIndex]!,
+    outlierIndexes,
+    points,
+    trusted,
+    durationMs,
+  });
+  if (!repaired) return words;
+  return words.map((word) => (word === usable[wordIndex] ? repaired : word));
+}
+
+/** One word, either one of its boundaries or both, and nothing else. */
+function isolatedWordIndex(outlierIndexes: number[]): number | undefined {
+  const wordIndexes = [
+    ...new Set(outlierIndexes.map((index) => Math.floor(index / 2))),
+  ];
+  if (wordIndexes.length !== 1 || outlierIndexes.length > 2) return undefined;
+  return wordIndexes[0];
+}
+
+function repairWordBoundaries(input: {
+  word: TranscriptSegment;
+  outlierIndexes: number[];
+  points: number[];
+  trusted: boolean[];
+  durationMs: number | undefined;
+}): TranscriptSegment | undefined {
+  let startMs = input.word.startMs;
+  let endMs = input.word.endMs;
+  for (const outlier of input.outlierIndexes) {
+    const interpolated = interpolateIsolatedPoint({
+      index: outlier,
+      previous: lastTrustedBefore(input.points, input.trusted, outlier),
+      next: firstTrustedAfter(input.points, input.trusted, outlier),
+      durationMs: input.durationMs,
+    });
+    if (interpolated === undefined) return undefined;
+    if (outlier % 2 === 0) startMs = interpolated;
+    else endMs = interpolated;
+  }
+  return endMs > startMs ? { ...input.word, startMs, endMs } : undefined;
+}
+
+function nearBackbone(
+  points: number[],
+  backbone: boolean[],
+  index: number,
+): boolean {
+  const previous = lastTrustedBefore(points, backbone, index);
+  const next = firstTrustedAfter(points, backbone, index);
+  const point = points[index]!;
+  return (
+    (previous === undefined ||
+      point >= previous.value - ISOLATED_WORD_TIME_TOLERANCE_MS) &&
+    (next === undefined ||
+      point <= next.value + ISOLATED_WORD_TIME_TOLERANCE_MS)
+  );
+}
+
+function lastTrustedBefore(
+  points: number[],
+  trusted: boolean[],
+  index: number,
+): { index: number; value: number } | undefined {
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    if (trusted[cursor]) return { index: cursor, value: points[cursor]! };
+  }
+  return undefined;
+}
+
+function firstTrustedAfter(
+  points: number[],
+  trusted: boolean[],
+  index: number,
+): { index: number; value: number } | undefined {
+  for (let cursor = index + 1; cursor < points.length; cursor += 1) {
+    if (trusted[cursor]) return { index: cursor, value: points[cursor]! };
+  }
+  return undefined;
+}
+
+function pointsAfter(index: number): number {
+  return index + (index % 2 === 0 ? 2 : 1);
+}
+
+function interpolateIsolatedPoint(input: {
+  index: number;
+  previous: { index: number; value: number } | undefined;
+  next: { index: number; value: number } | undefined;
+  durationMs: number | undefined;
+}): number | undefined {
+  const { index, previous, next, durationMs } = input;
+  if (previous && next && next.index > previous.index) {
+    return interpolateBetween(
+      previous.value,
+      next.value,
+      index - previous.index,
+      next.index - previous.index,
+    );
+  }
+  if (previous && durationMs !== undefined) {
+    const endIndex = pointsAfter(index);
+    if (endIndex <= previous.index) return undefined;
+    return interpolateBetween(
+      previous.value,
+      durationMs,
+      index - previous.index,
+      endIndex - previous.index,
+    );
+  }
+  if (next && next.index > 0) {
+    return interpolateBetween(0, next.value, index, next.index);
+  }
+  return undefined;
+}
+
+function interpolateBetween(
+  start: number,
+  end: number,
+  offset: number,
+  span: number,
+): number {
+  return start + ((end - start) * offset) / span;
+}
+
+/** Longest non-decreasing chain among points the range check still accepts. */
+function longestNonDecreasing(
+  points: number[],
+  eligible: boolean[],
+): boolean[] {
+  const length = points.map(() => 0);
+  const previous = points.map(() => -1);
+  for (let index = 0; index < points.length; index += 1) {
+    if (!eligible[index]) continue;
+    let bestLength = 0;
+    let bestPrevious = -1;
+    for (let cursor = 0; cursor < index; cursor += 1) {
+      if (!eligible[cursor] || points[cursor]! > points[index]!) continue;
+      if (length[cursor]! > bestLength) {
+        bestLength = length[cursor]!;
+        bestPrevious = cursor;
+      }
+    }
+    length[index] = bestLength + 1;
+    previous[index] = bestPrevious;
+  }
+
+  let bestEnd = -1;
+  for (let index = 0; index < points.length; index += 1) {
+    if (length[index]! > (bestEnd < 0 ? 0 : length[bestEnd]!)) bestEnd = index;
+  }
+  const backbone = points.map(() => false);
+  for (let cursor = bestEnd; cursor >= 0; cursor = previous[cursor]!) {
+    backbone[cursor] = true;
+  }
+  return backbone;
 }
 
 function normalizeSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
