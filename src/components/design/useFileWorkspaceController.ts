@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -80,6 +80,9 @@ export function useFileWorkspaceController({
     () => new Set(),
   );
   const [lastSelectedPath, setLastSelectedPath] = useState<string | null>(null);
+  // Distinguishes a new project from a refresh of the one on screen. A
+  // completion reload must not drop the file the user opened or checked.
+  const listedProjectIdRef = useRef(projectId);
   const [fileTabs, setFileTabs] = useState<string[]>(
     () => project?.ui?.fileTabs?.order ?? [],
   );
@@ -102,12 +105,20 @@ export function useFileWorkspaceController({
 
   useEffect(() => {
     const ac = new AbortController();
-    setFiles([]);
-    setFilesLoaded(false);
-    setActivePath(null);
+    const sameProject = listedProjectIdRef.current === projectId;
+    listedProjectIdRef.current = projectId;
+    // Switching projects starts from an empty list. Refreshing the project
+    // already on screen keeps its open file and checks until the new list
+    // arrives; the selection effects drop anything the new list no longer has.
+    if (!sameProject) {
+      setFiles([]);
+      setFilesLoaded(false);
+      setActivePath(null);
+    }
     setFileListError(null);
     listDesignFiles(projectId, { signal: ac.signal })
       .then((result) => {
+        if (ac.signal.aborted) return;
         setFiles(result.files);
         setFileListError(null);
         setFilesLoaded(true);
