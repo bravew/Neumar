@@ -3900,9 +3900,148 @@ function renderSrt(
   return `${subtitles
     .map(
       (subtitle) =>
-        `${subtitle.index}\n${formatSrtTimestamp(subtitle.startMs)} --> ${formatSrtTimestamp(subtitle.endMs)}\n${subtitle.text.replace(/\r?\n+/g, '\n')}`,
+        `${subtitle.index}\n${formatSrtTimestamp(subtitle.startMs)} --> ${formatSrtTimestamp(subtitle.endMs)}\n${wrapCaptionExportText(subtitle.text)}`,
     )
     .join('\n\n')}\n`;
+}
+
+/**
+ * One exported cue stays one cue. Lines that are wider than a caption line break
+ * after punctuation first, then at a space, then at a word boundary. Punctuation
+ * and spaces are only taken inside the last half of the line. A Chinese word that
+ * straddles the width is kept whole even when that retreats further, and a Latin
+ * or digit run is never split. A line of only spaces or tabs is kept, because
+ * collapsing it would leave the empty line that ends the cue; a repeated break
+ * still collapses. The characters and their order are unchanged, and the cue's
+ * start and end stay where the timeline put them.
+ */
+const CAPTION_EXPORT_LINE_WIDTH = 32;
+const CAPTION_WIDE_CHAR = /[\u0100-\u{10ffff}]/u;
+const CAPTION_BREAK_AFTER_WIDE =
+  /[\uFF0C\u3001\uFF1B\uFF1A\u3002\uFF01\uFF1F\u2026]/u;
+const CAPTION_BREAK_AFTER_ASCII = /[,;:.!?]/;
+const CAPTION_NO_LINE_START =
+  /[,\uFF0C\u3001;\uFF1B:\uFF1A.\u3002!\uFF01?\uFF1F\u2026\u300D\u300F\uFF09)\]}\u300B\u201D\u2019]/u;
+
+function wrapCaptionExportText(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .flatMap((paragraph) => {
+      // A line of only spaces or tabs must survive. Collapsing it to nothing
+      // leaves the blank line that terminates an SRT cue. A truly empty line
+      // is a repeated break, which stays collapsed.
+      if (paragraph.length === 0) return [];
+      if (/^[ \t]+$/.test(paragraph)) return [paragraph];
+      return wrapCaptionExportLine(paragraph);
+    })
+    .join('\n');
+}
+
+function wrapCaptionExportLine(paragraph: string): string[] {
+  const lines: string[] = [];
+  let rest = paragraph;
+  while (rest.length > 0) {
+    const chars = [...rest];
+    let width = 0;
+    let cut = 0;
+    for (let index = 0; index < chars.length; index += 1) {
+      const charWidth = CAPTION_WIDE_CHAR.test(chars[index]!) ? 2 : 1;
+      if (width + charWidth > CAPTION_EXPORT_LINE_WIDTH) break;
+      width += charWidth;
+      cut = index + 1;
+    }
+    if (cut < chars.length) cut = captionExportLineBreak(chars, cut);
+    while (cut < chars.length && CAPTION_NO_LINE_START.test(chars[cut]!)) {
+      cut += 1;
+    }
+    if (cut <= 0 || cut > chars.length) cut = Math.min(1, chars.length);
+    // A break at a space consumes that space; no line ends or starts with one.
+    lines.push(chars.slice(0, cut).join('').replace(/ +$/, ''));
+    rest = chars.slice(cut).join('').replace(/^ +/, '');
+  }
+  return lines.length > 0 ? lines : [''];
+}
+
+function captionExportLineBreak(chars: readonly string[], cut: number): number {
+  const interior = chineseWordInterior(chars);
+  let floor = 1;
+  for (let width = 0; floor < cut; floor += 1) {
+    width += CAPTION_WIDE_CHAR.test(chars[floor - 1]!) ? 2 : 1;
+    if (width * 2 >= CAPTION_EXPORT_LINE_WIDTH) break;
+  }
+  let space = -1;
+  let word = -1;
+  for (let index = cut; index >= 1; index -= 1) {
+    const before = chars[index - 1]!;
+    const after = chars[index]!;
+    if (CAPTION_NO_LINE_START.test(after)) continue;
+    const inLastHalf = index >= floor;
+    if (
+      inLastHalf &&
+      (CAPTION_BREAK_AFTER_WIDE.test(before) ||
+        (after === ' ' && CAPTION_BREAK_AFTER_ASCII.test(before)))
+    ) {
+      return index;
+    }
+    if (inLastHalf && (before === ' ' || after === ' ')) {
+      if (space < 0) space = index;
+    } else if (
+      word < 0 &&
+      !latinRunInterior(before, after) &&
+      !interior[index - 1]
+    ) {
+      word = index;
+    }
+  }
+  if (space >= 0) return space;
+  if (word >= 0) return word;
+  const lastSpace = chars.lastIndexOf(' ', cut - 1);
+  return lastSpace > 0 && !CAPTION_WIDE_CHAR.test(chars[cut] ?? '')
+    ? lastSpace
+    : cut;
+}
+
+/** True when both sides are a Latin letter or digit, so the run stays intact. */
+function latinRunInterior(before: string, after: string): boolean {
+  return (
+    before !== ' ' &&
+    after !== ' ' &&
+    !CAPTION_WIDE_CHAR.test(before) &&
+    !CAPTION_WIDE_CHAR.test(after)
+  );
+}
+
+/**
+ * Gaps that sit inside one Chinese word, indexed by the character before the gap.
+ * `Intl.Segmenter` reads the runtime's ICU dictionary. Without it, wrapping falls
+ * back to punctuation, spaces, and width.
+ */
+function chineseWordInterior(chars: readonly string[]): boolean[] {
+  const interior = Array.from({ length: chars.length }, () => false);
+  const Segmenter = (Intl as { Segmenter?: typeof Intl.Segmenter }).Segmenter;
+  if (typeof Segmenter !== 'function') return interior;
+  try {
+    const segments = [
+      ...new Segmenter('zh', { granularity: 'word' }).segment(chars.join('')),
+    ];
+    let offset = 0;
+    for (const segment of segments) {
+      const length = [...segment.segment].length;
+      if (
+        segment.isWordLike &&
+        length > 1 &&
+        /^\p{Script=Han}+$/u.test(segment.segment)
+      ) {
+        for (let index = offset; index < offset + length - 1; index += 1) {
+          interior[index] = true;
+        }
+      }
+      offset += length;
+    }
+  } catch {
+    return Array.from({ length: chars.length }, () => false);
+  }
+  return interior;
 }
 
 function formatSrtTimestamp(ms: number): string {
