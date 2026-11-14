@@ -64,6 +64,31 @@ const MIN_CUE_MS = 200;
 // A pause longer than this between words forces a new cue — keeps captions
 // reading in natural phrases rather than running silence together.
 const PAUSE_BREAK_MS = 500;
+// A leading soft hyphen marks a continuation glued to the previous piece.
+// Caption text drops the mark and keeps the run in one word. Producers that
+// emit plain word text are recognized from the seam below instead.
+const GLUE_MARK = '­';
+// A vowel, including "y".
+const WORD_VOWEL = /[aeiouy]/i;
+// Two letters an English word may open with. "ns" is not among them, so
+// "nsformer" is a tail; "day", "th" and "kn" are not.
+const WORD_ONSET =
+  /^(?:bl|br|ch|cl|cn|cr|cw|cz|dj|dr|dw|fl|fr|gh|gl|gn|gr|gw|kh|kl|kn|kr|kw|ll|mn|ph|pl|pn|pr|ps|pt|rh|sc|sf|sh|sk|sl|sm|sn|sp|sq|st|sv|sw|th|tr|ts|tw|vl|vr|wh|wr|xr)/i;
+const LATIN_OR_DIGIT = /[A-Za-z0-9]/;
+const SENTENCE_ENDING = /[.!?。！？…]["'”’)》\]]*$/u;
+const MAX_PAIR_CHARS = 42;
+const PAIRS = new Map<string, string>([
+  ['“', '”'],
+  ['‘', '’'],
+  ['「', '」'],
+  ['『', '』'],
+  ['《', '》'],
+  ['（', '）'],
+  ['(', ')'],
+  ['[', ']'],
+  ['{', '}'],
+  ['"', '"'],
+]);
 
 /**
  * Generates time-synced caption cues from the speech-to-text transcript of each
@@ -200,11 +225,7 @@ function buildClipCues(input: {
         trimStartMs: chunk[0]!.startMs,
         trimEndMs: chunk.at(-1)!.endMs,
         sourceDurationMs: clip.sourceDurationMs,
-        text: chunk
-          .map((word) => word.text)
-          .join(' ')
-          .replace(/\s+/g, ' ')
-          .trim(),
+        text: cueText(chunk),
         style: input.style,
         words: chunk.map((word) => ({
           text: word.text,
@@ -331,8 +352,6 @@ function segmentTokens(text: string): string[] {
   }
 }
 
-const SENTENCE_END = /[.!?]["')\]]?$/;
-
 export function chunkWords(
   words: SubtitleWord[],
   wordsPerCue: number,
@@ -341,25 +360,164 @@ export function chunkWords(
   const chunks: SubtitleWord[][] = [];
   let current: SubtitleWord[] = [];
   for (const word of words) {
-    if (current.length > 0) {
-      const start = current[0]!.startMs;
-      const gap = word.startMs - current.at(-1)!.endMs;
-      const tooLong = word.endMs - start > maxCueMs;
-      const tooMany = current.length >= wordsPerCue;
-      const bigPause = gap > PAUSE_BREAK_MS;
-      if (tooMany || tooLong || bigPause) {
-        chunks.push(current);
-        current = [];
-      }
-    }
-    current.push(word);
-    if (SENTENCE_END.test(word.text) && current.length >= 2) {
+    if (
+      current.length > 0 &&
+      breakBefore(current, word, wordsPerCue, maxCueMs)
+    ) {
       chunks.push(current);
       current = [];
     }
+    current.push(word);
   }
   if (current.length > 0) chunks.push(current);
   return chunks;
+}
+
+function breakBefore(
+  current: SubtitleWord[],
+  next: SubtitleWord,
+  wordsPerCue: number,
+  maxCueMs: number,
+): boolean {
+  const previous = current.at(-1)!;
+  if (gluedLatinRun(previous, next)) return false;
+  // A sentence still ends the cue when its closing mark also closes the pair.
+  // A period inside a pair that is still open does not.
+  if (sentenceEnding(previous.text) && !hasUnclosedPair(current)) return true;
+  if (insideMatchedPair(current, next)) return false;
+  const start = current[0]!.startMs;
+  const gap = next.startMs - previous.endMs;
+  const overDuration = next.endMs - start > maxCueMs;
+  const overCount = current.length >= wordsPerCue;
+  const longPause = gap > PAUSE_BREAK_MS;
+  // The word that ends the sentence stays with it when it still fits the
+  // duration, instead of being left as its own cue by the word-count cap.
+  if ((overCount || longPause) && !overDuration && sentenceEnding(next.text)) {
+    return false;
+  }
+  return overCount || overDuration || longPause;
+}
+
+/**
+ * A transcriber-split Latin or digit run. Some producers mark the continuation
+ * with a leading glue character. Unmarked producers emit the tail as plain text
+ * that cannot begin a word, such as "nsformer", starting exactly where the
+ * previous piece ends. An ordinary word, and a vowelless abbreviation such as
+ * "Mr", can stand alone, so abutting timings do not glue it. A zero-duration
+ * word is a collapsed timing, not half of a split word, and can share an instant
+ * with its neighbour without being glued.
+ */
+function gluedLatinRun(previous: SubtitleWord, next: SubtitleWord): boolean {
+  const previousText = spokenText(previous.text);
+  const nextText = spokenText(next.text);
+  const last = previousText.at(-1);
+  const first = nextText[0];
+  if (
+    last === undefined ||
+    first === undefined ||
+    !LATIN_OR_DIGIT.test(last) ||
+    !LATIN_OR_DIGIT.test(first)
+  ) {
+    return false;
+  }
+  if (next.text.startsWith(GLUE_MARK)) return true;
+  return (
+    cannotStartWord(nextText) &&
+    previous.endMs > previous.startMs &&
+    next.endMs > next.startMs &&
+    next.startMs === previous.endMs
+  );
+}
+
+/** A tail such as "nsformer": it has a vowel, but its opening cluster does not. */
+function cannotStartWord(token: string): boolean {
+  const leading = /^[A-Za-z]+/.exec(token)?.[0] ?? '';
+  if (!WORD_VOWEL.test(leading) || leading.length < 2) return false;
+  const first = leading[0]!;
+  const second = leading[1]!;
+  if (WORD_VOWEL.test(first) || WORD_VOWEL.test(second)) return false;
+  return !WORD_ONSET.test(first + second);
+}
+
+function sentenceEnding(token: string): boolean {
+  return SENTENCE_ENDING.test(spokenText(token));
+}
+
+/**
+ * The next word is inside punctuation opened in this cue, and the pair still
+ * fits one caption line. A wider pair may break. An opener stays open until
+ * its closer arrives, so a word-count cap cannot cut a title in half.
+ */
+function insideMatchedPair(
+  current: SubtitleWord[],
+  next: SubtitleWord,
+): boolean {
+  const currentChars = current.flatMap((word) => [...spokenText(word.text)]);
+  const chars = [...currentChars, ...spokenText(next.text)];
+  const nextAt = currentChars.length;
+  const open: Array<{ close: string; at: number }> = [];
+  let coversNext = false;
+  chars.forEach((char, at) => {
+    const match = lastMatchingOpen(open, char);
+    if (match >= 0) {
+      const opener = open[match]!;
+      open.length = match;
+      if (opener.at < nextAt && at >= nextAt && fitsPair(chars, opener.at)) {
+        coversNext = true;
+      }
+      return;
+    }
+    const close = PAIRS.get(char);
+    if (close !== undefined) open.push({ close, at });
+  });
+  const opener = open.at(-1);
+  return coversNext || (opener !== undefined && fitsPair(chars, opener.at));
+}
+
+function hasUnclosedPair(words: SubtitleWord[]): boolean {
+  const open: Array<{ close: string; at: number }> = [];
+  for (const char of words.flatMap((word) => [...spokenText(word.text)])) {
+    const match = lastMatchingOpen(open, char);
+    if (match >= 0) {
+      open.length = match;
+      continue;
+    }
+    const close = PAIRS.get(char);
+    if (close !== undefined) open.push({ close, at: open.length });
+  }
+  return open.length > 0;
+}
+
+function fitsPair(chars: readonly string[], openerAt: number): boolean {
+  return chars.length - openerAt <= MAX_PAIR_CHARS;
+}
+
+function lastMatchingOpen(
+  open: ReadonlyArray<{ close: string }>,
+  char: string,
+): number {
+  for (let index = open.length - 1; index >= 0; index -= 1) {
+    if (open[index]!.close === char) return index;
+  }
+  return -1;
+}
+
+function cueText(words: SubtitleWord[]): string {
+  return words
+    .map((word, index) => {
+      const token = spokenText(word.text);
+      if (!token) return '';
+      const previous = index > 0 ? words[index - 1] : undefined;
+      if (previous && !gluedLatinRun(previous, word)) return ` ${token}`;
+      return token;
+    })
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function spokenText(text: string): string {
+  return text.replaceAll(GLUE_MARK, '').trim();
 }
 
 function wordsPerCueForStyle(style?: SubtitleStyle): number {

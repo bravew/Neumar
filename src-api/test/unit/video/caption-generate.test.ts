@@ -15,6 +15,7 @@ import type {
   MediaItem,
   SourceMedia,
   SourceMediaAnalysis,
+  SubtitleWord,
   TranscriptData,
   VideoTimeline,
 } from '@/shared/video/types';
@@ -184,6 +185,159 @@ describe('caption generation from transcript', () => {
     expect(cues[0]).toMatchObject({ text: 'world', startMs: 1000 });
   });
 
+  it('keeps sentence endings, matched punctuation, and glued Latin runs in one cue', async () => {
+    const project = await createProject({
+      name: 'Boundaries',
+      template: 'explainer',
+    });
+    const words = boundaryWords();
+    await writeProject({
+      ...project,
+      assets: [assetFixture({ durationMs: 12_000 })],
+      sources: [sourceFixture('asset-source')],
+      sourceAnalyses: [analysisFixture(words, 12_000)],
+      timeline: timelineFixture({
+        startMs: 0,
+        trimStartMs: 0,
+        trimEndMs: 12_000,
+        sourceDurationMs: 12_000,
+        durationMs: 12_000,
+      }),
+    });
+
+    const { cues } = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      // The default six-word cap would otherwise cut these phrases first.
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+    const texts = cues.map((cue) => cue.text);
+
+    expect(texts).toEqual([
+      'Today I will show you how to make a motion video.',
+      'A motion video is made up of shapes, words and pictures that move.',
+      'Read "The Old Man and the Sea" tonight.',
+      'The model is called Transformer.',
+    ]);
+    expect(
+      cues.flatMap((cue) => cue.words ?? []).map((word) => word.text),
+    ).toEqual(words.map((word) => word.text));
+    // A sentence-ending mark stays at the end of its cue.
+    expect(texts.some((text) => /[.!?]\s/.test(text))).toBe(false);
+    // The title's quotes stay in the same cue.
+    const quoted = texts.filter((text) => text.includes('"'));
+    expect(quoted).toEqual(['Read "The Old Man and the Sea" tonight.']);
+    // The glued Latin pieces stay one word, not "Tra" | "nsformer".
+    expect(texts.some((text) => /\bTra\b|\bnsformer\b/.test(text))).toBe(false);
+  });
+
+  it('joins a transcriber-split Latin word from plain adjacent word text', async () => {
+    const project = await createProject({
+      name: 'Plain split',
+      template: 'explainer',
+    });
+    // The producers emit ordinary words: no soft-hyphen marker on the split.
+    const words: SubtitleWord[] = [
+      { text: 'The', startMs: 0, endMs: 180 },
+      { text: 'model', startMs: 200, endMs: 380 },
+      { text: 'is', startMs: 400, endMs: 580 },
+      { text: 'called', startMs: 600, endMs: 780 },
+      { text: 'Tra', startMs: 800, endMs: 980 },
+      // The split continuation starts where the previous piece ends; separately
+      // spoken words keep a pause between their timings.
+      { text: 'nsformer.', startMs: 980, endMs: 1160 },
+    ];
+    await writeProject({
+      ...project,
+      assets: [assetFixture()],
+      sources: [sourceFixture('asset-source')],
+      sourceAnalyses: [analysisFixture(words)],
+      timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+    });
+
+    const { cues } = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+
+    expect(cues.map((cue) => cue.text)).toEqual([
+      'The model is called Transformer.',
+    ]);
+    // Every transcript word is still returned, with its original timing.
+    expect(
+      cues.flatMap((cue) => cue.words ?? []).map((word) => word.text),
+    ).toEqual(words.map((word) => word.text));
+    expect(cues[0]).toMatchObject({ startMs: 0, durationMs: 1160 });
+  });
+
+  it('keeps spaces between ordinary abutting words and still joins a split tail', async () => {
+    const project = await createProject({
+      name: 'Ordinary words',
+      template: 'explainer',
+    });
+    // Abutting timings are normal speech, not a split. Only a tail that cannot
+    // start a word, such as "nsformer", continues the previous piece.
+    const words: SubtitleWord[] = [
+      { text: 'to', startMs: 0, endMs: 100 },
+      { text: 'day', startMs: 100, endMs: 300 },
+      { text: 'is', startMs: 300, endMs: 500 },
+      { text: 'Tra', startMs: 800, endMs: 980 },
+      { text: 'nsformer.', startMs: 980, endMs: 1160 },
+    ];
+    await writeProject({
+      ...project,
+      assets: [assetFixture()],
+      sources: [sourceFixture('asset-source')],
+      sourceAnalyses: [analysisFixture(words)],
+      timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+    });
+
+    const { cues } = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+
+    expect(cues.map((cue) => cue.text)).toEqual(['to day is Transformer.']);
+    expect(
+      cues.flatMap((cue) => cue.words ?? []).map((word) => word.text),
+    ).toEqual(words.map((word) => word.text));
+    expect(cues[0]?.words?.map((word) => [word.startMs, word.endMs])).toEqual(
+      words.map((word) => [word.startMs, word.endMs]),
+    );
+  });
+
+  it('keeps a space around zero-duration words that share an instant', async () => {
+    const project = await createProject({
+      name: 'Collapsed timings',
+      template: 'explainer',
+    });
+    // Scribe collapses some words to one instant; they are whole words, not
+    // halves of a split word, so they keep their spaces.
+    const words: SubtitleWord[] = [
+      { text: 'make', startMs: 0, endMs: 400 },
+      { text: 'a', startMs: 400, endMs: 400 },
+      { text: 'motion', startMs: 400, endMs: 800 },
+      { text: 'video.', startMs: 900, endMs: 1300 },
+    ];
+    await writeProject({
+      ...project,
+      assets: [assetFixture()],
+      sources: [sourceFixture('asset-source')],
+      sourceAnalyses: [analysisFixture(words)],
+      timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+    });
+
+    const { cues } = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+
+    expect(cues.map((cue) => cue.text)).toEqual(['make a motion video.']);
+  });
+
   it('regenerating replaces prior STT cues without stacking', async () => {
     const project = await createProject({
       name: 'Rerun',
@@ -259,19 +413,79 @@ describe('chunkWords', () => {
   });
 });
 
-function assetFixture(): MediaItem {
+function assetFixture(overrides?: { durationMs?: number }): MediaItem {
   return {
     id: 'asset-source',
     kind: 'video',
     source: 'user',
     path: 'videos/project-1/sources/source.mp4',
     metadata: {
-      durationMs: 5000,
+      durationMs: overrides?.durationMs ?? 5000,
       width: 1920,
       height: 1080,
       audioTrackCount: 1,
     },
   };
+}
+
+/**
+ * Timed words a caller can already store: a zero-length word after a sentence
+ * ending, a quoted title, and a Latin run the transcriber split and glued.
+ * Glue is the leading "­" on the continuation, which caption text drops.
+ */
+function boundaryWords(): SubtitleWord[] {
+  const spoken = [
+    'Today',
+    'I',
+    'will',
+    'show',
+    'you',
+    'how',
+    'to',
+    'make',
+    'a',
+    'motion',
+    'video.',
+    'A',
+    'motion',
+    'video',
+    'is',
+    'made',
+    'up',
+    'of',
+    'shapes,',
+    'words',
+    'and',
+    'pictures',
+    'that',
+    'move.',
+    'Read',
+    '"The',
+    'Old',
+    'Man',
+    'and',
+    'the',
+    'Sea"',
+    'tonight.',
+    'The',
+    'model',
+    'is',
+    'called',
+    'Tra',
+  ];
+  const words: SubtitleWord[] = spoken.map((text, index) => {
+    const startMs = index * 200;
+    // "A" shares its instant with the next word, the Scribe zero-length case.
+    const endMs = text === 'A' ? startMs : startMs + 180;
+    return { text, startMs, endMs };
+  });
+  const tra = words.at(-1)!;
+  words.push({
+    text: '­nsformer.',
+    startMs: tra.endMs,
+    endMs: tra.endMs + 180,
+  });
+  return words;
 }
 
 function sourceFixture(mediaItemId: string): SourceMedia {
@@ -286,21 +500,24 @@ function sourceFixture(mediaItemId: string): SourceMedia {
   };
 }
 
-function analysisFixture(): SourceMediaAnalysis {
+function analysisFixture(
+  words: SubtitleWord[] = [
+    { text: 'hello', startMs: 0, endMs: 1000 },
+    { text: 'world', startMs: 2000, endMs: 3000 },
+  ],
+  durationMs = 5000,
+): SourceMediaAnalysis {
   return {
     id: 'analysis-1',
     sourceId: 'source-1',
     contentHash: 'hash1',
-    durationMs: 5000,
-    streams: assetFixture().metadata,
+    durationMs,
+    streams: assetFixture({ durationMs }).metadata,
     scenes: [],
     speechRanges: [],
     transcript: {
       engine: 'Local:mock',
-      words: [
-        { text: 'hello', startMs: 0, endMs: 1000 },
-        { text: 'world', startMs: 2000, endMs: 3000 },
-      ],
+      words,
       segments: [],
     },
     visualBeats: [],
@@ -315,11 +532,14 @@ function timelineFixture(clip: {
   startMs: number;
   trimStartMs: number;
   trimEndMs?: number;
+  sourceDurationMs?: number;
+  durationMs?: number;
 }): VideoTimeline {
+  const sourceDurationMs = clip.sourceDurationMs ?? 5000;
   return {
     schema: 'neuma.video.timeline.v1',
     fps: 30,
-    durationMs: 5000,
+    durationMs: clip.durationMs ?? 5000,
     tracks: [
       {
         id: 'track-video',
@@ -334,10 +554,10 @@ function timelineFixture(clip: {
             kind: 'video',
             sourceRef: { kind: 'asset', assetId: 'asset-source' },
             startMs: clip.startMs,
-            durationMs: (clip.trimEndMs ?? 5000) - clip.trimStartMs,
+            durationMs: (clip.trimEndMs ?? sourceDurationMs) - clip.trimStartMs,
             trimStartMs: clip.trimStartMs,
-            trimEndMs: clip.trimEndMs ?? 5000,
-            sourceDurationMs: 5000,
+            trimEndMs: clip.trimEndMs ?? sourceDurationMs,
+            sourceDurationMs,
           },
         ],
       },
