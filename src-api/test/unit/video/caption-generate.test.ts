@@ -231,6 +231,76 @@ describe('caption generation from transcript', () => {
     expect(texts.some((text) => /\bTra\b|\bnsformer\b/.test(text))).toBe(false);
   });
 
+  it('joins a transcriber-split Latin word from plain adjacent word text', async () => {
+    const project = await createProject({
+      name: 'Plain split',
+      template: 'explainer',
+    });
+    // The producers emit ordinary words: no soft-hyphen marker on the split.
+    const words: SubtitleWord[] = [
+      { text: 'The', startMs: 0, endMs: 180 },
+      { text: 'model', startMs: 200, endMs: 380 },
+      { text: 'is', startMs: 400, endMs: 580 },
+      { text: 'called', startMs: 600, endMs: 780 },
+      { text: 'Tra', startMs: 800, endMs: 980 },
+      // The split continuation starts where the previous piece ends; separately
+      // spoken words keep a pause between their timings.
+      { text: 'nsformer.', startMs: 980, endMs: 1160 },
+    ];
+    await writeProject({
+      ...project,
+      assets: [assetFixture()],
+      sources: [sourceFixture('asset-source')],
+      sourceAnalyses: [analysisFixture(words)],
+      timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+    });
+
+    const { cues } = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+
+    expect(cues.map((cue) => cue.text)).toEqual([
+      'The model is called Transformer.',
+    ]);
+    // Every transcript word is still returned, with its original timing.
+    expect(
+      cues.flatMap((cue) => cue.words ?? []).map((word) => word.text),
+    ).toEqual(words.map((word) => word.text));
+    expect(cues[0]).toMatchObject({ startMs: 0, durationMs: 1160 });
+  });
+
+  it('keeps a space around zero-duration words that share an instant', async () => {
+    const project = await createProject({
+      name: 'Collapsed timings',
+      template: 'explainer',
+    });
+    // Scribe collapses some words to one instant; they are whole words, not
+    // halves of a split word, so they keep their spaces.
+    const words: SubtitleWord[] = [
+      { text: 'make', startMs: 0, endMs: 400 },
+      { text: 'a', startMs: 400, endMs: 400 },
+      { text: 'motion', startMs: 400, endMs: 800 },
+      { text: 'video.', startMs: 900, endMs: 1300 },
+    ];
+    await writeProject({
+      ...project,
+      assets: [assetFixture()],
+      sources: [sourceFixture('asset-source')],
+      sourceAnalyses: [analysisFixture(words)],
+      timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+    });
+
+    const { cues } = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+
+    expect(cues.map((cue) => cue.text)).toEqual(['make a motion video.']);
+  });
+
   it('regenerating replaces prior STT cues without stacking', async () => {
     const project = await createProject({
       name: 'Rerun',

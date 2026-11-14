@@ -65,8 +65,14 @@ const MIN_CUE_MS = 200;
 // reading in natural phrases rather than running silence together.
 const PAUSE_BREAK_MS = 500;
 // A leading soft hyphen marks a continuation glued to the previous piece.
-// Caption text drops the mark and keeps the run in one word.
+// Caption text drops the mark and keeps the run in one word. Producers that
+// emit plain word text are recognized from the seam below instead.
 const GLUE_MARK = '­';
+// The continuation half of a transcriber-split word: a lowercase letter or a
+// digit. A separately spoken word is not glued even when it starts lowercase,
+// because its timing begins after the previous word's end.
+const CONTINUATION_START = /^[\p{Ll}\p{Nd}]/u;
+const LATIN_OR_DIGIT = /[A-Za-z0-9]/;
 const SENTENCE_ENDING = /[.!?。！？…]["'”’)》\]]*$/u;
 const MAX_PAIR_CHARS = 42;
 const PAIRS = new Map<string, string>([
@@ -390,16 +396,31 @@ function breakBefore(
   return overCount || overDuration || longPause;
 }
 
-/** A transcriber-split Latin or digit run, marked by a leading glue character. */
+/**
+ * A transcriber-split Latin or digit run. Some producers mark the continuation
+ * with a leading glue character; when the word text is plain, the continuation
+ * is the lowercase letter or digit that starts exactly where the previous piece
+ * ends. Separately spoken words keep a pause between their timings, so they are
+ * not joined. A zero-duration word is a collapsed timing, not half of a split
+ * word, and can share an instant with its neighbour without being glued.
+ */
 function gluedLatinRun(previous: SubtitleWord, next: SubtitleWord): boolean {
-  if (!next.text.startsWith(GLUE_MARK)) return false;
   const last = spokenText(previous.text).at(-1);
   const first = spokenText(next.text)[0];
+  if (
+    last === undefined ||
+    first === undefined ||
+    !LATIN_OR_DIGIT.test(last) ||
+    !LATIN_OR_DIGIT.test(first)
+  ) {
+    return false;
+  }
+  if (next.text.startsWith(GLUE_MARK)) return true;
   return (
-    last !== undefined &&
-    first !== undefined &&
-    /[A-Za-z0-9]/.test(last) &&
-    /[A-Za-z0-9]/.test(first)
+    CONTINUATION_START.test(first) &&
+    previous.endMs > previous.startMs &&
+    next.endMs > next.startMs &&
+    next.startMs === previous.endMs
   );
 }
 
@@ -471,7 +492,8 @@ function cueText(words: SubtitleWord[]): string {
     .map((word, index) => {
       const token = spokenText(word.text);
       if (!token) return '';
-      if (index > 0 && !word.text.startsWith(GLUE_MARK)) return ` ${token}`;
+      const previous = index > 0 ? words[index - 1] : undefined;
+      if (previous && !gluedLatinRun(previous, word)) return ` ${token}`;
       return token;
     })
     .join('')
