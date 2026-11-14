@@ -3910,8 +3910,10 @@ function renderSrt(
  * after punctuation first, then at a space, then at a word boundary. Punctuation
  * and spaces are only taken inside the last half of the line. A Chinese word that
  * straddles the width is kept whole even when that retreats further, and a Latin
- * or digit run is never split. The characters and their order are unchanged, and
- * the cue's start and end stay where the timeline put them.
+ * or digit run is never split. A line of only spaces or tabs is kept, because
+ * collapsing it would leave the empty line that ends the cue; a repeated break
+ * still collapses. The characters and their order are unchanged, and the cue's
+ * start and end stay where the timeline put them.
  */
 const CAPTION_EXPORT_LINE_WIDTH = 32;
 const CAPTION_WIDE_CHAR = /[\u0100-\u{10ffff}]/u;
@@ -3923,8 +3925,15 @@ const CAPTION_NO_LINE_START =
 
 function wrapCaptionExportText(text: string): string {
   return text
-    .split(/\r?\n+/)
-    .flatMap((paragraph) => wrapCaptionExportLine(paragraph))
+    .split(/\r?\n/)
+    .flatMap((paragraph) => {
+      // A line of only spaces or tabs must survive. Collapsing it to nothing
+      // leaves the blank line that terminates an SRT cue. A truly empty line
+      // is a repeated break, which stays collapsed.
+      if (paragraph.length === 0) return [];
+      if (/^[ \t]+$/.test(paragraph)) return [paragraph];
+      return wrapCaptionExportLine(paragraph);
+    })
     .join('\n');
 }
 

@@ -87,6 +87,24 @@ describe('caption export wrapping', () => {
 
     expect(srt).toBe(`1\n${TIMING_LINE}\n第一行\n第二行\n`);
   });
+
+  it('keeps a whitespace-only interior line from ending the cue', () => {
+    const text = 'X\n   \nY';
+
+    const srt = buildCaptionSidecarSrt(captionProject(text));
+
+    expect(srt).toBe(`1\n${TIMING_LINE}\n${text}\n`);
+    expect(cueLines(srt)).toEqual(['X', '   ', 'Y']);
+  });
+
+  it('keeps a tab-only interior line from ending the cue', () => {
+    const text = 'X\n\t\t\nY';
+
+    const srt = buildCaptionSidecarSrt(captionProject(text));
+
+    expect(srt).toBe(`1\n${TIMING_LINE}\n${text}\n`);
+    expect(cueLines(srt)).toEqual(['X', '\t\t', 'Y']);
+  });
 });
 
 function cueLines(srt: string | undefined): string[] {
