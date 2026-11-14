@@ -68,10 +68,12 @@ const PAUSE_BREAK_MS = 500;
 // Caption text drops the mark and keeps the run in one word. Producers that
 // emit plain word text are recognized from the seam below instead.
 const GLUE_MARK = '­';
-// The continuation half of a transcriber-split word: a lowercase letter or a
-// digit. A separately spoken word is not glued even when it starts lowercase,
-// because its timing begins after the previous word's end.
-const CONTINUATION_START = /^[\p{Ll}\p{Nd}]/u;
+// A vowel, including "y".
+const WORD_VOWEL = /[aeiouy]/i;
+// Two letters an English word may open with. "ns" is not among them, so
+// "nsformer" is a tail; "day", "th" and "kn" are not.
+const WORD_ONSET =
+  /^(?:bl|br|ch|cl|cn|cr|cw|cz|dj|dr|dw|fl|fr|gh|gl|gn|gr|gw|kh|kl|kn|kr|kw|ll|mn|ph|pl|pn|pr|ps|pt|rh|sc|sf|sh|sk|sl|sm|sn|sp|sq|st|sv|sw|th|tr|ts|tw|vl|vr|wh|wr|xr)/i;
 const LATIN_OR_DIGIT = /[A-Za-z0-9]/;
 const SENTENCE_ENDING = /[.!?。！？…]["'”’)》\]]*$/u;
 const MAX_PAIR_CHARS = 42;
@@ -398,15 +400,18 @@ function breakBefore(
 
 /**
  * A transcriber-split Latin or digit run. Some producers mark the continuation
- * with a leading glue character; when the word text is plain, the continuation
- * is the lowercase letter or digit that starts exactly where the previous piece
- * ends. Separately spoken words keep a pause between their timings, so they are
- * not joined. A zero-duration word is a collapsed timing, not half of a split
- * word, and can share an instant with its neighbour without being glued.
+ * with a leading glue character. Unmarked producers emit the tail as plain text
+ * that cannot begin a word, such as "nsformer", starting exactly where the
+ * previous piece ends. An ordinary word, and a vowelless abbreviation such as
+ * "Mr", can stand alone, so abutting timings do not glue it. A zero-duration
+ * word is a collapsed timing, not half of a split word, and can share an instant
+ * with its neighbour without being glued.
  */
 function gluedLatinRun(previous: SubtitleWord, next: SubtitleWord): boolean {
-  const last = spokenText(previous.text).at(-1);
-  const first = spokenText(next.text)[0];
+  const previousText = spokenText(previous.text);
+  const nextText = spokenText(next.text);
+  const last = previousText.at(-1);
+  const first = nextText[0];
   if (
     last === undefined ||
     first === undefined ||
@@ -417,11 +422,21 @@ function gluedLatinRun(previous: SubtitleWord, next: SubtitleWord): boolean {
   }
   if (next.text.startsWith(GLUE_MARK)) return true;
   return (
-    CONTINUATION_START.test(first) &&
+    cannotStartWord(nextText) &&
     previous.endMs > previous.startMs &&
     next.endMs > next.startMs &&
     next.startMs === previous.endMs
   );
+}
+
+/** A tail such as "nsformer": it has a vowel, but its opening cluster does not. */
+function cannotStartWord(token: string): boolean {
+  const leading = /^[A-Za-z]+/.exec(token)?.[0] ?? '';
+  if (!WORD_VOWEL.test(leading) || leading.length < 2) return false;
+  const first = leading[0]!;
+  const second = leading[1]!;
+  if (WORD_VOWEL.test(first) || WORD_VOWEL.test(second)) return false;
+  return !WORD_ONSET.test(first + second);
 }
 
 function sentenceEnding(token: string): boolean {

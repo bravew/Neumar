@@ -271,6 +271,43 @@ describe('caption generation from transcript', () => {
     expect(cues[0]).toMatchObject({ startMs: 0, durationMs: 1160 });
   });
 
+  it('keeps spaces between ordinary abutting words and still joins a split tail', async () => {
+    const project = await createProject({
+      name: 'Ordinary words',
+      template: 'explainer',
+    });
+    // Abutting timings are normal speech, not a split. Only a tail that cannot
+    // start a word, such as "nsformer", continues the previous piece.
+    const words: SubtitleWord[] = [
+      { text: 'to', startMs: 0, endMs: 100 },
+      { text: 'day', startMs: 100, endMs: 300 },
+      { text: 'is', startMs: 300, endMs: 500 },
+      { text: 'Tra', startMs: 800, endMs: 980 },
+      { text: 'nsformer.', startMs: 980, endMs: 1160 },
+    ];
+    await writeProject({
+      ...project,
+      assets: [assetFixture()],
+      sources: [sourceFixture('asset-source')],
+      sourceAnalyses: [analysisFixture(words)],
+      timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+    });
+
+    const { cues } = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+
+    expect(cues.map((cue) => cue.text)).toEqual(['to day is Transformer.']);
+    expect(
+      cues.flatMap((cue) => cue.words ?? []).map((word) => word.text),
+    ).toEqual(words.map((word) => word.text));
+    expect(cues[0]?.words?.map((word) => [word.startMs, word.endMs])).toEqual(
+      words.map((word) => [word.startMs, word.endMs]),
+    );
+  });
+
   it('keeps a space around zero-duration words that share an instant', async () => {
     const project = await createProject({
       name: 'Collapsed timings',
