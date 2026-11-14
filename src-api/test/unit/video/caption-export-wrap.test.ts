@@ -97,6 +97,71 @@ describe('caption export wrapping', () => {
     expect(cueLines(srt)).toEqual(['X', '   ', 'Y']);
   });
 
+  it('keeps punctuation with its word without splitting the next word', () => {
+    const text = 'word,'.repeat(20);
+
+    const lines = cueLines(buildCaptionSidecarSrt(captionProject(text)));
+
+    expect(lines.join('')).toBe(text);
+    expect(lines.every((line) => !line.startsWith('rd'))).toBe(true);
+    expect(lines.every((line) => line.length <= 32)).toBe(true);
+  });
+
+  it('keeps a combining mark with its base character and counts it once', () => {
+    const text = 'é'.repeat(20);
+
+    const lines = cueLines(buildCaptionSidecarSrt(captionProject(text)));
+
+    // Twenty one-column graphemes fit on one line.
+    expect(lines).toEqual([text]);
+  });
+
+  it('counts Cyrillic as single width', () => {
+    const text = 'Привет мир это короткая строка';
+
+    const lines = cueLines(buildCaptionSidecarSrt(captionProject(text)));
+
+    expect(lines).toEqual([text]);
+  });
+
+  it('breaks a URL wider than the line after a separator, not inside a word', () => {
+    const text = 'https://example.com/very/long/path/item';
+
+    const lines = cueLines(buildCaptionSidecarSrt(captionProject(text)));
+
+    expect(lines).toEqual(['https://example.com/very/long/', 'path/item']);
+  });
+
+  it('keeps a word wider than the line whole instead of cutting it at the width', () => {
+    const text = 'Pneumonoultramicroscopicsilicovolcanoconiosis';
+
+    const lines = cueLines(buildCaptionSidecarSrt(captionProject(text)));
+
+    expect(lines).toEqual([text]);
+  });
+
+  it('does not turn a long run of spaces inside a line into a blank line', () => {
+    const text = `X\n${' '.repeat(40)}Y`;
+
+    const lines = cueLines(buildCaptionSidecarSrt(captionProject(text)));
+
+    expect(lines.some((line) => line.length === 0)).toBe(false);
+    expect(lines.join('').replace(/ /g, '')).toBe('XY');
+  });
+
+  it('keeps a carriage-return line break as an explicit caption break', () => {
+    const text =
+      'line one\rline two that is definitely wider than thirty two columns';
+
+    const lines = cueLines(buildCaptionSidecarSrt(captionProject(text)));
+
+    // Wrapping consumes the space at each break, so compare word by word.
+    expect(lines[0]).toBe('line one');
+    expect(lines.slice(1).join(' ')).toBe(
+      'line two that is definitely wider than thirty two columns',
+    );
+  });
+
   it('keeps a tab-only interior line from ending the cue', () => {
     const text = 'X\n\t\t\nY';
 
