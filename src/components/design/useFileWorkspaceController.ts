@@ -83,6 +83,9 @@ export function useFileWorkspaceController({
   // Distinguishes a new project from a refresh of the one on screen. A
   // completion reload must not drop the file the user opened or checked.
   const listedProjectIdRef = useRef(projectId);
+  // A list body can resolve after a newer request has started and before this
+  // request's abort flag is visible. Only the latest request may change the list.
+  const fileListRequestRef = useRef(0);
   const [fileTabs, setFileTabs] = useState<string[]>(
     () => project?.ui?.fileTabs?.order ?? [],
   );
@@ -116,15 +119,20 @@ export function useFileWorkspaceController({
       setActivePath(null);
     }
     setFileListError(null);
+    const requestId = fileListRequestRef.current + 1;
+    fileListRequestRef.current = requestId;
     listDesignFiles(projectId, { signal: ac.signal })
       .then((result) => {
-        if (ac.signal.aborted) return;
+        // A body can resolve after a newer list has started and before this
+        // request's abort is visible. Applying it would replace that list.
+        if (ac.signal.aborted || fileListRequestRef.current !== requestId)
+          return;
         setFiles(result.files);
         setFileListError(null);
         setFilesLoaded(true);
       })
       .catch((error: unknown) => {
-        if (!ac.signal.aborted) {
+        if (!ac.signal.aborted && fileListRequestRef.current === requestId) {
           setFiles([]);
           setFileListError(classifyFileSystemReadError(error));
           setFilesLoaded(true);
