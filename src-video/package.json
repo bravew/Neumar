@@ -39,7 +39,7 @@
     "@remotion/tailwind": "4.0.529",
     "@remotion/transitions": "4.0.529",
     "remotion": "4.0.529",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@remotion/bundler": "4.0.529",
