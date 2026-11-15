@@ -22,16 +22,31 @@ Four vendored Python files carry local patches, all following upstream commit
 [`57daa49c`](https://github.com/kajisho5/ffmpeg-skill/commit/57daa49c4136d81cde5d40b4c8415b9d2c38da7f):
 the SDR encoder lines that target BT.709 (H.264, HEVC and AV1 in `decision.py`, and the export
 platform presets) convert a BT.601 (`smpte170m`/`bt470bg`) source to BT.709 instead of relabelling
-BT.601 pixels. The conversion is skipped for BT.709, untagged and HDR/BT.2020 sources. It covers
-the command's first video input and runs after the tool's own `-vf` filters, so a crop/scale and
-the even-dimension retry see the source's original geometry first. Other inputs are not converted:
-a BT.601 overlay on a BT.601 base still shows the old relabelling, and `color.py --correct` is
-unchanged because its own chain already works in the source matrix. `SKILL.md` is Neumar's, not
-the upstream agent guide.
+BT.601 pixels.
+
+Exactly what is converted:
+
+- SDR encoder lines that target BT.709 (the H.264, HEVC and AV1 lines in `decision.py`, and the
+  export platform presets).
+- The command's first video input only. A `-filter_complex` conversion is attached to its
+  `[0:v]`/`[0:v:0]` reference; a BT.601 overlay on a BT.601 base is still not converted and
+  shows the old relabelling.
+- Only when the probed source width and height are both even. `colorspace` rejects an odd frame
+  with "Invalid odd size (WxH)", and a tool whose own filter does not change the frame size
+  (`reverse`, `loop`, `cut --accurate`, `denoise`, `deinterlace`, `silence`, `stabilize`, `fit`
+  without sizing, `export --no-scale`) or a `-filter_complex` graph (`join`, `multicam`) can
+  otherwise show it the odd source before that filter runs. Odd-sized sources therefore keep the
+  base behaviour: no conversion, so their pixels keep the source matrix under the BT.709 tags.
+- After the tool's own `-vf` filters, so a crop/scale and the even-dimension retry see the
+  source's original geometry first.
+
+The conversion is skipped for BT.709, untagged and HDR/BT.2020 sources. `color.py --correct` and
+`color.py --lut` are unchanged: neither path passes the source probe to the encoder line, so both
+still relabel BT.601 pixels as BT.709. `SKILL.md` is Neumar's, not the upstream agent guide.
 
 | File | Change |
 | --- | --- |
-| `scripts/_common/color.py` | Added `bt709_matrix_filter()`/`bt709_matrix_args()` (the `colorspace` conversion for a probed non-BT.709 SDR matrix) and `_fold_bt709_matrix()` (moves that conversion into the tool's own `-vf`/`-filter_complex`, after the tool's filters). `bt709_tag_args()` takes the source probe and appends the conversion. Follows upstream `57daa49c`. |
+| `scripts/_common/color.py` | Added `bt709_matrix_filter()`/`bt709_matrix_args()` (the `colorspace` conversion for a probed non-BT.709 SDR matrix, only when the source width and height are both even) and `_fold_bt709_matrix()` (moves that conversion into the tool's own `-vf`/`-filter_complex`, after the tool's filters). `bt709_tag_args()` takes the source probe and appends the conversion. Follows upstream `57daa49c`. |
 | `scripts/_common/decision.py` | `x264_args()`/`video_args()`/`encoder_args()` pass the source probe to `bt709_tag_args()`/`bt709_matrix_args()`, so the SDR encoder lines that target BT.709 convert a BT.601 matrix. Follows upstream `57daa49c`. |
 | `scripts/_common/runner.py` | `run()` folds the conversion into the command's filter graph before recording or executing it: appended to the tool's own `-vf` chain, or prepended to the first input's `-filter_complex` branch. A tool's own filter is not replaced by a second `-vf`. Follows upstream `57daa49c`. |
 | `scripts/export.py` | Passes the source probe to `bt709_tag_args()` for the platform presets. Follows upstream `57daa49c`. |

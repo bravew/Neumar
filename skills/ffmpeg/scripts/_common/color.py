@@ -28,11 +28,25 @@ def bt709_matrix_filter(meta: "Optional[Dict[str, Any]]") -> "Optional[str]":
     not depend on how a build reads or negotiates the frames' own tags. The range is left as it
     is. One -vf / -filter_complex accepts this string as it stands; a tool's own filter graph
     is not replaced by it -- runner.run() folds it in (see _fold_bt709_matrix), after that graph
-    so the conversion never sees a frame the tool's own crop/scale/retry would have corrected."""
+    so the conversion never sees a frame the tool's own crop/scale/retry would have corrected.
+
+    Only a source whose probed width and height are both even is converted. `colorspace` rejects
+    an odd frame with "Invalid odd size (WxH)", and it can still see the source before the tool's
+    own filter in two places: a tool whose -vf does not change the frame size (reverse, loop,
+    denoise, deinterlace, silence, stabilize, cut --accurate, fit without sizing, export
+    --no-scale) never reaches the even-dimension retry, and a -filter_complex (join, multicam)
+    puts the conversion on input 0 before the graph's own scale. Both regressed odd BT.601 sources
+    that completed without the conversion. An odd-sized source therefore keeps the base
+    behaviour: no conversion, so its pixels keep the source matrix while the output is still
+    tagged BT.709 -- the same relabelling this change fixes for even sources, recorded as
+    unfixed."""
     v = (meta or {}).get("video") or {}
     matrix = v.get("color_space")
     wide = v.get("color_primaries") == "bt2020" or v.get("color_transfer") in ("smpte2084", "arib-std-b67")
     if wide or matrix not in NON_BT709_MATRICES:
+        return None
+    w, h = v.get("width"), v.get("height")
+    if not (isinstance(w, int) and isinstance(h, int) and w > 0 and h > 0 and w % 2 == 0 and h % 2 == 0):
         return None
     return f"colorspace=ispace={matrix}:iprimaries=bt709:itrc=bt709:space=bt709:primaries=bt709:trc=bt709"
 
@@ -44,7 +58,9 @@ def bt709_matrix_args(meta: "Optional[Dict[str, Any]]") -> List[str]:
     BT.601 source came out labelled BT.709 over BT.601 pixels (measured on the managed crop tool
     through FFmpeg 9.0.2: pure red decoded as 255,24,0 instead of 254,0,0). This appends the
     conversion once for the whole command; run() folds it into the tool's own graph before the
-    command is recorded or run, so a tool's -vf still applies and runs first."""
+    command is recorded or run, so a tool's -vf still applies and runs first. Empty for an
+    odd-sized source, whose conversion would fail before the tool's own filter (see
+    bt709_matrix_filter)."""
     f = bt709_matrix_filter(meta)
     return ["-vf", f] if f else []
 

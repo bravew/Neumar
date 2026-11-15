@@ -7,7 +7,9 @@
  * Measured through FFmpeg 9.0.2 on a pure-red source, pure red decoded as
  * (255, 24, 0) instead of (254, 0, 0). These cases drive the real
  * `executeSkillOperation` runner (no mocks) and compare the decoded pixels of
- * the output with the decoded pixels of the source.
+ * the output with the decoded pixels of the source. Odd-sized sources are not
+ * converted (the `colorspace` filter rejects their geometry before the tool's
+ * own filter can correct it), so those cases assert completion and dimensions.
  *
  * The suite is skipped when `detectBinaries()` cannot find ffmpeg/ffprobe, so
  * a host without FFmpeg never fails. The clips are one second long.
@@ -120,6 +122,20 @@ function byteAt(bytes: Buffer, index: number): number {
 }
 
 /**
+ * `scale`'s `out_color_matrix` values (the libavutil AVColorSpace numbers, which
+ * FFmpeg 9.0.2's `ffmpeg -h filter=scale` lists as `bt601 5`, `bt470 5`,
+ * `bt470bg 5`, `bt709 1`). The filter option is given numerically because
+ * FFmpeg 8.0.1, which CI runs, rejects the name `bt470bg` there with
+ * `Unable to parse option value "bt470bg"`; 9.0.2 accepts both. The numeric
+ * enum is stable across both versions. FFmpeg 8.0.1 could not be run locally.
+ */
+const MATRIX_VALUE = {
+  bt709: 1,
+  smpte170m: 5,
+  bt470bg: 5,
+} as const;
+
+/**
  * A solid-red clip whose pixels are encoded with `matrix` (and `range`), then
  * tagged with the matching ffprobe names so a player decodes it the way it
  * was encoded.
@@ -145,7 +161,7 @@ async function makeSolid(
     '-i',
     'color=c=red:s=320x240:r=25:d=1',
     '-vf',
-    `scale=out_color_matrix=${matrix}:out_range=${range},format=${fullRange ? 'yuvj420p' : 'yuv420p'}`,
+    `scale=out_color_matrix=${MATRIX_VALUE[matrix]}:out_range=${range},format=${fullRange ? 'yuvj420p' : 'yuv420p'}`,
     '-colorspace',
     matrix,
     '-color_primaries',
@@ -186,7 +202,7 @@ async function makeOddSize(
     '-i',
     `color=c=red:s=${width}x${height}:r=25:d=1`,
     '-vf',
-    `scale=out_color_matrix=smpte170m:out_range=tv,format=${pixFmt}`,
+    `scale=out_color_matrix=${MATRIX_VALUE.smpte170m}:out_range=tv,format=${pixFmt}`,
     '-colorspace',
     'smpte170m',
     '-color_primaries',
@@ -304,7 +320,7 @@ mediaDescribe('managed FFmpeg skill colour conversion', () => {
     expect(closeTo(outputPixel, sourcePixel)).toBe(true);
   });
 
-  it('crops a BT.601 4:4:4 source with odd dimensions', async () => {
+  it('crops a BT.601 4:4:4 source with odd dimensions without converting it', async () => {
     const workDir = makeWorkDir();
     const source = await makeOddSize(
       workDir,
@@ -314,7 +330,6 @@ mediaDescribe('managed FFmpeg skill colour conversion', () => {
       'libx264',
       'yuv444p',
     );
-    const sourcePixel = await centrePixel(workDir, source, 321, 241);
 
     const crop = await runWithSessionContext({ workDir }, () =>
       executeSkillOperation({
@@ -323,24 +338,20 @@ mediaDescribe('managed FFmpeg skill colour conversion', () => {
       }),
     );
 
-    // The conversion used to run before the crop and fail first with "Invalid
-    // odd size (321x241)", before the crop could reduce the frame.
+    // Odd-sized sources are not converted: `colorspace` rejects an odd frame
+    // with "Invalid odd size (321x241)" before the tool's own filter can make it
+    // even, so the base behaviour is kept. The crop itself still completes; the
+    // output pixels keep the source matrix under the BT.709 tags (the documented,
+    // unfixed case), so this asserts the geometry, not the colour.
     expect(crop.status).toBe('completed');
     expect(crop.artifact?.path).toBeTruthy();
     expect(await videoSize(crop.artifact!.path)).toEqual({
       width: 320,
       height: 240,
     });
-    const outputPixel = await centrePixel(
-      workDir,
-      crop.artifact!.path,
-      320,
-      240,
-    );
-    expect(closeTo(outputPixel, sourcePixel)).toBe(true);
   });
 
-  it('crops a BT.601 VP9 source with odd dimensions', async () => {
+  it('crops a BT.601 VP9 source with odd dimensions without converting it', async () => {
     const workDir = makeWorkDir();
     const source = await makeOddSize(
       workDir,
@@ -350,7 +361,6 @@ mediaDescribe('managed FFmpeg skill colour conversion', () => {
       'libvpx-vp9',
       'yuv420p',
     );
-    const sourcePixel = await centrePixel(workDir, source, 641, 359);
 
     const crop = await runWithSessionContext({ workDir }, () =>
       executeSkillOperation({
@@ -359,19 +369,80 @@ mediaDescribe('managed FFmpeg skill colour conversion', () => {
       }),
     );
 
+    // As above: an odd source is not converted, so the command is the base one.
     expect(crop.status).toBe('completed');
     expect(crop.artifact?.path).toBeTruthy();
     expect(await videoSize(crop.artifact!.path)).toEqual({
       width: 640,
       height: 358,
     });
-    const outputPixel = await centrePixel(
+  });
+
+  it('reverses a BT.601 source with odd dimensions without converting it', async () => {
+    const workDir = makeWorkDir();
+    const source = await makeOddSize(
       workDir,
-      crop.artifact!.path,
-      640,
-      358,
+      'bt601-odd-reverse.mp4',
+      321,
+      241,
+      'libx264',
+      'yuv444p',
     );
-    expect(closeTo(outputPixel, sourcePixel)).toBe(true);
+
+    const reversed = await runWithSessionContext({ workDir }, () =>
+      executeSkillOperation({
+        tool: 'reverse',
+        args: { input: source },
+      }),
+    );
+
+    // reverse's `-vf reverse` does not change the frame size, so a conversion
+    // appended to it saw the odd source and failed with "Invalid odd size
+    // (321x241)" before the even-dimension retry could run. Odd sources are not
+    // converted; the retry still scales the picture to even, as it did at base.
+    expect(reversed.status).toBe('completed');
+    expect(reversed.artifact?.path).toBeTruthy();
+    expect(await videoSize(reversed.artifact!.path)).toEqual({
+      width: 320,
+      height: 240,
+    });
+  });
+
+  it('joins an odd-size BT.601 first input without converting it', async () => {
+    const workDir = makeWorkDir();
+    const first = await makeOddSize(
+      workDir,
+      'bt601-odd-join-a.mp4',
+      321,
+      241,
+      'libx264',
+      'yuv444p',
+    );
+    const second = await makeOddSize(
+      workDir,
+      'bt601-odd-join-b.mp4',
+      321,
+      241,
+      'libx264',
+      'yuv444p',
+    );
+
+    const joined = await runWithSessionContext({ workDir }, () =>
+      executeSkillOperation({
+        tool: 'join',
+        args: { inputs: [first, second], transition: 'none' },
+      }),
+    );
+
+    // join's `-filter_complex` starts from `[0:v]`; a conversion prepended there
+    // saw the odd first input before the graph's own scale and failed. Odd
+    // sources are not converted, so the graph is the base one and completes.
+    expect(joined.status).toBe('completed');
+    expect(joined.artifact?.path).toBeTruthy();
+    expect(await videoSize(joined.artifact!.path)).toEqual({
+      width: 320,
+      height: 240,
+    });
   });
 
   it('leaves a BT.709 source unchanged', async () => {
