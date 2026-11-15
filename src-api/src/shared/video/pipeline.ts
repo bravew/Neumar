@@ -3900,9 +3900,228 @@ function renderSrt(
   return `${subtitles
     .map(
       (subtitle) =>
-        `${subtitle.index}\n${formatSrtTimestamp(subtitle.startMs)} --> ${formatSrtTimestamp(subtitle.endMs)}\n${subtitle.text.replace(/\r?\n+/g, '\n')}`,
+        `${subtitle.index}\n${formatSrtTimestamp(subtitle.startMs)} --> ${formatSrtTimestamp(subtitle.endMs)}\n${wrapCaptionExportText(subtitle.text)}`,
     )
     .join('\n\n')}\n`;
+}
+
+/**
+ * One exported cue stays one cue. Lines that are wider than a caption line break
+ * after punctuation first, then at a space, then at a word boundary. Punctuation
+ * and spaces are only taken inside the last half of the line. A Chinese word that
+ * straddles the width is kept whole even when that retreats further. A Latin or
+ * digit run is never split inside a word: a run wider than the line breaks after
+ * a separator such as `/` or `,`, and a run with no separator stays whole. Width
+ * is measured per grapheme, so a combining mark stays with its base character,
+ * and only East Asian wide characters count double. A line of only spaces or
+ * tabs is kept, because collapsing it would leave the empty line that ends the
+ * cue; a repeated break still collapses. The characters and their order are
+ * unchanged, and the cue's start and end stay where the timeline put them.
+ */
+const CAPTION_EXPORT_LINE_WIDTH = 32;
+// Anchored, so testing a grapheme checks its first code point.
+const CAPTION_WIDE_CHAR =
+  /^[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{20000}-\u{3FFFD}]/u;
+const CAPTION_BREAK_AFTER_WIDE =
+  /[\uFF0C\u3001\uFF1B\uFF1A\u3002\uFF01\uFF1F\u2026]/u;
+const CAPTION_BREAK_AFTER_ASCII = /[,;:.!?]/;
+// Separators an over-wide token may break after: URLs, paths, lists.
+const CAPTION_TOKEN_BREAK_AFTER = /^[/,;:.!?&=_-]$/;
+const CAPTION_NO_LINE_START =
+  /[,\uFF0C\u3001;\uFF1B:\uFF1A.\u3002!\uFF01?\uFF1F\u2026\u300D\u300F\uFF09)\]}\u300B\u201D\u2019]/u;
+
+function wrapCaptionExportText(text: string): string {
+  return text
+    .split(/\r\n|\r|\n/)
+    .flatMap((paragraph) => {
+      // A line of only spaces or tabs must survive. Collapsing it to nothing
+      // leaves the blank line that terminates an SRT cue. A truly empty line
+      // is a repeated break, which stays collapsed.
+      if (paragraph.length === 0) return [];
+      if (/^[ \t]+$/.test(paragraph)) return [paragraph];
+      return wrapCaptionExportLine(paragraph);
+    })
+    .join('\n');
+}
+
+function wrapCaptionExportLine(paragraph: string): string[] {
+  // Graphemes and Chinese word boundaries are computed once per paragraph.
+  const clusters = captionClusters(paragraph);
+  const interior = chineseWordInterior(clusters);
+  const lines: string[] = [];
+  let start = 0;
+  while (start < clusters.length) {
+    const chars = clusters.slice(start);
+    let width = 0;
+    let cut = 0;
+    for (let index = 0; index < chars.length; index += 1) {
+      const charWidth = captionClusterWidth(chars[index]!);
+      if (width + charWidth > CAPTION_EXPORT_LINE_WIDTH) break;
+      width += charWidth;
+      cut = index + 1;
+    }
+    if (cut < chars.length) {
+      cut = captionExportLineBreak(chars, cut, interior.slice(start));
+    }
+    // Closing punctuation joins the line it closes, but never past the width.
+    while (
+      cut > 0 &&
+      cut < chars.length &&
+      captionLineWidth(chars, cut + 1) <= CAPTION_EXPORT_LINE_WIDTH &&
+      CAPTION_NO_LINE_START.test(chars[cut]!)
+    ) {
+      cut += 1;
+    }
+    if (cut <= 0 || cut > chars.length) cut = Math.min(1, chars.length);
+    // A break at a space consumes that space; no line ends or starts with one,
+    // and a run of spaces never becomes the empty line that ends the cue.
+    const line = chars.slice(0, cut).join('').replace(/ +$/, '');
+    if (line.length > 0) lines.push(line);
+    start += cut;
+    while (start < clusters.length && clusters[start] === ' ') start += 1;
+  }
+  return lines;
+}
+
+function captionExportLineBreak(
+  chars: readonly string[],
+  cut: number,
+  interior: readonly boolean[],
+): number {
+  let floor = 1;
+  for (let width = 0; floor < cut; floor += 1) {
+    width += captionClusterWidth(chars[floor - 1]!);
+    if (width * 2 >= CAPTION_EXPORT_LINE_WIDTH) break;
+  }
+  let space = -1;
+  let word = -1;
+  for (let index = cut; index >= 1; index -= 1) {
+    const before = chars[index - 1]!;
+    const after = chars[index]!;
+    if (CAPTION_NO_LINE_START.test(after)) continue;
+    const inLastHalf = index >= floor;
+    if (
+      inLastHalf &&
+      !tokenInterior(before, after) &&
+      (CAPTION_BREAK_AFTER_WIDE.test(before) ||
+        (after === ' ' && CAPTION_BREAK_AFTER_ASCII.test(before)))
+    ) {
+      return index;
+    }
+    if (inLastHalf && (before === ' ' || after === ' ')) {
+      if (space < 0) space = index;
+    } else if (
+      word < 0 &&
+      !tokenInterior(before, after) &&
+      !interior[index - 1]
+    ) {
+      word = index;
+    }
+  }
+  if (space >= 0) return space;
+  if (word >= 0) return word;
+  return overWideTokenBreak(chars, cut);
+}
+
+/**
+ * The line so far is one unbroken token wider than the line. Break after the
+ * last separator that fits, so a URL or list wraps between its parts. With no
+ * separator, the token stays whole and overflows instead of splitting a word.
+ */
+function overWideTokenBreak(chars: readonly string[], cut: number): number {
+  for (let index = cut; index >= 1; index -= 1) {
+    const after = chars[index];
+    if (
+      CAPTION_TOKEN_BREAK_AFTER.test(chars[index - 1]!) &&
+      after !== undefined &&
+      !CAPTION_NO_LINE_START.test(after)
+    ) {
+      return index;
+    }
+  }
+  let end = cut;
+  while (end < chars.length && tokenInterior(chars[end - 1]!, chars[end]!)) {
+    end += 1;
+  }
+  return end;
+}
+
+/**
+ * True when both sides belong to one unbroken token: a word in a spaced script,
+ * a URL, a path, or an identifier. A space or an East Asian wide character on
+ * either side is a potential break.
+ */
+function tokenInterior(before: string, after: string): boolean {
+  return (
+    before !== ' ' &&
+    after !== ' ' &&
+    !CAPTION_WIDE_CHAR.test(before) &&
+    !CAPTION_WIDE_CHAR.test(after)
+  );
+}
+
+function captionClusters(text: string): string[] {
+  const Segmenter = (Intl as { Segmenter?: typeof Intl.Segmenter }).Segmenter;
+  if (typeof Segmenter !== 'function') return [...text];
+  try {
+    return [
+      ...new Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
+    ].map((segment) => segment.segment);
+  } catch {
+    return [...text];
+  }
+}
+
+function captionClusterWidth(cluster: string): number {
+  return CAPTION_WIDE_CHAR.test(cluster) ? 2 : 1;
+}
+
+function captionLineWidth(chars: readonly string[], end: number): number {
+  let width = 0;
+  for (let index = 0; index < end; index += 1) {
+    width += captionClusterWidth(chars[index]!);
+  }
+  return width;
+}
+
+/**
+ * Gaps that sit inside one Chinese word, indexed by the grapheme before the gap.
+ * Segments are matched to graphemes by UTF-16 offset, so a combining mark or an
+ * astral character earlier in the text cannot shift the boundaries.
+ * `Intl.Segmenter` reads the runtime's ICU dictionary. Without it, wrapping falls
+ * back to punctuation, spaces, and width.
+ */
+function chineseWordInterior(clusters: readonly string[]): boolean[] {
+  const interior = clusters.map(() => false);
+  const Segmenter = (Intl as { Segmenter?: typeof Intl.Segmenter }).Segmenter;
+  if (typeof Segmenter !== 'function') return interior;
+  const ends: number[] = [];
+  let offset = 0;
+  for (const cluster of clusters) {
+    offset += cluster.length;
+    ends.push(offset);
+  }
+  try {
+    let cursor = 0;
+    for (const segment of new Segmenter('zh', { granularity: 'word' }).segment(
+      clusters.join(''),
+    )) {
+      const segmentEnd = segment.index + segment.segment.length;
+      const han =
+        segment.isWordLike === true &&
+        /^\p{Script=Han}+$/u.test(segment.segment);
+      while (cursor < ends.length && ends[cursor]! <= segment.index) {
+        cursor += 1;
+      }
+      while (cursor < ends.length && ends[cursor]! < segmentEnd) {
+        if (han) interior[cursor] = true;
+        cursor += 1;
+      }
+    }
+  } catch {
+    return clusters.map(() => false);
+  }
+  return interior;
 }
 
 function formatSrtTimestamp(ms: number): string {
