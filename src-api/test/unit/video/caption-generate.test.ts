@@ -2,14 +2,18 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import { applyTimelineOps, compileTranscriptCut } from '@neumar/video-ir';
+import type { CaptionTimelineClip, Timeline } from '@neumar/video-ir';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { closeDatabase } from '@/shared/db';
+import { applyTranscriptCorrections } from '@/shared/video/analysis/transcript-corrections';
 import {
   chunkWords,
   generateProjectCaptions,
   transcriptWords,
 } from '@/shared/video/caption-generate';
+import { STT_CAPTION_ORIGIN } from '@/shared/video/caption-retime';
 import { createProject, getProject, writeProject } from '@/shared/video/store';
 import type {
   MediaItem,
@@ -17,6 +21,7 @@ import type {
   SourceMediaAnalysis,
   SubtitleWord,
   TranscriptData,
+  VideoProject,
   VideoTimeline,
 } from '@/shared/video/types';
 
@@ -219,23 +224,17 @@ describe('caption generation from transcript', () => {
       'Read "The Old Man and the Sea" tonight.',
       'The model is called Transformer.',
     ]);
-    // The glued run is one displayed word, not "Tra" | "nsformer".
+    // Each transcript fragment is its own word, as on the transcript: a
+    // consumer that matches a word by its edges needs "Tra" | "nsformer.".
     expect(
       cues.flatMap((cue) => cue.words ?? []).map((word) => word.text),
-    ).toEqual([...words.slice(0, -2).map((word) => word.text), 'Transformer.']);
-    // The transcript fragments stay available on the cue.
-    expect(
-      cues.flatMap(
-        (cue) =>
-          (cue.params?.captionSourceWords as SubtitleWord[] | undefined) ?? [],
-      ),
-    ).toEqual(words);
+    ).toEqual(words.map((word) => word.text));
     // A sentence-ending mark stays at the end of its cue.
     expect(texts.some((text) => /[.!?]\s/.test(text))).toBe(false);
     // The title's quotes stay in the same cue.
     const quoted = texts.filter((text) => text.includes('"'));
     expect(quoted).toEqual(['Read "The Old Man and the Sea" tonight.']);
-    // The glued Latin pieces stay one word, not "Tra" | "nsformer".
+    // The cue text joins the glued Latin pieces, not "Tra" | "nsformer".
     expect(texts.some((text) => /\bTra\b|\bnsformer\b/.test(text))).toBe(false);
   });
 
@@ -272,16 +271,9 @@ describe('caption generation from transcript', () => {
     expect(cues.map((cue) => cue.text)).toEqual([
       'The model is called Transformer.',
     ]);
-    // The displayed words join the split, so an animated style has no gap.
-    expect(cues[0]?.words?.map((word) => word.text)).toEqual([
-      'The',
-      'model',
-      'is',
-      'called',
-      'Transformer.',
-    ]);
-    // Every transcript word is still returned, with its original timing.
-    expect(cues[0]?.params?.captionSourceWords).toEqual(words);
+    // One word per transcript word, with its original timing; only the cue
+    // text joins the split.
+    expect(cues[0]?.words).toEqual(words);
     expect(cues[0]).toMatchObject({ startMs: 0, durationMs: 1160 });
   });
 
@@ -314,22 +306,73 @@ describe('caption generation from transcript', () => {
     });
 
     expect(cues.map((cue) => cue.text)).toEqual(['to day is Transformer.']);
-    // The animated styles draw one span per word, so the glued run is one
-    // entry spanning both fragments. The original pieces stay on the cue
-    // under their own key: the word schema rejects any extra field.
-    expect(cues[0]?.words).toEqual([
-      { text: 'to', startMs: 0, endMs: 100 },
-      { text: 'day', startMs: 100, endMs: 300 },
-      { text: 'is', startMs: 300, endMs: 500 },
-      { text: 'Transformer.', startMs: 800, endMs: 1160 },
-    ]);
-    expect(cues[0]?.params?.captionSourceWords).toEqual([
-      { text: 'to', startMs: 0, endMs: 100 },
-      { text: 'day', startMs: 100, endMs: 300 },
-      { text: 'is', startMs: 300, endMs: 500 },
-      { text: 'Tra', startMs: 800, endMs: 980 },
-      { text: 'nsformer.', startMs: 980, endMs: 1160 },
-    ]);
+    // Word-level consumers match a word by its own edges, so every transcript
+    // word keeps its entry and timing; only the cue text joins the run.
+    expect(cues[0]?.words).toEqual(words);
+    expect(cues[0]?.params).toEqual({
+      origin: STT_CAPTION_ORIGIN,
+      sourceId: 'source-1',
+    });
+  });
+
+  it('keeps the other fragment and the cue text when a cut removes one glued fragment', async () => {
+    const words = gluedRunWords();
+    const project = await writeGluedRunProject('Cut one fragment', words);
+
+    const { cues } = await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+    expect(cues.map((cue) => cue.text)).toEqual(['to day is Transformer.']);
+
+    const stored = defined(await getProject(project.id));
+    const traIndex = words.findIndex((word) => word.text === 'Tra');
+    const ops = compileTranscriptCut({
+      timeline: defined(stored.timeline),
+      match: { assetIds: ['asset-source'] },
+      words,
+      startIndex: traIndex,
+      endIndex: traIndex,
+      idFactory: sequentialIds(),
+    });
+    const cut = applyTimelineOps(defined(stored.timeline), ops).timeline;
+    const survivors = captionClips(cut);
+
+    // The half after the cut keeps "nsformer." and a non-empty text; no cue is
+    // left with `words: []` and `text: ''`.
+    expect(survivors.length).toBeGreaterThan(0);
+    for (const clip of survivors) {
+      expect(clip.text).not.toBe('');
+      expect(clip.words?.length ?? 0).toBeGreaterThan(0);
+    }
+    expect(
+      survivors.flatMap((clip) => clip.words ?? []).map((word) => word.text),
+    ).toContain('nsformer.');
+    expect(survivors.map((clip) => clip.text).join(' ')).toContain('nsformer.');
+  });
+
+  it('updates the caption word when a correction targets one glued fragment', async () => {
+    const words = gluedRunWords();
+    const project = await writeGluedRunProject('Correct one fragment', words);
+
+    await generateProjectCaptions(project.id, {
+      cachedOnly: true,
+      wordsPerCue: 12,
+      maxCueMs: 8_000,
+    });
+
+    const stored = defined(await getProject(project.id));
+    const traIndex = words.findIndex((word) => word.text === 'Tra');
+    const { project: corrected, captionsUpdated } = applyTranscriptCorrections(
+      stored,
+      'source-1',
+      [{ index: traIndex, text: 'Tara', startMs: 800, expectedText: 'Tra' }],
+    );
+
+    expect(captionsUpdated).toBeGreaterThanOrEqual(1);
+    const [cue] = captionClips(defined(corrected.timeline));
+    expect(cue?.words?.map((word) => word.text)).toContain('Tara');
   });
 
   it('keeps a space before an ordinary word with an unlisted onset', async () => {
@@ -632,6 +675,47 @@ function boundaryWords(): SubtitleWord[] {
     endMs: tra.endMs + 180,
   });
   return words;
+}
+
+/** Plain producer output: the glued run is "Tra" + "nsformer.", abutting. */
+function gluedRunWords(): SubtitleWord[] {
+  return [
+    { text: 'to', startMs: 0, endMs: 100 },
+    { text: 'day', startMs: 100, endMs: 300 },
+    { text: 'is', startMs: 300, endMs: 500 },
+    { text: 'Tra', startMs: 800, endMs: 980 },
+    { text: 'nsformer.', startMs: 980, endMs: 1160 },
+  ];
+}
+
+async function writeGluedRunProject(
+  name: string,
+  words: SubtitleWord[],
+): Promise<VideoProject> {
+  const project = await createProject({ name, template: 'explainer' });
+  await writeProject({
+    ...project,
+    assets: [assetFixture()],
+    sources: [sourceFixture('asset-source')],
+    sourceAnalyses: [analysisFixture(words)],
+    timeline: timelineFixture({ startMs: 0, trimStartMs: 0 }),
+  });
+  return project;
+}
+
+function captionClips(timeline: Timeline): CaptionTimelineClip[] {
+  const captions: CaptionTimelineClip[] = [];
+  for (const track of timeline.tracks) {
+    for (const clip of track.clips) {
+      if (clip.kind === 'caption') captions.push(clip);
+    }
+  }
+  return captions;
+}
+
+function sequentialIds(): () => string {
+  let next = 0;
+  return () => `id-${++next}`;
 }
 
 function sourceFixture(mediaItemId: string): SourceMedia {

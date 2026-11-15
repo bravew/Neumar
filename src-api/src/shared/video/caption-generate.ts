@@ -225,26 +225,18 @@ function buildClipCues(input: {
         sourceDurationMs: clip.sourceDurationMs,
         text: cueText(chunk),
         style: input.style,
-        words: displayWords(chunk, toTimeline),
+        words: chunk.map((word) => ({
+          text: word.text,
+          startMs: Math.round(toTimeline(word.startMs)),
+          endMs: Math.round(toTimeline(word.endMs)),
+        })),
         sourceAnchor: {
           sourceMediaId: assetId,
           sourceElementId: source.id,
           sourceStartMs: chunk[0]!.startMs,
           sourceEndMs: chunk.at(-1)!.endMs,
         },
-        params: {
-          origin: STT_CAPTION_ORIGIN,
-          sourceId: source.id,
-          // The displayed words join a glued run into one span. The transcript
-          // fragments stay here, because the word schema has no field for them
-          // and a consumer that matches a word by its own edges needs the
-          // pieces.
-          captionSourceWords: chunk.map((word) => ({
-            text: word.text,
-            startMs: Math.round(toTimeline(word.startMs)),
-            endMs: Math.round(toTimeline(word.endMs)),
-          })),
-        },
+        params: { origin: STT_CAPTION_ORIGIN, sourceId: source.id },
       };
     },
   );
@@ -519,36 +511,6 @@ function lastMatchingOpen(
     if (open[index]!.close === char) return index;
   }
   return -1;
-}
-
-/**
- * One entry per displayed word. A glued run is one span, from the first
- * fragment's start to the last fragment's end, because the animated styles
- * draw each entry as its own span and would otherwise show the gap.
- */
-function displayWords(
-  words: SubtitleWord[],
-  toTimeline: (sourceMs: number) => number,
-): SubtitleWord[] {
-  const displayed: SubtitleWord[] = [];
-  let previous: SubtitleWord | undefined;
-  for (const word of words) {
-    const text = spokenText(word.text);
-    if (!text) continue;
-    const current = displayed.at(-1);
-    if (previous && current && gluedLatinRun(previous, word)) {
-      current.text = `${current.text}${text}`;
-      current.endMs = Math.round(toTimeline(word.endMs));
-    } else {
-      displayed.push({
-        text,
-        startMs: Math.round(toTimeline(word.startMs)),
-        endMs: Math.round(toTimeline(word.endMs)),
-      });
-    }
-    previous = word;
-  }
-  return displayed;
 }
 
 function cueText(words: SubtitleWord[]): string {
