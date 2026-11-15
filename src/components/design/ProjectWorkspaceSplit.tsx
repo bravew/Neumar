@@ -26,6 +26,7 @@ export function ProjectWorkspaceSplit({
   tasks,
   activeTab,
   queuedSends,
+  sendingIds,
   questions,
   questionsStreaming,
   chatLoopActive,
@@ -59,6 +60,7 @@ export function ProjectWorkspaceSplit({
   tasks: DesignTaskRecord[];
   activeTab: ProjectChatSidebarTab;
   queuedSends: QueuedDesignSend[];
+  sendingIds: ReadonlySet<string>;
   questions: AgentQuestion[];
   questionsStreaming: boolean;
   chatLoopActive: boolean;
@@ -95,6 +97,7 @@ export function ProjectWorkspaceSplit({
         tasks={tasks}
         activeTab={activeTab}
         queuedSends={queuedSends}
+        sendingIds={sendingIds}
         questions={questions}
         questionsStreaming={questionsStreaming}
         chatLoopActive={chatLoopActive}

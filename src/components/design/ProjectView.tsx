@@ -224,7 +224,7 @@ export function DesignProjectView({
     ],
   );
 
-  useQueuedSendDrain({
+  const sendingIds = useQueuedSendDrain({
     drainingQueueRef,
     tasksHydrated,
     sending,
@@ -411,6 +411,7 @@ export function DesignProjectView({
         tasks={tasks}
         activeTab={chatSidebarTab}
         queuedSends={queuedSends}
+        sendingIds={sendingIds}
         questions={questions}
         questionsStreaming={questionsStreaming}
         chatLoopActive={chatLoopActive}
