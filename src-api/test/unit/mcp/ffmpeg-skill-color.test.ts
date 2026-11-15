@@ -132,6 +132,12 @@ async function makeSolid(
 ): Promise<string> {
   const file = path.join(workDir, name);
   const fullRange = range === 'pc';
+  // `bt470bg` names a matrix (and a primaries value) but not a transfer
+  // characteristic: FFmpeg 8.0.1's libx264 rejects `-color_trc bt470bg` with
+  // "Error setting option color_trc to value bt470bg", while 9.0.2 happens to
+  // accept it as an alias for gamma28. The transfer does not affect the matrix
+  // conversion under test, so tag a valid one instead.
+  const transfer = matrix === 'bt470bg' ? 'bt709' : matrix;
   await ffmpeg([
     '-y',
     '-f',
@@ -145,7 +151,7 @@ async function makeSolid(
     '-color_primaries',
     matrix,
     '-color_trc',
-    matrix,
+    transfer,
     '-color_range',
     range,
     '-c:v',
