@@ -30,7 +30,6 @@ import type { QueuedDesignSend } from './queued-design-sends';
 import { QueuedSendStrip } from './QueuedSendStrip';
 import { useDesignChatQuestions } from './use-design-chat-questions';
 
-export type { QueuedDesignSend };
 type ProjectChatSidebarTab = 'chat' | 'questions';
 
 /** Artifact file types the chat can edit (shown as a composer context chip). */
