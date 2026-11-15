@@ -27,7 +27,8 @@ def bt709_matrix_filter(meta: "Optional[Dict[str, Any]]") -> "Optional[str]":
     FFmpeg build (no zscale needed) and takes explicit input properties, so the conversion does
     not depend on how a build reads or negotiates the frames' own tags. The range is left as it
     is. One -vf / -filter_complex accepts this string as it stands; a tool's own filter graph
-    is not replaced by it -- runner.run() folds it in (see _fold_bt709_matrix)."""
+    is not replaced by it -- runner.run() folds it in (see _fold_bt709_matrix), after that graph
+    so the conversion never sees a frame the tool's own crop/scale/retry would have corrected."""
     v = (meta or {}).get("video") or {}
     matrix = v.get("color_space")
     wide = v.get("color_primaries") == "bt2020" or v.get("color_transfer") in ("smpte2084", "arib-std-b67")
@@ -43,7 +44,7 @@ def bt709_matrix_args(meta: "Optional[Dict[str, Any]]") -> List[str]:
     BT.601 source came out labelled BT.709 over BT.601 pixels (measured on the managed crop tool
     through FFmpeg 9.0.2: pure red decoded as 255,24,0 instead of 254,0,0). This appends the
     conversion once for the whole command; run() folds it into the tool's own graph before the
-    command is recorded or run, so a tool's -vf still applies."""
+    command is recorded or run, so a tool's -vf still applies and runs first."""
     f = bt709_matrix_filter(meta)
     return ["-vf", f] if f else []
 
@@ -54,10 +55,13 @@ _MATRIX_FILTER_RE = re.compile(r"^colorspace=ispace=(?:%s):iprimaries=bt709:itrc
 
 def _fold_bt709_matrix(cmd: "Sequence[str]") -> List[str]:
     """`cmd` with the conversion bt709_matrix_args() appended to its encoder line moved into the
-    tool's own filter graph, where it runs first, on the decoded source:
+    tool's own filter graph, where it runs after the tool's filters, on the frame they produce:
 
     - no other filter: unchanged (the -vf is the graph);
-    - a -vf: the conversion is prepended to that chain;
+    - a -vf: the conversion is appended to that chain, so a crop/scale and the even-dimension
+      retry have already made the frame valid for `colorspace`. Prepending it made it see the
+      source's raw size: an odd 321x241 yuv444p source failed there with "Invalid odd size
+      (321x241)" before the tool's own crop could correct it;
     - a -filter_complex: a `[0:v]` / `[0:v:0]` reference to the command's first input reads that
       input through the conversion instead. Other inputs are untouched (an overlay's still is
       not converted by the base picture's matrix).
@@ -87,7 +91,7 @@ def _fold_bt709_matrix(cmd: "Sequence[str]") -> List[str]:
         return out
     vf_at = next((k for k, a in enumerate(out[:-1]) if a == "-vf"), None)
     if vf_at is not None:
-        out[vf_at + 1] = f"{conv},{out[vf_at + 1]}"
+        out[vf_at + 1] = f"{out[vf_at + 1]},{conv}"
         return out
     return out[:at] + ["-vf", conv] + out[at:]
 

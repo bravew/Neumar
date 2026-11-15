@@ -20,15 +20,20 @@ Imported: `LICENSE`, `package.json`, `scripts/` (including `_common/`, `_contrac
 
 Four vendored Python files carry local patches, all following upstream commit
 [`57daa49c`](https://github.com/kajisho5/ffmpeg-skill/commit/57daa49c4136d81cde5d40b4c8415b9d2c38da7f):
-they convert a BT.601 (`smpte170m`/`bt470bg`) source to BT.709 before an encoder line tags it
-BT.709, instead of relabelling BT.601 pixels. The conversion is skipped for BT.709, untagged and
-HDR/BT.2020 sources. `SKILL.md` is Neumar's, not the upstream agent guide.
+the SDR encoder lines that target BT.709 (H.264, HEVC and AV1 in `decision.py`, and the export
+platform presets) convert a BT.601 (`smpte170m`/`bt470bg`) source to BT.709 instead of relabelling
+BT.601 pixels. The conversion is skipped for BT.709, untagged and HDR/BT.2020 sources. It covers
+the command's first video input and runs after the tool's own `-vf` filters, so a crop/scale and
+the even-dimension retry see the source's original geometry first. Other inputs are not converted:
+a BT.601 overlay on a BT.601 base still shows the old relabelling, and `color.py --correct` is
+unchanged because its own chain already works in the source matrix. `SKILL.md` is Neumar's, not
+the upstream agent guide.
 
 | File | Change |
 | --- | --- |
-| `scripts/_common/color.py` | Added `bt709_matrix_filter()`/`bt709_matrix_args()` (the `colorspace` conversion for a probed non-BT.709 SDR matrix) and `_fold_bt709_matrix()` (moves that conversion into the tool's own `-vf`/`-filter_complex`). `bt709_tag_args()` takes the source probe and appends the conversion. Follows upstream `57daa49c`. |
-| `scripts/_common/decision.py` | `x264_args()`/`video_args()`/`encoder_args()` pass the source probe to `bt709_tag_args()`/`bt709_matrix_args()`, so every SDR re-encode converts a BT.601 matrix. Follows upstream `57daa49c`. |
-| `scripts/_common/runner.py` | `run()` folds the conversion into the command's filter graph before recording or executing it, so a tool's own filter is not replaced by a second `-vf`. Follows upstream `57daa49c`. |
+| `scripts/_common/color.py` | Added `bt709_matrix_filter()`/`bt709_matrix_args()` (the `colorspace` conversion for a probed non-BT.709 SDR matrix) and `_fold_bt709_matrix()` (moves that conversion into the tool's own `-vf`/`-filter_complex`, after the tool's filters). `bt709_tag_args()` takes the source probe and appends the conversion. Follows upstream `57daa49c`. |
+| `scripts/_common/decision.py` | `x264_args()`/`video_args()`/`encoder_args()` pass the source probe to `bt709_tag_args()`/`bt709_matrix_args()`, so the SDR encoder lines that target BT.709 convert a BT.601 matrix. Follows upstream `57daa49c`. |
+| `scripts/_common/runner.py` | `run()` folds the conversion into the command's filter graph before recording or executing it: appended to the tool's own `-vf` chain, or prepended to the first input's `-filter_complex` branch. A tool's own filter is not replaced by a second `-vf`. Follows upstream `57daa49c`. |
 | `scripts/export.py` | Passes the source probe to `bt709_tag_args()` for the platform presets. Follows upstream `57daa49c`. |
 | `SKILL.md` | App name `ffmpeg`, modes `task`/`design`/`video`, and instructions for MCP server `ffmpeg-skill` tools `ffmpeg_skill_catalog`, `ffmpeg_skill_check`, and `ffmpeg_skill_execute`. Rejects raw shell, raw `argv`, `transcribe`, `batch --watch`, and saved-plan replay. |
 | `contract/contract.json` | Added pinned static contract for the later runner. Not an upstream path. |

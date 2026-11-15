@@ -57,16 +57,21 @@ function ffmpegBin(): string {
 function runProcess(
   command: string,
   args: string[],
-): Promise<{ code: number | null; stderr: string }> {
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
     let stderr = '';
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', (chunk) => {
       stderr += chunk;
     });
     child.on('error', reject);
-    child.on('close', (code) => resolve({ code, stderr }));
+    child.on('close', (code) => resolve({ code, stdout, stderr }));
   });
 }
 
@@ -122,7 +127,7 @@ function byteAt(bytes: Buffer, index: number): number {
 async function makeSolid(
   workDir: string,
   name: string,
-  matrix: 'bt709' | 'smpte170m',
+  matrix: 'bt709' | 'smpte170m' | 'bt470bg',
   range: 'tv' | 'pc' = 'tv',
 ): Promise<string> {
   const file = path.join(workDir, name);
@@ -152,6 +157,83 @@ async function makeSolid(
     file,
   ]);
   return file;
+}
+
+/**
+ * An odd-sized clip encoded and tagged `smpte170m` (H.264 yuv444p or VP9
+ * yuv420p). The tool's crop produces even output from either; the source frame
+ * itself is the odd one the conversion must not see first.
+ */
+async function makeOddSize(
+  workDir: string,
+  name: string,
+  width: number,
+  height: number,
+  codec: 'libx264' | 'libvpx-vp9',
+  pixFmt: 'yuv444p' | 'yuv420p',
+): Promise<string> {
+  const file = path.join(workDir, name);
+  await ffmpeg([
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    `color=c=red:s=${width}x${height}:r=25:d=1`,
+    '-vf',
+    `scale=out_color_matrix=smpte170m:out_range=tv,format=${pixFmt}`,
+    '-colorspace',
+    'smpte170m',
+    '-color_primaries',
+    'smpte170m',
+    '-color_trc',
+    'smpte170m',
+    '-c:v',
+    codec,
+    '-crf',
+    '10',
+    '-g',
+    '1',
+    file,
+  ]);
+  return file;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** `width`x`height` of the first video stream, read from ffprobe's JSON. */
+async function videoSize(
+  file: string,
+): Promise<{ width: number; height: number }> {
+  if (!binaries?.ffprobePath) throw new Error('ffprobe not detected');
+  const { code, stdout, stderr } = await runProcess(binaries.ffprobePath, [
+    '-v',
+    'error',
+    '-select_streams',
+    'v:0',
+    '-show_entries',
+    'stream=width,height',
+    '-of',
+    'json',
+    file,
+  ]);
+  if (code !== 0) {
+    throw new Error(`ffprobe ${file} exited ${code}: ${stderr}`);
+  }
+  const parsed: unknown = JSON.parse(stdout);
+  const stream =
+    isRecord(parsed) && Array.isArray(parsed.streams)
+      ? parsed.streams[0]
+      : undefined;
+  if (
+    !isRecord(stream) ||
+    typeof stream.width !== 'number' ||
+    typeof stream.height !== 'number'
+  ) {
+    throw new Error(`ffprobe ${file} reported no video size`);
+  }
+  return { width: stream.width, height: stream.height };
 }
 
 function closeTo(
@@ -195,7 +277,7 @@ mediaDescribe('managed FFmpeg skill colour conversion', () => {
 
   it('converts a BT.470BG full-range source through the export preset', async () => {
     const workDir = makeWorkDir();
-    const source = await makeSolid(workDir, 'bt470bg.mp4', 'smpte170m', 'pc');
+    const source = await makeSolid(workDir, 'bt470bg.mp4', 'bt470bg', 'pc');
     const sourcePixel = await centrePixel(workDir, source, 320, 240);
 
     const exported = await runWithSessionContext({ workDir }, () =>
@@ -212,6 +294,76 @@ mediaDescribe('managed FFmpeg skill colour conversion', () => {
       exported.artifact!.path,
       320,
       240,
+    );
+    expect(closeTo(outputPixel, sourcePixel)).toBe(true);
+  });
+
+  it('crops a BT.601 4:4:4 source with odd dimensions', async () => {
+    const workDir = makeWorkDir();
+    const source = await makeOddSize(
+      workDir,
+      'bt601-odd-444.mp4',
+      321,
+      241,
+      'libx264',
+      'yuv444p',
+    );
+    const sourcePixel = await centrePixel(workDir, source, 321, 241);
+
+    const crop = await runWithSessionContext({ workDir }, () =>
+      executeSkillOperation({
+        tool: 'crop',
+        args: { input: source, x: 0, y: 0, width: 320, height: 240 },
+      }),
+    );
+
+    // The conversion used to run before the crop and fail first with "Invalid
+    // odd size (321x241)", before the crop could reduce the frame.
+    expect(crop.status).toBe('completed');
+    expect(crop.artifact?.path).toBeTruthy();
+    expect(await videoSize(crop.artifact!.path)).toEqual({
+      width: 320,
+      height: 240,
+    });
+    const outputPixel = await centrePixel(
+      workDir,
+      crop.artifact!.path,
+      320,
+      240,
+    );
+    expect(closeTo(outputPixel, sourcePixel)).toBe(true);
+  });
+
+  it('crops a BT.601 VP9 source with odd dimensions', async () => {
+    const workDir = makeWorkDir();
+    const source = await makeOddSize(
+      workDir,
+      'bt601-odd-vp9.mp4',
+      641,
+      359,
+      'libvpx-vp9',
+      'yuv420p',
+    );
+    const sourcePixel = await centrePixel(workDir, source, 641, 359);
+
+    const crop = await runWithSessionContext({ workDir }, () =>
+      executeSkillOperation({
+        tool: 'crop',
+        args: { input: source, x: 0, y: 0, width: 640, height: 358 },
+      }),
+    );
+
+    expect(crop.status).toBe('completed');
+    expect(crop.artifact?.path).toBeTruthy();
+    expect(await videoSize(crop.artifact!.path)).toEqual({
+      width: 640,
+      height: 358,
+    });
+    const outputPixel = await centrePixel(
+      workDir,
+      crop.artifact!.path,
+      640,
+      358,
     );
     expect(closeTo(outputPixel, sourcePixel)).toBe(true);
   });
