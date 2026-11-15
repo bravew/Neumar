@@ -25,7 +25,9 @@ overrides:
   # One Hono copy. MCP SDK and Hyperframes resolve 4.13.3 while the API
   # depends on 4.13.9, and the two Hono classes are not assignable
   # (CopilotKit route mount in http-daemon.ts).
-  hono: '4.13.9'
+  # Raised to 4.13.16 2026-11-14 (#312) — moderate/low advisories through
+  # 4.13.15. The API's direct range moves with it.
+  hono: '4.13.16'
   # Transitive consistency — keep markdown ecosystem on a single major.
   unified: '^11.0.5'
   # Hold AG-UI runtime to the version our app integrates against.
@@ -90,8 +92,12 @@ overrides:
   # WebSocket subprotocol DoS, fixed at 6.28.1); 7.x <7.29.1 matches that and
   # GHSA-w293-vg96-wgc3 (BalancedPool TLS validation bypass). `pnpm install`
   # does not re-resolve inside an already-satisfied range, so the pins move.
-  'undici@<6.28.1': '6.28.1'
-  'undici@>=7.0.0 <7.29.1': '7.29.1'
+  # Raised 2026-11-14 (#312): GHSA-xjj6-f33q-929c, GHSA-2m5v-pch6-74hx,
+  # GHSA-qrxm-fqhp-jwvm and related moderates are fixed at 6.29.1 / 7.30.1 /
+  # 8.12.2. The 8.x line is reached through @copilotkit/runtime.
+  'undici@<6.29.1': '^6.29.1'
+  'undici@>=7.0.0 <7.30.1': '^7.30.1'
+  'undici@>=8.0.0 <8.12.2': '^8.12.2'
   # GHSA-xcpc-8h2w-3j85 and GHSA-7q85-xj36-vmfc — adm-zip allocates from the
   # declared uncompressed size before validating it. Bundled by onnxruntime-node
   # (unpacks native binaries at install time) and hyperframes. Raised the floor
@@ -111,13 +117,16 @@ overrides:
   # 2026-09-03: GHSA-5jgf-p345-68v8 and related host-confusion / SSRF fixes.
   # Keep the transitive v3 line used by ajv on the first patched release.
   # transitive via ajv/ajv-formats under @modelcontextprotocol/sdk.
-  fast-uri: '^3.1.6'
+  # Raised to 3.1.9 2026-11-14 (#312) — GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr.
+  fast-uri: '^3.1.9'
   # 2026-09-03: GHSA-c83g-rgw3-j3cx and GHSA-73wf-gq98-2v4g. Remotion's
   # webpack chain accepts current browserslist 4.x, so force the patched line.
   browserslist: '^4.28.7'
   # GHSA-mwp4-54f8-5fhr (ip-address leading-zero octet SSRF bypass) —
   # transitive via express-rate-limit under @modelcontextprotocol/sdk.
-  ip-address: '^10.3.1'
+  # Raised to 10.7.4 2026-11-14 (#312) — GHSA-rpw4-54j3-4h4q, GHSA-j6r3-76f7-8jcv,
+  # GHSA-rxp7-6hxx-x8q5 and two more fixed through 10.7.4.
+  ip-address: '^10.7.4'
   # GHSA-2883-xcg3-v3hh — transitive via cosmiconfig under @remotion/cli's
   # @svgr/core and @remotion/tailwind.
   js-yaml: '^4.3.2'
@@ -128,7 +137,42 @@ overrides:
   'source-map-js@>=1.0.0 <1.2.2': '1.2.2'
   # GHSA-7mx3-vvmw-hjmv — mergeDeep prototype pollution. Older 10.x/11.x
   # GraphQL Yoga transitives have no patched release on their original majors.
-  '@graphql-tools/utils@<=12.0.0': '12.0.1'
+  # Raised 2026-11-14 (#312) — GHSA-c4qx-w738-7hr3 is fixed at 12.0.2.
+  '@graphql-tools/utils@<=12.0.1': '^12.0.2'
+  # 2026-11-14 (#312): CVE hotfix. Each pin moves transitive copies onto the
+  # first patched release in their current major; `pnpm install` does not
+  # re-resolve inside an already-satisfied range.
+  # dompurify GHSA-cg2g-xh64-v4q7 (critical), GHSA-mrv2-3pqr-j5jr — mermaid,
+  # @streamdown/mermaid and CopilotKit resolve 3.4.14 / 3.4.16.
+  'dompurify@>=3.0.0 <3.4.17': '^3.4.17'
+  # zod <4.6.6 high (memory exhaustion on oversized constrained collections).
+  # Remotion 4.0.529 pins zod 4.5.4 exactly; later Remotion releases pin
+  # 4.6.7, so the scoped bump matches upstream. Scoped by parent so the 3.25
+  # copies under AG-UI 0.0.59 keep their own range (no patched 3.x; see #312).
+  '@remotion/media>zod': '^4.6.6'
+  '@remotion/studio>zod': '^4.6.6'
+  '@remotion/studio-protocol>zod': '^4.6.6'
+  '@remotion/studio-server>zod': '^4.6.6'
+  # follow-redirects GHSA-q3jh-wrc6-jgq8, GHSA-mrwp-f3q8-3g9p — via axios.
+  follow-redirects: '^1.16.2'
+  # body-parser high DoS (fixed 2.4.0), GHSA-v422-hmwv-36x6 — express 5.
+  'body-parser@>=2.0.0 <2.4.0': '^2.4.0'
+  # node-forge high/moderate/low set fixed through 1.4.3 — sandbox-runtime.
+  node-forge: '^1.4.3'
+  # @hono/node-server path-separator bypass, fixed at 1.19.18. The serveStatic
+  # advisory GHSA-rmxm-3fg6-px4f is fixed only in 2.x and is held; see #312.
+  '@hono/node-server@>=1.0.0 <1.19.18': '^1.19.18'
+  # qs GHSA-x5fp-wj9c-mxmx, GHSA-4mjr-xmp4-gh2g, GHSA-6pq8-jhm2-2vcw.
+  'qs@>=6.0.0 <6.16.1': '^6.16.1'
+  # Moderate transitive advisories under CopilotKit, Remotion and Tailwind.
+  '@fastify/busboy@>=3.0.0 <3.2.2': '^3.2.2'
+  'fast-copy@>=3.0.0 <3.1.0': '^3.1.0'
+  'phoenix@>=1.8.0 <1.8.9': '^1.8.9'
+  'postcss-selector-parser@>=6.0.0 <6.1.5': '^6.1.5'
+  'postcss-selector-parser@>=7.0.0 <7.1.6': '^7.1.6'
+  # vitest/@vitest/mocker <4.1.12 (two moderates). @copilotkit/channels-core
+  # ships vitest as a runtime dependency; keep every copy on one patch.
+  'vitest@>=4.0.0 <4.1.12': '4.1.12'
 peerDependencyRules:
   allowedVersions:
     # tailwindcss-animate has not widened its peer range text for Tailwind 4,
@@ -147,14 +191,27 @@ auditConfig:
     # runtime or user-supplied patterns. Remove when braces publishes a fix.
     # Reviewed 2026-10-02.
     - GHSA-vfj7-8cjw-p6xm
-    # node-forge <=1.4.0: RSA PKCS#1 v1.5 signature verification accepts
-    # extra DigestAlgorithm elements. No patched release exists (advisory
-    # first_patched_version is null; 1.4.0 is latest). The only path is
-    # src-api > @anthropic-ai/sandbox-runtime, which uses node-forge to
-    # generate keys and sign its MITM proxy CA and leaf certificates; it never
-    # verifies signatures. Remove when node-forge or sandbox-runtime ships a
-    # fix. Reviewed 2026-10-02.
-    - GHSA-86w9-cpqp-85rv
+    # @azure/msal-node <7.1.0: the authorization code flow may disclose
+    # parameters to an attacker-controlled endpoint (GHSA-xcx6-jx8p-x3h5).
+    # The only path is @copilotkit/channels-teams, and Neumar imports no
+    # CopilotKit channel package. Remove when CopilotKit drops the Teams
+    # channel or pins msal-node 7.x. Approved 2026-11-15 (#312).
+    - GHSA-xcx6-jx8p-x3h5
+    # graphql-scalars <=2.0.0: the PhoneNumber scalar's regular expression is
+    # vulnerable to ReDoS (GHSA-x8rm-f576-gq67). The only path is
+    # @copilotkit/runtime's GraphQL endpoint. Neumar mounts the v2 REST
+    # endpoints (createCopilotEndpoint), not GraphQL. Remove when CopilotKit
+    # drops the GraphQL runtime or pins graphql-scalars 2.x. Approved
+    # 2026-11-15 (#312).
+    - GHSA-x8rm-f576-gq67
+    # zod <4.6.6 can exhaust memory while validating an oversized
+    # constrained collection. Every remaining copy is zod 3.25, pinned by
+    # AG-UI 0.0.59 and CopilotKit. There is no patched 3.x release, and
+    # CopilotKit 1.88 still depends on zod 3. The CopilotKit routes that
+    # reach this parser are capped at 10 MB before parsing. Remove when the
+    # AG-UI and CopilotKit upgrade in #314 moves these copies to zod >=4.6.6.
+    # Approved 2026-11-15 (#312).
+    - GHSA-mrhx-c7xc-m3w5
 
 minimumReleaseAgeExclude:
   - read-excel-file@9.3.10
