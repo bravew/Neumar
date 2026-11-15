@@ -3919,9 +3919,12 @@ function renderSrt(
  * unchanged, and the cue's start and end stay where the timeline put them.
  */
 const CAPTION_EXPORT_LINE_WIDTH = 32;
-// Anchored, so testing a grapheme checks its first code point.
+// Anchored, so testing a grapheme checks its first code point. The ranges are
+// the BMP East Asian Wide and Fullwidth assignments in Unicode 15.1, plus the
+// supplementary-plane emoji and CJK blocks. Historic and rare supplementary
+// scripts are omitted; a character outside these ranges counts as one column.
 const CAPTION_WIDE_CHAR =
-  /^[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{20000}-\u{3FFFD}]/u;
+  /^[\u1100-\u115F\u231A-\u231B\u2329-\u232A\u23E9-\u23EC\u23F0\u23F3\u25FD-\u25FE\u2614-\u2615\u2648-\u2653\u267F\u2693\u26A1\u26AA-\u26AB\u26BD-\u26BE\u26C4-\u26C5\u26CE\u26D4\u26EA\u26F2-\u26F3\u26F5\u26FA\u26FD\u2705\u270A-\u270B\u2728\u274C\u274E\u2753-\u2755\u2757\u2795-\u2797\u27B0\u27BF\u2B1B-\u2B1C\u2B50\u2B55\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uA960-\uA97C\uAC00-\uD7A3\uF900-\uFAFF\uFE10-\uFE19\uFE30-\uFE4F\uFE50-\uFE52\uFE54-\uFE66\uFE68-\uFE6B\uFF00-\uFF60\uFFE0-\uFFE6\u{1F004}\u{1F0CF}\u{1F18E}\u{1F191}-\u{1F19A}\u{1F200}-\u{1F202}\u{1F210}-\u{1F23B}\u{1F240}-\u{1F248}\u{1F250}-\u{1F251}\u{1F260}-\u{1F265}\u{1F300}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F7E0}-\u{1F7EB}\u{1F7F0}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{20000}-\u{3FFFD}]/u;
 const CAPTION_BREAK_AFTER_WIDE =
   /[\uFF0C\u3001\uFF1B\uFF1A\u3002\uFF01\uFF1F\u2026]/u;
 const CAPTION_BREAK_AFTER_ASCII = /[,;:.!?]/;

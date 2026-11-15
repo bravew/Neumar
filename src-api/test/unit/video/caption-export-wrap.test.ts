@@ -170,6 +170,18 @@ describe('caption export wrapping', () => {
     expect(srt).toBe(`1\n${TIMING_LINE}\n${text}\n`);
     expect(cueLines(srt)).toEqual(['X', '\t\t', 'Y']);
   });
+
+  it('counts an East Asian wide emoji as two columns and wraps the overflow', () => {
+    // Fifteen wide characters plus U+1F680 (wide) is already 32 columns, so the
+    // trailing Latin letter moves to a second line. Counting the emoji as one
+    // would total 32 and leave the paragraph unwrapped.
+    const text = `${'中'.repeat(15)}🚀X`;
+
+    const lines = cueLines(buildCaptionSidecarSrt(captionProject(text)));
+
+    expect(lines).toEqual([`${'中'.repeat(15)}🚀`, 'X']);
+    expect(lines.join('')).toBe(text);
+  });
 });
 
 function cueLines(srt: string | undefined): string[] {

@@ -70,12 +70,10 @@ const PAUSE_BREAK_MS = 500;
 const GLUE_MARK = '­';
 // A vowel, including "y".
 const WORD_VOWEL = /[aeiouy]/i;
-// Two letters an English word may open with. "ns" is not among them, so
-// "nsformer" is a tail; "day", "th" and "kn" are not.
-const WORD_ONSET =
-  /^(?:bl|br|ch|cl|cn|cr|cw|cz|dj|dr|dw|fl|fr|gh|gl|gn|gr|gw|kh|kl|kn|kr|kw|ll|mn|ph|pl|pn|pr|ps|pt|rh|sc|sf|sh|sk|sl|sm|sn|sp|sq|st|sv|sw|th|tr|ts|tw|vl|vr|wh|wr|xr)/i;
 const LATIN_OR_DIGIT = /[A-Za-z0-9]/;
-const SENTENCE_ENDING = /[.!?。！？…]["'”’)》\]]*$/u;
+// Closers that can follow the sentence mark and still end the sentence: the
+// closing half of the CJK and curly-quote pairs in PAIRS, plus straight quotes.
+const SENTENCE_ENDING = /[.!?。！？…]["'”’」』）》)\]]*$/u;
 const MAX_PAIR_CHARS = 42;
 const PAIRS = new Map<string, string>([
   ['“', '”'],
@@ -384,12 +382,17 @@ function breakBefore(
   // A sentence still ends the cue when its closing mark also closes the pair.
   // A period inside a pair that is still open does not.
   if (sentenceEnding(previous.text) && !hasUnclosedPair(current)) return true;
-  if (insideMatchedPair(current, next)) return false;
   const start = current[0]!.startMs;
   const gap = next.startMs - previous.endMs;
   const overDuration = next.endMs - start > maxCueMs;
   const overCount = current.length >= wordsPerCue;
   const longPause = gap > PAUSE_BREAK_MS;
+  // A pair stays together only while the cue still fits the duration and does
+  // not cross a long pause. Both limits are hard: an open quote is not a
+  // reason to hold a caption on screen through silence or past its cap.
+  if (!overDuration && !longPause && insideMatchedPair(current, next)) {
+    return false;
+  }
   // The word that ends the sentence stays with it when it still fits the
   // duration, instead of being left as its own cue by the word-count cap.
   if ((overCount || longPause) && !overDuration && sentenceEnding(next.text)) {
@@ -402,10 +405,10 @@ function breakBefore(
  * A transcriber-split Latin or digit run. Some producers mark the continuation
  * with a leading glue character. Unmarked producers emit the tail as plain text
  * that cannot begin a word, such as "nsformer", starting exactly where the
- * previous piece ends. An ordinary word, and a vowelless abbreviation such as
- * "Mr", can stand alone, so abutting timings do not glue it. A zero-duration
- * word is a collapsed timing, not half of a split word, and can share an instant
- * with its neighbour without being glued.
+ * previous piece ends. An ordinary word with an unusual opening, and a
+ * vowelless abbreviation such as "Mr", can stand alone, so abutting timings do
+ * not glue it. A zero-duration word is a collapsed timing, not half of a split
+ * word, and can share an instant with its neighbour without being glued.
  */
 function gluedLatinRun(previous: SubtitleWord, next: SubtitleWord): boolean {
   const previousText = spokenText(previous.text);
@@ -429,14 +432,22 @@ function gluedLatinRun(previous: SubtitleWord, next: SubtitleWord): boolean {
   );
 }
 
-/** A tail such as "nsformer": it has a vowel, but its opening cluster does not. */
+/**
+ * A tail such as "nsformer": it has a vowel, but its opening cluster cannot
+ * begin an English word. A pair that merely looks unusual, such as "xb" in
+ * "Xbox", can still begin an ordinary word, so it keeps its space.
+ */
 function cannotStartWord(token: string): boolean {
   const leading = /^[A-Za-z]+/.exec(token)?.[0] ?? '';
   if (!WORD_VOWEL.test(leading) || leading.length < 2) return false;
   const first = leading[0]!;
   const second = leading[1]!;
   if (WORD_VOWEL.test(first) || WORD_VOWEL.test(second)) return false;
-  return !WORD_ONSET.test(first + second);
+  // A lowercase "n" before another consonant does not open an English word,
+  // so this pair is a split tail. Every other unmarked pair keeps its space:
+  // "xb" can open "Xbox", and the letters alone cannot prove otherwise. A
+  // capitalized token is more likely a word than a tail, so it keeps its space.
+  return first === 'n';
 }
 
 function sentenceEnding(token: string): boolean {
