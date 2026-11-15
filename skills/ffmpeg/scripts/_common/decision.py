@@ -14,7 +14,7 @@ import argparse
 from fractions import Fraction
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
-from _common.color import bt709_tag_args, _sdr_bt709
+from _common.color import bt709_matrix_args, bt709_tag_args, _sdr_bt709
 from _common.emit import die
 from _common.runner import CODECS, STATE, ffmpeg_encoders
 
@@ -295,7 +295,7 @@ def encoder_args(codec: str, crf: int, preset: str, meta: Optional[Dict[str, Any
         if hdr:
             die(f"--codec h264 cannot carry HDR ({v.get('hdr_format') or 'BT.2020'}): 8-bit H.264 is SDR only",
                 hint="run color.py --to-sdr first, or use --codec hevc / av1 / prores, which keep the source's HDR")
-        return _x264_raw(crf, preset, keep_bt709)
+        return _x264_raw(crf, preset, keep_bt709, meta)
     if codec == "hevc":
         if hdr:
             x265 = f"log-level=error:colorprim={prim}:transfer={trc}:colormatrix={cs}:range=limited:hdr10-opt=1" if trc == "smpte2084" else f"log-level=error:colorprim={prim}:transfer={trc}:colormatrix={cs}"
@@ -303,7 +303,8 @@ def encoder_args(codec: str, crf: int, preset: str, meta: Optional[Dict[str, Any
                     "-x265-params", x265] + hdr_tags + ["-movflags", "+faststart"]
         params, extra = _sdr_bt709("libx265") if keep_bt709 else ("", [])
         return ["-c:v", "libx265", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p", "-tag:v", "hvc1",
-                "-x265-params", "log-level=error" + (":" + params if params else "")] + extra + ["-movflags", "+faststart"]
+                "-x265-params", "log-level=error" + (":" + params if params else "")] + extra + ["-movflags", "+faststart"] \
+            + (bt709_matrix_args(meta) if keep_bt709 else [])
     if codec == "av1":
         pix = "yuv420p10le" if hdr else "yuv420p"
         if "libsvtav1" in ffmpeg_encoders():
@@ -312,10 +313,10 @@ def encoder_args(codec: str, crf: int, preset: str, meta: Optional[Dict[str, Any
                 args += hdr_tags
             elif keep_bt709:
                 params, extra = _sdr_bt709("libsvtav1")
-                args += (["-svtav1-params", params] if params else []) + extra
+                args += (["-svtav1-params", params] if params else []) + extra + bt709_matrix_args(meta)
         elif "libaom-av1" in ffmpeg_encoders():
             args = ["-c:v", "libaom-av1", "-crf", str(min(63, crf)), "-b:v", "0", "-cpu-used", "6", "-row-mt", "1", "-pix_fmt", pix]
-            args += hdr_tags if hdr else (_sdr_bt709("libaom-av1")[1] if keep_bt709 else [])
+            args += hdr_tags if hdr else ((_sdr_bt709("libaom-av1")[1] + bt709_matrix_args(meta)) if keep_bt709 else [])
         else:
             die("--codec av1 needs an AV1 encoder (libsvtav1 or libaom-av1) and this ffmpeg build has neither", kind="missing_tool",
                 hint="install an ffmpeg built with SVT-AV1 (most distribution builds are), or use --codec hevc")
@@ -328,19 +329,24 @@ def encoder_args(codec: str, crf: int, preset: str, meta: Optional[Dict[str, Any
     return []
 
 
-def _x264_raw(crf: int, preset: str, keep_bt709: bool = True) -> List[str]:
+def _x264_raw(crf: int, preset: str, keep_bt709: bool = True, meta: Optional[Dict[str, Any]] = None) -> List[str]:
     args = ["-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
     if keep_bt709:
-        args += bt709_tag_args("libx264")
+        args += bt709_tag_args("libx264", meta)
     return args
 
 
-def x264_args(crf: int = 18, preset: str = "medium", keep_bt709: bool = True) -> List[str]:
+def x264_args(crf: int = 18, preset: str = "medium", keep_bt709: bool = True,
+              meta: Optional[Dict[str, Any]] = None) -> List[str]:
     """SDR H.264 encoder args -- or, when --codec named another encoder, that encoder's SDR args
-    (color.py's --to-sdr path builds its own H.264 line; the flag still has to reach it)."""
+    (color.py's --to-sdr path builds its own H.264 line; the flag still has to reach it).
+
+    `meta`: the probe of the file being re-encoded. A BT.709-tagged line then carries the
+    conversion of a non-BT.709 matrix (bt709_matrix_args); a caller whose graph already writes
+    BT.709 (--to-sdr) leaves it out."""
     if STATE.codec and STATE.codec != "h264":
-        return encoder_args(STATE.codec, crf, preset, None, keep_bt709)
-    return _x264_raw(crf, preset, keep_bt709)
+        return encoder_args(STATE.codec, crf, preset, meta, keep_bt709)
+    return _x264_raw(crf, preset, keep_bt709, meta)
 
 
 def video_args(meta: Optional[Dict[str, Any]], crf: int = 18, preset: str = "medium") -> List[str]:
@@ -355,7 +361,7 @@ def video_args(meta: Optional[Dict[str, Any]], crf: int = 18, preset: str = "med
         return encoder_args(STATE.codec, crf, preset, meta)
     v = (meta or {}).get("video") or {}
     if not v.get("bt2020_or_hdr"):
-        return x264_args(crf, preset)
+        return x264_args(crf, preset, meta=meta)
     cs = v.get("color_space") or "bt2020nc"
     prim = v.get("color_primaries") or "bt2020"
     trc = v.get("color_transfer") or "arib-std-b67"

@@ -8,6 +8,10 @@ Neumar's overall shape draws on ideas from these open-source projects. No source
 - [Open Design](https://github.com/nexu-io/open-design) (Apache License 2.0) — Design Mode: project-based artifact creation, prompt templates, critique/preview workflows.
 - [OpenCut](https://github.com/OpenCut-app/OpenCut) (MIT License) — Video Mode: timeline editing concepts and render pipeline structure.
 
+## Vendored Source
+
+- `ffmpeg-skill` (MIT License, Copyright (c) 2026 kajisho5) — the FFmpeg skill payload under `skills/ffmpeg/`, vendored at upstream revision `a991599bfe3f` (v2.4.2). Local patches are recorded in `skills/ffmpeg/PROVENANCE.md`; the upstream `LICENSE` ships with the payload.
+
 ## Video Mode References
 
 - `video-use` hard render rules: MIT-licensed reference material. The rules are adapted into `src-api/src/shared/video/pipeline.ts`.
