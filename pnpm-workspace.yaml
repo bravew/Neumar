@@ -191,6 +191,19 @@ auditConfig:
     # runtime or user-supplied patterns. Remove when braces publishes a fix.
     # Reviewed 2026-10-02.
     - GHSA-vfj7-8cjw-p6xm
+    # @azure/msal-node <7.1.0: the authorization code flow may disclose
+    # parameters to an attacker-controlled endpoint (GHSA-xcx6-jx8p-x3h5).
+    # The only path is @copilotkit/channels-teams, and Neumar imports no
+    # CopilotKit channel package. Remove when CopilotKit drops the Teams
+    # channel or pins msal-node 7.x. Approved 2026-11-15 (#312).
+    - GHSA-xcx6-jx8p-x3h5
+    # graphql-scalars <=2.0.0: the PhoneNumber scalar's regular expression is
+    # vulnerable to ReDoS (GHSA-x8rm-f576-gq67). The only path is
+    # @copilotkit/runtime's GraphQL endpoint. Neumar mounts the v2 REST
+    # endpoints (createCopilotEndpoint), not GraphQL. Remove when CopilotKit
+    # drops the GraphQL runtime or pins graphql-scalars 2.x. Approved
+    # 2026-11-15 (#312).
+    - GHSA-x8rm-f576-gq67
 
 minimumReleaseAgeExclude:
   - read-excel-file@9.3.10
