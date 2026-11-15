@@ -45,6 +45,7 @@ export function ProjectChatSidebar({
   project,
   activeTab,
   queuedSends,
+  sendingIds,
   questions: controlledQuestions,
   questionsStreaming: controlledQuestionsStreaming,
   sendError,
@@ -77,6 +78,7 @@ export function ProjectChatSidebar({
   project: DesignProject;
   activeTab?: ProjectChatSidebarTab;
   queuedSends: QueuedDesignSend[];
+  sendingIds?: ReadonlySet<string>;
   questions?: AgentQuestion[];
   questionsStreaming?: boolean;
   sendError: string | null;
@@ -219,6 +221,7 @@ export function ProjectChatSidebar({
       <div className="border-border space-y-2 border-t p-3">
         <QueuedSendStrip
           queuedSends={queuedSends}
+          sendingIds={sendingIds}
           labels={t.design}
           onSendQueuedNow={onSendQueuedNow}
           onEditQueuedSend={onEditQueuedSend}
