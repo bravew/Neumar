@@ -204,6 +204,14 @@ auditConfig:
     # drops the GraphQL runtime or pins graphql-scalars 2.x. Approved
     # 2026-11-15 (#312).
     - GHSA-x8rm-f576-gq67
+    # zod <4.6.6 can exhaust memory while validating an oversized
+    # constrained collection. Every remaining copy is zod 3.25, pinned by
+    # AG-UI 0.0.59 and CopilotKit. There is no patched 3.x release, and
+    # CopilotKit 1.88 still depends on zod 3. The CopilotKit routes that
+    # reach this parser are capped at 10 MB before parsing. Remove when the
+    # AG-UI and CopilotKit upgrade in #314 moves these copies to zod >=4.6.6.
+    # Approved 2026-11-15 (#312).
+    - GHSA-mrhx-c7xc-m3w5
 
 minimumReleaseAgeExclude:
   - read-excel-file@9.3.10
