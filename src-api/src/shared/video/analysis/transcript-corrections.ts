@@ -1,4 +1,4 @@
-import { deriveTranscriptWordStates } from '@neumar/video-ir';
+import { deriveTranscriptWordStates, joinCaptionWords } from '@neumar/video-ir';
 
 import { STT_CAPTION_ORIGIN } from '../caption-retime';
 import type { CaptionTimelineClip, SubtitleWord, VideoProject } from '../types';
@@ -211,15 +211,19 @@ function mirrorIntoCaptions(
       });
       if (words.every((word, i) => word === clip.words![i])) return clip;
       touched.add(clip.id);
-      // Only rewrite the cue text when it is the plain join of its words;
-      // otherwise the cue was hand-edited and we leave its text alone.
+      // Only rewrite the cue text when it is a join of its words, either the
+      // plain one or the generated one that keeps a glued run ("Tra" +
+      // "nsformer.") in one word; otherwise the cue was hand-edited and we
+      // leave its text alone.
       const text =
         clip.text === originalText
           ? words
               .map((word) => word.text)
               .filter(Boolean)
               .join(' ')
-          : clip.text;
+          : clip.text === joinCaptionWords(clip.words)
+            ? joinCaptionWords(words)
+            : clip.text;
       return { ...clip, words, text };
     }),
   }));

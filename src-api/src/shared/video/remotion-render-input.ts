@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 import {
   durationMsToFrames,
+  groupGluedCaptionWords,
   msToFrame,
   normalizeClipPlayback,
   type ClipPlayback,
@@ -446,16 +447,20 @@ function captionFromEdl(
       durationMsToFrames(caption.endMs - caption.startMs, fps),
     ),
     text: caption.text,
-    words: caption.words?.map((word) => ({
-      text: word.text,
-      // Frames are relative to the caption's own start (the Sequence origin).
-      // Clamp the ms delta first — msToFrame rejects a negative input.
-      fromFrame: msToFrame(Math.max(0, word.startMs - caption.startMs), fps),
-      toFrame: Math.max(
-        1,
-        msToFrame(Math.max(0, word.endMs - caption.startMs), fps),
-      ),
-    })),
+    // A transcriber-split word ("Tra" + "nsformer.") is drawn as one word:
+    // the animated styles give every frame word its own span.
+    words:
+      caption.words &&
+      groupGluedCaptionWords(caption.words).map((word) => ({
+        text: word.text,
+        // Frames are relative to the caption's own start (the Sequence origin).
+        // Clamp the ms delta first — msToFrame rejects a negative input.
+        fromFrame: msToFrame(Math.max(0, word.startMs - caption.startMs), fps),
+        toFrame: Math.max(
+          1,
+          msToFrame(Math.max(0, word.endMs - caption.startMs), fps),
+        ),
+      })),
     position: caption.style?.position ?? 'bottom',
     keyframes: caption.keyframes,
     style: caption.style,

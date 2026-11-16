@@ -3,8 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { msToFrame } from '@neumar/video-ir';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  resolveCaptionWords,
+  type CaptionAnimation,
+} from '@/shared/video/caption-word-render';
 import { saveImportedOverlayItem } from '@/shared/video/overlays/imported-items';
 import { buildRemotionRenderInput } from '@/shared/video/remotion-render-input';
 import type { MediaItem, VideoProject } from '@/shared/video/types';
@@ -207,6 +212,59 @@ describe('remotion render input', () => {
 
     expect(input.captions).toEqual([]);
   });
+
+  it.each<CaptionAnimation>(['tiktok-word', 'hormozi-bold', 'karaoke'])(
+    'draws a transcriber-split word as one %s word with no gap',
+    async (animation) => {
+      const project = projectFixture();
+      const track = project.timeline?.tracks.find(
+        (candidate) => candidate.id === 'track-caption-main',
+      );
+      const caption = track?.kind === 'caption' ? track.clips[0] : undefined;
+      if (!caption) throw new Error('Expected caption clip');
+      // Stored words keep one entry per transcript word, as generation writes
+      // them: "Tra" and "nsformer." abut and the tail cannot start a word.
+      const storedWords = [
+        { text: 'The', startMs: 1000, endMs: 1300 },
+        { text: 'model', startMs: 1300, endMs: 1700 },
+        { text: 'Tra', startMs: 1700, endMs: 1900 },
+        { text: 'nsformer.', startMs: 1900, endMs: 2400 },
+      ];
+      caption.words = storedWords;
+      caption.text = 'The model Transformer.';
+      caption.style = { position: 'middle', animation };
+      await createAssetFiles(project);
+
+      const input = await buildRemotionRenderInput(project, { root: workDir });
+
+      const words = input.captions[0]?.words ?? [];
+      expect(words.map((word) => word.text)).toEqual([
+        'The',
+        'model',
+        'Transformer.',
+      ]);
+      const glued = words[2]!;
+      expect(glued.fromFrame).toBe(msToFrame(700, 24));
+      expect(glued.toFrame).toBe(msToFrame(1400, 24));
+      // The stored data is untouched: cut and correction still see two words.
+      expect(caption.words.map((word) => word.text)).toEqual([
+        'The',
+        'model',
+        'Tra',
+        'nsformer.',
+      ]);
+
+      // Each frame inside the run shows the whole word, never one half.
+      for (const frame of [glued.fromFrame, glued.toFrame - 1]) {
+        const shown = resolveCaptionWords(words, frame, animation)
+          .filter((word) => word.visible)
+          .map((word) => word.text);
+        expect(shown).toContain('Transformer.');
+        expect(shown).not.toContain('Tra');
+        expect(shown).not.toContain('nsformer.');
+      }
+    },
+  );
 
   it('embeds gif overlay asset bytes for headless render input', async () => {
     const project = projectFixture();
