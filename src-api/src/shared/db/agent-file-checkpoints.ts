@@ -42,16 +42,18 @@ export function latestUserMessageRowId(
 }
 
 export function recordAgentFileCheckpoint(input: AgentFileCheckpoint): void {
+  // Keep the first checkpoint recorded for a user turn. Retries reuse the same
+  // message row, and the retry's baseline already contains the previous
+  // attempt's edits, so replacing the original would make "rewind to before
+  // this turn" restore a later state. A stale session fails the rewind's dry
+  // run instead, which refuses before writing anything.
   getDatabase()
     .prepare(
       `INSERT INTO agent_file_checkpoints
          (task_id, message_row_id, user_message_id, sdk_session_id, cwd)
        SELECT ?, id, ?, ?, ? FROM messages
        WHERE id = ? AND task_id = ? AND type = 'user'
-       ON CONFLICT(task_id, message_row_id) DO UPDATE SET
-         user_message_id = excluded.user_message_id,
-         sdk_session_id = excluded.sdk_session_id,
-         cwd = excluded.cwd`,
+       ON CONFLICT(task_id, message_row_id) DO NOTHING`,
     )
     .run(
       input.taskId,
