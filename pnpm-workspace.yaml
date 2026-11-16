@@ -31,11 +31,12 @@ overrides:
   # Transitive consistency — keep markdown ecosystem on a single major.
   unified: '^11.0.5'
   # Hold AG-UI runtime to the version our app integrates against.
-  # Raised to 0.0.59 2026-09-27 (G7) to match @copilotkit/* 1.74's exact pin.
-  # @ag-ui 1.0 is held: CopilotKit still depends on 0.0.59.
-  '@ag-ui/client': '^0.0.59'
-  '@ag-ui/core': '^0.0.59'
-  '@ag-ui/encoder': '^0.0.59'
+  # Raised to 1.0.2 2026-11-16 (#314): @copilotkit/* 1.88 pins this exact
+  # version, and the workspace must share one copy across the frontend/API
+  # boundary. Re-check when CopilotKit moves its exact pin.
+  '@ag-ui/client': '1.0.2'
+  '@ag-ui/core': '1.0.2'
+  '@ag-ui/encoder': '1.0.2'
   # Force-bump Slack Web API to keep transitive Bolt deps on the same minor.
   # Raised to 8.1.x 2026-09-27 (G10) alongside @slack/bolt 5.1 / web-api 8.1.1.
   '@slack/web-api': '^8.1.1'
@@ -200,16 +201,18 @@ auditConfig:
     # graphql-scalars <=2.0.0: the PhoneNumber scalar's regular expression is
     # vulnerable to ReDoS (GHSA-x8rm-f576-gq67). The only path is
     # @copilotkit/runtime's GraphQL endpoint. Neumar mounts the v2 REST
-    # endpoints (createCopilotEndpoint), not GraphQL. Remove when CopilotKit
-    # drops the GraphQL runtime or pins graphql-scalars 2.x. Approved
-    # 2026-11-15 (#312).
+    # endpoints (createCopilotEndpoint), not GraphQL. Re-checked 2026-11-16
+    # (#314): CopilotKit 1.88 still depends on graphql-scalars ^1.23.0 and
+    # resolves 1.26.0. Remove when CopilotKit drops the GraphQL runtime or
+    # pins graphql-scalars 2.x. Approved 2026-11-15 (#312).
     - GHSA-x8rm-f576-gq67
     # zod <4.6.6 can exhaust memory while validating an oversized
     # constrained collection. Every remaining copy is zod 3.25, pinned by
-    # AG-UI 0.0.59 and CopilotKit. There is no patched 3.x release, and
-    # CopilotKit 1.88 still depends on zod 3. The CopilotKit routes that
-    # reach this parser are capped at 10 MB before parsing. Remove when the
-    # AG-UI and CopilotKit upgrade in #314 moves these copies to zod >=4.6.6.
+    # CopilotKit. There is no patched 3.x release. The CopilotKit routes that
+    # reach this parser are capped at 10 MB before parsing. Re-checked
+    # 2026-11-16 (#314): CopilotKit 1.88 still depends on zod ^3.25.18, and
+    # @ag-ui 1.0.2 resolves against zod 3 for CopilotKit's copy and zod 4 for
+    # the app's. Remove when CopilotKit moves to zod >=4.6.6.
     # Approved 2026-11-15 (#312).
     - GHSA-mrhx-c7xc-m3w5
 

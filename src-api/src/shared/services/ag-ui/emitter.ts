@@ -72,10 +72,7 @@ export class AGUIEmitter {
   ): AsyncGenerator<BaseEvent> {
     let caughtError: unknown = undefined;
 
-    yield this.event<RunStartedEvent>(EventType.RUN_STARTED, {
-      threadId: this.threadId,
-      runId: this.runId,
-    });
+    yield this.event<RunStartedEvent>(EventType.RUN_STARTED, {});
 
     // Emit initial state snapshot so the frontend can display workspace/task context
     if (this.context?.workspaceRoot) {
@@ -520,7 +517,7 @@ export class AGUIEmitter {
    */
   private event<T extends BaseEvent>(
     type: T['type'],
-    fields: Omit<T, 'type' | 'timestamp'>,
+    fields: Omit<T, 'type' | 'timestamp' | 'threadId' | 'runId'>,
   ): T {
     return {
       type,

@@ -1,4 +1,5 @@
 import {
+  contentToText,
   EventType,
   type BaseEvent,
   type CustomEvent,
@@ -810,7 +811,11 @@ export function aguiToAgentMessage(
       const e = event as ToolCallResultEvent;
       delete state.pendingToolArgs[e.toolCallId];
       return [
-        { type: 'tool_result', toolUseId: e.toolCallId, output: e.content },
+        {
+          type: 'tool_result',
+          toolUseId: e.toolCallId,
+          output: contentToText(e.content),
+        },
       ];
     }
     case EventType.REASONING_MESSAGE_CONTENT: {

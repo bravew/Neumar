@@ -50,9 +50,6 @@ export const THREAD_STORE_REDUCED_EVENT_TYPES = new Set<string>([
   EventType.TEXT_MESSAGE_CONTENT,
   EventType.TEXT_MESSAGE_END,
   EventType.TEXT_MESSAGE_CHUNK,
-  EventType.THINKING_TEXT_MESSAGE_START,
-  EventType.THINKING_TEXT_MESSAGE_CONTENT,
-  EventType.THINKING_TEXT_MESSAGE_END,
   EventType.REASONING_MESSAGE_START,
   EventType.REASONING_MESSAGE_CONTENT,
   EventType.REASONING_MESSAGE_END,
@@ -70,8 +67,6 @@ export const THREAD_STORE_REDUCED_EVENT_TYPES = new Set<string>([
 ]);
 
 export const THREAD_STORE_IGNORED_EVENT_TYPES = new Set<string>([
-  EventType.THINKING_START,
-  EventType.THINKING_END,
   EventType.MESSAGES_SNAPSHOT,
   EventType.ACTIVITY_SNAPSHOT,
   EventType.ACTIVITY_DELTA,
@@ -607,8 +602,7 @@ export const useThreadStore = create<ThreadStore>()(
             break;
           }
 
-          case EventType.REASONING_MESSAGE_START:
-          case EventType.THINKING_TEXT_MESSAGE_START: {
+          case EventType.REASONING_MESSAGE_START: {
             const id =
               event.messageId ?? `reasoning-${event.seq ?? randomUUID()}`;
             if (!id) {
@@ -621,8 +615,7 @@ export const useThreadStore = create<ThreadStore>()(
           }
 
           case EventType.REASONING_MESSAGE_CONTENT:
-          case EventType.REASONING_MESSAGE_CHUNK:
-          case EventType.THINKING_TEXT_MESSAGE_CONTENT: {
+          case EventType.REASONING_MESSAGE_CHUNK: {
             const id = event.messageId ?? acc.reasoningMessageId;
             if (!id || !event.delta || typeof event.delta !== 'string') {
               mutated = false;
@@ -634,8 +627,7 @@ export const useThreadStore = create<ThreadStore>()(
             break;
           }
 
-          case EventType.REASONING_MESSAGE_END:
-          case EventType.THINKING_TEXT_MESSAGE_END: {
+          case EventType.REASONING_MESSAGE_END: {
             acc.reasoningMessageId = null;
             mutated = false;
             break;

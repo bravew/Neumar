@@ -130,10 +130,10 @@
     "video:sidecar-probe": "node scripts/video-sidecar-probe.mjs"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.59",
-    "@ag-ui/core": "^0.0.59",
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
     "@assistant-ui/react": "^0.15.22",
-    "@copilotkit/react-core": "^1.74.0",
+    "@copilotkit/react-core": "^1.88.0",
     "@neumar/video-ir": "workspace:*",
     "@openai/codex-sdk": "0.157.1",
     "@phosphor-icons/react": "^2.1.10",
