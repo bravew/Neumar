@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -80,6 +80,12 @@ export function useFileWorkspaceController({
     () => new Set(),
   );
   const [lastSelectedPath, setLastSelectedPath] = useState<string | null>(null);
+  // Distinguishes a new project from a refresh of the one on screen. A
+  // completion reload must not drop the file the user opened or checked.
+  const listedProjectIdRef = useRef(projectId);
+  // A list body can resolve after a newer request has started and before this
+  // request's abort flag is visible. Only the latest request may change the list.
+  const fileListRequestRef = useRef(0);
   const [fileTabs, setFileTabs] = useState<string[]>(
     () => project?.ui?.fileTabs?.order ?? [],
   );
@@ -102,18 +108,31 @@ export function useFileWorkspaceController({
 
   useEffect(() => {
     const ac = new AbortController();
-    setFiles([]);
-    setFilesLoaded(false);
-    setActivePath(null);
+    const sameProject = listedProjectIdRef.current === projectId;
+    listedProjectIdRef.current = projectId;
+    // Switching projects starts from an empty list. Refreshing the project
+    // already on screen keeps its open file and checks until the new list
+    // arrives; the selection effects drop anything the new list no longer has.
+    if (!sameProject) {
+      setFiles([]);
+      setFilesLoaded(false);
+      setActivePath(null);
+    }
     setFileListError(null);
+    const requestId = fileListRequestRef.current + 1;
+    fileListRequestRef.current = requestId;
     listDesignFiles(projectId, { signal: ac.signal })
       .then((result) => {
+        // A body can resolve after a newer list has started and before this
+        // request's abort is visible. Applying it would replace that list.
+        if (ac.signal.aborted || fileListRequestRef.current !== requestId)
+          return;
         setFiles(result.files);
         setFileListError(null);
         setFilesLoaded(true);
       })
       .catch((error: unknown) => {
-        if (!ac.signal.aborted) {
+        if (!ac.signal.aborted && fileListRequestRef.current === requestId) {
           setFiles([]);
           setFileListError(classifyFileSystemReadError(error));
           setFilesLoaded(true);

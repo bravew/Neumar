@@ -72,5 +72,11 @@ export function resolveRequestBodyLimit(requestPath: string): number {
   }
   if (requestPath.startsWith('/agent')) return AGENT_BODY_LIMIT;
   if (requestPath.startsWith('/video')) return VIDEO_BODY_LIMIT;
+  // The CopilotKit endpoint hands request bodies to AG-UI's zod 3 schemas,
+  // which have no patched release and can exhaust memory on oversized
+  // constrained collections. The default cap stops that before parsing.
+  if (requestPath === '/copilotkit' || requestPath.startsWith('/copilotkit/')) {
+    return DEFAULT_BODY_LIMIT;
+  }
   return DEFAULT_BODY_LIMIT;
 }
