@@ -728,11 +728,14 @@ mediaDescribe(
           srt,
           animate: 'fade',
           size: 40,
+          // An explicit font is kept even when the machine has no Korean face
+          // (CI has none); the wrap measures Hangul by script, not by font.
+          font: 'DejaVu Sans',
           write_ass: path.join(workDir, 'korean.ass'),
           output: path.join(workDir, 'korean.mp4'),
         }),
       );
-      expect(result.status).toBe('completed');
+      expect(result.status, JSON.stringify(result.error)).toBe('completed');
       const shown = dialogueText(result.stderr);
       expect(shown.length).toBeGreaterThan(1);
       // Hangul was wrapped per character: `시\N작을`, `문장` / `입니다` and
