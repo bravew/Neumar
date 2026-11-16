@@ -60,7 +60,9 @@ The probed-stream patch names the streams `probe()` describes (`video.stream_ind
 same stream the document names; without a map, FFmpeg selected the largest picture and the sound
 track with the most channels. `emit.py` adds `source_carry` to a writing tool's result, comparing
 the first input's subtitle, chapter, cover, attachment, video-stream and audio-channel inventory
-with the written file. It is a report, so `verified` is unchanged. Both are additive keys: no
+with the written file. It is a report, so `verified` is unchanged. An item bound to a stream the
+output does not carry is not compared (an audio-only output cannot carry cover art), and a still
+image used as a layer is not counted as a second picture source. Both are additive keys: no
 existing key, tool argument, default or result schema changes.
 
 | File | Change |
@@ -70,7 +72,7 @@ existing key, tool argument, default or result schema changes.
 | `scripts/_common/runner.py` | `run()` folds the conversion into the command's filter graph before recording or executing it: appended to the tool's own `-vf` chain, or prepended to the first input's `-filter_complex` branch. A tool's own filter is not replaced by a second `-vf`. Follows upstream `57daa49c`. |
 | `scripts/export.py` | Passes the source probe to `bt709_tag_args()` for the platform presets. Follows upstream `57daa49c`. |
 | `scripts/_common/probe.py` | Added `PROBED_VIDEO`/`PROBED_AUDIO`, `video.stream_index`/`audio.stream_index`/`stream_counts`/`unmeasured` in `probe()`, and `carry_inventory()`/`input_paths()`; `decode_pcm_mono()`, `decode_gray_frames()`, `measured_level_dbfs()`, `analyze_levels()`, `detect_silences()` and `detect_scenes()` map the probed stream. Follows upstream `e256decb` (and `fd12ae1a` for naming unmeasured values). |
-| `scripts/_common/emit.py` | Added `source_carry()` and included it in the success document, and `unmeasured` in `--json-brief`'s summary. Follows upstream `f755076b` (`source_carry`, #401). |
+| `scripts/_common/emit.py` | Added `source_carry()` and included it in the success document, and `unmeasured` in `--json-brief`'s summary. Locally, `source_carry()` does not compare an item the output's streams cannot carry (cover art on an audio-only output) and does not count a still-image layer as a second picture source. Follows upstream `f755076b` (`source_carry`, #401). |
 | `SKILL.md` | App name `ffmpeg`, modes `task`/`design`/`video`, and instructions for MCP server `ffmpeg-skill` tools `ffmpeg_skill_catalog`, `ffmpeg_skill_check`, and `ffmpeg_skill_execute`. Rejects raw shell, raw `argv`, `transcribe`, `batch --watch`, and saved-plan replay. |
 | `contract/contract.json` | Added pinned static contract for the later runner. Not an upstream path. |
 | `contract/payload-hashes.txt` | Added payload inventory. Not an upstream path. |

@@ -108,7 +108,7 @@ interface SilenceDetails {
   silences?: Array<[number, number]>;
 }
 
-interface CutDetails {
+interface CarryDetails {
   source_carry?: { dropped?: string[] };
 }
 
@@ -291,6 +291,126 @@ async function makeUnmeasuredClip(workDir: string): Promise<string> {
   return raw;
 }
 
+/** A small still used as an overlay layer, never as the source clip. */
+async function makeLogo(workDir: string): Promise<string> {
+  const logo = path.join(workDir, 'logo.png');
+  await ffmpeg([
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'color=c=white:s=32x32:d=1',
+    '-frames:v',
+    '1',
+    logo,
+  ]);
+  return logo;
+}
+
+/**
+ * A two-second MP3 whose only picture stream is cover art: ffprobe reports a
+ * video stream with `attached_pic`, so the file has no real video stream even
+ * though it carries a picture.
+ */
+async function makeCoverArtAudio(workDir: string): Promise<string> {
+  const cover = path.join(workDir, 'cover.png');
+  const tone = path.join(workDir, 'tone.mp3');
+  const combined = path.join(workDir, 'cover-art.mp3');
+  await ffmpeg([
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'color=c=red:s=64x64:d=1',
+    '-frames:v',
+    '1',
+    cover,
+  ]);
+  await ffmpeg([
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=440:sample_rate=44100:duration=2',
+    '-c:a',
+    'libmp3lame',
+    tone,
+  ]);
+  await ffmpeg([
+    '-y',
+    '-i',
+    tone,
+    '-i',
+    cover,
+    '-map',
+    '0:a',
+    '-map',
+    '1:v',
+    '-c:a',
+    'copy',
+    '-c:v',
+    'png',
+    '-disposition:v',
+    'attached_pic',
+    '-id3v2_version',
+    '3',
+    '-metadata:s:v',
+    'title=Album cover',
+    '-metadata:s:v',
+    'comment=Cover (front)',
+    combined,
+  ]);
+  return combined;
+}
+
+/** A real video clip that also carries a cover picture as an attached_pic. */
+async function makeCoverArtVideo(workDir: string): Promise<string> {
+  const cover = path.join(workDir, 'video-cover.png');
+  const combined = path.join(workDir, 'cover-video.mp4');
+  await ffmpeg([
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'color=c=red:s=64x64:d=1',
+    '-frames:v',
+    '1',
+    cover,
+  ]);
+  await ffmpeg([
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'testsrc2=s=160x120:r=25:d=2',
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=440:duration=2',
+    '-i',
+    cover,
+    '-map',
+    '0:v',
+    '-map',
+    '1:a',
+    '-map',
+    '2:v',
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    '-c:v:1',
+    'png',
+    '-disposition:v:1',
+    'attached_pic',
+    '-shortest',
+    combined,
+  ]);
+  return combined;
+}
+
 mediaDescribe('ffmpeg skill probe result fidelity', () => {
   it('probe names the picture stream it described', async () => {
     const workDir = makeWorkDir();
@@ -358,7 +478,7 @@ mediaDescribe('ffmpeg skill probe result fidelity', () => {
   it('a cut records the source picture it left out', async () => {
     const workDir = makeWorkDir();
     const source = await makeTwoPictureClip(workDir);
-    const details = detailsOf<CutDetails>(
+    const details = detailsOf<CarryDetails>(
       await execute(workDir, {
         tool: 'cut',
         args: { input: source, start: '0', end: '1' },
@@ -366,6 +486,61 @@ mediaDescribe('ffmpeg skill probe result fidelity', () => {
     );
     // The tools write one picture; this source carries two, and the result
     // says which kind of source item is missing instead of only `verified`.
+    expect(details.source_carry?.dropped).toContain('video_streams');
+  });
+
+  it('an audio-only output does not report a cover-art source picture as dropped', async () => {
+    const workDir = makeWorkDir();
+    const source = await makeCoverArtAudio(workDir);
+    const details = detailsOf<CarryDetails>(
+      await execute(workDir, {
+        tool: 'cut',
+        args: {
+          input: source,
+          start: '0',
+          end: '1',
+          output: path.join(workDir, 'audio-only.wav'),
+        },
+      }),
+    );
+    // The source's only picture is an attached_pic cover, and a WAV cannot
+    // carry one. Dropping it is the documented audio-extract behaviour, not a
+    // source item the output lost, so it must not appear in `dropped`.
+    expect(details.source_carry?.dropped ?? []).not.toContain('cover_art');
+  });
+
+  it('a video output that loses cover art still reports it', async () => {
+    const workDir = makeWorkDir();
+    const source = await makeCoverArtVideo(workDir);
+    const details = detailsOf<CarryDetails>(
+      await execute(workDir, {
+        tool: 'cut',
+        args: {
+          input: source,
+          start: '0',
+          end: '1',
+          output: path.join(workDir, 'video-only.mp4'),
+          accurate: true,
+        },
+      }),
+    );
+    // This output keeps a real picture, so the cover it did not carry is a
+    // genuine loss and stays in the report.
+    expect(details.source_carry?.dropped).toContain('cover_art');
+  });
+
+  it('a still image composited onto a clip does not hide the clip comparison', async () => {
+    const workDir = makeWorkDir();
+    const source = await makeTwoPictureClip(workDir);
+    const logo = await makeLogo(workDir);
+    const details = detailsOf<CarryDetails>(
+      await execute(workDir, {
+        tool: 'overlay',
+        args: { input: source, image: logo, position: 'top-left' },
+      }),
+    );
+    // The logo is a layer, not a second picture source: the clip's own dropped
+    // second picture is still compared and named.
     expect(details.source_carry?.dropped).toContain('video_streams');
   });
 });

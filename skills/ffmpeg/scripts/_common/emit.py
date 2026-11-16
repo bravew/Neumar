@@ -167,6 +167,11 @@ def _brief(doc: Dict[str, Any], meta: Dict[str, Any]) -> Dict[str, Any]:
 # allowed to drop one without changing the result.
 _CARRY_CONTENT = ("subtitles", "chapters", "cover_art", "attachments", "audio_channels", "video_streams")
 
+# A still image is a layer, not a source whose streams the output should carry: it has no
+# duration, and a tool that composites one onto a clip (overlay --image) must not look like a
+# second picture source that makes the comparison ambiguous.
+_STILL_EXT = (".png", ".jpg", ".jpeg", ".webp")
+
 
 def source_carry(output: Optional[str]) -> "Optional[Dict[str, List[str]]]":
     """What the first input carried besides its picture and sound, and whether the written file
@@ -176,27 +181,31 @@ def source_carry(output: Optional[str]) -> "Optional[Dict[str, List[str]]]":
     record of it. A report, not a check: `verified` is not changed.
 
     Not compared: two or more picture or sound sources (which one's items the output should carry
-    is the tool's choice), an output that is not a media file, a still or an animated GIF, and an
-    item bound to a stream the output does not have at all (a sound-only extract has no subtitle
-    track to lose; a picture-only output has no audio channels)."""
+    is the tool's choice), a still image used as a layer (a logo, a title card), an output that is
+    not a media file, a still or an animated GIF, and an item bound to a stream the output does not
+    have at all (a sound-only extract has no subtitle track to lose, a picture-only output has no
+    audio channels, and an output with no picture cannot carry cover art -- including when the
+    source's own only "video" stream was that cover, as in an MP3 with an attached_pic)."""
     from _common.probe import MEDIA_EXT, carry_inventory, input_paths
     if not output:
         return None
     ext = os.path.splitext(output)[1].lower()
-    if ext not in MEDIA_EXT or ext in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+    if ext not in MEDIA_EXT or ext in _STILL_EXT or ext == ".gif":
         return None
     own = os.path.realpath(output)
     paths = [p for p in input_paths() if p != own]
-    if not paths:
+    # a still image is a layer, not the source the output should carry content from
+    sources = [p for p in paths if os.path.splitext(p)[1].lower() not in _STILL_EXT]
+    if not sources:
         return None
-    src = carry_inventory(paths[0])
+    src = carry_inventory(sources[0])
     out = carry_inventory(output)
-    if not src or not out or os.path.realpath(paths[0]) == own:
+    if not src or not out or os.path.realpath(sources[0]) == own:
         return None
     # several pictures or several sounds: which one's items the output should carry is the tool's
     # own choice, so this comparison is not made
-    videos = [p for p in paths if (carry_inventory(p) or {}).get("has_video")]
-    audios = [p for p in paths if (carry_inventory(p) or {}).get("has_audio")]
+    videos = [p for p in sources if (carry_inventory(p) or {}).get("has_video")]
+    audios = [p for p in sources if (carry_inventory(p) or {}).get("has_audio")]
     if len(videos) > 1 or len(audios) > 1:
         return None
     kept: List[str] = []
@@ -209,6 +218,10 @@ def source_carry(output: Optional[str]) -> "Optional[Dict[str, List[str]]]":
         if item == "video_streams" and src[item] <= 1:
             continue  # one picture is what every tool writes; only a second one can be left out
         if item in ("subtitles", "chapters", "attachments", "video_streams") and src["has_video"] and not out["has_video"]:
+            continue  # a video source reduced to a sound-only extract has none of these to carry
+        # cover art is a picture: an output with no picture at all (a sound-only extract, even when
+        # the source's only picture stream was the cover itself) cannot carry one, so it is not a loss
+        if item == "cover_art" and not (out["has_video"] or out["cover_art"]):
             continue
         if item == "audio_channels" and not out["has_audio"]:
             continue
