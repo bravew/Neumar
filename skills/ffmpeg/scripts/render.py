@@ -64,7 +64,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from export import PRESETS, PLATFORM_OF
 from _platforms import PLATFORMS, caption_defaults, resolve as resolve_platform
-from _common import STATE, add_common, aspect_ratio, brand_caption_style, load_brand, apply_common, child_args, die, emit, info, probe, require_tool, run, run_tool, place_output, refuse_output_is_input, _check_existing_output, _check_output_path, fingerprint, PLAN_VERSION, ffmpeg_version
+from _common import STATE, add_common, aspect_ratio, brand_caption_style, load_brand, apply_common, child_args, die, emit, info, probe, require_tool, run, run_tool, place_output, refuse_output_is_input, _check_existing_output, _check_output_path, _remember_output, fingerprint, PLAN_VERSION, ffmpeg_version
 import subprocess
 from _contract import CONTRACT_VERSION
 from batch import file_key
@@ -546,6 +546,12 @@ def sh(script: str, *argv: Any, extra: List[str] = None, stage: str = None) -> s
     _LAST_DOC.clear()
     _LAST_DOC.update(doc if isinstance(doc, dict) else {})
     out_path = str(doc.get("output") or "")
+    if not STATE.dry_run and out_path:
+        # This stage's child wrote the file, and the file is this run's, not someone else's: the
+        # chapters stage places its tagged copy over the export's delivery, which the output
+        # guard would otherwise refuse as an existing output without --overwrite. A stage that
+        # was stopped after writing its deliverable is handled the same way.
+        _remember_output(["ffmpeg", out_path])
     if key:
         cache_store(stage, key, out_path or (dest or ""), time.time() - started)
     return out_path
@@ -1089,7 +1095,10 @@ def main() -> int:
                           ("color", "--color"), ("background", "--background"),
                           ("width", "--width"), ("height", "--height"), ("fps", "--fps")):
             if ag.get(key) is not None:
-                argv += [flag, str(ag[key])]
+                # the image is a path the project names beside itself, like every other asset;
+                # it used to reach waveform.py as written, against the process cwd
+                value = rel(ag[key]) if key == "image" else ag[key]
+                argv += [flag, str(value)]
         argv += brand_args
         sh("waveform.py", *argv, stage="audiogram")
         current = nxt
@@ -1230,7 +1239,9 @@ def main() -> int:
             die(f"overlays[{i}] needs image or text")
         for k, flag in (("position", "--position"), ("start", "--start"), ("end", "--end"), ("fade", "--fade"), ("opacity", "--opacity"), ("scale", "--scale"), ("font_size", "--font-size"), ("font", "--font"), ("font_file", "--font-file"), ("margin", "--margin"), ("platform", "--platform")):
             if ov.get(k) is not None:
-                argv += [flag, str(ov[k])]
+                # font_file is a path the project names beside itself, like every other asset;
+                # it used to reach overlay.py as written, against the process cwd
+                argv += [flag, rel(ov[k]) if k == "font_file" and ov[k] else str(ov[k])]
         if ov.get("box"):
             argv.append("--box")
         # review 12: the overlay stage was the one stage that never heard which destination this
