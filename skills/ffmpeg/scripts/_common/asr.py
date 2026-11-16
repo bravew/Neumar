@@ -27,24 +27,63 @@ ASR_INSTALL_HINT = (
     "  openai-whisper: pip install openai-whisper")
 
 
+# A line that starts a cue even with no blank line before it: a clock time, "-->", a clock time,
+# then nothing or whitespace (ffmpeg's position fields, X1:.. Y1:..). ffmpeg's SRT demuxer starts
+# an event at every such line; the first line of a block holding "-->" is a timing line whatever
+# its shape.
+_SRT_CUE_START = re.compile(r"^\s*\d+:\d+[\d:.,]*\s*-->\s*\d+:\d+[\d:.,]*(\s|$)")
+
+
+def srt_blocks(text: str) -> List[Tuple[str, List[str]]]:
+    """(timing line, text lines) of every cue in SRT text whose line ends are already `\\n`.
+
+    A blank (or whitespace-only) line ends a cue, and the first line holding "-->" in a run of
+    lines is its timing line; the lines before it (the index) are not text. Inside a run, a later
+    line shaped like a timing line (_SRT_CUE_START) starts the next cue, and a bare number just
+    before it is that cue's index, so an SRT written without blank lines between cues reads as
+    ffmpeg reads it rather than as one cue. A later line that merely contains "-->" is text."""
+    out: List[Tuple[str, List[str]]] = []
+    for run in re.split(r"\n\s*\n", text):
+        lines = [ln for ln in run.split("\n") if ln.strip()]
+        first = next((i for i, ln in enumerate(lines) if "-->" in ln), None)
+        if first is None:
+            continue
+        timing, body = lines[first], []
+        for ln in lines[first + 1:]:
+            if _SRT_CUE_START.match(ln):
+                if body and body[-1].strip().isdigit():
+                    body.pop()
+                out.append((timing, body))
+                timing, body = ln, []
+            else:
+                body.append(ln)
+        out.append((timing, body))
+    return out
+
+
+def srt_timing_times(line: str) -> Tuple[str, str]:
+    """The start and end tokens of an SRT timing line: what is before the first "-->", and the
+    first word after it. ffmpeg reads the two times and ignores the rest (position fields
+    `X1:.. X2:.. Y1:.. Y2:..`, or a stray second "-->")."""
+    a, _sep, b = line.partition("-->")
+    words = b.split()
+    return a.strip(), words[0] if words else ""
+
+
+def read_srt_text(path: str) -> str:
+    """The caller's SRT as text with `\\n` line ends and no byte-order mark."""
+    return read_text_or_die(path, "--srt").lstrip("\ufeff").replace("\r\n", "\n")
+
+
 def parse_srt(path: str) -> List[Tuple[float, float, str]]:
     cues: List[Tuple[float, float, str]] = []
-    block: List[str] = []
-    content = read_text_or_die(path, "--srt").lstrip("\ufeff").replace("\r\n", "\n") + "\n\n"
-    for line in content.split("\n"):
-        if line.strip():
-            block.append(line)
-            continue
-        if block:
-            times = next((b for b in block if "-->" in b), None)
-            if times:
-                a, b = times.split("-->")
-                text = "\n".join(block[block.index(times) + 1:]).strip()
-                try:
-                    cues.append((parse_time(a), parse_time(b), text))
-                except ValueError as e:  # includes MissingFpsError: SRT timings are hh:mm:ss,ms, never frames
-                    die(f"{path}: cannot read the timing line {times.strip()!r}: {e}")
-            block = []
+    for times, body in srt_blocks(read_srt_text(path)):
+        a, b = srt_timing_times(times)
+        text = "\n".join(body).strip()
+        try:
+            cues.append((parse_time(a), parse_time(b), text))
+        except ValueError as e:  # includes MissingFpsError: SRT timings are hh:mm:ss,ms, never frames
+            die(f"{path}: cannot read the timing line {times.strip()!r}: {e}")
     if not cues:
         die(f"no cues found in {path}")
     return cues

@@ -15,6 +15,11 @@
  *     markup on the routes that generate their own ASS, not as literal text;
  *   - karaoke energy timing counts a sound that starts late from the file's
  *     clock instead of from its first sample.
+ *   - an SRT is read the way ffmpeg reads it: cues without blank lines between
+ *     them, position fields and a stray second "-->" on a timing line;
+ *   - music notes, stars, check marks and hearts are text, so `--emoji none`
+ *     keeps them;
+ *   - Korean wraps at its spaces, never inside a word.
  *
  * The suite is skipped when `detectBinaries()` cannot find ffmpeg/ffprobe.
  * A build with libass renders the generated ASS for real. On a build without
@@ -608,6 +613,137 @@ function captionMapKeys(source: string, name: string): string[] {
   if (!match?.[1]) throw new Error(`${name} not found in caption.py`);
   return [...match[1].matchAll(/"([^"]+)":/g)].map((entry) => entry[1]!);
 }
+
+/** The visible text of the generated ASS events, without override tags. */
+function dialogueText(stderr: string): string[] {
+  return readAss(stderr)
+    .split('\n')
+    .filter((line) => line.startsWith('Dialogue:'))
+    .map((line) =>
+      // Text is the tenth field, and the only one that may hold commas.
+      line
+        .split(',')
+        .slice(9)
+        .join(',')
+        .replace(/\{[^}]*\}/g, '')
+        .replaceAll('\\N', ' '),
+    );
+}
+
+mediaDescribe(
+  'managed FFmpeg skill SRT reading, emoji and Korean wrapping',
+  () => {
+    it('reads an SRT without blank lines between cues as separate cues', async () => {
+      const workDir = makeWorkDir();
+      const source = await makeClip(workDir, 'base.mp4');
+      const srt = writeCueFile(
+        workDir,
+        'packed.srt',
+        '1\n00:00:00,000 --> 00:00:01,000\nOne\n2\n00:00:01,000 --> 00:00:02,000\nTwo\n3\n00:00:02,000 --> 00:00:03,000\nThree\n',
+      );
+      const result = await withRenderingFfmpeg(() =>
+        runCaption(workDir, {
+          input: source,
+          srt,
+          animate: 'fade',
+          write_ass: path.join(workDir, 'packed.ass'),
+          output: path.join(workDir, 'packed.mp4'),
+        }),
+      );
+      expect(result.status).toBe('completed');
+      // Read as one cue, the index and timing lines were burned as caption text.
+      expect(dialogueText(result.stderr)).toEqual(['One', 'Two', 'Three']);
+    });
+
+    it.each([
+      [
+        'position fields',
+        '00:00:00,000 --> 00:00:02,000 X1:10 X2:100 Y1:10 Y2:50',
+      ],
+      ['a second "-->"', '00:00:00,000 --> 00:00:02,000 --> 00:00:03,000'],
+    ])(
+      'reads a timing line carrying %s as ffmpeg does',
+      async (_label, timing) => {
+        const workDir = makeWorkDir();
+        const source = await makeClip(workDir, 'base.mp4');
+        const srt = writeCueFile(
+          workDir,
+          'timing.srt',
+          `1\n${timing}\nHello\n\n`,
+        );
+        const result = await runCaption(workDir, {
+          input: source,
+          srt,
+          mode: 'mux',
+          output: path.join(workDir, 'timing.mkv'),
+        });
+        // Position fields were refused as a bad time; two arrows raised a
+        // traceback. ffmpeg reads the first two times and ignores the rest.
+        expect(result.status).toBe('completed');
+        const packets = await subtitlePackets(result.artifact!.path);
+        expect(packets).toHaveLength(1);
+        expect(firstPts(packets)).toBeCloseTo(0, 1);
+        expect(await subtitleText(result.artifact!.path)).toContain('Hello');
+      },
+    );
+
+    it('keeps text symbols when emoji are not drawn', async () => {
+      const workDir = makeWorkDir();
+      const source = await makeClip(workDir, 'base.mp4');
+      const srt = writeCueFile(
+        workDir,
+        'symbols.srt',
+        '1\n00:00:00,000 --> 00:00:02,000\nmusic ♪ star ★ ok ✓ love ♥ face 😀\n\n',
+      );
+      const result = await withRenderingFfmpeg(() =>
+        runCaption(workDir, {
+          input: source,
+          srt,
+          emoji: 'none',
+          animate: 'fade',
+          write_ass: path.join(workDir, 'symbols.ass'),
+          output: path.join(workDir, 'symbols.mp4'),
+        }),
+      );
+      expect(result.status).toBe('completed');
+      const [text] = dialogueText(result.stderr);
+      // ♪ ★ ✓ ♥ were classified as emoji and cut out with the real one.
+      for (const symbol of ['♪', '★', '✓', '♥']) expect(text).toContain(symbol);
+      expect(text).not.toContain('😀');
+    });
+
+    it('wraps Korean at its spaces without splitting or joining words', async () => {
+      const workDir = makeWorkDir();
+      const source = await makeClip(workDir, 'base.mp4');
+      const sentence =
+        '이것은 새로운 시작을 알리는 문장입니다 그리고 또 다른 이야기가 이어집니다';
+      const srt = writeCueFile(
+        workDir,
+        'korean.srt',
+        `1\n00:00:00,000 --> 00:00:03,000\n${sentence}\n\n`,
+      );
+      const result = await withRenderingFfmpeg(() =>
+        runCaption(workDir, {
+          input: source,
+          srt,
+          animate: 'fade',
+          size: 40,
+          // An explicit font is kept even when the machine has no Korean face
+          // (CI has none); the wrap measures Hangul by script, not by font.
+          font: 'DejaVu Sans',
+          write_ass: path.join(workDir, 'korean.ass'),
+          output: path.join(workDir, 'korean.mp4'),
+        }),
+      );
+      expect(result.status, JSON.stringify(result.error)).toBe('completed');
+      const shown = dialogueText(result.stderr);
+      expect(shown.length).toBeGreaterThan(1);
+      // Hangul was wrapped per character: `시\N작을`, `문장` / `입니다` and
+      // `이야기` / `가` came out of this cue.
+      expect(shown.join(' ').split(/\s+/)).toEqual(sentence.split(' '));
+    });
+  },
+);
 
 describe('caption position alignment maps', () => {
   it('keeps ALIGN and FORCE_STYLE_ALIGN key sets identical', () => {

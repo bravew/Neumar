@@ -51,6 +51,7 @@ from _common import emoji_filter_chain, EMOJI_ASSET_HINT, emoji_asset_for, emoji
 # caption.parse_srt / caption.transcribe / caption.whisper_word_timings before 1.17 still does.
 from _common import (ASR_INSTALL_HINT, die_no_engine, parse_srt, transcribe, whisper_word_timings,
                      write_srt)
+from _common.asr import read_srt_text, srt_blocks
 from _common import (SAFE_WIDTH_FRACTION, ORPHAN_MIN_EM, WRAP_MODES, wrap_text, wrap_variants, best_break,
                      fit_size, line_em_for_size, MIN_CAPTION_FRACTION,
                      break_penalty, _is_weak_line, _atoms, _join, _break_spaced, _bare_word, _function_words,
@@ -1136,12 +1137,9 @@ def srt_timings_shared_grammar(path: str) -> bool:
     """True when every timing line of the SRT at `path` reads the same to ffmpeg's SRT demuxer as
     to parse_srt(). ffmpeg refuses `00:01,000` (no hours) and reads `00:00:01,5` as 1.005 s, where
     parse_srt() reads 1.5 s; such a file is handed to ffmpeg as a rewritten copy."""
-    text = read_text_or_die(path, "--srt").lstrip("﻿").replace("\r\n", "\n")
-    # a cue's timing line is its first line with "-->", as parse_srt() reads it (and ffmpeg too);
-    # a later line holding "-->" is dialogue, not a timing this check should judge
-    blocks = [[ln for ln in b.split("\n") if ln.strip()] for b in re.split(r"\n\s*\n", text)]
-    timings = [next((ln for ln in b if "-->" in ln), None) for b in blocks]
-    return all(_SHARED_SRT_TIMING.match(line) for line in timings if line is not None)
+    # the timing lines parse_srt() reads, grouped as it groups them (srt_blocks()): a later line
+    # that only holds "-->" is dialogue, not a timing this check should judge
+    return all(_SHARED_SRT_TIMING.match(times) for times, _body in srt_blocks(read_srt_text(path)))
 
 
 def mux_subtitle_codec(output: str) -> str:

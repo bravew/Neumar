@@ -18,7 +18,7 @@ Imported: `LICENSE`, `package.json`, `scripts/` (including `_common/`, `_contrac
 
 ## Local patch inventory
 
-Eight vendored Python files carry local patches, in five groups.
+Eleven vendored Python files carry local patches, in six groups.
 
 The first group follows upstream commit
 [`57daa49c`](https://github.com/kajisho5/ffmpeg-skill/commit/57daa49c4136d81cde5d40b4c8415b9d2c38da7f):
@@ -77,7 +77,7 @@ that generate their own ASS). The caption patch is confined to `caption.py`: the
 `_common/asr.py` SRT block grammar, `_common/wrap.py` break spacing, `_common/emoji.py` text-symbol
 classification, `_common/fonts.py` Windows family files, and `_common/timeline.py` source
 timecodes were reproduced but are not patched here, because this sub-issue does not own those
-files.
+files. The sixth group below patches the first three.
 
 The fourth group is `render.py`, following upstream
 [`d81145a3`](https://github.com/kajisho5/ffmpeg-skill/commit/d81145a39a187298bda3a7ea73dfff79ce95618a)
@@ -102,6 +102,21 @@ ffmpeg error, a silent empty result or a traceback. The upstream `finite_float` 
 payload runs, and every float flag it can reach is typed `number` in the contract, so that case
 does not reproduce through this caller.
 
+The sixth group follows the defects #299 reproduced but did not own (#324). `_common/asr.py` keys
+SRT cues on timing lines (`srt_blocks()`, `srt_timing_times()`), following upstream
+[`6f61e104`](https://github.com/kajisho5/ffmpeg-skill/commit/6f61e104) (#483): an SRT without
+blank lines between cues reads as separate cues, and a timing line's times are the first token on
+each side of the first `-->`, so position fields and a stray second `-->` are ignored as ffmpeg
+ignores them. `caption.py`'s shared-grammar check groups timing lines the same way.
+`_common/emoji.py` counts only Emoji_Presentation characters as emoji inside the text-symbol
+blocks, and a text-default symbol only with VS16 or a skin-tone modifier after it, following the
+classification part of upstream [`c84b22c4`](https://github.com/kajisho5/ffmpeg-skill/commit/c84b22c4)
+(#469), so `--emoji none` keeps ♪ ★ ✓ ♥. `_common/wrap.py` no longer lists Korean as unspaced, so
+Hangul wraps at its spaces, following the same commit. Not patched: a whitespace-only line inside
+a cue still ends it, because ffmpeg's SRT reader ends the cue there too; and a non-UTF-8 extra
+`--mode mux` track, because the managed caller passes exactly one `srt` and cannot reach the extra
+tracks.
+
 | File | Change |
 | --- | --- |
 | `scripts/_common/color.py` | Added `bt709_matrix_filter()`/`bt709_matrix_args()` (the `colorspace` conversion for a probed non-BT.709 SDR matrix, only when the source width and height are both even) and `_fold_bt709_matrix()` (moves that conversion into the tool's own `-vf`/`-filter_complex`, after the tool's filters). `bt709_tag_args()` takes the source probe and appends the conversion. Follows upstream `57daa49c`. |
@@ -110,7 +125,10 @@ does not reproduce through this caller.
 | `scripts/export.py` | Passes the source probe to `bt709_tag_args()` for the platform presets. Follows upstream `57daa49c`. |
 | `scripts/_common/probe.py` | Added `PROBED_VIDEO`/`PROBED_AUDIO`, `video.stream_index`/`audio.stream_index`/`stream_counts`/`unmeasured` in `probe()`, and `carry_inventory()`/`input_paths()`; `decode_pcm_mono()`, `decode_gray_frames()`, `measured_level_dbfs()`, `analyze_levels()`, `detect_silences()` and `detect_scenes()` map the probed stream. Follows upstream `e256decb` (and `fd12ae1a` for naming unmeasured values). |
 | `scripts/_common/emit.py` | Added `source_carry()` and included it in the success document, and `unmeasured` in `--json-brief`'s summary. Locally, `source_carry()` does not compare an item the output's streams cannot carry (cover art on an audio-only output) and does not count a still-image layer as a second picture source. Follows upstream `f755076b` (`source_carry`, #401). |
-| `scripts/caption.py` | Added `FORCE_STYLE_ALIGN`, the legacy SSA alignment values libass reads in a `force_style` list (bottom 2, top 6, center 10, top-left 5, top-right 7), so an SRT burn places `--position` where the numpad value in a generated Style line would. Added `srt_timings_shared_grammar()` and rewrite SRT timings outside ffmpeg's grammar (`00:00:01,5`, `00:01,000`) as `hh:mm:ss,mmm` before ffmpeg reads them, for the first track and each extra mux track. `word_durations_from_audio()` decodes with `aresample=async=1:first_pts=0`, so a sound that starts late is counted from the file's clock. `cue_times_match()` requires clock times on both sides of the English word "to", and cue files split at `\n` only, so U+2028 no longer starts a cue. SRT markup (`<i>`/`<b>`/`<u>`/`<s>`, `<font color>`, `{\anN}`) is stripped before wrapping, fitting, emoji placement and visible-cue counting, reinserted after the wrap and carried across a split cue, and converted to the equivalent ASS overrides in a generated ASS; karaoke ignores a token that is only markup. A closing tag with no matching opener is kept as text instead of emitting a reset override, so cue text such as `</i>` reads literally and cannot open `{\i0}`. Follows upstream `f755076b` (#436), `a3536dd7` (#414), `6f61e104` (#483) and `c84b22c4`. |
+| `scripts/_common/asr.py` | Added `srt_blocks()`, `srt_timing_times()` and `read_srt_text()`; `parse_srt()` reads cues through them, so a timing-shaped line starts a cue without a blank line before it and only the first token after `-->` is the end time. Follows upstream `6f61e104`. |
+| `scripts/_common/emoji.py` | Added `_EMOJI_PRESENTATION_SYMBOLS`, `_EMOJI_TEXT_DEFAULT_SYMBOLS`, `_can_be_emoji()` and `_starts_emoji()`; `_is_emoji_char()` counts only Emoji_Presentation characters in the text-symbol blocks, and `emoji_clusters()` starts a text-default symbol only with VS16 or a skin-tone modifier after it. Follows the classification part of upstream `c84b22c4`. |
+| `scripts/_common/wrap.py` | Removed Korean from `NO_SPACE_SCRIPTS`, so a Hangul run wraps at its spaces like a Latin word. Follows upstream `c84b22c4`. |
+| `scripts/caption.py` | Added `FORCE_STYLE_ALIGN`, the legacy SSA alignment values libass reads in a `force_style` list (bottom 2, top 6, center 10, top-left 5, top-right 7), so an SRT burn places `--position` where the numpad value in a generated Style line would. Added `srt_timings_shared_grammar()` and rewrite SRT timings outside ffmpeg's grammar (`00:00:01,5`, `00:01,000`) as `hh:mm:ss,mmm` before ffmpeg reads them, for the first track and each extra mux track. `word_durations_from_audio()` decodes with `aresample=async=1:first_pts=0`, so a sound that starts late is counted from the file's clock. `cue_times_match()` requires clock times on both sides of the English word "to", and cue files split at `\n` only, so U+2028 no longer starts a cue. SRT markup (`<i>`/`<b>`/`<u>`/`<s>`, `<font color>`, `{\anN}`) is stripped before wrapping, fitting, emoji placement and visible-cue counting, reinserted after the wrap and carried across a split cue, and converted to the equivalent ASS overrides in a generated ASS; karaoke ignores a token that is only markup. A closing tag with no matching opener is kept as text instead of emitting a reset override, so cue text such as `</i>` reads literally and cannot open `{\i0}`. Follows upstream `f755076b` (#436), `a3536dd7` (#414), `6f61e104` (#483) and `c84b22c4`. `srt_timings_shared_grammar()` judges the timing lines `srt_blocks()` groups. Follows upstream `6f61e104` (#324). |
 | `scripts/render.py` | `sh()` adds the output a stage's child wrote to `STATE.written` (via `_remember_output()`), so the chapters stage's `place_output()` replaces the export this same run wrote instead of refusing it as an existing output. `audiogram.image` and `overlays[].font_file` pass through `rel()`, so they resolve against the project file's directory like every other project asset. Follows upstream `d81145a3` (stage handoff) and `c84b22c4` (project-relative paths). |
 | `SKILL.md` | App name `ffmpeg`, modes `task`/`design`/`video`, and instructions for MCP server `ffmpeg-skill` tools `ffmpeg_skill_catalog`, `ffmpeg_skill_check`, and `ffmpeg_skill_execute`. Rejects raw shell, raw `argv`, `transcribe`, `batch --watch`, and saved-plan replay. |
 | `contract/contract.json` | Added pinned static contract for the later runner. Not an upstream path. |
