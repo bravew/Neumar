@@ -174,16 +174,38 @@ def _markup_to_ass(tag: str, colours: List[str], colour: bool = True) -> str:
     return "{\\c%s}" % colour if colour else ""
 
 
+def _paired_tag(tag: str) -> Optional[Tuple[str, bool]]:
+    """(name, is_closing) for a paired SRT tag, or None for `{\\anN}` and non-tags."""
+    m = _SRT_TAG_RE.fullmatch(tag)
+    if not m or m.group(4):
+        return None
+    if m.group(2):
+        return m.group(2).lower(), bool(m.group(1))
+    return "font", tag.lstrip("< \t").lower().startswith("/")
+
+
 def ass_escape_markup(text: str, colour: bool = True) -> str:
     """ass_escape() for cue text that may carry SRT markup: the tags ffmpeg's SRT reader styles
     become the same ASS overrides it writes for them (`<i>` -> `{\\i1}`, `<font color="#ffff00">`
     -> `{\\c&H00FFFF&}`, `{\\an8}` kept), and everything else is escaped exactly as ass_escape()
     escapes it. `colour=False` drops the <font> tags instead: karaoke's highlight IS the primary
-    colour, and a cue colour would replace it."""
+    colour, and a cue colour would replace it. A closing tag with no opener is text, not a reset:
+    `</i>` in a cue reads as `</i>`, and never opens an override block."""
     out: List[str] = []
     colours: List[str] = []
+    opened: List[str] = []
     for markup, piece in srt_markup_tokens(text):
         if markup:
+            paired = _paired_tag(piece)
+            if paired:
+                name, closing = paired
+                if closing:
+                    if name not in opened:
+                        out.append(ass_escape(piece))
+                        continue
+                    del opened[len(opened) - 1 - opened[::-1].index(name)]
+                else:
+                    opened.append(name)
             out.append(_markup_to_ass(piece, colours, colour))
             continue
         escaped = ass_escape(piece)

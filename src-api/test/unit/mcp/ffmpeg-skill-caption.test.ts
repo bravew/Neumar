@@ -17,12 +17,14 @@
  *     clock instead of from its first sample.
  *
  * The suite is skipped when `detectBinaries()` cannot find ffmpeg/ffprobe.
- * This host's FFmpeg 9.0.2 build has no libass, so the two cases that need a
+ * A build with libass renders the generated ASS for real. On a build without
+ * the `ass`/`subtitles` filter (this host's FFmpeg 9.0.2) the cases that need a
  * generated ASS install a thin wrapper around the real ffmpeg that substitutes
- * the unavailable `ass=`/`subtitles=` filter with `null`. The caption tool
- * still writes the ASS the wrapper test reads; only the pixel render is
- * skipped. The alignment case runs under `--dry-run` and inspects the command
- * the tool would execute.
+ * the unavailable filter with `null`. The caption tool still writes the ASS
+ * those tests read; only the pixel render is skipped. The wrapper is chosen by
+ * probing `ffmpeg -filters`, so a CI FFmpeg with libass takes the real path.
+ * The alignment case runs under `--dry-run` and inspects the command the tool
+ * would execute.
  */
 import { spawn } from 'node:child_process';
 import {
@@ -35,6 +37,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -222,7 +225,7 @@ function firstPts(packets: Packet[]): number {
  *
  * The wrapper replaces the `-vf` value of a caption burn (`ass=...` or
  * `subtitles=...`) with `null` and delegates everything else to the real
- * ffmpeg. It exists because this host's build has no libass; the ASS the
+ * ffmpeg. It is only used when the local build has no libass; the ASS the
  * caption tool writes before the render is what the caller test asserts.
  */
 async function withFfmpegWrapper<T>(fn: () => Promise<T>): Promise<T> {
@@ -276,6 +279,38 @@ os.execv(REAL, [REAL] + out)
     clearBinaryCache();
     clearSkillRuntimeCache();
   }
+}
+
+let hasAssFilter: boolean | undefined;
+
+/**
+ * Does the local ffmpeg link libass? `-filters` lists `ass` and `subtitles`
+ * only when it does; a generated ASS can then be rendered for real.
+ */
+async function ffmpegHasAssFilter(): Promise<boolean> {
+  if (hasAssFilter !== undefined) return hasAssFilter;
+  const { code, stdout, stderr } = await runProcess(ffmpegBin(), [
+    '-hide_banner',
+    '-filters',
+  ]);
+  // `-filters` writes the list to stdout on the builds checked here; include
+  // stderr so a build that logs it there still takes the real render path.
+  hasAssFilter =
+    code === 0 &&
+    `${stdout}\n${stderr}`
+      .split('\n')
+      .some((line) => /^\s*\S+\s+(ass|subtitles)\s/.test(line));
+  return hasAssFilter;
+}
+
+/**
+ * Render through the real ffmpeg when it has libass, and through the
+ * filter-substituting wrapper only when the local build lacks the
+ * `ass`/`subtitles` filter.
+ */
+async function withRenderingFfmpeg<T>(fn: () => Promise<T>): Promise<T> {
+  if (await ffmpegHasAssFilter()) return fn();
+  return withFfmpegWrapper(fn);
 }
 
 /** The generated ASS path the caption tool logs before it renders. */
@@ -437,7 +472,7 @@ mediaDescribe('managed FFmpeg skill caption layout and timing', () => {
       'markup.srt',
       '1\n00:00:00,000 --> 00:00:02,000\n<i>Hello</i> <font color="#ffff00">world</font> {\\an8}\n\n',
     );
-    const result = await withFfmpegWrapper(() =>
+    const result = await withRenderingFfmpeg(() =>
       runCaption(workDir, {
         input: source,
         srt,
@@ -475,7 +510,7 @@ mediaDescribe('managed FFmpeg skill caption layout and timing', () => {
       'cue.srt',
       '1\n00:00:00,000 --> 00:00:02,000\none two\n\n',
     );
-    const result = await withFfmpegWrapper(() =>
+    const result = await withRenderingFfmpeg(() =>
       runCaption(workDir, {
         input: source,
         srt,
@@ -497,5 +532,88 @@ mediaDescribe('managed FFmpeg skill caption layout and timing', () => {
     // is only its own span. Before the fix the 0.5 s delay was dropped and the
     // first word got the smaller share.
     expect(durations[0]).toBeGreaterThan(durations[1] ?? Number.NaN);
+  });
+
+  it('escapes hostile cue text on the generated-ASS route', async () => {
+    const workDir = makeWorkDir();
+    const source = await makeClip(workDir, 'base.mp4', { duration: 3 });
+    // Every line below is cue text, not an instruction: the generated-ASS
+    // route must escape braces, backslashes and a stray closing tag rather
+    // than let a cue position, animate or restyle itself.
+    const srt = writeCueFile(
+      workDir,
+      'hostile.srt',
+      [
+        '1',
+        '00:00:00,000 --> 00:00:00,500',
+        '{\\pos(0,0)}',
+        '',
+        '2',
+        '00:00:00,500 --> 00:00:01,000',
+        '{\\t(0,500,\\fscx200)}',
+        '',
+        '3',
+        '00:00:01,000 --> 00:00:01,500',
+        '\\N',
+        '',
+        '4',
+        '00:00:01,500 --> 00:00:02,000',
+        '\\h',
+        '',
+        '5',
+        '00:00:02,000 --> 00:00:02,500',
+        '</i>plain',
+        '',
+        '',
+      ].join('\n'),
+    );
+    const result = await withRenderingFfmpeg(() =>
+      runCaption(workDir, {
+        input: source,
+        srt,
+        animate: 'fade',
+        write_ass: path.join(workDir, 'hostile.ass'),
+        output: path.join(workDir, 'hostile.mp4'),
+        size: 14,
+        font: 'DejaVu Sans',
+      }),
+    );
+    expect(result.status).toBe('completed');
+    const text = dialogueLines(readAss(result.stderr)).join('\n');
+    // The hostile sequences reach the picture as text, escaped so libass does
+    // not read them as override blocks.
+    expect(text).toContain('\\{\\pos(0,0)\\}');
+    expect(text).toContain('\\{\\t(0,500,\\fscx200)\\}');
+    const zeroWidthSpace = String.fromCharCode(0x200b);
+    expect(text).toContain(`\\${zeroWidthSpace}N`);
+    expect(text).toContain(`\\${zeroWidthSpace}h`);
+    expect(text).toContain('</i>plain');
+    // No unescaped `{` opens \pos, \t or \fscx, and no literal \N or \h
+    // survives as an ASS line break or hard space.
+    expect(text).not.toMatch(/(?<!\\)\{\\(?:pos|t\(|fscx)/);
+    expect(text).not.toMatch(/\\N/);
+    expect(text).not.toMatch(/\\h/);
+    // A closing tag with no opener is text, not a {\i0} reset.
+    expect(text).not.toMatch(/(?<!\\)\{\\i0\}/);
+  });
+});
+
+const captionSourcePath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../skills/ffmpeg/scripts/caption.py',
+);
+
+function captionMapKeys(source: string, name: string): string[] {
+  const match = new RegExp(`^${name} = \\{([^}]*)\\}`, 'm').exec(source);
+  if (!match?.[1]) throw new Error(`${name} not found in caption.py`);
+  return [...match[1].matchAll(/"([^"]+)":/g)].map((entry) => entry[1]!);
+}
+
+describe('caption position alignment maps', () => {
+  it('keeps ALIGN and FORCE_STYLE_ALIGN key sets identical', () => {
+    const source = readFileSync(captionSourcePath, 'utf8');
+    expect(captionMapKeys(source, 'FORCE_STYLE_ALIGN').sort()).toEqual(
+      captionMapKeys(source, 'ALIGN').sort(),
+    );
   });
 });
