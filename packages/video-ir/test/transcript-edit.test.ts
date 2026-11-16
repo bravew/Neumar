@@ -8,6 +8,7 @@ import {
   compileTranscriptCut,
   compileTranscriptRestore,
   deriveTranscriptWordStates,
+  groupGluedCaptionWords,
   sourceSpanToTimelineWindow,
   type CaptionTimelineClip,
   type AudioTimelineClip,
@@ -573,6 +574,77 @@ describe('transcript synchronization regressions', () => {
       expect(
         applyTimelineOps(applied.timeline, applied.inverses).timeline,
       ).toEqual(cut);
+    },
+  );
+
+  it.each([
+    {
+      label: 'the first fragment',
+      cut: 3,
+      shown: ['w0 w1 w2', 'nsformer. w5 w6 w7 w8 w9'],
+    },
+    {
+      label: 'the second fragment',
+      cut: 4,
+      shown: ['w0 w1 w2 Tra', 'w5 w6 w7 w8 w9'],
+    },
+    {
+      label: 'a word before the run',
+      cut: 1,
+      shown: ['w0', 'w2 Transformer. w5 w6 w7 w8 w9'],
+    },
+  ])(
+    'cuts $label of a transcriber-split word as one transcript word',
+    ({ cut, shown }) => {
+      // Words 3 and 4 are one spoken word split by the transcriber: they abut,
+      // and "nsformer." cannot start a word. Stored caption words keep both.
+      const texts = WORDS.map((_, index) =>
+        index === 3 ? 'Tra' : index === 4 ? 'nsformer.' : `w${index}`,
+      );
+      const original = linkedSpeech();
+      const captions = original.tracks.find(
+        (track) => track.kind === 'caption',
+      );
+      const cue = captions?.clips[0];
+      if (!cue || cue.kind !== 'caption') throw new Error('Missing cue');
+      cue.words = cue.words!.map((word, index) => ({
+        ...word,
+        text: texts[index]!,
+      }));
+      cue.tokens = cue.tokens!.map((token, index) => ({
+        ...token,
+        text: texts[index]!,
+      }));
+      cue.text = 'w0 w1 w2 Transformer. w5 w6 w7 w8 w9';
+
+      const next = applyTimelineOps(
+        original,
+        compileTranscriptCut({
+          timeline: original,
+          match: MATCH,
+          words: WORDS.map((word, index) => ({ ...word, text: texts[index]! })),
+          startIndex: cut,
+          endIndex: cut,
+          idFactory: ids(),
+        }),
+      ).timeline;
+
+      const cues = next.tracks
+        .find((track) => track.kind === 'caption')!
+        .clips.filter((clip) => clip.kind === 'caption');
+      // Only the cut word leaves; every other word keeps its own entry.
+      expect(
+        cues.flatMap((clip) => clip.words!.map((word) => word.text)),
+      ).toEqual(texts.filter((_, index) => index !== cut));
+      // What a viewer sees per cue: a ripple never glues words across the cut,
+      // and an intact run still reads as one word.
+      expect(
+        cues.map((clip) =>
+          groupGluedCaptionWords(clip.words!)
+            .map((word) => word.text)
+            .join(' '),
+        ),
+      ).toEqual(shown);
     },
   );
 

@@ -2,7 +2,11 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { applyTimelineOps, compileTranscriptCut } from '@neumar/video-ir';
+import {
+  applyTimelineOps,
+  compileTranscriptCut,
+  groupGluedCaptionWords,
+} from '@neumar/video-ir';
 import type { CaptionTimelineClip, Timeline } from '@neumar/video-ir';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -276,6 +280,69 @@ describe('caption generation from transcript', () => {
     expect(cues[0]?.words).toEqual(words);
     expect(cues[0]).toMatchObject({ startMs: 0, durationMs: 1160 });
   });
+
+  it.each([
+    {
+      label: 'a 4x clip',
+      trimStartMs: 0,
+      text: 'The Transformer.',
+      shown: ['The', 'Transformer.'],
+    },
+    {
+      // "Tra" keeps 1 ms of source inside the trim, which rounds to no length
+      // on the timeline.
+      label: 'a 4x clip whose trim cuts the first piece to nothing',
+      trimStartMs: 199,
+      text: 'Tra nsformer.',
+      shown: ['Tra', 'nsformer.'],
+    },
+  ])(
+    'gives the cue text and the animated styles one reading of a split word on $label',
+    async ({ trimStartMs, text, shown }) => {
+      const project = await createProject({
+        name: 'Fast split',
+        template: 'explainer',
+      });
+      const words: SubtitleWord[] =
+        trimStartMs === 0
+          ? [
+              { text: 'The', startMs: 0, endMs: 180 },
+              { text: 'Tra', startMs: 200, endMs: 380 },
+              { text: 'nsformer.', startMs: 380, endMs: 560 },
+            ]
+          : [
+              { text: 'Tra', startMs: 0, endMs: 200 },
+              { text: 'nsformer.', startMs: 200, endMs: 500 },
+            ];
+      const timeline = timelineFixture({ startMs: 0, trimStartMs });
+      const clip = timeline.tracks[0]!.clips[0]!;
+      clip.playback = { speed: 4, reverse: false };
+      clip.durationMs = Math.round(clip.durationMs / 4);
+      await writeProject({
+        ...project,
+        assets: [assetFixture()],
+        sources: [sourceFixture('asset-source')],
+        sourceAnalyses: [analysisFixture(words)],
+        timeline,
+      });
+
+      const { cues } = await generateProjectCaptions(project.id, {
+        cachedOnly: true,
+        wordsPerCue: 12,
+        maxCueMs: 8_000,
+      });
+
+      expect(cues).toHaveLength(1);
+      const cue = cues[0]!;
+      expect(cue.text).toBe(text);
+      // The animated styles group the stored words; they must read the same.
+      const grouped = groupGluedCaptionWords(cue.words!).map(
+        (word) => word.text,
+      );
+      expect(grouped).toEqual(shown);
+      expect(grouped.join(' ')).toBe(cue.text);
+    },
+  );
 
   it('keeps spaces between ordinary abutting words and still joins a split tail', async () => {
     const project = await createProject({

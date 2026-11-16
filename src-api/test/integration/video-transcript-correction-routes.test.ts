@@ -15,12 +15,13 @@ vi.mock('@/shared/db/operations', () => ({ getSetting: () => undefined }));
 
 import { videoRoutes } from '@/app/api/video';
 
+import { STT_CAPTION_ORIGIN } from '@/shared/video/caption-retime';
 import {
   getProject,
   patchSourceTranscript,
   writeProject,
 } from '@/shared/video/store';
-import type { VideoProject } from '@/shared/video/types';
+import type { CaptionTimelineClip, VideoProject } from '@/shared/video/types';
 
 let workDir: string;
 const initial = {
@@ -133,5 +134,104 @@ describe('transcript correction persistence and routes', () => {
       (await getProject(initial.id)).sourceAnalyses![0]!.transcript!.words[0]!
         .text,
     ).toBe('helo');
+  });
+
+  it('rewrites the joined cue text when one fragment of a split word is corrected', async () => {
+    // Generation stores "Tra" | "nsformer." as two caption words and joins
+    // them in the cue text; the PATCH route is how the transcript panel
+    // corrects one of them.
+    const split = [
+      { text: 'model', startMs: 0, endMs: 500 },
+      { text: 'Tra', startMs: 500, endMs: 700 },
+      { text: 'nsformer.', startMs: 700, endMs: 1000 },
+    ];
+    const caption: CaptionTimelineClip = {
+      id: 'cap',
+      kind: 'caption',
+      startMs: 0,
+      durationMs: 1000,
+      trimStartMs: 0,
+      trimEndMs: 1000,
+      text: 'model Transformer.',
+      words: split,
+      sourceRef: { kind: 'asset', assetId: 'a' },
+      sourceAnchor: {
+        sourceMediaId: 'a',
+        sourceElementId: 's',
+        sourceStartMs: 0,
+        sourceEndMs: 1000,
+      },
+      params: { origin: STT_CAPTION_ORIGIN, sourceId: 's' },
+    };
+    const project: VideoProject = {
+      ...initial,
+      sourceAnalyses: [
+        {
+          ...initial.sourceAnalyses![0]!,
+          transcript: {
+            ...initial.sourceAnalyses![0]!.transcript!,
+            words: split,
+            segments: [
+              {
+                id: 'seg',
+                text: 'model Transformer.',
+                startMs: 0,
+                endMs: 1000,
+              },
+            ],
+          },
+        },
+      ],
+      timeline: {
+        schema: 'neuma.video.timeline.v1',
+        fps: 30,
+        durationMs: 1000,
+        tracks: [
+          {
+            id: 'v',
+            kind: 'video',
+            name: 'V',
+            muted: false,
+            locked: false,
+            order: 0,
+            clips: [
+              {
+                id: 'clip',
+                kind: 'video',
+                sourceRef: { kind: 'asset', assetId: 'a' },
+                startMs: 0,
+                durationMs: 1000,
+                trimStartMs: 0,
+                trimEndMs: 1000,
+              },
+            ],
+          },
+          {
+            id: 'c',
+            kind: 'caption',
+            name: 'C',
+            muted: false,
+            locked: false,
+            order: 1,
+            clips: [caption],
+          },
+        ],
+      },
+    };
+    await writeProject(project, { snapshot: false });
+
+    const response = await patch([
+      { index: 1, text: 'Tara', startMs: 500, expectedText: 'Tra' },
+    ]);
+
+    expect(response.status).toBe(200);
+    const stored = await getProject(initial.id);
+    const cue = stored.timeline!.tracks[1]!.clips[0] as CaptionTimelineClip;
+    expect(cue.words!.map((word) => word.text)).toEqual([
+      'model',
+      'Tara',
+      'nsformer.',
+    ]);
+    expect(cue.text).toBe('model Taransformer.');
   });
 });
