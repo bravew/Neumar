@@ -18,7 +18,7 @@ Imported: `LICENSE`, `package.json`, `scripts/` (including `_common/`, `_contrac
 
 ## Local patch inventory
 
-Seven vendored Python files carry local patches, in three groups.
+Eight vendored Python files carry local patches, in four groups.
 
 The first group follows upstream commit
 [`57daa49c`](https://github.com/kajisho5/ffmpeg-skill/commit/57daa49c4136d81cde5d40b4c8415b9d2c38da7f):
@@ -79,6 +79,20 @@ classification, `_common/fonts.py` Windows family files, and `_common/timeline.p
 timecodes were reproduced but are not patched here, because this sub-issue does not own those
 files.
 
+The fourth group is `render.py`, following upstream
+[`d81145a3`](https://github.com/kajisho5/ffmpeg-skill/commit/d81145a39a187298bda3a7ea73dfff79ce95618a)
+(the stage handoff, #415/#428) and
+[`c84b22c4`](https://github.com/kajisho5/ffmpeg-skill/commit/c84b22c49c1ddf4ec7935ac10a0d4be35dc3fc17)
+(project-relative assets). `sh()` records the file a stage's child wrote as this run's own write
+before a later stage replaces it, so the chapters stage can place its tagged copy over the export
+it just wrote instead of the output guard refusing the file as someone else's. `audiogram.image`
+and `overlays[].font_file` are read against the project file's directory like every other project
+asset, instead of the process working directory. The upstream fix also rebases the whole project
+and keeps `+faststart` across the chapters remux; the first is not needed for the reproduced
+cases, and the second belongs to `metadata.py`, which this sub-issue does not own. `batch.py` is
+not patched: the managed host refuses a batch recipe before the payload runs, so the upstream batch
+collision cannot be reproduced through this caller.
+
 | File | Change |
 | --- | --- |
 | `scripts/_common/color.py` | Added `bt709_matrix_filter()`/`bt709_matrix_args()` (the `colorspace` conversion for a probed non-BT.709 SDR matrix, only when the source width and height are both even) and `_fold_bt709_matrix()` (moves that conversion into the tool's own `-vf`/`-filter_complex`, after the tool's filters). `bt709_tag_args()` takes the source probe and appends the conversion. Follows upstream `57daa49c`. |
@@ -88,6 +102,7 @@ files.
 | `scripts/_common/probe.py` | Added `PROBED_VIDEO`/`PROBED_AUDIO`, `video.stream_index`/`audio.stream_index`/`stream_counts`/`unmeasured` in `probe()`, and `carry_inventory()`/`input_paths()`; `decode_pcm_mono()`, `decode_gray_frames()`, `measured_level_dbfs()`, `analyze_levels()`, `detect_silences()` and `detect_scenes()` map the probed stream. Follows upstream `e256decb` (and `fd12ae1a` for naming unmeasured values). |
 | `scripts/_common/emit.py` | Added `source_carry()` and included it in the success document, and `unmeasured` in `--json-brief`'s summary. Locally, `source_carry()` does not compare an item the output's streams cannot carry (cover art on an audio-only output) and does not count a still-image layer as a second picture source. Follows upstream `f755076b` (`source_carry`, #401). |
 | `scripts/caption.py` | Added `FORCE_STYLE_ALIGN`, the legacy SSA alignment values libass reads in a `force_style` list (bottom 2, top 6, center 10, top-left 5, top-right 7), so an SRT burn places `--position` where the numpad value in a generated Style line would. Added `srt_timings_shared_grammar()` and rewrite SRT timings outside ffmpeg's grammar (`00:00:01,5`, `00:01,000`) as `hh:mm:ss,mmm` before ffmpeg reads them, for the first track and each extra mux track. `word_durations_from_audio()` decodes with `aresample=async=1:first_pts=0`, so a sound that starts late is counted from the file's clock. `cue_times_match()` requires clock times on both sides of the English word "to", and cue files split at `\n` only, so U+2028 no longer starts a cue. SRT markup (`<i>`/`<b>`/`<u>`/`<s>`, `<font color>`, `{\anN}`) is stripped before wrapping, fitting, emoji placement and visible-cue counting, reinserted after the wrap and carried across a split cue, and converted to the equivalent ASS overrides in a generated ASS; karaoke ignores a token that is only markup. A closing tag with no matching opener is kept as text instead of emitting a reset override, so cue text such as `</i>` reads literally and cannot open `{\i0}`. Follows upstream `f755076b` (#436), `a3536dd7` (#414), `6f61e104` (#483) and `c84b22c4`. |
+| `scripts/render.py` | `sh()` adds the output a stage's child wrote to `STATE.written` (via `_remember_output()`), so the chapters stage's `place_output()` replaces the export this same run wrote instead of refusing it as an existing output. `audiogram.image` and `overlays[].font_file` pass through `rel()`, so they resolve against the project file's directory like every other project asset. Follows upstream `d81145a3` (stage handoff) and `c84b22c4` (project-relative paths). |
 | `SKILL.md` | App name `ffmpeg`, modes `task`/`design`/`video`, and instructions for MCP server `ffmpeg-skill` tools `ffmpeg_skill_catalog`, `ffmpeg_skill_check`, and `ffmpeg_skill_execute`. Rejects raw shell, raw `argv`, `transcribe`, `batch --watch`, and saved-plan replay. |
 | `contract/contract.json` | Added pinned static contract for the later runner. Not an upstream path. |
 | `contract/payload-hashes.txt` | Added payload inventory. Not an upstream path. |
