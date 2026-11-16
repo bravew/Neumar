@@ -14,18 +14,23 @@ interface QueuedSendStripLabels {
 
 export function QueuedSendStrip({
   queuedSends,
+  sendingIds,
   labels,
   onSendQueuedNow,
   onEditQueuedSend,
   onRemoveQueuedSend,
 }: {
   queuedSends: QueuedDesignSend[];
+  sendingIds?: ReadonlySet<string>;
   labels: QueuedSendStripLabels;
   onSendQueuedNow: (id: string) => void;
   onEditQueuedSend: (id: string) => void;
   onRemoveQueuedSend: (id: string) => void;
 }) {
-  if (queuedSends.length === 0) return null;
+  const visibleSends = sendingIds
+    ? queuedSends.filter((item) => !sendingIds.has(item.id))
+    : queuedSends;
+  if (visibleSends.length === 0) return null;
 
   return (
     <div
@@ -33,10 +38,10 @@ export function QueuedSendStrip({
       data-testid="queued-send-strip"
     >
       <div className="text-muted-foreground text-xs font-medium">
-        {labels.queuedSendTitle.replace('{count}', String(queuedSends.length))}
+        {labels.queuedSendTitle.replace('{count}', String(visibleSends.length))}
       </div>
       <div className="space-y-1.5">
-        {queuedSends.map((item) => (
+        {visibleSends.map((item) => (
           <div
             key={item.id}
             className="bg-background flex items-start gap-2 rounded border p-2"
