@@ -204,7 +204,7 @@ def main() -> int:
         if "-r" not in video:
             cmd += cfr_args(meta)
         if args.preset not in ("prores",) and not p.get("codec"):
-            cmd += bt709_tag_args(video[video.index("-c:v") + 1])
+            cmd += bt709_tag_args(video[video.index("-c:v") + 1], meta)
     if out_ext == "mp4":
         cmd += ["-movflags", "+faststart"]
     cmd += (p["audio"] if has_audio else ["-an"])
