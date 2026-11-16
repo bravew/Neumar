@@ -18,7 +18,7 @@ Imported: `LICENSE`, `package.json`, `scripts/` (including `_common/`, `_contrac
 
 ## Local patch inventory
 
-Eight vendored Python files carry local patches, in four groups.
+Eight vendored Python files carry local patches, in five groups.
 
 The first group follows upstream commit
 [`57daa49c`](https://github.com/kajisho5/ffmpeg-skill/commit/57daa49c4136d81cde5d40b4c8415b9d2c38da7f):
@@ -93,10 +93,19 @@ cases, and the second belongs to `metadata.py`, which this sub-issue does not ow
 not patched: the managed host refuses a batch recipe before the payload runs, so the upstream batch
 collision cannot be reproduced through this caller.
 
+The fifth group is `_common/decision.py`'s time parser, following upstream
+[`d60c13b3`](https://github.com/kajisho5/ffmpeg-skill/commit/d60c13b3075b2de754d85f0dd8b0da5a66897278)
+(#440). `parse_time()` refuses a time that is not finite (`nan`, `inf`, `1e999`) and an `@fps`
+rate that is not finite, so every tool's time flag is a `kind: input` refusal instead of an
+ffmpeg error, a silent empty result or a traceback. The upstream `finite_float` registration in
+`_common/runner.py` is not ported: the managed host already refuses a non-finite number before the
+payload runs, and every float flag it can reach is typed `number` in the contract, so that case
+does not reproduce through this caller.
+
 | File | Change |
 | --- | --- |
 | `scripts/_common/color.py` | Added `bt709_matrix_filter()`/`bt709_matrix_args()` (the `colorspace` conversion for a probed non-BT.709 SDR matrix, only when the source width and height are both even) and `_fold_bt709_matrix()` (moves that conversion into the tool's own `-vf`/`-filter_complex`, after the tool's filters). `bt709_tag_args()` takes the source probe and appends the conversion. Follows upstream `57daa49c`. |
-| `scripts/_common/decision.py` | `x264_args()`/`video_args()`/`encoder_args()` pass the source probe to `bt709_tag_args()`/`bt709_matrix_args()`, so the SDR encoder lines that target BT.709 convert a BT.601 matrix. Follows upstream `57daa49c`. |
+| `scripts/_common/decision.py` | `x264_args()`/`video_args()`/`encoder_args()` pass the source probe to `bt709_tag_args()`/`bt709_matrix_args()`, so the SDR encoder lines that target BT.709 convert a BT.601 matrix. Follows upstream `57daa49c`. `parse_time()` refuses a non-finite time and a non-finite `@fps` rate. Follows upstream `d60c13b3`. |
 | `scripts/_common/runner.py` | `run()` folds the conversion into the command's filter graph before recording or executing it: appended to the tool's own `-vf` chain, or prepended to the first input's `-filter_complex` branch. A tool's own filter is not replaced by a second `-vf`. Follows upstream `57daa49c`. |
 | `scripts/export.py` | Passes the source probe to `bt709_tag_args()` for the platform presets. Follows upstream `57daa49c`. |
 | `scripts/_common/probe.py` | Added `PROBED_VIDEO`/`PROBED_AUDIO`, `video.stream_index`/`audio.stream_index`/`stream_counts`/`unmeasured` in `probe()`, and `carry_inventory()`/`input_paths()`; `decode_pcm_mono()`, `decode_gray_frames()`, `measured_level_dbfs()`, `analyze_levels()`, `detect_silences()` and `detect_scenes()` map the probed stream. Follows upstream `e256decb` (and `fd12ae1a` for naming unmeasured values). |
