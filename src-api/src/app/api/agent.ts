@@ -450,7 +450,6 @@ function createSSEStream(
   let checkpointUuid: string | undefined;
   let checkpointSessionId: string | undefined;
   let checkpointCwd: string | null = null;
-  let checkpointFailed = false;
 
   // ---------- Heartbeat for thinking phases ----------
   // Touch task updated_at periodically so frontend stuck detection doesn't
@@ -508,7 +507,6 @@ function createSSEStream(
           // Stamp trace metadata for trace viewer timeline
           const msg = filteredMessage as Record<string, unknown>;
           if (checkpointMessageRowId) {
-            if (msg.type === 'error') checkpointFailed = true;
             if (
               msg.type === 'system' &&
               msg.subtype === 'user_checkpoint' &&
@@ -693,13 +691,11 @@ function createSSEStream(
         if (taskId) {
           flushTextBuffer();
           taskSeqCounters.delete(taskId);
-          if (
-            streamSuccess &&
-            !checkpointFailed &&
-            checkpointMessageRowId &&
-            checkpointUuid &&
-            checkpointSessionId
-          ) {
+          // Record the attempt whether or not it succeeded: a failed attempt
+          // still edited files, and the retry's baseline contains those edits.
+          // The rewind preflight dry-runs every recorded attempt and refuses
+          // before writing if one cannot be rewound.
+          if (checkpointMessageRowId && checkpointUuid && checkpointSessionId) {
             try {
               recordAgentFileCheckpoint({
                 taskId,
@@ -1624,10 +1620,19 @@ agentRoutes.post(
 agentRoutes.get('/rewind/checkpoints/:taskId', (c) => {
   const taskId = c.req.param('taskId');
   if (!getDbTask(taskId)) return c.json({ error: 'Task not found' }, 404);
+  // One rewind target per turn: the earliest attempt's SDK message is the
+  // baseline from before the turn. The rewind route then walks every attempt
+  // of the selected turn and of later turns newest-first.
+  const targets = new Map<number, string>();
+  for (const checkpoint of listAgentFileCheckpoints(taskId)) {
+    if (!targets.has(checkpoint.messageRowId)) {
+      targets.set(checkpoint.messageRowId, checkpoint.userMessageId);
+    }
+  }
   return c.json({
-    checkpoints: listAgentFileCheckpoints(taskId).map((checkpoint) => ({
-      messageRowId: checkpoint.messageRowId,
-      userMessageId: checkpoint.userMessageId,
+    checkpoints: [...targets].map(([messageRowId, userMessageId]) => ({
+      messageRowId,
+      userMessageId,
     })),
   });
 });
