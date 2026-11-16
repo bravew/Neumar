@@ -211,6 +211,11 @@ function buildClipCues(input: {
     (chunk, index) => {
       const cueStartMs = Math.round(toTimeline(chunk[0]!.startMs));
       const cueEndMs = Math.round(toTimeline(chunk.at(-1)!.endMs));
+      const cueWords = chunk.map((word) => ({
+        text: word.text,
+        startMs: Math.round(toTimeline(word.startMs)),
+        endMs: Math.round(toTimeline(word.endMs)),
+      }));
       return {
         id: `clip-caption-stt-${clip.id}-${index + 1}`,
         kind: 'caption',
@@ -222,13 +227,12 @@ function buildClipCues(input: {
         trimStartMs: chunk[0]!.startMs,
         trimEndMs: chunk.at(-1)!.endMs,
         sourceDurationMs: clip.sourceDurationMs,
-        text: joinCaptionWords(chunk),
+        // Joined from the stored timeline words, the same words the animated
+        // styles group, so the two never disagree. A split piece the clip
+        // edge cuts to no length stays a separate word in both.
+        text: joinCaptionWords(cueWords),
         style: input.style,
-        words: chunk.map((word) => ({
-          text: word.text,
-          startMs: Math.round(toTimeline(word.startMs)),
-          endMs: Math.round(toTimeline(word.endMs)),
-        })),
+        words: cueWords,
         sourceAnchor: {
           sourceMediaId: assetId,
           sourceElementId: source.id,

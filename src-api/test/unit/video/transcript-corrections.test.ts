@@ -207,6 +207,47 @@ describe('applyTranscriptCorrections', () => {
     expect(cue.text).toBe(row.text);
   });
 
+  it('joins a run a correction creates in the cue text', () => {
+    // "former." can start a word, so the generated text keeps its space.
+    // Correcting it to "nsformer." makes an abutting tail the animated styles
+    // draw as one word, and the cue text must read the same.
+    const plain = [
+      { text: 'helo', startMs: 0, endMs: 500 },
+      { text: 'Tra', startMs: 500, endMs: 700 },
+      { text: 'former.', startMs: 700, endMs: 1000 },
+    ];
+    const tl = timeline(plain);
+    const base = projectWith(bare, tl);
+    const analysis = base.sourceAnalyses![0]!;
+    const withPlain: VideoProject = {
+      ...base,
+      sourceAnalyses: [
+        {
+          ...analysis,
+          transcript: {
+            ...analysis.transcript!,
+            words: plain,
+            segments: [
+              { id: 'seg', startMs: 0, endMs: 1000, text: 'helo Tra former.' },
+            ],
+          },
+        },
+      ],
+    };
+
+    const { project } = applyTranscriptCorrections(withPlain, 'src', [
+      { index: 2, text: 'nsformer.', startMs: 700, expectedText: 'former.' },
+    ]);
+
+    const cue = project.timeline!.tracks[1]!.clips[0] as CaptionTimelineClip;
+    expect(cue.words!.map((word) => word.text)).toEqual([
+      'helo',
+      'Tra',
+      'nsformer.',
+    ]);
+    expect(cue.text).toBe('helo Transformer.');
+  });
+
   it('is a no-op when nothing changes', () => {
     const input = projectWith(bare);
     const result = applyTranscriptCorrections(input, 'src', [
