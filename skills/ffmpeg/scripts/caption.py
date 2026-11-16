@@ -39,7 +39,7 @@ import re
 import sys
 import unicodedata
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from _platforms import (PLATFORMS, PLATFORM_CHOICES, ASS_SCRIPT_HEIGHT, ass_units,
                         resolve as resolve_platform)
@@ -68,20 +68,292 @@ __all__ = ["parse_srt", "write_srt", "transcribe", "whisper_word_timings", "die_
            "text_width_em"]
 
 ALIGN = {"bottom": 2, "top": 8, "center": 5, "bottom-left": 1, "bottom-right": 3, "top-left": 7, "top-right": 9}
+# libass reads a force_style Alignment in the legacy SSA numbering (1-3 bottom, 5-7 top, 9-11
+# middle), not the v4+ numpad one a Style line uses: only the bottom row is the same number in
+# both. The SRT burn used to pass the numpad value, so --position top landed mid-left, center
+# top-left, top-left top-right (#436, measured on libass 0.17.1 and FFmpeg 9.0.2).
+FORCE_STYLE_ALIGN = {"bottom": 2, "top": 6, "center": 10, "bottom-left": 1, "bottom-right": 3, "top-left": 5, "top-right": 7}
 
 TIME_RE = re.compile(
-    r"^\s*(?P<a>[\d:.,@]+)\s*(?:-->|-|–|to)\s*(?P<b>[\d:.,@]+)\s+(?P<text>.+)$"  # @ = the 1.9 @fps suffix
+    r"^\s*(?P<a>[\d:.,@]+)\s*(?P<sep>-->|-|–|to)\s*(?P<b>[\d:.,@]+)\s+(?P<text>.+)$"  # @ = the 1.9 @fps suffix
 )
+
+
+def cue_times_match(line: str) -> Optional["re.Match[str]"]:
+    """TIME_RE's match of a --text line, or None when the line is caption text. The documented
+    separators are "-" and "-->", and with them bare seconds are times ("0-1.5 Hello"). "to" is
+    also an English word: "3 to 5 apples" is text, so with "to" both sides must be clock times
+    (a ':' in each, "0:03 to 0:05 Hello")."""
+    m = TIME_RE.match(line)
+    if m and m.group("sep") == "to" and not (":" in m.group("a") and ":" in m.group("b")):
+        return None
+    return m
+
+
+# --- SRT markup ------------------------------------------------------------------------------
+# The tags ffmpeg's own SRT reader turns into styling (libavcodec/htmlsubtitles.c): <i> <b> <u>
+# <s>, <font color=...>, and a `{\anN}` position block. The plain --srt route hands the file to
+# ffmpeg, which draws `<i>Hello</i>` in italics; the routes where caption.py writes its own ASS
+# (--animate, --karaoke, an emoji-forced ASS) used to escape the same cue and draw the tags as
+# text, and the wrapper measured them as width. Only these tags are markup here: an unknown
+# `<tag>` and every other `{\...}` block stay text, escaped as before (a caption still cannot open
+# \pos or \t from its cue text).
+_SRT_TAG_RE = re.compile(
+    r"<\s*(/?)\s*(i|b|u|s)\s*>"                       # 1, 2: simple style tags
+    r"|<\s*font\b([^<>]*)>"                           # 3: <font ...attributes>
+    r"|<\s*/\s*font\s*>"                              # closing font
+    r"|\{\\an([1-9])\}",                              # 4: position block
+    re.IGNORECASE)
+_FONT_COLOR_RE = re.compile(r"""\bcolor\s*=\s*["']?\s*([#\w]+)""", re.IGNORECASE)
+_NAMED_COLORS = {
+    "white": "ffffff", "black": "000000", "red": "ff0000", "lime": "00ff00", "green": "008000",
+    "blue": "0000ff", "yellow": "ffff00", "cyan": "00ffff", "aqua": "00ffff",
+    "magenta": "ff00ff", "fuchsia": "ff00ff", "silver": "c0c0c0", "gray": "808080",
+    "grey": "808080", "maroon": "800000", "olive": "808000", "navy": "000080",
+    "purple": "800080", "teal": "008080", "orange": "ffa500"}
+
+
+def srt_markup_tokens(text: str) -> List[Tuple[bool, str]]:
+    """`text` cut into (is_markup, piece) runs, in order; the pieces concatenate back to `text`."""
+    out: List[Tuple[bool, str]] = []
+    pos = 0
+    for m in _SRT_TAG_RE.finditer(text or ""):
+        if m.start() > pos:
+            out.append((False, text[pos:m.start()]))
+        out.append((True, m.group(0)))
+        pos = m.end()
+    if pos < len(text or ""):
+        out.append((False, text[pos:]))
+    return out
+
+
+def strip_srt_markup(text: str) -> str:
+    """The words a viewer reads: `text` with the SRT markup tags removed."""
+    return "".join(piece for markup, piece in srt_markup_tokens(text) if not markup)
+
+
+def srt_alignment(text: str) -> Optional[int]:
+    """The `{\\anN}` a cue asks for, or None."""
+    for markup, piece in srt_markup_tokens(text):
+        m = _SRT_TAG_RE.fullmatch(piece) if markup else None
+        if m and m.group(4):
+            return int(m.group(4))
+    return None
+
+
+def _font_colour(attrs: str) -> Optional[str]:
+    m = _FONT_COLOR_RE.search(attrs or "")
+    if not m:
+        return None
+    value = m.group(1).lower()
+    value = _NAMED_COLORS.get(value, value)
+    if value.startswith("0x"):
+        value = value[2:]
+    value = value.lstrip("#")
+    if re.fullmatch(r"[0-9a-f]{6}", value):
+        return "&H%s%s%s&" % (value[4:6].upper(), value[2:4].upper(), value[0:2].upper())
+    return None   # ffmpeg ignores a colour it cannot read (#f00 included); so does this
+
+
+def _markup_to_ass(tag: str, colours: List[str], colour: bool = True) -> str:
+    m = _SRT_TAG_RE.fullmatch(tag)
+    if not m:
+        return ""
+    if not colour and not m.group(2) and not m.group(4):
+        return ""   # a <font> tag where the caller owns the colours (karaoke): dropped
+    if m.group(2):
+        return "{\\%s%d}" % (m.group(2).lower(), 0 if m.group(1) else 1)
+    if m.group(4):
+        return "{\\an%s}" % m.group(4)
+    if m.group(0).lstrip("< \t").lower().startswith("/"):
+        if colours:
+            colours.pop()
+        return "{\\c%s}" % colours[-1] if colours else "{\\c}"
+    colour = _font_colour(m.group(3))
+    colours.append(colour or (colours[-1] if colours else ""))
+    return "{\\c%s}" % colour if colour else ""
+
+
+def _paired_tag(tag: str) -> Optional[Tuple[str, bool]]:
+    """(name, is_closing) for a paired SRT tag, or None for `{\\anN}` and non-tags."""
+    m = _SRT_TAG_RE.fullmatch(tag)
+    if not m or m.group(4):
+        return None
+    if m.group(2):
+        return m.group(2).lower(), bool(m.group(1))
+    return "font", tag.lstrip("< \t").lower().startswith("/")
+
+
+def ass_escape_markup(text: str, colour: bool = True) -> str:
+    """ass_escape() for cue text that may carry SRT markup: the tags ffmpeg's SRT reader styles
+    become the same ASS overrides it writes for them (`<i>` -> `{\\i1}`, `<font color="#ffff00">`
+    -> `{\\c&H00FFFF&}`, `{\\an8}` kept), and everything else is escaped exactly as ass_escape()
+    escapes it. `colour=False` drops the <font> tags instead: karaoke's highlight IS the primary
+    colour, and a cue colour would replace it. A closing tag with no opener is text, not a reset:
+    `</i>` in a cue reads as `</i>`, and never opens an override block."""
+    out: List[str] = []
+    colours: List[str] = []
+    opened: List[str] = []
+    for markup, piece in srt_markup_tokens(text):
+        if markup:
+            paired = _paired_tag(piece)
+            if paired:
+                name, closing = paired
+                if closing:
+                    if name not in opened:
+                        out.append(ass_escape(piece))
+                        continue
+                    del opened[len(opened) - 1 - opened[::-1].index(name)]
+                else:
+                    opened.append(name)
+            out.append(_markup_to_ass(piece, colours, colour))
+            continue
+        escaped = ass_escape(piece)
+        if escaped.endswith("\\") and not escaped.endswith("\\​"):
+            escaped += "​"   # a trailing backslash must not run into the override after it
+        out.append(escaped)
+    return "".join(out)
+
+
+def reinsert_srt_markup(marked: str, lines: Sequence[str]) -> List[str]:
+    """Put `marked`'s markup back into `lines`, a wrap of strip_srt_markup(marked).
+
+    A wrap keeps every visible character in order and only turns whitespace into a break (or puts a
+    break between two characters), so each tag is anchored to a character: a closing tag right
+    after the visible character before it, any other tag right before the visible character after
+    it. Lines that do not hold the stripped text in order come back unchanged (markup dropped):
+    tags would otherwise land in the wrong word.
+
+    A tag pair that encloses no visible character (`A<font color=red> </font>B`) has no character
+    to anchor to, and the rule above would put its closing tag after A and its opening tag before
+    B, colouring B. In a gap between two visible characters that holds such a pair, the tags keep
+    their source order instead: those before the pair's closing tag go right after the character
+    before the gap, the rest right before the character after it (both at the start of the next
+    line when the gap's whitespace became the break)."""
+    tokens = srt_markup_tokens(marked)
+    if not any(markup for markup, _p in tokens):
+        return list(lines)
+    # (line, column) of every non-space character of the wrapped lines, in reading order
+    slots = [(li, ci) for li, line in enumerate(lines) for ci, ch in enumerate(line) if not ch.isspace()]
+    if not slots:
+        return list(lines)
+    split_at = _empty_pair_splits(tokens)
+    inserts: Dict[Tuple[int, int], List[str]] = {}
+    seen = 0   # non-space visible characters passed so far
+    for index, (markup, piece) in enumerate(tokens):
+        if not markup:
+            for ch in piece:
+                if ch.isspace():
+                    continue
+                if seen >= len(slots) or lines[slots[seen][0]][slots[seen][1]] != ch:
+                    return list(lines)
+                seen += 1
+            continue
+        after_prev = (slots[seen - 1][0], slots[seen - 1][1] + 1) if seen else None
+        before_next = slots[seen] if seen < len(slots) else None
+        split = split_at.get(seen)
+        if split is not None:
+            # this gap holds a pair that encloses no visible character: keep the source order
+            if after_prev is None or before_next is None:
+                key = after_prev or before_next
+            elif after_prev[0] != before_next[0]:
+                key = before_next
+            else:
+                key = after_prev if index < split else before_next
+        elif piece.lstrip("< \t").startswith("/") and after_prev or before_next is None:
+            key = after_prev
+        else:
+            key = before_next
+        if key is not None:
+            inserts.setdefault(key, []).append(piece)
+    if seen != len(slots):
+        return list(lines)
+    out = []
+    for li, line in enumerate(lines):
+        cols = sorted(ci for (l2, ci) in inserts if l2 == li)
+        built, last = "", 0
+        for ci in cols:
+            built += line[last:ci] + "".join(inserts[(li, ci)])
+            last = ci
+        out.append(built + line[last:])
+    return out
+
+
+def _empty_pair_splits(tokens: Sequence[Tuple[bool, str]]) -> Dict[int, int]:
+    """For each gap between visible characters (keyed by the number of non-space characters
+    before it) that holds a tag pair enclosing none, the token index of the first such pair's
+    closing tag."""
+    splits: Dict[int, int] = {}
+    seen = 0
+    open_here: List[str] = []   # names of the tags opened in the current gap
+    for index, (markup, piece) in enumerate(tokens):
+        if not markup:
+            if piece.strip():
+                seen += sum(1 for ch in piece if not ch.isspace())
+                open_here = []
+            continue
+        m = _SRT_TAG_RE.fullmatch(piece)
+        if not m or m.group(4):
+            continue
+        name = (m.group(2) or "font").lower()
+        if piece.lstrip("< \t").startswith("/"):
+            if name in open_here:
+                splits.setdefault(seen, index)
+                del open_here[len(open_here) - 1 - open_here[::-1].index(name)]
+        else:
+            open_here.append(name)
+    return splits
+
+
+def carry_srt_markup(chunks: Sequence[str]) -> List[str]:
+    """Consecutive cues cut from one marked cue, each made to stand alone: a tag still open at the
+    end of a piece is closed there and opened again at the start of the next, and the cue's
+    `{\\anN}` is repeated on every piece -- the second half of an italic, top-placed cue stays
+    italic and at the top."""
+    out: List[str] = []
+    carried: List[str] = []
+    # the cue's position, wherever in it the {\anN} stands: an earlier piece takes it too
+    align = next((a for a in (srt_alignment(c) for c in chunks) if a is not None), None)
+    for chunk in chunks:
+        lead = "".join(carried)
+        if align is not None and srt_alignment(chunk) is None:
+            lead = "{\\an%d}" % align + lead
+        opened: List[str] = list(carried)
+        for markup, piece in srt_markup_tokens(chunk):
+            if not markup:
+                continue
+            m = _SRT_TAG_RE.fullmatch(piece)
+            if not m or m.group(4):
+                continue
+            closing = piece.lstrip("< \t").startswith("/")
+            name = (m.group(2) or "font").lower()
+            if closing:
+                for k in range(len(opened) - 1, -1, -1):
+                    if _tag_name(opened[k]) == name:
+                        del opened[k]
+                        break
+            else:
+                opened.append(piece)
+        tail = "".join("</%s>" % _tag_name(t) for t in reversed(opened))
+        out.append(lead + chunk + tail)
+        carried = opened
+    return out
+
+
+def _tag_name(tag: str) -> str:
+    m = _SRT_TAG_RE.fullmatch(tag)
+    return ((m.group(2) if m else None) or "font").lower()
 
 
 def parse_text_cues(path: str, auto_seconds: float, gap: float, fps: Optional[float] = None) -> List[Tuple[float, float, str]]:
     cues: List[Tuple[float, float, str]] = []
     cursor = 0.0
-    for raw in read_text_or_die(path, "--text").lstrip("\ufeff").splitlines(True):
-        line = raw.rstrip("\n")
+    # split at "\n" only: splitlines() also breaks a cue at U+2028, U+0085, \v and \f, which made
+    # the rest of the line an auto-timed cue of its own
+    for line in read_text_or_die(path, "--text").lstrip("\ufeff").split("\n"):
         if not line.strip():
             continue
-        m = TIME_RE.match(line)
+        m = cue_times_match(line)
         if m:
             try:
                 start, end = parse_time(m.group("a"), fps), parse_time(m.group("b"), fps)
@@ -122,7 +394,9 @@ def word_durations_from_audio(video: str, start: float, end: float, n_words: int
         return [total_cs]
     ffmpeg = require_tool("ffmpeg")
     cmd = [ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-ss", f"{start:.3f}", "-i", video,
-           "-map", f"0:a:{audio_stream}", "-t", f"{end - start:.3f}", "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"]
+           "-map", f"0:a:{audio_stream}", "-t", f"{end - start:.3f}", "-vn",
+           # a sound that starts late is padded to its place on the file's clock (#414)
+           "-af", "aresample=async=1:first_pts=0", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"]
     proc = run_analysis(cmd, check=False, text=False)  # under --timeout like every other measurement
     n = len(proc.stdout) // 2
     if proc.returncode != 0 or n < 800:
@@ -232,12 +506,12 @@ def plan_emoji(cues, args, play_w, play_h, brand=None):
     margin_px = args.margin * play_h / 288.0
     line_h = size_px * 1.2
     box_px = size_px * scale
-    align = ALIGN[args.position]
     out_cues = []
     for start, end, text in cues:
         lines = _cue_lines(text)
         n = len(lines)
         new_lines = []
+        align = srt_alignment(text) or ALIGN[args.position]   # a cue's {\anN} moves its emoji too
         for i, line in enumerate(lines):
             if align in (7, 8, 9):
                 y_top = margin_px + i * line_h
@@ -245,7 +519,7 @@ def plan_emoji(cues, args, play_w, play_h, brand=None):
                 y_top = play_h / 2.0 - (n * line_h) / 2.0 + i * line_h
             else:
                 y_top = play_h - margin_px - (n - i) * line_h
-            line_w = text_width_em(line, scale) * size_px
+            line_w = text_width_em(strip_srt_markup(line), scale) * size_px
             if align in (1, 4, 7):
                 x0 = margin_px
             elif align in (3, 6, 9):
@@ -255,7 +529,7 @@ def plan_emoji(cues, args, play_w, play_h, brand=None):
             # libass lays an RTL line out right-to-left, so the LOGICAL prefix of a cluster
             # occupies the RIGHT end of the rendered line. Measuring the prefix from the left
             # edge put the PNG on top of the text, mirrored, on every Arabic/Hebrew cue (1.15.0).
-            rtl = detect_script(line) in BIDI_SCRIPTS
+            rtl = detect_script(strip_srt_markup(line)) in BIDI_SCRIPTS
             rebuilt = ""
             cursor = 0
             for idx, cluster in emoji_clusters(line):
@@ -268,6 +542,7 @@ def plan_emoji(cues, args, play_w, play_h, brand=None):
                     rebuilt += line[cursor:idx + len(cluster)]
                     cursor = idx + len(cluster)
                     continue
+                prefix = strip_srt_markup(prefix)   # a tag before the emoji takes no room
                 if rtl:
                     x = x0 + line_w - text_width_em(prefix + cluster, scale) * size_px
                 else:
@@ -345,9 +620,12 @@ def layout_cues(cues: List[Tuple[float, float, str]], *, max_em: Optional[float]
             # greedy wrap would have given (`rebalanced`) and what 1.15's wrap would have
             # given (`phrase_breaks`). Three wrap_text() calls re-ran the atomiser each time.
             sliced_atoms: List[int] = []
-            lines, greedy, measured = wrap_variants(text, own_em, mode=wrap, lang=lang,
+            # SRT markup (<i>, <font color>, {\an8}) is not text: the wrap measures and breaks
+            # the words a viewer reads, and the tags go back next to the characters they styled
+            plain = strip_srt_markup(text)
+            lines, greedy, measured = wrap_variants(plain, own_em, mode=wrap, lang=lang,
                                                      slice_overlong=True, sliced=sliced_atoms)
-            if lines != [l for l in text.split("\n") if l.strip()]:
+            if lines != [l for l in plain.split("\n") if l.strip()]:
                 stats["wrapped"] += 1
             if sliced_atoms:
                 # the escape hatch fired: a word or run with no break point the wrapper may use
@@ -362,19 +640,22 @@ def layout_cues(cues: List[Tuple[float, float, str]], *, max_em: Optional[float]
                 stats["rebalanced"] += 1
             if wrap != "measured" and lines != measured:
                 stats["phrase_breaks"] += 1
+            marked = reinsert_srt_markup(text, lines) if plain != text else lines
             if len(lines) > max_lines:
                 chunks = [lines[i:i + max_lines] for i in range(0, len(lines), max_lines)]
                 weights = [max(1.0, sum(len(l) for l in c)) for c in chunks]
                 total_w = sum(weights)
+                pieces = carry_srt_markup(["\n".join(marked[i:i + max_lines])
+                                           for i in range(0, len(marked), max_lines)])
                 t = start
-                for chunk, weight in zip(chunks, weights):
+                for piece, weight in zip(pieces, weights):
                     seg = (end - start) * weight / total_w
-                    staged.append((t, min(end, t + seg), "\n".join(chunk)))
+                    staged.append((t, min(end, t + seg), piece))
                     staged_sizes.append(own_size)
                     t += seg
                 stats["split"] += len(chunks) - 1
                 continue
-            text = "\n".join(lines)
+            text = "\n".join(marked)
         staged.append((start, end, text))
         staged_sizes.append(own_size)
     out: List[Tuple[float, float, str]] = []
@@ -520,7 +801,7 @@ def parse_ass_cues(path: str) -> List[Tuple[float, float, str]]:
 
 
 def cue_text_visible(text: str) -> bool:
-    return bool((text or "").strip())
+    return bool(strip_srt_markup(text or "").strip())   # `<i></i>` draws nothing
 
 
 def count_visible_cues(cues, duration) -> Tuple[int, int]:
@@ -600,6 +881,17 @@ def _karaoke_word_durations(args, video: Optional[str], start: float, end: float
     return durs
 
 
+# an override block this file wrote (a converted SRT tag), not the escaped `\{` a user typed
+_OVERRIDE_BLOCK_RE = re.compile(r"(?<!\\)\{\\[^{}]*\}")
+
+
+def _karaoke_word(token: str) -> bool:
+    """Does this space-separated Dialogue token hold something a viewer reads? An emoji
+    placeholder does not, and neither does a lone converted tag (`{\\i1}` from `<i> Hello`):
+    neither gets a share of the cue's time or a highlight of its own."""
+    return bool(_OVERRIDE_BLOCK_RE.sub("", token).strip(EMOJI_SENTINEL))
+
+
 def write_ass(cues: List[Tuple[float, float, str]], path: str, args, play_w: int, play_h: int, video: str = None) -> None:
     """Write a styled ASS file with optional animation and word-by-word highlight."""
     def t(sec: float) -> str:
@@ -623,6 +915,7 @@ def write_ass(cues: List[Tuple[float, float, str]], path: str, args, play_w: int
     word_active = ass_color(args.highlight_color)
     word_upcoming = ass_color(args.upcoming_color)
     word_bord = f"{args.outline * scale * (max(1.0, args.karaoke_scale) / 100.0):.2f}"
+    style_bord = f"{args.outline * scale:.2f}"
     word_scale = int(round(args.karaoke_scale))
     # --karaoke-style word emits one Dialogue per word carrying the WHOLE cue with explicit \N
     # breaks (the layout's own fixed line list -- see max_line_em's docstring). WrapStyle: 2 tells
@@ -647,7 +940,9 @@ def write_ass(cues: List[Tuple[float, float, str]], path: str, args, play_w: int
         # escapes for the braces, so 1.15 escapes them (ass_escape) rather than deleting them:
         # a cue that says "use {curly} braces" is read out with its braces, and still cannot open
         # an override block. Newlines become \N in the same pass.
-        text = ass_escape(text)
+        # SRT markup is the exception: <i>/<b>/<u>/<s>, <font color> and {\anN} become the
+        # overrides ffmpeg's SRT reader gives them, so this route draws what the plain one draws
+        text = ass_escape_markup(text, colour=not args.karaoke)
         fx = ""
         if args.animate == "fade":
             fx = "{\\fad(200,200)}"
@@ -674,7 +969,7 @@ def write_ass(cues: List[Tuple[float, float, str]], path: str, args, play_w: int
             # the active word's larger \fscx/\fscy, which is the jump the issue is filed against.
             line_words = [[w for w in seg.split(" ") if w] for seg in body.split("\\N")]
             flat = [w for lw in line_words for w in lw]
-            real_idx = [i for i, w in enumerate(flat) if w.strip(EMOJI_SENTINEL)]
+            real_idx = [i for i, w in enumerate(flat) if _karaoke_word(w)]
             if not real_idx:
                 # nothing to highlight (an all-emoji or empty cue) -- one plain event, same as
                 # today's karaoke-off rendering, rather than zero Dialogue lines for this cue
@@ -698,15 +993,18 @@ def write_ass(cues: List[Tuple[float, float, str]], path: str, args, play_w: int
                 for lw in line_words:
                     styled_line = []
                     for w in lw:
-                        if not w.strip(EMOJI_SENTINEL):
+                        if not _karaoke_word(w):
                             styled_line.append(w)
                         else:
                             rank = real_idx.index(flat_pos)
                             if rank < j:
                                 styled_line.append(f"{{\\c{word_past}}}{w}")
                             elif rank == j:
+                                # put back what the active word changed, not {\r}: a reset would
+                                # also drop the cue's own <i>/<b>/colour and a --fit-size \fs
                                 styled_line.append(
-                                    f"{{\\c{word_active}\\fscx{word_scale}\\fscy{word_scale}\\bord{word_bord}}}{w}{{\\r}}")
+                                    f"{{\\c{word_active}\\fscx{word_scale}\\fscy{word_scale}\\bord{word_bord}}}{w}"
+                                    f"{{\\fscx100\\fscy100\\bord{style_bord}}}")
                             else:
                                 styled_line.append(f"{{\\c{word_upcoming}}}{w}")
                         flat_pos += 1
@@ -723,7 +1021,7 @@ def write_ass(cues: List[Tuple[float, float, str]], path: str, args, play_w: int
         if args.karaoke:
             # split each line into words and give every word an equal share of the cue (\k is in centiseconds)
             segments = body.split("\\N")
-            words = [w for seg in segments for w in seg.split(" ") if w and w.strip(EMOJI_SENTINEL)]
+            words = [w for seg in segments for w in seg.split(" ") if w and _karaoke_word(w)]
             durs = _karaoke_word_durations(args, video, start, end, len(words))
             it = iter(durs)
             out_segments = []
@@ -733,7 +1031,7 @@ def write_ass(cues: List[Tuple[float, float, str]], path: str, args, play_w: int
                 # past the reserved gap without spending cue time on a glyph nobody sees (rendered
                 # and confirmed -- libass keeps the full gap inside a karaoke run).
                 out_segments.append(" ".join(
-                    ("{\\kf0}" + w) if not w.strip(EMOJI_SENTINEL) else f"{{\\kf{next(it)}}}{w}" for w in ws))
+                    ("{\\kf0}" + w) if not _karaoke_word(w) else f"{{\\kf{next(it)}}}{w}" for w in ws))
             body = "\\N".join(out_segments)
         if EMOJI_SENTINEL in body:
             body = body.replace(EMOJI_SENTINEL, emoji_placeholder(getattr(args, "_emoji_box_px", size)))
@@ -827,6 +1125,23 @@ def track_title_for(code: Optional[str], given: Optional[str]) -> Optional[str]:
     if not code:
         return None
     return LANG_TITLES.get(code.split("-")[0].lower(), code)
+
+
+# a timing line in the grammar ffmpeg's SRT demuxer and parse_srt() read alike: hours, minutes,
+# seconds and three-digit milliseconds on both sides (ffmpeg allows position fields after it)
+_SHARED_SRT_TIMING = re.compile(r"^\s*\d{2,}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{2,}:\d{2}:\d{2}[,.]\d{3}(\s.*)?$")
+
+
+def srt_timings_shared_grammar(path: str) -> bool:
+    """True when every timing line of the SRT at `path` reads the same to ffmpeg's SRT demuxer as
+    to parse_srt(). ffmpeg refuses `00:01,000` (no hours) and reads `00:00:01,5` as 1.005 s, where
+    parse_srt() reads 1.5 s; such a file is handed to ffmpeg as a rewritten copy."""
+    text = read_text_or_die(path, "--srt").lstrip("﻿").replace("\r\n", "\n")
+    # a cue's timing line is its first line with "-->", as parse_srt() reads it (and ffmpeg too);
+    # a later line holding "-->" is dialogue, not a timing this check should judge
+    blocks = [[ln for ln in b.split("\n") if ln.strip()] for b in re.split(r"\n\s*\n", text)]
+    timings = [next((ln for ln in b if "-->" in ln), None) for b in blocks]
+    return all(_SHARED_SRT_TIMING.match(line) for line in timings if line is not None)
 
 
 def mux_subtitle_codec(output: str) -> str:
@@ -1125,7 +1440,7 @@ def main() -> int:
             # viewer sees and would silently change the SRT this run writes, so the mux path is
             # left exactly as 1.16 wrote it.
             return
-        fit = fit_size(cue_list, **fit_params())
+        fit = fit_size([(s, e, strip_srt_markup(t)) for s, e, t in cue_list], **fit_params())
         fit_stats["size_used"] = fit["size"]
         fit_stats["size_source"] = "platform-frame" if planned_frame else "input"
         fit_stats["shrunk"] = fit["shrunk"]
@@ -1281,9 +1596,14 @@ def main() -> int:
     planned_cues: Optional[List[Tuple[float, float, str]]] = None
     side_notes: List[str] = []
     ass_sample_path = args.ass
+    normalised_only = False  # srt_path is a copy of the caller's SRT that only rewrites its timings
     if args.srt and not (args.text or args.transcribe) and os.path.exists(srt_path or ""):
         adjusted, changed = lay_out(parse_srt(srt_path))
-        if changed:
+        # ffmpeg's own SRT reader takes a narrower grammar than parse_srt(): a time without hours
+        # is refused and ",5" is read as 5 ms where this tool reads 500. A file outside the grammar
+        # both share goes to ffmpeg as the copy this tool writes, so it gets the cues counted here.
+        normalised_only = not changed and not srt_timings_shared_grammar(srt_path)
+        if changed or normalised_only:
             new_srt = os.path.splitext(output)[0] + "_adjusted.srt"
             claim([new_srt])
             if STATE.dry_run:
@@ -1293,8 +1613,11 @@ def main() -> int:
                 info(f"wrote {new_srt} ({len(adjusted)} cues, adjusted from {os.path.basename(srt_path)})")
             srt_path = new_srt
             planned_cues = adjusted
-            side_notes.append(f"the burned subtitles are {new_srt}, the adjusted copy of "
-                              f"{os.path.basename(args.srt)} this run writes (--offset/--max-lines/--min-duration)"
+            why = ("--offset/--max-lines/--min-duration" if changed else
+                   "its timings rewritten as hh:mm:ss,mmm, which ffmpeg reads as this tool does")
+            side_notes.append(f"the {'muxed' if args.mode == 'mux' else 'burned'} subtitles are "
+                              f"{new_srt}, the adjusted copy of {os.path.basename(args.srt)} this run "
+                              f"writes ({why})"
                               + ("; re-run this command without --dry-run to produce it" if STATE.dry_run else ""))
     if args.ass and args.offset and os.path.exists(args.ass):
         shifted = os.path.splitext(output)[0] + "_offset.ass"
@@ -1328,6 +1651,18 @@ def main() -> int:
         for path, _lang in added[1:]:
             if not os.path.exists(path) and not STATE.dry_run:
                 die(f"SRT file not found: {path}")
+        for n in range(1, len(added)):
+            path, lang = added[n]
+            if os.path.exists(path) and not srt_timings_shared_grammar(path):
+                # the same rule as the first track: ffmpeg is given what parse_srt() reads
+                copy = f"{os.path.splitext(output)[0]}_track{n}.srt"
+                claim([copy])
+                if not STATE.dry_run:
+                    write_srt(parse_srt(path), copy)
+                    info(f"wrote {copy} (timings of {os.path.basename(path)} rewritten as hh:mm:ss,mmm)")
+                side_notes.append(f"subtitle track {n} is {copy}, a copy of {os.path.basename(path)} "
+                                  "with its timings rewritten as hh:mm:ss,mmm, which ffmpeg reads as this tool does")
+                added[n] = (copy, lang)
         titles = list(args.track_title or [])
         mp4_family = Path(output).suffix.lower() in (".mp4", ".m4v", ".mov")
         dropped_titles: List[str] = []
@@ -1466,7 +1801,8 @@ def main() -> int:
             cues if (args.text or args.transcribe) else (
                 planned_cues if planned_cues is not None else parse_srt(srt_path)))
         if args.karaoke and not getattr(args, "_word_timings", None):
-            args._word_timings = whisper_word_timings(srt_path)
+            # a copy that only rewrote the timings keeps the caller's word-timing JSON beside it
+            args._word_timings = whisper_word_timings(args.srt if normalised_only else srt_path)
         ass_path = args.write_ass or os.path.splitext(output)[0] + ".ass"
         claim([ass_path])
         w, h = meta["video"]["width"], meta["video"]["height"]
@@ -1538,7 +1874,7 @@ def main() -> int:
             f"Outline={args.outline:g}",
             f"Shadow={args.shadow:g}",
             f"Bold={-1 if args.bold else 0}",
-            f"Alignment={ALIGN[args.position]}",
+            f"Alignment={FORCE_STYLE_ALIGN[args.position]}",
             f"MarginV={args.margin}",
         ]
         force = ",".join(style).replace("\\", "\\\\").replace("'", "\\'")
