@@ -472,7 +472,20 @@ export default {
   cancelled: 'Cancelado',
   fileCheckpoint: 'Ponto de verificação de arquivo',
   rewindFiles: 'Reverter arquivos',
-  rewindConfirm: 'Reverter arquivos para este ponto de verificação?',
+  rewindConfirm:
+    'Restaurar os arquivos rastreados ao estado anterior a este turno?',
+  activityTurn: 'Turno {count}',
+  rewindTurn: 'Reverter arquivos para antes deste turno',
+  rewindScope:
+    'Apenas alterações feitas com as ferramentas de arquivo do Claude são rastreadas. Alterações no terminal não estão incluídas.',
+  rewindPreviewLoading: 'Verificando quais arquivos seriam alterados…',
+  rewindPreviewFiles: '{count} arquivos seriam alterados',
+  rewindPreviewEmpty: 'Nenhum arquivo rastreado seria alterado.',
+  rewindApplying: 'Revertendo arquivos…',
+  rewindComplete: 'Arquivos revertidos.',
+  rewindSkippedLinks:
+    '{count} arquivos vinculados foram ignorados por segurança.',
+  rewindError: 'Não foi possível reverter os arquivos.',
   subAgentRunning: 'Em execução',
   subAgentCompleted: 'Concluído',
   subAgentFailed: 'Falhou',

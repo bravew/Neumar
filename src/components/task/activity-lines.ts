@@ -1,6 +1,7 @@
 import { toDisplayPath } from '@/shared/lib/toDisplayPath';
 
 export type ActivityKind =
+  | 'turn'
   | 'read'
   | 'write'
   | 'edit'
@@ -15,6 +16,8 @@ export interface ActivityEvent {
   type: string;
   name?: string;
   id?: string;
+  messageRowId?: number;
+  content?: string;
   input?: unknown;
   permission?: {
     description?: string;
@@ -26,6 +29,7 @@ export interface ActivityEvent {
 export interface ActivityLine {
   id: string;
   kind: ActivityKind;
+  messageRowId?: number;
   /** Short name shown in the sentence (display path, command, url, or tool). */
   label: string;
   /** Absolute path used by open, reveal, and copy. */
@@ -88,6 +92,20 @@ export function mapActivityLines(
   const lines: ActivityLine[] = [];
 
   messages.forEach((message, index) => {
+    if (message.type === 'user') {
+      lines.push({
+        id: `turn-${
+          message.messageRowId != null
+            ? `row-${message.messageRowId}`
+            : `index-${index}`
+        }`,
+        kind: 'turn',
+        messageRowId: message.messageRowId,
+        label: message.content?.trim() ?? '',
+        linksToDiff: false,
+      });
+      return;
+    }
     if (message.type === 'permission_request') {
       const description = message.permission?.description?.trim();
       if (!description) return;

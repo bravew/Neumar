@@ -147,6 +147,8 @@ export interface AgentMessage {
   content?: string;
   name?: string;
   id?: string; // tool_use id
+  /** Persisted message row, used to match a user turn to its SDK file checkpoint. */
+  messageRowId?: number;
   input?: unknown;
   subtype?: string;
   cost?: number;

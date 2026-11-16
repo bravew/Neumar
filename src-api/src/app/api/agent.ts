@@ -28,6 +28,13 @@ import {
 import { DEFAULT_AGENT_PROVIDER } from '@/config/constants';
 
 import {
+  latestUserMessageRowId,
+  getAgentFileCheckpoint,
+  hasUnrecordedUserTurnsSince,
+  listAgentFileCheckpoints,
+  recordAgentFileCheckpoint,
+} from '@/shared/db/agent-file-checkpoints';
+import {
   getAgentResumeIdentity,
   resumeIdentityMismatch,
   upsertAgentResumeIdentity,
@@ -59,6 +66,7 @@ import {
   runExecutionPhase,
   runPlanningPhase,
 } from '@/shared/services/agent';
+import { rewindClaudeRunFiles } from '@/shared/services/branch-sdk-session';
 import {
   registerExternalMcpRunLauncher,
   registerExternalMcpRunSession,
@@ -429,6 +437,15 @@ function createSSEStream(
   const { taskId, model, profileId, agentRunId, resumeIdentity } = opts;
   const encoder = new TextEncoder();
   const streamInstanceId = crypto.randomUUID();
+  // Capture the user turn before another reply can arrive during a long run.
+  const checkpointMessageRowId =
+    taskId && resumeIdentity?.providerId === 'claude'
+      ? latestUserMessageRowId(taskId)
+      : null;
+  let checkpointUuid: string | undefined;
+  let checkpointSessionId: string | undefined;
+  let checkpointCwd: string | null = null;
+  let checkpointFailed = false;
 
   // ---------- Heartbeat for thinking phases ----------
   // Touch task updated_at periodically so frontend stuck detection doesn't
@@ -485,6 +502,16 @@ function createSSEStream(
 
           // Stamp trace metadata for trace viewer timeline
           const msg = filteredMessage as Record<string, unknown>;
+          if (checkpointMessageRowId) {
+            if (msg.type === 'error') checkpointFailed = true;
+            if (
+              msg.type === 'system' &&
+              msg.subtype === 'user_checkpoint' &&
+              typeof msg.id === 'string'
+            ) {
+              checkpointUuid ??= msg.id;
+            }
+          }
           if (!msg.startedAt) {
             msg.startedAt = new Date().toISOString();
           }
@@ -550,6 +577,11 @@ function createSSEStream(
               };
               const durableSessionId =
                 sessionMsg.resumeSessionId ?? sessionMsg.sessionId;
+              if (checkpointMessageRowId && durableSessionId) {
+                checkpointSessionId = durableSessionId;
+                checkpointCwd =
+                  sessionMsg.cwd ?? resumeIdentity?.workspaceRoot ?? null;
+              }
               if ((sessionMsg.cwd || durableSessionId) && taskId) {
                 try {
                   updateTask(taskId, {
@@ -656,6 +688,28 @@ function createSSEStream(
         if (taskId) {
           flushTextBuffer();
           taskSeqCounters.delete(taskId);
+          if (
+            streamSuccess &&
+            !checkpointFailed &&
+            checkpointMessageRowId &&
+            checkpointUuid &&
+            checkpointSessionId
+          ) {
+            try {
+              recordAgentFileCheckpoint({
+                taskId,
+                messageRowId: checkpointMessageRowId,
+                userMessageId: checkpointUuid,
+                sdkSessionId: checkpointSessionId,
+                cwd: checkpointCwd,
+              });
+            } catch (err) {
+              logger.warn(
+                'Failed to record file checkpoint:',
+                errorMessage(err),
+              );
+            }
+          }
         }
 
         // Signal queue manager so it can dequeue the next task for this profile
@@ -1560,10 +1614,22 @@ agentRoutes.post(
   },
 );
 
-// Rewind files to a specific checkpoint
+// Only Claude turns with a recorded SDK checkpoint can be rewound. The client
+// never supplies a session or workspace path for this filesystem operation.
+agentRoutes.get('/rewind/checkpoints/:taskId', (c) => {
+  const taskId = c.req.param('taskId');
+  if (!getDbTask(taskId)) return c.json({ error: 'Task not found' }, 404);
+  return c.json({
+    checkpoints: listAgentFileCheckpoints(taskId).map((checkpoint) => ({
+      messageRowId: checkpoint.messageRowId,
+      userMessageId: checkpoint.userMessageId,
+    })),
+  });
+});
+
 const RewindRequestSchema = z.object({
   taskId: z.string().min(1),
-  userMessageId: z.string().min(1),
+  userMessageId: z.string().uuid(),
   dryRun: z.boolean().optional().default(true),
 });
 
@@ -1572,82 +1638,77 @@ agentRoutes.post(
   zValidator('json', RewindRequestSchema),
   async (c) => {
     const body = c.req.valid('json');
-
-    logger.debug('POST /rewind received:', {
-      taskId: body.taskId,
-      userMessageId: body.userMessageId,
-      dryRun: body.dryRun,
-    });
-
-    // Try active query first (during execution)
-    const activeEntry = activeQueryStore.has(body.taskId);
-    if (activeEntry) {
-      const sessionId = activeQueryStore.getSessionId(body.taskId);
-      if (!sessionId) {
-        return c.json(
-          { error: 'Session not found for active task' },
-          404 as ContentfulStatusCode,
-        );
-      }
-      // Access the query object via the store's internal entries
-      // We need to expose the query through a getter
-      try {
-        const queryObj = activeQueryStore.getQuery(body.taskId);
-        if (!queryObj) {
-          return c.json(
-            { error: 'Active query not found' },
-            404 as ContentfulStatusCode,
-          );
-        }
-        const result = await queryObj.rewindFiles(body.userMessageId, {
-          dryRun: body.dryRun,
-        });
-        return c.json(result);
-      } catch (err) {
-        const msg = errorMessage(err);
-        logger.error('Rewind failed:', msg);
-        return c.json(
-          { canRewind: false, error: msg },
-          500 as ContentfulStatusCode,
-        );
-      }
+    const task = getDbTask(body.taskId);
+    if (!task)
+      return c.json({ canRewind: false, error: 'Task not found' }, 404);
+    if (task.status === 'running') {
+      return c.json({ canRewind: false, error: 'Task is running' }, 409);
+    }
+    const checkpoint = getAgentFileCheckpoint(body.taskId, body.userMessageId);
+    if (!checkpoint) {
+      return c.json({ canRewind: false, error: 'Checkpoint not found' }, 404);
     }
 
-    // Post-execution: resume session with empty prompt, then rewind
-    try {
-      const { query: sdkQuery } =
-        await import('@anthropic-ai/claude-agent-sdk/core');
-      const { getSetting } = await import('@/shared/db/operations');
-      const workDir = getSetting('workDir');
-      if (!workDir) {
-        return c.json(
-          { canRewind: false, error: 'No workspace directory configured' },
-          400 as ContentfulStatusCode,
-        );
-      }
-
-      const resumeQuery = sdkQuery({
-        prompt: '',
-        options: {
-          resume: body.taskId,
-          enableFileCheckpointing: true,
-          extraArgs: { 'replay-user-messages': null },
-          cwd: workDir,
-          abortController: new AbortController(),
+    if (hasUnrecordedUserTurnsSince(body.taskId, checkpoint.messageRowId)) {
+      return c.json(
+        {
+          canRewind: false,
+          error: 'A later turn has no Claude file checkpoint',
         },
-      });
+        409,
+      );
+    }
+    // Each main-branch run has its own SDK session. Rewind later runs first,
+    // then the selected turn, so every tracked edit after that turn is covered.
+    const runs = listAgentFileCheckpoints(body.taskId)
+      .filter((entry) => entry.messageRowId >= checkpoint.messageRowId)
+      .reverse();
+    const previewFiles = new Set<string>();
+    const filesChanged = new Set<string>();
+    try {
+      // Validate every checkpoint before the first write, including on a real rewind.
+      for (const run of runs) {
+        const check = await rewindClaudeRunFiles(
+          {
+            sdkSessionId: run.sdkSessionId,
+            promptSdkUuid: run.userMessageId,
+            cwd: run.cwd,
+          },
+          { dryRun: true },
+        );
+        if (!check.canRewind) return c.json(check, 409);
+        for (const file of check.filesChanged ?? []) previewFiles.add(file);
+      }
+      if (body.dryRun)
+        return c.json({ canRewind: true, filesChanged: [...previewFiles] });
 
-      const result = await resumeQuery.rewindFiles(body.userMessageId, {
-        dryRun: body.dryRun,
+      let skippedLinks = 0;
+      for (const run of runs) {
+        const result = await rewindClaudeRunFiles(
+          {
+            sdkSessionId: run.sdkSessionId,
+            promptSdkUuid: run.userMessageId,
+            cwd: run.cwd,
+          },
+          { dryRun: false },
+        );
+        if (!result.canRewind) {
+          return c.json({ ...result, filesChanged: [...filesChanged] }, 409);
+        }
+        for (const file of result.filesChanged ?? []) filesChanged.add(file);
+        skippedLinks += result.skippedLinks ?? 0;
+      }
+      return c.json({
+        canRewind: true,
+        filesChanged: [...filesChanged],
+        skippedLinks,
       });
-      resumeQuery.close();
-      return c.json(result);
     } catch (err) {
       const msg = errorMessage(err);
-      logger.error('Post-execution rewind failed:', msg);
+      logger.error('Rewind failed:', msg);
       return c.json(
-        { canRewind: false, error: msg },
-        500 as ContentfulStatusCode,
+        { canRewind: false, error: msg, filesChanged: [...filesChanged] },
+        500,
       );
     }
   },

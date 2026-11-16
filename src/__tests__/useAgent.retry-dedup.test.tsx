@@ -62,6 +62,20 @@ describe('useAgent retry de-duplication', () => {
     vi.clearAllMocks();
   });
 
+  it('keeps the persisted user row ID when loading a completed task', async () => {
+    vi.mocked(getMessagesByTaskId).mockResolvedValue([
+      dbMessage({ id: 42, type: 'user', content: 'Draft a launch note' }),
+    ]);
+    const { result } = renderHook(() => useAgent());
+    await act(async () => {
+      await result.current.loadTask('task-1');
+      await result.current.loadMessages('task-1');
+    });
+    expect(result.current.messages).toMatchObject([
+      { type: 'user', messageRowId: 42, content: 'Draft a launch note' },
+    ]);
+  });
+
   it('retries the last user turn without appending or persisting a duplicate', async () => {
     const failedRows = [
       dbMessage({ id: 1, type: 'user', content: 'Build app' }),
@@ -144,6 +158,7 @@ describe('useAgent retry de-duplication', () => {
     expect(result.current.messages).toHaveLength(2);
     expect(result.current.messages[0]).toMatchObject({
       content: 'Add button',
+      messageRowId: 99,
       type: 'user',
     });
     expect(result.current.messages[1]).toEqual({
@@ -158,6 +173,32 @@ describe('useAgent retry de-duplication', () => {
       }),
     );
     expect(deleteMessagesAfter).not.toHaveBeenCalled();
+  });
+
+  it('keeps the persisted row ID on the first turn of a direct run', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      sseResponse(
+        'data: {"type":"text","content":"done"}\n\ndata: {"type":"done"}\n\n',
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useAgent());
+    await act(async () => {
+      await result.current.runAgent(
+        'Build app',
+        'task-1',
+        undefined,
+        undefined,
+        '/tmp/neuma-test/task-1',
+      );
+    });
+
+    expect(result.current.messages[0]).toMatchObject({
+      content: 'Build app',
+      messageRowId: 99,
+      type: 'user',
+    });
   });
 });
 

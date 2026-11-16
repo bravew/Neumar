@@ -20,6 +20,10 @@ import type {
 } from '@/core/agent/types';
 
 import {
+  latestUserMessageRowId,
+  recordAgentFileCheckpoint,
+} from '@/shared/db/agent-file-checkpoints';
+import {
   getBranchForkPoint,
   getForkPointForMessage,
   getLatestBranchSdkSession,
@@ -215,6 +219,21 @@ export async function* withBranchSdkSessionRecording(
       promptSdkUuid,
       cwd,
     });
+    const messageRowId = latestUserMessageRowId(ctx.taskId, ctx.runId);
+    if (
+      ctx.provider === 'claude' &&
+      record.sdkSessionId &&
+      promptSdkUuid &&
+      messageRowId
+    ) {
+      recordAgentFileCheckpoint({
+        taskId: ctx.taskId,
+        messageRowId,
+        userMessageId: promptSdkUuid,
+        sdkSessionId: record.sdkSessionId,
+        cwd: cwd ?? null,
+      });
+    }
   } catch (err) {
     // Best-effort: without a record the branch keeps the text history path.
     logger.warn('Failed to record branch SDK session', {
@@ -254,7 +273,12 @@ export interface RestoreFilesResult {
 export type RewindRunFiles = (
   record: BranchSdkSessionRecord,
   options: { dryRun: boolean },
-) => Promise<{ canRewind: boolean; error?: string; filesChanged?: string[] }>;
+) => Promise<{
+  canRewind: boolean;
+  error?: string;
+  filesChanged?: string[];
+  skippedLinks?: number;
+}>;
 
 export class RestoreFilesError extends Error {
   constructor(
@@ -357,8 +381,11 @@ const REWIND_TIMEOUT_MS = 30_000;
  * stays open and empty, so the CLI answers the control request without
  * starting a turn (and without appending to the session).
  */
-async function rewindClaudeRunFiles(
-  record: BranchSdkSessionRecord,
+export async function rewindClaudeRunFiles(
+  record: Pick<
+    BranchSdkSessionRecord,
+    'sdkSessionId' | 'promptSdkUuid' | 'cwd'
+  >,
   { dryRun }: { dryRun: boolean },
 ): ReturnType<RewindRunFiles> {
   if (!record.sdkSessionId || !record.promptSdkUuid) {

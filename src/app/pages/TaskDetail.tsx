@@ -1726,6 +1726,7 @@ function TaskDetailContent() {
                       workingDir={workingDir}
                       filesVersion={filesVersion}
                       taskId={taskId}
+                      isRunning={isRunning}
                     />
                   </Panel>
                 </>
