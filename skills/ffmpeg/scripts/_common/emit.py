@@ -73,6 +73,11 @@ def emit(output: Optional[str], *, ctx: "Optional[Context]" = None, **extra: Any
     meta: Dict[str, Any] = {}
     if output and not ctx.dry_run:
         meta = verify_output(output)  # dies (status: failed, kind: output) if the artifact is unusable
+        if ctx.json:
+            # what the source carried that this output does not: named, not left as a silent gap
+            carry = source_carry(output)
+            if carry and "source_carry" not in extra:
+                extra["source_carry"] = carry
     if ctx.json:
         doc: Dict[str, Any] = {"status": "completed", "output": output, "dry_run": ctx.dry_run, "commands": list(ctx.commands)}
         if meta:
@@ -117,6 +122,10 @@ def _brief_summary(meta: Dict[str, Any], extra: Dict[str, Any]) -> Dict[str, Any
                        ("vcodec", video.get("codec")), ("acodec", audio.get("codec")), ("channels", audio.get("channels"))):
         if value is not None:
             summary[key] = value
+    # a value the output probe could not read is named here instead of being silently absent
+    unmeasured = (meta or {}).get("unmeasured")
+    if unmeasured:
+        summary["unmeasured"] = list(unmeasured)
     lufs = None
     for source, key in ((extra.get("result"), "input_i"), (extra.get("measured"), "input_i")):
         if lufs is None and isinstance(source, dict):
@@ -151,6 +160,75 @@ def _brief(doc: Dict[str, Any], meta: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(brief.get("emoji"), dict):
         brief["emoji"] = {k: v for k, v in brief["emoji"].items() if k in ("mode", "count")}
     return brief
+
+
+# The source items source_carry compares, in report order. Every one is content a viewer or
+# listener notices missing; a tag (a creation time, a language) is not listed because a tool is
+# allowed to drop one without changing the result.
+_CARRY_CONTENT = ("subtitles", "chapters", "cover_art", "attachments", "audio_channels", "video_streams")
+
+# A still image is a layer, not a source whose streams the output should carry: it has no
+# duration, and a tool that composites one onto a clip (overlay --image) must not look like a
+# second picture source that makes the comparison ambiguous.
+_STILL_EXT = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def source_carry(output: Optional[str]) -> "Optional[Dict[str, List[str]]]":
+    """What the first input carried besides its picture and sound, and whether the written file
+    still has it: {"kept": [...], "dropped": [...]}, or None when the source had none of it or the
+    two files are not comparable. Measured on the written file, so whichever tool, encoder or
+    FFmpeg build dropped an item is named instead of the result reporting `verified: true` with no
+    record of it. A report, not a check: `verified` is not changed.
+
+    Not compared: two or more picture or sound sources (which one's items the output should carry
+    is the tool's choice), a still image used as a layer (a logo, a title card), an output that is
+    not a media file, a still or an animated GIF, and an item bound to a stream the output does not
+    have at all (a sound-only extract has no subtitle track to lose, a picture-only output has no
+    audio channels, and an output with no picture cannot carry cover art -- including when the
+    source's own only "video" stream was that cover, as in an MP3 with an attached_pic)."""
+    from _common.probe import MEDIA_EXT, carry_inventory, input_paths
+    if not output:
+        return None
+    ext = os.path.splitext(output)[1].lower()
+    if ext not in MEDIA_EXT or ext in _STILL_EXT or ext == ".gif":
+        return None
+    own = os.path.realpath(output)
+    paths = [p for p in input_paths() if p != own]
+    # a still image is a layer, not the source the output should carry content from
+    sources = [p for p in paths if os.path.splitext(p)[1].lower() not in _STILL_EXT]
+    if not sources:
+        return None
+    src = carry_inventory(sources[0])
+    out = carry_inventory(output)
+    if not src or not out or os.path.realpath(sources[0]) == own:
+        return None
+    # several pictures or several sounds: which one's items the output should carry is the tool's
+    # own choice, so this comparison is not made
+    videos = [p for p in sources if (carry_inventory(p) or {}).get("has_video")]
+    audios = [p for p in sources if (carry_inventory(p) or {}).get("has_audio")]
+    if len(videos) > 1 or len(audios) > 1:
+        return None
+    kept: List[str] = []
+    dropped: List[str] = []
+    for item in _CARRY_CONTENT:
+        if not src.get(item):
+            continue
+        if item == "audio_channels" and src[item] <= 2:
+            continue  # mono and stereo are what every tool writes; only a surround layout can be folded down
+        if item == "video_streams" and src[item] <= 1:
+            continue  # one picture is what every tool writes; only a second one can be left out
+        if item in ("subtitles", "chapters", "attachments", "video_streams") and src["has_video"] and not out["has_video"]:
+            continue  # a video source reduced to a sound-only extract has none of these to carry
+        # cover art is a picture: an output with no picture at all (a sound-only extract, even when
+        # the source's only picture stream was the cover itself) cannot carry one, so it is not a loss
+        if item == "cover_art" and not (out["has_video"] or out["cover_art"]):
+            continue
+        if item == "audio_channels" and not out["has_audio"]:
+            continue
+        (kept if out.get(item, 0) >= src[item] else dropped).append(item)
+    if not kept and not dropped:
+        return None
+    return {"kept": kept, "dropped": dropped}
 
 
 PLAN_VERSION = 1

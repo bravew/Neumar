@@ -15,6 +15,15 @@ from _common.emit import die
 from _common.runner import STATE, dry_run_input_pending, require_tool, run, run_analysis
 
 
+# The streams probe() describes, as stream specifiers: its `video` is the first picture that is not
+# a cover (`V`), its `audio` the first sound stream. Without a -map, FFmpeg picks the largest
+# picture and the sound with the default disposition or the most channels, so on a file with two
+# of either a measuring helper read one stream while probe() described another. Every helper here
+# maps these, so its measurement belongs to the stream the probe document names.
+PROBED_VIDEO = "V:0"
+PROBED_AUDIO = "a:0"
+
+
 def fingerprint(path: str) -> Dict[str, Any]:
     """Size plus a sha256 over the first and last 8 MiB: enough to notice a re-export, a re-trim
     or a swapped file, cheap enough for a multi-GB source (hashing a whole master would make
@@ -45,7 +54,9 @@ def decode_pcm_mono(path: str, sample_rate: int, seconds: Optional[float] = None
     cmd += ["-i", path]
     if seconds is not None:
         cmd += ["-t", f"{seconds:.3f}"]
-    cmd += ["-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "-"]
+    # the first audio track, the one probe() describes (FFmpeg's default selection takes the
+    # track with the most channels)
+    cmd += ["-map", f"0:{PROBED_AUDIO}", "-vn", "-ac", "1", "-ar", str(sample_rate), "-f", "s16le", "-"]
     proc = run_analysis(cmd, check=False, text=False)
     if proc.returncode != 0 or not proc.stdout:
         if check:
@@ -94,7 +105,7 @@ def decode_gray_frames(path: str, fps: float, width: int, height: int, *, start:
     cmd += ["-i", path]
     if seconds is not None:
         cmd += ["-t", f"{max(0.0, seconds):.3f}"]
-    cmd += ["-vf", f"fps={fps:g},scale={width}:{height}:flags=area,format=gray",
+    cmd += ["-map", f"0:{PROBED_VIDEO}", "-vf", f"fps={fps:g},scale={width}:{height}:flags=area,format=gray",
             "-f", "rawvideo", "-"]
     proc = run_analysis(cmd, check=False, text=False)
     if proc.returncode != 0 or not proc.stdout:
@@ -132,6 +143,46 @@ def verify_output(path: str) -> Dict[str, Any]:
     if not meta.get("video") and not meta.get("audio"):
         _output_failed(path, "no video or audio stream")
     return meta
+
+
+def _unmeasured_fields(out: Dict[str, Any]) -> List[str]:
+    """Dotted paths of the measurements this probe could not read. A missing number is unknown,
+    never 0 or a default: naming it here is how a caller tells "not measured" from a measured
+    zero (a still has no duration; a raw elementary stream has no container bitrate)."""
+    fields: List[str] = []
+    for key in ("duration", "size_bytes", "bitrate"):
+        if out.get(key) is None:
+            fields.append(key)
+    video = out.get("video")
+    if video is not None:
+        for key in ("width", "height", "fps", "nb_frames", "duration", "bitrate"):
+            if video.get(key) is None:
+                fields.append("video." + key)
+    audio = out.get("audio")
+    if audio is not None:
+        for key in ("channels", "sample_rate", "bitrate", "duration"):
+            if audio.get(key) is None:
+                fields.append("audio." + key)
+    return fields
+
+
+# What each probed path carries besides its picture and sound, keyed by realpath: the inventory
+# emit()'s source_carry compares after a write. Kept beside the probe document, not in it, so no
+# existing key changes.
+_CARRY: Dict[str, Dict[str, Any]] = {}
+# Every path probed with role="input", in probe order. A tool that reads its own output back
+# (cut.py measures the cut it wrote) is not a second source; source_carry excludes the output.
+_INPUT_PATHS: List[str] = []
+
+
+def carry_inventory(path: str) -> "Optional[Dict[str, Any]]":
+    """The carry-over items probe() last read off `path`, or None when it was not probed."""
+    return _CARRY.get(os.path.realpath(path)) if path else None
+
+
+def input_paths() -> List[str]:
+    """Every path this process probed as an input, in probe order, deduplicated."""
+    return list(_INPUT_PATHS)
 
 
 def probe(path: str, role: str = "input") -> Dict[str, Any]:
@@ -211,6 +262,12 @@ def probe(path: str, role: str = "input") -> Dict[str, Any]:
         "audio": None,
         "subtitle_streams": len(subs),
         "data_streams": data_stream_count,
+        # how many picture and sound streams the file carries (a cover picture is not a video
+        # stream). The stream this document describes is one of them, named by stream_index.
+        "stream_counts": {
+            "video": sum(1 for s in streams if s.get("codec_type") == "video" and s.get("disposition", {}).get("attached_pic", 0) == 0),
+            "audio": sum(1 for s in streams if s.get("codec_type") == "audio"),
+        },
         # container-level chapter markers and the common tags, so metadata.py's result is
         # verifiable the same way every other tool's is (additive keys, 1.x-safe)
         "chapters": [{
@@ -255,6 +312,9 @@ def probe(path: str, role: str = "input") -> Dict[str, Any]:
             hdr = True
         hdr_signal = trc in ("smpte2084", "arib-std-b67") or bool(dovi)
         out["video"] = {
+            # the ffprobe stream index of the picture this document describes, so a caller can
+            # name that stream (-map 0:<index>) instead of assuming FFmpeg's default selection
+            "stream_index": video.get("index"),
             "codec": video.get("codec_name"),
             "profile": video.get("profile"),
             "width": w,
@@ -289,6 +349,7 @@ def probe(path: str, role: str = "input") -> Dict[str, Any]:
         }
     if audio:
         out["audio"] = {
+            "stream_index": audio.get("index"),
             "codec": audio.get("codec_name"),
             "channels": _to_int(audio.get("channels")),
             "channel_layout": audio.get("channel_layout"),
@@ -306,6 +367,20 @@ def probe(path: str, role: str = "input") -> Dict[str, Any]:
             "language": (a.get("tags") or {}).get("language"),
             "title": (a.get("tags") or {}).get("title"),
         } for n, a in enumerate(s for s in streams if s.get("codec_type") == "audio")]
+    out["unmeasured"] = _unmeasured_fields(out)
+    real = os.path.realpath(path)
+    if role == "input" and real not in _INPUT_PATHS:
+        _INPUT_PATHS.append(real)
+    _CARRY[real] = {
+        "subtitles": len(subs),
+        "chapters": len(raw.get("chapters") or []),
+        "cover_art": sum(1 for s in streams if s.get("codec_type") == "video" and s.get("disposition", {}).get("attached_pic", 0)),
+        "attachments": sum(1 for s in streams if s.get("codec_type") == "attachment"),
+        "video_streams": sum(1 for s in streams if s.get("codec_type") == "video"
+                             and not s.get("disposition", {}).get("attached_pic", 0)),
+        "audio_channels": (_to_int(audio.get("channels")) or 0) if audio else 0,
+        "has_video": bool(video), "has_audio": bool(audio),
+    }
     return out
 
 
@@ -347,10 +422,11 @@ def measured_level_dbfs(path: str, seconds: Optional[float] = 120.0,
                         audio_stream: Optional[int] = None) -> Optional[Dict[str, float]]:
     """Mean and peak level of the first `seconds` of audio (volumedetect), in dBFS; None if unmeasurable.
     Cheap enough to run once as a hint when a threshold-based tool found nothing. seconds=None
-    measures the whole file; audio_stream picks the Nth audio stream (default: ffmpeg's choice)."""
+    measures the whole file; audio_stream picks the Nth audio stream (default: the first, the one
+    probe() describes; FFmpeg's own choice was the track with the most channels)."""
     ffmpeg = require_tool("ffmpeg")
     head = ["-t", f"{seconds:.0f}"] if seconds is not None else []
-    pick = ["-map", f"0:a:{audio_stream}"] if audio_stream is not None else []
+    pick = ["-map", f"0:a:{audio_stream or 0}"]
     proc = run_analysis([ffmpeg, "-hide_banner", "-nostdin", *head, "-i", path, *pick, "-vn",
                          "-af", "volumedetect", "-f", "null", "-"], check=False)
     m_mean = re.search(r"mean_volume:\s*(-?[0-9.]+) dB", proc.stderr)
@@ -367,7 +443,7 @@ def analyze_levels(path: str, seconds: float = 20.0) -> Dict[str, Any]:
     white below ~235 with low saturation: the image looks grey and flat but is tagged as plain SDR.
     """
     ffmpeg = require_tool("ffmpeg")
-    cmd = [ffmpeg, "-hide_banner", "-nostdin", "-t", f"{seconds:.1f}", "-i", path, "-an",
+    cmd = [ffmpeg, "-hide_banner", "-nostdin", "-t", f"{seconds:.1f}", "-i", path, "-map", f"0:{PROBED_VIDEO}", "-an",
            "-vf", "fps=2,signalstats,metadata=print:file=-", "-f", "null", "-"]
     proc = run_analysis(cmd, check=False)
     vals: Dict[str, List[float]] = {}
@@ -449,7 +525,7 @@ def detect_silences(path: str, threshold: float, min_silence: float) -> "List[Tu
     if dry_run_input_pending(path):
         return []
     ffmpeg = require_tool("ffmpeg")
-    cmd = [ffmpeg, "-hide_banner", "-nostdin", "-i", path, "-vn", "-af",
+    cmd = [ffmpeg, "-hide_banner", "-nostdin", "-i", path, "-map", f"0:{PROBED_AUDIO}", "-vn", "-af",
            f"silencedetect=noise={threshold}dB:d={min_silence}", "-f", "null", "-"]
     proc = run_analysis(cmd, check=False, record=True)
     if proc.returncode != 0:
@@ -539,7 +615,7 @@ def detect_scenes(path: str, threshold: float, min_len: float, duration: float, 
     a real cut is a one-frame spike. On real footage this roughly doubles precision at
     equal recall compared with the raw scdet threshold."""
     ffmpeg = require_tool("ffmpeg")
-    proc = run_analysis([ffmpeg, "-hide_banner", "-nostdin", "-i", path, "-an", "-vf",
+    proc = run_analysis([ffmpeg, "-hide_banner", "-nostdin", "-i", path, "-map", f"0:{PROBED_VIDEO}", "-an", "-vf",
                          "scale=320:-2,scdet=threshold=0,metadata=print:file=-", "-f", "null", "-"])
     # No `sc_pass=1` on scdet: on FFmpeg 5.x that option means "pass only the frames whose
     # score exceeds the threshold", so every truly static frame (score exactly 0 -- a title
