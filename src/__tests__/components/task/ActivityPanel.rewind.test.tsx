@@ -172,6 +172,45 @@ describe('Activity rewind', () => {
     expect(rewindPosts(fetchMock)).toHaveLength(1);
   });
 
+  it('reports files changed when the apply fails partway', async () => {
+    stubFetch(
+      { checkpoints: [{ messageRowId: 42, userMessageId }] },
+      (dryRun) =>
+        dryRun
+          ? new Response(
+              JSON.stringify({
+                canRewind: true,
+                filesChanged: ['/work/task-session/draft.md'],
+              }),
+              { status: 200 },
+            )
+          : new Response(
+              JSON.stringify({
+                canRewind: false,
+                error: 'File restore timed out',
+                filesChanged: ['/work/task-session/draft.md'],
+              }),
+              { status: 409 },
+            ),
+    );
+    const onComplete = renderPanel();
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Rewind files to before this turn',
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Rewind files' }),
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '409: File restore timed out',
+    );
+    expect(
+      screen.getByText('Files changed before the error: 1'),
+    ).toBeInTheDocument();
+    expect(onComplete).toHaveBeenCalledOnce();
+  });
+
   it('displays the endpoint status and error when a preview fails', async () => {
     const fetchMock = stubFetch(
       { checkpoints: [{ messageRowId: 42, userMessageId }] },

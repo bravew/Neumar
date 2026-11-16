@@ -45,6 +45,7 @@ import {
   createSession as createDbSession,
   createTask as createDbTask,
   finishAgentRun,
+  getAgentRunsByTaskId,
   getSession as getDbSession,
   getSetting,
   getTask as getDbTask,
@@ -72,6 +73,10 @@ import {
   registerExternalMcpRunSession,
 } from '@/shared/services/external-mcp/run-commands';
 import { taskEventBus } from '@/shared/services/task-event-bus';
+import {
+  acquireTaskRewind,
+  TaskFileAccessConflictError,
+} from '@/shared/services/task-file-access';
 import { generateTitle } from '@/shared/services/title-generator';
 import { resolveBillingType } from '@/shared/services/usage-logger';
 import { errorMessage } from '@/shared/utils/errors';
@@ -1648,6 +1653,25 @@ agentRoutes.post(
     if (!checkpoint) {
       return c.json({ canRewind: false, error: 'Checkpoint not found' }, 404);
     }
+    // Durable check: a run started by another daemon process or before this
+    // process restarted can still be writing task files.
+    if (
+      getAgentRunsByTaskId(body.taskId).some((run) => run.status === 'running')
+    ) {
+      return c.json({ canRewind: false, error: 'A run is in progress' }, 409);
+    }
+    // Hold the task's files for the whole preview/apply sequence so no run
+    // start interleaves between the dry run and the restore.
+    let rewindGuard: Disposable;
+    try {
+      rewindGuard = acquireTaskRewind(body.taskId);
+    } catch (error) {
+      if (error instanceof TaskFileAccessConflictError) {
+        return c.json({ canRewind: false, error: error.message }, 409);
+      }
+      throw error;
+    }
+    using _rewind = rewindGuard;
 
     if (hasUnrecordedUserTurnsSince(body.taskId, checkpoint.messageRowId)) {
       return c.json(

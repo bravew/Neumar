@@ -26,6 +26,15 @@ interface Preview {
   skippedLinks?: number;
 }
 
+class RewindRequestError extends Error {
+  readonly filesChanged: string[];
+
+  constructor(message: string, filesChanged: string[]) {
+    super(message);
+    this.filesChanged = filesChanged;
+  }
+}
+
 async function rewindRequest(
   taskId: string,
   userMessageId: string,
@@ -40,8 +49,9 @@ async function rewindRequest(
   });
   const result = (await response.json()) as RewindResult;
   if (!response.ok || !result.canRewind) {
-    throw new Error(
+    throw new RewindRequestError(
       `${response.status}: ${result.error || response.statusText}`,
+      result.filesChanged ?? [],
     );
   }
   return result;
@@ -97,18 +107,22 @@ export function RewindPreviewDialog({
     setPreview({ ...preview, stage: 'applying' });
     try {
       const result = await rewindRequest(taskId, userMessageId, false);
+      // The filesystem changed even if the dialog was dismissed mid-apply.
+      onRewindComplete?.();
       if (request !== requestRef.current) return;
       setPreview({
         stage: 'done',
         filesChanged: result.filesChanged ?? filesChanged,
         skippedLinks: result.skippedLinks,
       });
-      onRewindComplete?.();
     } catch (error) {
+      const partial =
+        error instanceof RewindRequestError ? error.filesChanged : [];
+      if (partial.length > 0) onRewindComplete?.();
       if (request !== requestRef.current) return;
       setPreview({
         stage: 'error',
-        filesChanged,
+        filesChanged: partial.length > 0 ? partial : filesChanged,
         error: error instanceof Error ? error.message : rewindError,
       });
     }
@@ -152,9 +166,12 @@ export function RewindPreviewDialog({
         {preview.filesChanged.length > 0 && (
           <div>
             <p className="text-sm font-medium">
-              {tt('task.rewindPreviewFiles', {
-                count: preview.filesChanged.length,
-              })}
+              {tt(
+                preview.stage === 'error'
+                  ? 'task.rewindPartialFiles'
+                  : 'task.rewindPreviewFiles',
+                { count: preview.filesChanged.length },
+              )}
             </p>
             <ul className="border-border mt-2 max-h-64 space-y-1 overflow-y-auto rounded-md border p-3 text-sm">
               {preview.filesChanged.map((file) => (

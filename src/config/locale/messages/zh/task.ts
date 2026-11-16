@@ -468,6 +468,7 @@ export default {
   rewindScope: '仅跟踪通过 Claude 文件工具进行的更改，不包括命令行更改。',
   rewindPreviewLoading: '正在检查将更改的文件…',
   rewindPreviewFiles: '将更改 {count} 个文件',
+  rewindPartialFiles: '出错前已更改 {count} 个文件',
   rewindPreviewEmpty: '没有需要回退的已跟踪文件。',
   rewindApplying: '正在回退文件…',
   rewindComplete: '文件已回退。',

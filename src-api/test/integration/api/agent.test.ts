@@ -23,6 +23,7 @@ const mockListAgentFileCheckpoints = vi.fn().mockReturnValue([]);
 const mockGetAgentFileCheckpoint = vi.fn().mockReturnValue(null);
 const mockHasUnrecordedUserTurnsSince = vi.fn().mockReturnValue(false);
 const mockRewindClaudeRunFiles = vi.fn();
+const mockGetAgentRunsByTaskId = vi.fn().mockReturnValue([]);
 
 vi.mock('@/shared/db/agent-file-checkpoints', () => ({
   latestUserMessageRowId: (...args: unknown[]) =>
@@ -168,6 +169,8 @@ vi.mock('@/shared/db/operations', () => ({
   getSession: vi.fn().mockReturnValue(null),
   getSetting: vi.fn().mockReturnValue(null),
   getTask: (...args: unknown[]) => mockGetTask(...args),
+  getAgentRunsByTaskId: (...args: unknown[]) =>
+    mockGetAgentRunsByTaskId(...args),
   reserveAgentRun: vi.fn().mockImplementation((input) => ({
     disposition: 'created',
     run: { id: input.runId },
@@ -360,6 +363,7 @@ describe('Agent API', () => {
       mockListAgentFileCheckpoints.mockReturnValue([]);
       mockGetAgentFileCheckpoint.mockReturnValue(null);
       mockHasUnrecordedUserTurnsSince.mockReturnValue(false);
+      mockGetAgentRunsByTaskId.mockReturnValue([]);
       mockRewindClaudeRunFiles.mockReset();
     });
 
@@ -543,6 +547,35 @@ describe('Agent API', () => {
       expect(await failed.json()).toMatchObject({
         error: 'No checkpoint exists',
       });
+    });
+
+    it('refuses to rewind while a durable run is still marked running', async () => {
+      mockGetAgentFileCheckpoint.mockReturnValue(checkpoint);
+      mockGetAgentRunsByTaskId.mockReturnValueOnce([
+        { id: 'run-1', status: 'running' },
+      ]);
+      const { agentRoutes } = await import('@/app/api/agent');
+      const response = await agentRoutes.request(
+        jsonReq('/rewind', { taskId: 'task-rewind', userMessageId }),
+      );
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: 'A run is in progress',
+      });
+      expect(mockRewindClaudeRunFiles).not.toHaveBeenCalled();
+    });
+
+    it('refuses to rewind while another rewind holds the task', async () => {
+      mockGetAgentFileCheckpoint.mockReturnValue(checkpoint);
+      const { acquireTaskRewind } =
+        await import('@/shared/services/task-file-access');
+      using _rewind = acquireTaskRewind('task-rewind');
+      const { agentRoutes } = await import('@/app/api/agent');
+      const response = await agentRoutes.request(
+        jsonReq('/rewind', { taskId: 'task-rewind', userMessageId }),
+      );
+      expect(response.status).toBe(409);
+      expect(mockRewindClaudeRunFiles).not.toHaveBeenCalled();
     });
   });
 

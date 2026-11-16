@@ -474,6 +474,7 @@ export default {
     'केवल Claude फ़ाइल टूल से किए गए बदलाव ट्रैक होते हैं। शेल से किए गए बदलाव इसमें शामिल नहीं हैं।',
   rewindPreviewLoading: 'बदलने वाली फ़ाइलें जाँची जा रही हैं…',
   rewindPreviewFiles: '{count} फ़ाइलें बदलेंगी',
+  rewindPartialFiles: 'त्रुटि से पहले {count} फ़ाइलें बदल चुकी हैं',
   rewindPreviewEmpty: 'कोई ट्रैक की गई फ़ाइल नहीं बदलेगी।',
   rewindApplying: 'फ़ाइलें वापस लाई जा रही हैं…',
   rewindComplete: 'फ़ाइलें वापस आ गई हैं।',

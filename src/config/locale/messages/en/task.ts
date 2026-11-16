@@ -486,6 +486,7 @@ export default {
     'Only changes made with Claude file tools are tracked. Shell changes are not included.',
   rewindPreviewLoading: 'Checking which files would change…',
   rewindPreviewFiles: 'Files that would change: {count}',
+  rewindPartialFiles: 'Files changed before the error: {count}',
   rewindPreviewEmpty: 'No tracked files would change.',
   rewindApplying: 'Rewinding files…',
   rewindComplete: 'Files rewound.',

@@ -471,6 +471,7 @@ export default {
     'Solo se registran los cambios hechos con las herramientas de archivos de Claude. Los cambios de la terminal no se incluyen.',
   rewindPreviewLoading: 'Comprobando qué archivos cambiarían…',
   rewindPreviewFiles: 'Cambiarían {count} archivos',
+  rewindPartialFiles: 'Se cambiaron {count} archivos antes del error',
   rewindPreviewEmpty: 'No cambiaría ningún archivo registrado.',
   rewindApplying: 'Revirtiendo archivos…',
   rewindComplete: 'Archivos revertidos.',

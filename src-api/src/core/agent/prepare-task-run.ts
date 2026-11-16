@@ -7,9 +7,11 @@ import {
 } from '@/core/agent/run-context';
 
 import {
+  AgentRunConflictError,
   type ReserveAgentRunResult,
   reserveAgentRun,
 } from '@/shared/db/operations';
+import { isTaskRewinding } from '@/shared/services/task-file-access';
 
 export interface PrepareTaskRunInput {
   taskId?: string;
@@ -46,6 +48,11 @@ export async function prepareTaskRun(
       pinnedSkills: input.pinnedSkills,
       reservation: undefined,
     };
+  }
+  if (isTaskRewinding(input.taskId)) {
+    throw new AgentRunConflictError(
+      'Task files are being rewound; start the run after the rewind finishes',
+    );
   }
   const context = await resolveRunContext({
     mode: 'task',

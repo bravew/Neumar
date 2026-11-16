@@ -480,6 +480,7 @@ export default {
     'Apenas alterações feitas com as ferramentas de arquivo do Claude são rastreadas. Alterações no terminal não estão incluídas.',
   rewindPreviewLoading: 'Verificando quais arquivos seriam alterados…',
   rewindPreviewFiles: '{count} arquivos seriam alterados',
+  rewindPartialFiles: '{count} arquivos foram alterados antes do erro',
   rewindPreviewEmpty: 'Nenhum arquivo rastreado seria alterado.',
   rewindApplying: 'Revertendo arquivos…',
   rewindComplete: 'Arquivos revertidos.',

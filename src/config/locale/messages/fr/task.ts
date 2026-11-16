@@ -471,6 +471,7 @@ export default {
     'Seules les modifications faites avec les outils de fichiers de Claude sont suivies. Les modifications via le terminal sont exclues.',
   rewindPreviewLoading: 'Vérification des fichiers qui seraient modifiés…',
   rewindPreviewFiles: '{count} fichiers seraient modifiés',
+  rewindPartialFiles: '{count} fichiers ont été modifiés avant l’erreur',
   rewindPreviewEmpty: 'Aucun fichier suivi ne serait modifié.',
   rewindApplying: 'Restauration des fichiers…',
   rewindComplete: 'Fichiers restaurés.',
