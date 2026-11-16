@@ -29,7 +29,11 @@ ADVANCE_EM = {"ja": 1.0, "zh": 1.0, "ko": 1.0, "th": 1.0, "hi": 0.7, "ar": 0.6, 
 # a word. A Thai run is therefore one atom, broken only at the spaces (or the manual `|`) the
 # writer put there; an over-long run stays long on its own line, the rule long Latin words
 # already follow.
-NO_SPACE_SCRIPTS = ("ja", "zh", "ko")
+# Korean is NOT here: it is written with spaces between words (eojeol), so a Hangul run is a word
+# like a Latin one -- broken at its spaces, and cut inside only by _slice_atom's escape hatch.
+# Per-character atoms broke `시작|을` and, once a pass moved the break, joined the halves with no
+# space (`그리고또`).
+NO_SPACE_SCRIPTS = ("ja", "zh")
 NO_BOUNDARY_SCRIPTS = ("th",)   # per-character breaking would chop words: keep the run whole
 
 
