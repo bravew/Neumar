@@ -29,6 +29,16 @@ const cases: {
   linksToDiff: boolean;
 }[] = [
   {
+    kind: 'turn',
+    event: {
+      type: 'user',
+      messageRowId: 42,
+      content: 'Write a summary',
+    },
+    label: 'Write a summary',
+    linksToDiff: false,
+  },
+  {
     kind: 'read',
     event: {
       type: 'tool_use',

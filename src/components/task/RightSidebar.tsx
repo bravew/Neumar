@@ -26,6 +26,7 @@ import { DetailsPanel } from './DetailsPanel';
 import { FilesPanel } from './FilesPanel';
 import type { WorkingFile } from './FileTreeItem';
 import type { ToolUsage } from './sidebar-bits';
+import { SidebarPanelTabs } from './SidebarPanelTabs';
 
 /** Check if an error message indicates a directory/file not found (non-error state) */
 function isNotFoundError(message: string): boolean {
@@ -417,6 +418,7 @@ export function RightSidebar({
   const { t } = useLanguage();
   const advancedMode = useSettingsValue().advancedMode;
   const [panel, setPanel] = useState<'activity' | 'files'>('activity');
+  const [rewindVersion, setRewindVersion] = useState(0);
   const [detailsOverride, setDetailsOverride] = useState<boolean | null>(null);
   const detailsOpen = detailsOverride ?? advancedMode;
   const [focusPath, setFocusPath] = useState<string | undefined>();
@@ -592,7 +594,7 @@ export function RightSidebar({
         clearTimeout(loadingTimeoutId);
       }
     };
-  }, [effectiveWorkingDir, filesVersion]);
+  }, [effectiveWorkingDir, filesVersion, rewindVersion]);
 
   // Get used skill names from messages (memoized to avoid recalculating on every render)
   const usedSkillNames = useMemo(
@@ -729,46 +731,24 @@ export function RightSidebar({
     setDetailsOverride(true);
   }, []);
 
+  const handleRewindComplete = useCallback(() => {
+    workingDirCacheRef.current = null;
+    setRewindVersion((version) => version + 1);
+    window.dispatchEvent(new CustomEvent('task-files-updated'));
+  }, []);
+
   return (
     <div className="bg-background flex h-full flex-col overflow-hidden">
-      <div
-        role="tablist"
-        aria-label={t.task.panelActivity}
-        className="border-border/50 flex shrink-0 gap-1 border-b px-3 py-2"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={panel === 'activity'}
-          className={
-            panel === 'activity'
-              ? 'bg-accent text-foreground rounded-md px-2.5 py-1 text-sm font-medium'
-              : 'text-muted-foreground hover:text-foreground rounded-md px-2.5 py-1 text-sm'
-          }
-          onClick={() => setPanel('activity')}
-        >
-          {t.task.panelActivity}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={panel === 'files'}
-          className={
-            panel === 'files'
-              ? 'bg-accent text-foreground rounded-md px-2.5 py-1 text-sm font-medium'
-              : 'text-muted-foreground hover:text-foreground rounded-md px-2.5 py-1 text-sm'
-          }
-          onClick={() => setPanel('files')}
-        >
-          {t.task.panelFiles}
-        </button>
-      </div>
+      <SidebarPanelTabs panel={panel} onSelect={setPanel} />
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         {panel === 'activity' ? (
           <ActivityPanel
             messages={messages}
             sessionRoot={effectiveWorkingDir}
             onOpenDiff={openDiff}
+            taskId={taskId}
+            isRunning={isRunning}
+            onRewindComplete={handleRewindComplete}
           />
         ) : (
           <FilesPanel

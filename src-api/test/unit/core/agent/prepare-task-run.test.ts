@@ -4,11 +4,13 @@ import { prepareTaskRun } from '@/core/agent/prepare-task-run';
 import { RunContextError } from '@/core/agent/run-context';
 
 import {
+  AgentRunConflictError,
   createSession,
   createTask,
   deleteTask,
   getAgentRun,
 } from '@/shared/db/operations';
+import { acquireTaskRewind } from '@/shared/services/task-file-access';
 
 import { defined } from '../../../helpers/defined';
 
@@ -54,5 +56,26 @@ describe('prepareTaskRun', () => {
         provider: 'claude',
       }),
     ).rejects.toBeInstanceOf(RunContextError);
+  });
+
+  it('refuses to reserve a run while the task files are being rewound', async () => {
+    const sessionId = crypto.randomUUID();
+    const taskId = crypto.randomUUID();
+    createSession({ id: sessionId, prompt: 'Rewind conflict' });
+    createTask({
+      id: taskId,
+      session_id: sessionId,
+      task_index: 0,
+      prompt: 'Rewind conflict',
+    });
+    using _rewind = acquireTaskRewind(taskId);
+    await expect(
+      prepareTaskRun({
+        taskId,
+        prompt: 'Rewind conflict',
+        provider: 'claude',
+      }),
+    ).rejects.toBeInstanceOf(AgentRunConflictError);
+    deleteTask(taskId);
   });
 });

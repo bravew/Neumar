@@ -733,6 +733,7 @@ export function useAgent(): UseAgentReturn {
 
           agentMessages.push({
             type: 'user' as const,
+            messageRowId: msg.id,
             content: msg.content || undefined,
             subtype: msg.subtype as AgentMessage['subtype'],
             attachments,
@@ -1448,12 +1449,21 @@ export function useAgent(): UseAgentReturn {
                 setFilesVersion((v) => v + 1);
               }
             }
-            await createMessage({
+            const saved = await createMessage({
               task_id: currentTaskId,
               type: 'user',
               content: prompt,
               attachments: attachmentRefs,
             });
+            // Tie the optimistic turn to its persisted row so Activity can
+            // match it to the run's file checkpoint without a full reload.
+            setMessages((prev) =>
+              prev.map((message) =>
+                message === userMessage
+                  ? { ...message, messageRowId: saved.id }
+                  : message,
+              ),
+            );
           } catch (error) {
             if (import.meta.env.DEV)
               console.error('Failed to save user message:', error);
@@ -2316,6 +2326,7 @@ export function useAgent(): UseAgentReturn {
       const resumeSessionId = options?.resumeSessionId;
       const effectiveAttachments = attachments ?? retryTarget?.attachments;
 
+      let optimisticUserMessage: AgentMessage | null = null;
       if (retryTarget) {
         // Retry reuses the existing user turn. Trim failed assistant/error
         // state so the new stream replaces it instead of appending after it.
@@ -2332,6 +2343,7 @@ export function useAgent(): UseAgentReturn {
               ? effectiveAttachments
               : undefined,
         };
+        optimisticUserMessage = userMessage;
         setMessages((prev) => [...prev, userMessage]);
       }
 
@@ -2367,13 +2379,25 @@ export function useAgent(): UseAgentReturn {
         if (retryTarget) {
           await deletePersistedRetryTail(currentTaskId, reply);
         } else {
-          await createMessage({
+          const saved = await createMessage({
             task_id: currentTaskId,
             type: 'user',
             content: reply,
             attachments: attachmentRefs,
             subtype,
           });
+          // Tie the optimistic turn to its persisted row so Activity can match
+          // it to the run's file checkpoint without a full reload.
+          if (optimisticUserMessage) {
+            const optimistic = optimisticUserMessage;
+            setMessages((prev) =>
+              prev.map((message) =>
+                message === optimistic
+                  ? { ...message, messageRowId: saved.id }
+                  : message,
+              ),
+            );
+          }
         }
       } catch (error) {
         if (import.meta.env.DEV) {

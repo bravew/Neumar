@@ -80,6 +80,7 @@ import {
 } from '@/shared/services/design-mode/artifact-quiet-close';
 import { withSessionContext } from '@/shared/services/session-context';
 import { taskEventBus } from '@/shared/services/task-event-bus';
+import { isTaskRewinding } from '@/shared/services/task-file-access';
 import { createLogger } from '@/shared/utils/logger';
 import { expandPath } from '@/shared/utils/paths';
 import {
@@ -947,6 +948,21 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
     throw error;
   }
   pinnedSkills = normalizedRunContext.supplementalSkillIds;
+
+  // A rewind owns the task's files until its apply loop ends; refuse the run
+  // before reserving it rather than letting the agent stream fail mid-start.
+  if (
+    normalizedRunContext.mode === 'task' &&
+    isTaskRewinding(effectiveTaskId)
+  ) {
+    return c.json(
+      {
+        error:
+          'Task files are being rewound; start the run after the rewind finishes',
+      },
+      409,
+    );
+  }
 
   let reservation;
   try {

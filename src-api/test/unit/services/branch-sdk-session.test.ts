@@ -6,6 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentMessage } from '@/core/agent/types';
 
 import { closeDatabase, DATABASE_MIGRATIONS, getDatabase } from '@/shared/db';
+import {
+  hasUnrecordedUserTurnsSince,
+  listAgentFileCheckpoints,
+} from '@/shared/db/agent-file-checkpoints';
 import { getLatestBranchSdkSession } from '@/shared/db/branch-sdk-sessions';
 import { migration as branchSdkSessionsMigration } from '@/shared/db/migrations/057_branch_sdk_sessions';
 import { runMigrations } from '@/shared/db/migrations/runner';
@@ -189,13 +193,46 @@ describe('branch SDK session migration', () => {
   it('is registered as the next migration version', () => {
     const versions = DATABASE_MIGRATIONS.map((m) => m.version);
     expect(versions).toContain(109);
-    expect(Math.max(...versions)).toBe(109);
+    expect(Math.max(...versions)).toBe(110);
   });
 });
 
 describe('branch SDK session resolution', () => {
   beforeEach(createTaskRow);
   afterEach(cleanup);
+
+  it('maps only Claude run prompts to their persisted user turns', async () => {
+    const userRow = insertMessage({ type: 'user', runId: 'checkpoint-run' });
+    insertMessage({ type: 'tool_result', runId: 'checkpoint-run' });
+    const promptUuid = randomUUID();
+    await recordRun({
+      branchId: 'main',
+      runId: 'checkpoint-run',
+      plan: { path: 'main' },
+      sdkSessionId: 'sdk-checkpoint',
+      promptUuid,
+    });
+    expect(listAgentFileCheckpoints(taskId)).toEqual([
+      {
+        taskId,
+        messageRowId: userRow,
+        userMessageId: promptUuid,
+        sdkSessionId: 'sdk-checkpoint',
+        cwd: '/work/session-1',
+      },
+    ]);
+
+    insertMessage({ type: 'user', runId: 'codex-run' });
+    await recordRun({
+      branchId: 'main',
+      runId: 'codex-run',
+      plan: { path: 'main' },
+      sdkSessionId: 'codex-session',
+      provider: 'codex',
+    });
+    expect(listAgentFileCheckpoints(taskId)).toHaveLength(1);
+    expect(hasUnrecordedUserTurnsSince(taskId, userRow)).toBe(true);
+  });
 
   it('keeps main on its existing per-run text history path', () => {
     expect(

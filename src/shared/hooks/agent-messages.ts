@@ -398,6 +398,7 @@ export function mapDbMessageToAgentMessage(msg: Message): AgentMessage {
 
   const result: AgentMessage = {
     type: msg.type as AgentMessage['type'],
+    messageRowId: msg.id,
     content: msg.content || undefined,
     name: msg.tool_name || undefined,
     input: parsedInput,

@@ -76,6 +76,7 @@ import { migration as migration054 } from './migrations/054_messages_is_error';
 import { migration as migration055 } from './migrations/055_external_mcp';
 import { migration as migration056 } from './migrations/056_reconcile_video_conversation_schema';
 import { migration as migration057 } from './migrations/057_branch_sdk_sessions';
+import { migration as migration058 } from './migrations/058_agent_file_checkpoints';
 import { runMigrations } from './migrations/runner';
 
 const logger = createLogger('Database');
@@ -142,6 +143,7 @@ export const DATABASE_MIGRATIONS = [
   migration055,
   migration056,
   migration057,
+  migration058,
 ];
 
 // Columns the hot request path hard-depends on, checked after migrations so a

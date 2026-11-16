@@ -48,6 +48,7 @@ import {
   autoCapture,
   type MemoryScope,
 } from '@/shared/services/memory/agent-hooks';
+import { acquireTaskRun } from '@/shared/services/task-file-access';
 import { normalizeGeminiBaseUrl } from '@/shared/utils/gemini';
 // ============================================================================
 // Logging - uses shared logger (writes to app data directory logs)
@@ -425,6 +426,7 @@ export async function* runPlanningPhase(
    */
   verbatimPrompt?: boolean,
 ): AsyncGenerator<AgentMessage> {
+  using _taskRun = acquireTaskRun(taskId);
   const agent = getAgent(modelConfig);
   const { systemContext, resolvedContext } = await buildRunContext(
     prompt,
@@ -503,6 +505,7 @@ export async function* runExecutionPhase(
   /** Set by schedule callers — see runPlanningPhase. */
   verbatimPrompt?: boolean,
 ): AsyncGenerator<AgentMessage> {
+  using _taskRun = acquireTaskRun(taskId);
   const agent = getAgent(modelConfig);
 
   const plan = getPlan(planId);
@@ -707,6 +710,7 @@ export async function* runAgent(
     branchSession,
   } = opts;
 
+  using _taskRun = acquireTaskRun(taskId);
   const agent = getAgent(modelConfig);
 
   const { systemContext, resolvedContext } = await buildRunContext(
@@ -872,6 +876,7 @@ export async function* runAgentResume(
   agentProfileId?: string,
   thinkingConfig?: ThinkingConfig,
 ): AsyncGenerator<AgentMessage> {
+  using _taskRun = acquireTaskRun(taskId);
   const agent = getAgent(modelConfig);
 
   const { systemContext, resolvedContext } = await buildRunContext(

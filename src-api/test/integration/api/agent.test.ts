@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { jsonReq } from '../../helpers/request-factory';
 
@@ -16,6 +16,31 @@ const mockGenerateTitle = vi.fn();
 const mockGetTask = vi.fn().mockImplementation((id: string) => ({
   id,
   work_dir: null,
+}));
+const mockLatestUserMessageRowId = vi.fn().mockReturnValue(null);
+const mockRecordAgentFileCheckpoint = vi.fn();
+const mockListAgentFileCheckpoints = vi.fn().mockReturnValue([]);
+const mockGetAgentFileCheckpoint = vi.fn().mockReturnValue(null);
+const mockHasUnrecordedUserTurnsSince = vi.fn().mockReturnValue(false);
+const mockRewindClaudeRunFiles = vi.fn();
+const mockGetAgentRunsByTaskId = vi.fn().mockReturnValue([]);
+
+vi.mock('@/shared/db/agent-file-checkpoints', () => ({
+  latestUserMessageRowId: (...args: unknown[]) =>
+    mockLatestUserMessageRowId(...args),
+  recordAgentFileCheckpoint: (...args: unknown[]) =>
+    mockRecordAgentFileCheckpoint(...args),
+  listAgentFileCheckpoints: (...args: unknown[]) =>
+    mockListAgentFileCheckpoints(...args),
+  getAgentFileCheckpoint: (...args: unknown[]) =>
+    mockGetAgentFileCheckpoint(...args),
+  hasUnrecordedUserTurnsSince: (...args: unknown[]) =>
+    mockHasUnrecordedUserTurnsSince(...args),
+}));
+
+vi.mock('@/shared/services/branch-sdk-session', () => ({
+  rewindClaudeRunFiles: (...args: unknown[]) =>
+    mockRewindClaudeRunFiles(...args),
 }));
 
 vi.mock('@/shared/services/agent', () => ({
@@ -144,6 +169,8 @@ vi.mock('@/shared/db/operations', () => ({
   getSession: vi.fn().mockReturnValue(null),
   getSetting: vi.fn().mockReturnValue(null),
   getTask: (...args: unknown[]) => mockGetTask(...args),
+  getAgentRunsByTaskId: (...args: unknown[]) =>
+    mockGetAgentRunsByTaskId(...args),
   reserveAgentRun: vi.fn().mockImplementation((input) => ({
     disposition: 'created',
     run: { id: input.runId },
@@ -317,6 +344,238 @@ describe('Agent API', () => {
         }),
       );
       expect(res.status).toBe(404);
+    });
+  });
+
+  // ---- File checkpoint preview and rewind ----
+
+  describe('file checkpoint rewind', () => {
+    const userMessageId = '20266436-aab4-4a9a-b582-ea82eed599b2';
+    const checkpoint = {
+      taskId: 'task-rewind',
+      messageRowId: 42,
+      userMessageId,
+      sdkSessionId: 'sdk-session',
+      cwd: '/work/task-session',
+    };
+
+    beforeEach(() => {
+      mockListAgentFileCheckpoints.mockReturnValue([]);
+      mockGetAgentFileCheckpoint.mockReturnValue(null);
+      mockHasUnrecordedUserTurnsSince.mockReturnValue(false);
+      mockGetAgentRunsByTaskId.mockReturnValue([]);
+      mockRewindClaudeRunFiles.mockReset();
+    });
+
+    it('records the first Claude prompt checkpoint against the saved user turn', async () => {
+      mockLatestUserMessageRowId.mockReturnValueOnce(42);
+      mockRecordAgentFileCheckpoint.mockClear();
+      mockRunAgent.mockReturnValueOnce(
+        (async function* () {
+          yield {
+            type: 'session',
+            sessionId: 'live',
+            resumeSessionId: 'sdk-session',
+            cwd: '/work/task-session',
+          };
+          yield {
+            type: 'system',
+            subtype: 'user_checkpoint',
+            id: userMessageId,
+            isProgress: true,
+          };
+          yield {
+            type: 'system',
+            subtype: 'user_checkpoint',
+            id: crypto.randomUUID(),
+            isProgress: true,
+          };
+          yield { type: 'done' };
+        })(),
+      );
+      const { agentRoutes } = await import('@/app/api/agent');
+      const response = await agentRoutes.request(
+        jsonReq('/', { prompt: 'Edit a file', taskId: 'task-rewind' }),
+      );
+      expect(response.status).toBe(200);
+      await response.text();
+      expect(mockRecordAgentFileCheckpoint).toHaveBeenCalledWith(checkpoint);
+    });
+
+    it('lists only recorded turns and refuses unknown checkpoint IDs', async () => {
+      mockListAgentFileCheckpoints.mockReturnValueOnce([checkpoint]);
+      const { agentRoutes } = await import('@/app/api/agent');
+      const list = await agentRoutes.request('/rewind/checkpoints/task-rewind');
+      expect(await list.json()).toEqual({
+        checkpoints: [{ messageRowId: 42, userMessageId }],
+      });
+      mockGetAgentFileCheckpoint.mockReturnValueOnce(null);
+      const missing = await agentRoutes.request(
+        jsonReq('/rewind', {
+          taskId: 'task-rewind',
+          userMessageId,
+          dryRun: false,
+        }),
+      );
+      expect(missing.status).toBe(404);
+      expect(mockRewindClaudeRunFiles).not.toHaveBeenCalled();
+    });
+
+    it('previews before applying against the recorded SDK session and workspace', async () => {
+      mockGetAgentFileCheckpoint.mockReturnValue(checkpoint);
+      mockListAgentFileCheckpoints.mockReturnValue([checkpoint]);
+      mockRewindClaudeRunFiles.mockResolvedValue({
+        canRewind: true,
+        filesChanged: ['/work/task-session/a.txt'],
+      });
+      const { agentRoutes } = await import('@/app/api/agent');
+      for (const dryRun of [true, false]) {
+        const response = await agentRoutes.request(
+          jsonReq('/rewind', {
+            taskId: 'task-rewind',
+            userMessageId,
+            dryRun,
+          }),
+        );
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({
+          canRewind: true,
+          filesChanged: ['/work/task-session/a.txt'],
+        });
+      }
+      expect(mockRewindClaudeRunFiles).toHaveBeenNthCalledWith(
+        1,
+        {
+          sdkSessionId: 'sdk-session',
+          promptSdkUuid: userMessageId,
+          cwd: '/work/task-session',
+        },
+        { dryRun: true },
+      );
+      expect(mockRewindClaudeRunFiles).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        { dryRun: true },
+      );
+      expect(mockRewindClaudeRunFiles).toHaveBeenNthCalledWith(
+        3,
+        expect.anything(),
+        { dryRun: false },
+      );
+    });
+
+    it('rewinds later Claude runs first and combines their previewed files', async () => {
+      const later = {
+        ...checkpoint,
+        messageRowId: 43,
+        userMessageId: crypto.randomUUID(),
+        sdkSessionId: 'sdk-later',
+      };
+      mockGetAgentFileCheckpoint.mockReturnValue(checkpoint);
+      mockListAgentFileCheckpoints.mockReturnValue([checkpoint, later]);
+      mockRewindClaudeRunFiles.mockImplementation(
+        async (record: { sdkSessionId: string }) => ({
+          canRewind: true,
+          filesChanged: [
+            record.sdkSessionId === 'sdk-later' ? 'later.md' : 'first.md',
+          ],
+        }),
+      );
+      const { agentRoutes } = await import('@/app/api/agent');
+      const preview = await agentRoutes.request(
+        jsonReq('/rewind', { taskId: 'task-rewind', userMessageId }),
+      );
+      expect(await preview.json()).toEqual({
+        canRewind: true,
+        filesChanged: ['later.md', 'first.md'],
+      });
+      const applied = await agentRoutes.request(
+        jsonReq('/rewind', {
+          taskId: 'task-rewind',
+          userMessageId,
+          dryRun: false,
+        }),
+      );
+      expect(applied.status).toBe(200);
+      expect(
+        mockRewindClaudeRunFiles.mock.calls.map(([record, options]) => [
+          record.sdkSessionId,
+          options.dryRun,
+        ]),
+      ).toEqual([
+        ['sdk-later', true],
+        ['sdk-session', true],
+        ['sdk-later', true],
+        ['sdk-session', true],
+        ['sdk-later', false],
+        ['sdk-session', false],
+      ]);
+    });
+
+    it('refuses an earlier turn when a later turn lacks a checkpoint', async () => {
+      mockGetAgentFileCheckpoint.mockReturnValue(checkpoint);
+      mockHasUnrecordedUserTurnsSince.mockReturnValueOnce(true);
+      const { agentRoutes } = await import('@/app/api/agent');
+      const response = await agentRoutes.request(
+        jsonReq('/rewind', {
+          taskId: 'task-rewind',
+          userMessageId,
+          dryRun: false,
+        }),
+      );
+      expect(response.status).toBe(409);
+      expect(mockRewindClaudeRunFiles).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a running task and failed SDK preview with their status', async () => {
+      mockGetTask.mockReturnValueOnce({ id: 'task-rewind', status: 'running' });
+      const { agentRoutes } = await import('@/app/api/agent');
+      const running = await agentRoutes.request(
+        jsonReq('/rewind', { taskId: 'task-rewind', userMessageId }),
+      );
+      expect(running.status).toBe(409);
+      mockGetAgentFileCheckpoint.mockReturnValueOnce(checkpoint);
+      mockListAgentFileCheckpoints.mockReturnValueOnce([checkpoint]);
+      mockRewindClaudeRunFiles.mockResolvedValueOnce({
+        canRewind: false,
+        error: 'No checkpoint exists',
+      });
+      const failed = await agentRoutes.request(
+        jsonReq('/rewind', { taskId: 'task-rewind', userMessageId }),
+      );
+      expect(failed.status).toBe(409);
+      expect(await failed.json()).toMatchObject({
+        error: 'No checkpoint exists',
+      });
+    });
+
+    it('refuses to rewind while a durable run is still marked running', async () => {
+      mockGetAgentFileCheckpoint.mockReturnValue(checkpoint);
+      mockGetAgentRunsByTaskId.mockReturnValueOnce([
+        { id: 'run-1', status: 'running' },
+      ]);
+      const { agentRoutes } = await import('@/app/api/agent');
+      const response = await agentRoutes.request(
+        jsonReq('/rewind', { taskId: 'task-rewind', userMessageId }),
+      );
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: 'A run is in progress',
+      });
+      expect(mockRewindClaudeRunFiles).not.toHaveBeenCalled();
+    });
+
+    it('refuses to rewind while another rewind holds the task', async () => {
+      mockGetAgentFileCheckpoint.mockReturnValue(checkpoint);
+      const { acquireTaskRewind } =
+        await import('@/shared/services/task-file-access');
+      using _rewind = acquireTaskRewind('task-rewind');
+      const { agentRoutes } = await import('@/app/api/agent');
+      const response = await agentRoutes.request(
+        jsonReq('/rewind', { taskId: 'task-rewind', userMessageId }),
+      );
+      expect(response.status).toBe(409);
+      expect(mockRewindClaudeRunFiles).not.toHaveBeenCalled();
     });
   });
 
