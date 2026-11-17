@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 
+
+## 26.11.16 — 2026-11-16
+
+### Added
+- **deps**: upgrade CopilotKit 1.88 and AG-UI 1.0 (#314) (#332)
+- **task**: rewind files to before an Activity turn (#330)
+- **video**: interactive transcript layer (epic #177) (#187)
+- **ffmpeg**: replace FFmpeg skill across task, chat, design, video (#175)
+
+### Fixed
+- **task**: keep a per-attempt file checkpoint for retried turns (#333)
+- **ffmpeg**: read SRT cues as ffmpeg does; keep symbols; wrap Korean (#329)
+- **video**: draw a split transcript word as one animated caption word (#328)
+- **deps**: clear in-major production audit advisories (#313)
+- **chat**: repair attach-by-path test mocks and toast assertion (#176)
+
+### Changed
+- **epic(290)**: make FFmpeg skill results match the selected media (#327)
+- **epic(292)**: keep transcript word timing editable (#316)
+- **epic(291)**: keep caption word and punctuation boundaries (#315)
+- **epic(289)**: keep the Design workspace's visible state (#321)
+- **epic(194)**: recurring maintenance and contributor quality policy (#284)
+- **epic(193)**: resolve architecture ownership and reduce the highest-risk modules (#283)
+- **epic(192)**: remove proven orphans and obsolete allowances (#282)
+- **epic(191)**: restore transcript and shell integration contracts (#281)
+- **epic(190)**: repair FFmpeg publication, cancellation, and permission priority (#280)
+- **epic(189)**: contain host execution and external I/O (#279)
+- **epic(188)**: reproducible merge gate and test isolation (#249)
+
 ## 26.10.1 — 2026-10-02
 
 ### Added
