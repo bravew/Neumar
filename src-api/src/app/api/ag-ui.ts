@@ -6,6 +6,7 @@ import type { BaseEvent } from '@ag-ui/core';
 import { EventEncoder } from '@ag-ui/encoder';
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 
@@ -48,8 +49,19 @@ import { AttachmentPromotionService } from '@/shared/services/ag-ui/attachment-p
 import { startDetachedAGUIRun } from '@/shared/services/ag-ui/detached-run';
 import { AGUIEmitter } from '@/shared/services/ag-ui/emitter';
 import { dbMessagesToFullAGUI } from '@/shared/services/ag-ui/history';
+import {
+  parseDecisionInterruptId,
+  ResumeSchema,
+} from '@/shared/services/ag-ui/interrupts';
 import { replayAGUIEvents } from '@/shared/services/ag-ui/journal';
 import { AGUIEventPersister } from '@/shared/services/ag-ui/persistence';
+import {
+  listPlanInterrupts,
+  parsePlanRun,
+  pendingPlanRun,
+  planInterruptForRun,
+  resolvePlanDecision,
+} from '@/shared/services/ag-ui/plan-decisions';
 import {
   canReconcilePendingDelivery,
   dbFileToAGUITaskFile,
@@ -468,6 +480,44 @@ async function* withPlanExecutionSteps(
   yield { type: 'step_finished', stepName: 'execution' };
 }
 
+/**
+ * A complete, empty run for a resume that decides not to execute anything
+ * (plan rejected or cancelled). Returning bare JSON would leave the client's
+ * pending interrupt open; a terminal run clears it.
+ */
+function terminalRunStream(
+  c: Context,
+  input: {
+    threadId: string;
+    runId: string;
+    outcome: 'success' | 'cancelled';
+  },
+): Response {
+  return streamSSE(c, async (stream) => {
+    const encoder = new EventEncoder({ accept: c.req.header('Accept') ?? '' });
+    const timestamp = Date.now();
+    await stream.write(
+      encoder.encode({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+        timestamp,
+      } as BaseEvent),
+    );
+    await stream.write(
+      encoder.encode({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+        timestamp,
+        ...(input.outcome === 'cancelled'
+          ? { outcome: { type: 'cancelled' } }
+          : {}),
+      } as BaseEvent),
+    );
+  });
+}
+
 // AG-UI protocol sends content as string or ContentBlock[] — accept both
 const messageContentSchema = z
   .union([z.string(), z.array(z.unknown())])
@@ -503,8 +553,13 @@ const runSchema = z.object({
   taskId: z.string().optional(),
   modelConfig: z.record(z.string(), z.unknown()).optional(),
   language: z.string().optional(),
-  /** CopilotKit forwarded props — contains command.resume for interrupt responses */
+  /** CopilotKit forwarded props — task id, work dir, model config, images */
   forwardedProps: z.record(z.string(), z.unknown()).optional(),
+  /**
+   * Standard AG-UI resume: answers to the interrupts that ended a previous
+   * run. CopilotKit sends this as a top-level field, not inside forwardedProps.
+   */
+  resume: ResumeSchema.optional(),
   /**
    * Image attachments injected by ModelAwareHttpAgent to bypass
    * toAgUiMessages() which strips image content blocks.
@@ -695,45 +750,120 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
     }
   }
 
-  // CopilotKit interrupt resume — resolve() sends a new run with
-  // forwardedProps.command.resume containing the user's response.
-  // For plan approval: look up the stored plan and run execution phase.
-  // For rejection: return immediately (plan discarded).
-  const command = forwardedProps?.command as { resume?: unknown } | undefined;
-  if (command?.resume) {
-    const resumeData = command.resume as Record<string, unknown>;
-    const approved = resumeData.approved === true;
-    logger.info('CopilotKit interrupt resume', {
-      taskId: effectiveTaskId,
-      threadId,
-      approved,
-    });
-
-    if (!approved) {
-      return c.json({ ok: true });
+  // Standard AG-UI resume — CopilotKit sends answers to the interrupts that
+  // ended a previous run as a top-level `resume` array.
+  //
+  // A plan decision starts the execution run. A decision whose continuation
+  // is a live SDK callback (tool permission, native AskUserQuestion) cannot be
+  // answered here: this request is a new run, and the runtime supersedes the
+  // live one before the route sees it. Those answers keep their live endpoint,
+  // and this route says so explicitly instead of dropping a pending reply.
+  const resumeEntries = c.req.valid('json').resume;
+  if (resumeEntries && resumeEntries.length > 0) {
+    const refs = resumeEntries.map((entry) => ({
+      entry,
+      ref: parseDecisionInterruptId(entry.interruptId),
+    }));
+    const unknown = refs.find((item) => item.ref === null);
+    if (unknown) {
+      return c.json(
+        {
+          error: `Unknown interrupt: ${unknown.entry.interruptId}`,
+          code: 'unknown_interrupt',
+        },
+        404,
+      );
+    }
+    const seen = new Set<string>();
+    for (const item of refs) {
+      if (seen.has(item.entry.interruptId)) {
+        return c.json(
+          {
+            error: `Interrupt answered twice: ${item.entry.interruptId}`,
+            code: 'duplicate_interrupt',
+          },
+          400,
+        );
+      }
+      seen.add(item.entry.interruptId);
     }
 
-    // Approved — find the latest pending plan for this task and run execution phase
-    const planRuns = getOrchestrationRunsByTaskId(effectiveTaskId);
-    const planRun = planRuns.find(
-      (r) => r.run_type === 'plan' && r.status === 'pending',
-    );
-    if (!planRun) {
-      logger.warn('Plan not found for approved interrupt', {
-        taskId: effectiveTaskId,
-      });
-      return c.json({ error: 'Plan not found' }, 404);
+    const planEntries = refs.filter((item) => item.ref?.kind === 'plan');
+    if (planEntries.length > 1) {
+      return c.json(
+        { error: 'A batch may answer one plan', code: 'multiple_plans' },
+        400,
+      );
+    }
+    if (planEntries.length === 1 && refs.length > 1) {
+      return c.json(
+        {
+          error: 'A plan decision cannot share a run with other decisions',
+          code: 'mixed_batch',
+        },
+        400,
+      );
+    }
+    if (planEntries.length === 0) {
+      return c.json(
+        {
+          error:
+            'This decision is waiting on a live run; answer it through its live endpoint',
+          code: 'continuation_requires_live_endpoint',
+          interruptIds: resumeEntries.map((entry) => entry.interruptId),
+        },
+        409,
+      );
     }
 
+    const outcome = resolvePlanDecision(effectiveTaskId, planEntries[0]!.entry);
+    switch (outcome.kind) {
+      case 'unknown':
+        return c.json(
+          { error: 'Plan not found', code: 'unknown_interrupt' },
+          404,
+        );
+      case 'wrong_thread':
+        return c.json(
+          {
+            error: 'This decision belongs to another task',
+            code: 'wrong_thread',
+          },
+          409,
+        );
+      case 'already_resolved':
+        return c.json(
+          {
+            error: 'This decision was already answered',
+            code: 'already_resolved',
+            status: outcome.status,
+          },
+          409,
+        );
+      case 'stale':
+        return c.json(
+          {
+            error: 'This plan is no longer awaiting a decision',
+            code: 'stale_interrupt',
+          },
+          409,
+        );
+      case 'invalid_response':
+        return c.json({ error: outcome.error, code: 'invalid_response' }, 400);
+      case 'rejected':
+      case 'cancelled':
+        return terminalRunStream(c, {
+          threadId,
+          runId,
+          outcome: outcome.kind === 'cancelled' ? 'cancelled' : 'success',
+        });
+      case 'approved':
+        break;
+    }
+
+    const planRun = outcome.run;
     const executePlanId = planRun.id;
-    // Mark plan as approved so it won't be returned by /pending-plan again
-    updateOrchestrationRunStatus(executePlanId, 'approved');
-    let planGoal = '';
-    try {
-      planGoal = (JSON.parse(planRun.payload) as { goal?: string }).goal ?? '';
-    } catch {
-      /* best-effort */
-    }
+    const planGoal = outcome.plan.goal;
     const originalPrompt =
       extractText(messages.filter((m) => m.role === 'user').at(0)?.content) ||
       planGoal;
@@ -751,6 +881,7 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
     const execEmitter = new AGUIEmitter(threadId, runId, {
       workspaceRoot: wsRoot,
       taskTitle: planGoal,
+      signal: execSession.abortController.signal,
     });
 
     const busKey = `agui-${effectiveTaskId}-${runId}`;
@@ -1162,6 +1293,9 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
   const emitter = new AGUIEmitter(threadId, runId, {
     workspaceRoot,
     taskTitle,
+    // Only a planning run ends with a decision to make.
+    planInterrupt: !skipPlanning,
+    signal: session.abortController.signal,
   });
 
   const abortSignal = c.req.raw.signal;
@@ -1440,8 +1574,9 @@ agui.get('/history/:taskId', async (c) => {
 
 /**
  * AG-UI pending plan endpoint.
- * Returns the latest pending plan for a task (if any).
- * Used by the V2 frontend to show the plan approval card after planning completes.
+ * Returns the latest pending plan for a task (if any) together with the
+ * standard interrupt that answers it. The interrupt id is what a resume entry
+ * must name, so the client never reconstructs it from the plan id.
  */
 agui.get('/pending-plan/:taskId', (c) => {
   const rawTaskId = c.req.param('taskId');
@@ -1452,25 +1587,27 @@ agui.get('/pending-plan/:taskId', (c) => {
   // Only return a pending plan if the task is actually awaiting approval.
   // Tasks marked 'stopped' are in the plan-approval state (set by AGUIEventPersister
   // when planEmitted=true). Completed/error tasks should not resurface old plans.
-  const task = getTask(taskId);
-  if (!task || task.status !== 'stopped') {
-    return c.json({ plan: null });
+  const planRun = pendingPlanRun(taskId);
+  const plan = planRun ? parsePlanRun(planRun) : null;
+  if (!planRun || !plan) {
+    return c.json({ plan: null, interrupt: null });
   }
+  return c.json({
+    plan,
+    interrupt: planInterruptForRun(planRun),
+  });
+});
 
-  const planRuns = getOrchestrationRunsByTaskId(taskId);
-  const planRun = planRuns.find(
-    (r) => r.run_type === 'plan' && r.status === 'pending',
-  );
-  if (!planRun) {
-    return c.json({ plan: null });
-  }
-
-  try {
-    const plan = JSON.parse(planRun.payload);
-    return c.json({ plan });
-  } catch {
-    return c.json({ plan: null });
-  }
+/**
+ * Open decisions for a task. Used after a reload or task switch: the client
+ * cannot recover interrupts from messages, so it asks the backend that owns
+ * the decision records.
+ */
+agui.get('/interrupts/:taskId', (c) => {
+  const rawTaskId = c.req.param('taskId');
+  const parsed = taskIdParamSchema.safeParse(rawTaskId);
+  if (!parsed.success) return c.json({ error: 'Invalid taskId' }, 400);
+  return c.json({ interrupts: listPlanInterrupts(parsed.data) });
 });
 
 /**

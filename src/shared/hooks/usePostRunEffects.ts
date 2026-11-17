@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 
+import type { Interrupt } from '@ag-ui/core';
+
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble';
 import { API_BASE_URL } from '@/config';
 import { getTask } from '@/shared/db';
 import { autoGenerateTitle } from '@/shared/hooks/agent-title';
 import type { TaskPlan } from '@/shared/hooks/agent-types';
 import { getTaskMessages } from '@/shared/hooks/agent-utils';
+import type { PendingPlanDecision } from '@/shared/hooks/usePlanInterrupt';
 import { notifyAgentEvent } from '@/shared/lib/notifications';
 
 export function usePostRunEffects(
@@ -15,7 +18,7 @@ export function usePostRunEffects(
     isRunning: boolean;
   },
   planRejectedRef: React.RefObject<boolean>,
-  setPendingPlan: React.Dispatch<React.SetStateAction<TaskPlan | null>>,
+  setPendingDecision: (decision: PendingPlanDecision | null) => void,
   runErrorRef?: React.RefObject<string | null>,
 ) {
   const agentRef = useRef(agent);
@@ -105,6 +108,9 @@ export function usePostRunEffects(
         }
         if (notificationAc.signal.aborted) return;
         const failed = task.status === 'error' || !!errorMessage;
+        // A cancelled run or a plan awaiting input leaves the task stopped.
+        // Neither is a successful task completion.
+        if (!failed && task.status !== 'completed') return;
         void notifyAgentEvent({
           runId: taskId,
           kind: failed ? 'failed' : 'succeeded',
@@ -127,8 +133,12 @@ export function usePostRunEffects(
       signal: planAc.signal,
     })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { plan: TaskPlan } | null) => {
-        if (data?.plan) setPendingPlan(data.plan);
+      .then((data: { plan?: TaskPlan; interrupt?: Interrupt } | null) => {
+        // A plan without its interrupt cannot be answered, so only publish
+        // the pair the server derived from the same record.
+        if (data?.plan && data.interrupt) {
+          setPendingDecision({ plan: data.plan, interrupt: data.interrupt });
+        }
       })
       .catch((err) => {
         if ((err as Error).name === 'AbortError') return;
@@ -138,5 +148,11 @@ export function usePostRunEffects(
       notificationAc.abort();
       planAc.abort();
     };
-  }, [agent.isRunning, taskId, planRejectedRef, setPendingPlan, runErrorRef]);
+  }, [
+    agent.isRunning,
+    taskId,
+    planRejectedRef,
+    setPendingDecision,
+    runErrorRef,
+  ]);
 }

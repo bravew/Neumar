@@ -169,13 +169,15 @@ describe('Video agent durable AG-UI route', () => {
         .prepare('SELECT status FROM agent_runs WHERE id = ?')
         .get(run.id),
     ).toMatchObject({ status: 'cancelled' });
-    expect(
-      getDatabase()
-        .prepare(
-          `SELECT event_type FROM agent_run_events
-           WHERE run_id = ? AND event_type IN ('RUN_FINISHED', 'RUN_ERROR')`,
-        )
-        .all(run.id),
-    ).toEqual([{ event_type: 'RUN_ERROR' }]);
+    const terminal = getDatabase()
+      .prepare(
+        `SELECT event_type, event_json FROM agent_run_events
+         WHERE run_id = ? AND event_type IN ('RUN_FINISHED', 'RUN_ERROR')`,
+      )
+      .all(run.id) as Array<{ event_type: string; event_json: string }>;
+    expect(terminal.map((event) => event.event_type)).toEqual(['RUN_FINISHED']);
+    expect(JSON.parse(terminal[0]!.event_json)).toMatchObject({
+      outcome: { type: 'cancelled' },
+    });
   });
 });

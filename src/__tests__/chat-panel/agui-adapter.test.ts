@@ -244,6 +244,34 @@ describe('chat-panel AG-UI adapter', () => {
     );
   });
 
+  it('closes unfinished tool calls on a cancelled finish but not on a success', () => {
+    const started = reduceChatPanelAguiEvent(
+      createChatPanelAguiState(),
+      {
+        type: EventType.TOOL_CALL_START,
+        toolCallId: 'tool-1',
+        toolCallName: 'Read',
+      },
+      { now },
+    );
+
+    const cancelled = reduceChatPanelAguiEvent(
+      started,
+      { type: EventType.RUN_FINISHED, outcome: { type: 'cancelled' } },
+      { now },
+    );
+    expect(cancelled.messages[0]).toMatchObject({
+      calls: [{ id: 'tool-1', stage: 'error', isError: true }],
+    });
+
+    const succeeded = reduceChatPanelAguiEvent(
+      started,
+      { type: EventType.RUN_FINISHED },
+      { now },
+    );
+    expect(succeeded.messages).toEqual(started.messages);
+  });
+
   it('accepts canonical surface request and response events', () => {
     expect(isChatPanelAguiEventPayload({ kind: 'ui.surface_requested' })).toBe(
       true,

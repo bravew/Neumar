@@ -2,12 +2,14 @@ import {
   EventType,
   type BaseEvent,
   type CustomEvent,
+  type Interrupt,
   type RawEvent,
   type ReasoningMessageContentEvent,
   type ReasoningMessageEndEvent,
   type ReasoningMessageStartEvent,
   type RunErrorEvent,
   type RunFinishedEvent,
+  type RunFinishedOutcome,
   type RunStartedEvent,
   type StateSnapshotEvent,
   type StepFinishedEvent,
@@ -28,7 +30,7 @@ import {
 import type { AgentMessage } from '@/core/agent/types';
 
 import { CustomEventName } from './event-schema';
-import { isAguiV2Enabled } from './feature-flags';
+import { planInterrupt } from './interrupts';
 
 /**
  * Optional context emitted as STATE_SNAPSHOT at run start.
@@ -39,6 +41,18 @@ export interface AGUIRunContext {
   workspaceRoot?: string;
   /** Human-readable task title */
   taskTitle?: string;
+  /**
+   * True only for the task planning run. A plan message then closes the run
+   * with a standard interrupt outcome instead of a success, so the client
+   * knows the plan is waiting for a decision. Other emitters leave it off:
+   * a plan-shaped message mid-execution must not pause the run.
+   */
+  planInterrupt?: boolean;
+  /**
+   * The run's own abort signal. When it has fired, the run ended because the
+   * user stopped it, whatever error the adapter surfaced on the way out.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -59,6 +73,10 @@ export class AGUIEmitter {
   private activeSteps = new Set<string>();
   /** Set when an inline `error`-type message emits RUN_ERROR, preventing RUN_FINISHED */
   private terminated = false;
+  /** Open decisions that RUN_FINISHED must report to the client. */
+  private pendingInterrupts: Interrupt[] = [];
+  /** User aborted the run — reported as the standard cancelled outcome. */
+  private cancelled = false;
 
   constructor(
     private readonly threadId: string,
@@ -96,30 +114,46 @@ export class AGUIEmitter {
       for await (const msg of source) {
         await onMessage?.(msg);
         yield* this.mapMessage(msg);
-        // Stop processing further messages after an inline RUN_ERROR
-        if (this.terminated) break;
+        // Stop processing further messages after an inline RUN_ERROR or stop
+        if (this.terminated || this.cancelled) break;
       }
     } catch (err) {
       caughtError = err;
+      // Only a real abort is a user stop. An upstream "connection aborted"
+      // is a failure the user must see, so the message text is not checked.
       const isAbort =
-        err instanceof Error &&
-        (err.name === 'AbortError' || err.message.includes('abort'));
+        this.context?.signal?.aborted === true ||
+        (err instanceof Error && err.name === 'AbortError');
       yield* this.closeOpenBlocks();
-      yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
-        message: isAbort
-          ? 'Run stopped by user'
-          : err instanceof Error
-            ? err.message
-            : String(err),
-        code: isAbort ? 'USER_CANCELLED' : undefined,
-      });
+      if (isAbort) {
+        // A user stop is not a failure: report the standard cancelled outcome
+        // and let the task settle as stopped rather than error.
+        this.cancelled = true;
+      } else {
+        yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
     } finally {
-      // Only emit RUN_FINISHED if neither an exception nor an inline error terminated the run
-      if (caughtError === undefined && !this.terminated) {
+      // A user stop is a completed cancellation, not a failure, so it still
+      // closes with RUN_FINISHED. Any other caught error already emitted
+      // RUN_ERROR and must not also finish.
+      if ((caughtError === undefined || this.cancelled) && !this.terminated) {
         yield* this.closeOpenBlocks();
-        yield this.event<RunFinishedEvent>(EventType.RUN_FINISHED, {});
+        yield this.event<RunFinishedEvent>(EventType.RUN_FINISHED, {
+          outcome: this.outcome(),
+        });
       }
     }
+  }
+
+  /** Why the run ended. Absent means success. */
+  private outcome(): RunFinishedOutcome | undefined {
+    if (this.cancelled) return { type: 'cancelled' };
+    if (this.pendingInterrupts.length > 0) {
+      return { type: 'interrupt', interrupts: this.pendingInterrupts };
+    }
+    return undefined;
   }
 
   private *closeOpenBlocks(): Generator<BaseEvent> {
@@ -332,49 +366,31 @@ export class AGUIEmitter {
           });
           this.currentMessageId = null;
         }
-        // Emit BOTH events: 'plan' for backward compat (V1 NeumaAGUIEventDispatcher)
-        // and 'on_interrupt' for CopilotKit's useInterrupt hook
+        // The CUSTOM 'plan' event stays: the persister stores it as the plan
+        // message and the legacy assistant-ui path renders it. The decision
+        // itself is now a standard interrupt reported on RUN_FINISHED.
         yield this.event<CustomEvent>(EventType.CUSTOM, {
           name: 'plan',
           value: msg.plan
             ? { ...msg.plan, _runId: this.runId }
             : { _runId: this.runId },
         });
-        yield this.event<CustomEvent>(EventType.CUSTOM, {
-          name: 'on_interrupt',
-          value: {
-            type: 'plan_approval',
-            plan: msg.plan ?? {},
-            runId: this.runId,
-          },
-        });
-        // Dual-emit window: when feature.aguiV2 is enabled, ALSO emit the
-        // canonical neuma.interrupt CUSTOM event so v2 frontends can
-        // discriminate by stable name. Legacy emitters above stay until
-        // the flag flips default and we cut a removal release.
-        if (isAguiV2Enabled()) {
-          // Plan-approval interrupts emitted from the SDK stream don't yet
-          // have a server-side approval row; use sentinels for required
-          // fields so InterruptPayloadSchema (.min(1)) parses successfully.
-          // Orchestration-layer emitters that go through ApprovalManager
-          // override these via the approval lifecycle.
-          const approvalId = `plan-${this.runId}`;
-          const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-          yield this.event<CustomEvent>(EventType.CUSTOM, {
-            name: CustomEventName.Interrupt,
-            value: {
-              runId: this.runId,
-              parentRunId: null,
-              taskId: this.threadId,
-              approvalId,
-              kind: 'plan' as const,
-              risk: 'medium' as const,
-              title: 'Plan approval',
-              payload: msg.plan ?? {},
-              resumeToken: `unsigned:${this.runId}`,
-              expiresAt,
-            },
-          });
+        if (this.context?.planInterrupt) {
+          const plan = msg.plan;
+          if (!plan?.id) {
+            // Without an id there is no durable record to approve, so an
+            // interrupt would be unanswerable. Fail instead of emitting one.
+            this.terminated = true;
+            yield* this.closeOpenBlocks();
+            yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
+              message:
+                'Planning produced a plan without an id; it cannot be approved',
+              code: 'INVALID_PLAN',
+            });
+            break;
+          }
+          // One decision per planning run: a later plan replaces an earlier one.
+          this.pendingInterrupts = [planInterrupt(this.threadId, plan)];
         }
         break;
       }
@@ -464,6 +480,12 @@ export class AGUIEmitter {
       }
 
       case 'error': {
+        if (this.context?.signal?.aborted) {
+          // The adapter reported the stop as an error message. The user asked
+          // for it, so close with the same cancelled outcome as a thrown abort.
+          this.cancelled = true;
+          break;
+        }
         this.terminated = true;
         yield* this.closeOpenBlocks();
         yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {

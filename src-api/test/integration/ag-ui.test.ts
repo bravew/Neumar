@@ -94,7 +94,7 @@ describe('AGUIEmitter', () => {
     });
   });
 
-  it('turns an explicit abort into one cancellation terminal event', async () => {
+  it('turns an explicit abort into one cancelled terminal event', async () => {
     const emitter = new AGUIEmitter('thread-abort', 'run-abort');
     async function* source() {
       yield { type: 'text' as const, content: 'started' };
@@ -107,9 +107,8 @@ describe('AGUIEmitter', () => {
     for await (const event of emitter.transform(source())) events.push(event);
 
     expect(events.at(-1)).toMatchObject({
-      type: EventType.RUN_ERROR,
-      code: 'USER_CANCELLED',
-      message: 'Run stopped by user',
+      type: EventType.RUN_FINISHED,
+      outcome: { type: 'cancelled' },
     });
     expect(
       events.filter(
@@ -118,6 +117,158 @@ describe('AGUIEmitter', () => {
           event.type === EventType.RUN_FINISHED,
       ),
     ).toHaveLength(1);
+  });
+
+  async function terminals(
+    emitter: AGUIEmitter,
+    source: AsyncGenerator<AgentMessage>,
+  ) {
+    const events = [];
+    for await (const event of emitter.transform(source)) events.push(event);
+    return events.filter(
+      (event) =>
+        event.type === EventType.RUN_ERROR ||
+        event.type === EventType.RUN_FINISHED,
+    );
+  }
+
+  it('keeps an upstream "aborted" failure a run error when the user did not stop', async () => {
+    const emitter = new AGUIEmitter('thread-net', 'run-net', {
+      signal: new AbortController().signal,
+    });
+    async function* source(): AsyncGenerator<AgentMessage> {
+      yield { type: 'text', content: 'started' };
+      throw new Error('connection aborted by upstream');
+    }
+
+    expect(await terminals(emitter, source())).toEqual([
+      expect.objectContaining({
+        type: EventType.RUN_ERROR,
+        message: 'connection aborted by upstream',
+      }),
+    ]);
+  });
+
+  it('treats any error after the run signal fired as the user stop', async () => {
+    const controller = new AbortController();
+    const emitter = new AGUIEmitter('thread-stop', 'run-stop', {
+      signal: controller.signal,
+    });
+    async function* source(): AsyncGenerator<AgentMessage> {
+      yield { type: 'text', content: 'started' };
+      controller.abort();
+      throw new Error('process exited');
+    }
+
+    expect(await terminals(emitter, source())).toEqual([
+      expect.objectContaining({
+        type: EventType.RUN_FINISHED,
+        outcome: { type: 'cancelled' },
+      }),
+    ]);
+  });
+
+  it('reports an inline error yielded after a stop as the cancelled outcome', async () => {
+    const controller = new AbortController();
+    const emitter = new AGUIEmitter('thread-inline', 'run-inline', {
+      signal: controller.signal,
+    });
+    async function* source(): AsyncGenerator<AgentMessage> {
+      yield { type: 'text', content: 'started' };
+      controller.abort();
+      yield { type: 'error', message: 'Session stopped by user' };
+      yield { type: 'text', content: 'never shown' };
+    }
+
+    const events = await terminals(emitter, source());
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: EventType.RUN_FINISHED,
+        outcome: { type: 'cancelled' },
+      }),
+    ]);
+  });
+
+  it('ends a planning run with a standard interrupt for the plan', async () => {
+    const emitter = new AGUIEmitter('thread-plan', 'run-plan', {
+      planInterrupt: true,
+    });
+    const plan = {
+      id: 'plan-1',
+      goal: 'Ship the change',
+      steps: [{ id: 's1', description: 'Write it', status: 'pending' }],
+      createdAt: new Date(),
+    };
+    async function* source(): AsyncGenerator<AgentMessage> {
+      yield { type: 'plan', plan } as AgentMessage;
+    }
+
+    const events = [];
+    for await (const event of emitter.transform(source())) events.push(event);
+
+    const finished = events.at(-1) as {
+      type: string;
+      outcome?: { type: string; interrupts?: Array<Record<string, unknown>> };
+    };
+    expect(finished.type).toBe(EventType.RUN_FINISHED);
+    expect(finished.outcome?.type).toBe('interrupt');
+    expect(finished.outcome?.interrupts).toHaveLength(1);
+    expect(finished.outcome?.interrupts?.[0]).toMatchObject({
+      id: 'plan:plan-1',
+      reason: 'plan_approval',
+      message: 'Ship the change',
+      metadata: {
+        decision: {
+          kind: 'plan',
+          taskId: 'thread-plan',
+          plan: { id: 'plan-1', goal: 'Ship the change' },
+        },
+      },
+    });
+    // The legacy bridge must not also emit an interrupt event.
+    expect(
+      events.some(
+        (event) =>
+          event.type === EventType.CUSTOM &&
+          (event as { name?: string }).name === 'on_interrupt',
+      ),
+    ).toBe(false);
+  });
+
+  it('does not pause an execution run that emits a plan-shaped message', async () => {
+    const events = await collectEvents([
+      {
+        type: 'plan',
+        plan: {
+          id: 'plan-1',
+          goal: 'Do something',
+          steps: [{ id: 's1', description: 'Step 1', status: 'pending' }],
+          createdAt: new Date(),
+        },
+      },
+    ]);
+    const finished = events.at(-1) as { outcome?: unknown };
+    expect(finished.outcome).toBeUndefined();
+  });
+
+  it('fails a planning run whose plan has no id instead of emitting an unanswerable interrupt', async () => {
+    const emitter = new AGUIEmitter('thread-plan', 'run-plan', {
+      planInterrupt: true,
+    });
+    async function* source(): AsyncGenerator<AgentMessage> {
+      yield {
+        type: 'plan',
+        plan: { goal: 'No id', steps: [], createdAt: new Date() },
+      } as unknown as AgentMessage;
+    }
+
+    const events = [];
+    for await (const event of emitter.transform(source())) events.push(event);
+
+    expect(events.at(-1)).toMatchObject({
+      type: EventType.RUN_ERROR,
+      code: 'INVALID_PLAN',
+    });
   });
 
   it('keeps permission approval in the durable AG-UI event stream', async () => {

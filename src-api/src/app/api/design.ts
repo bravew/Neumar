@@ -1938,6 +1938,7 @@ designRoutes.post(
           try {
             const emitter = new AGUIEmitter(projectId, runId, {
               taskTitle: `Design ${projectId}`,
+              signal: abortController.signal,
             });
             const persister = new AGUIEventPersister(
               projectId,
@@ -2054,6 +2055,7 @@ designRoutes.post(
 
     const emitter = new AGUIEmitter(projectId, runId, {
       taskTitle: `Design ${projectId}`,
+      signal: abortController.signal,
     });
     const busKey = `agui-design-${projectId}-${runId}`;
     const persister = new AGUIEventPersister(

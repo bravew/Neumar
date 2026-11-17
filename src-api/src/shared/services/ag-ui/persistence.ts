@@ -14,7 +14,7 @@ import { readdir, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { EventType } from '@ag-ui/core';
-import type { BaseEvent } from '@ag-ui/core';
+import type { BaseEvent, RunFinishedEvent } from '@ag-ui/core';
 import type Database from 'better-sqlite3';
 
 import { classifyRunFailure } from '@/core/agent/error-retry';
@@ -671,7 +671,13 @@ export class AGUIEventPersister {
           if (this.terminalProcess) break;
           this.flushPending();
           const duration = Date.now() - this.startedAtMs;
-          if (this.mode === 'task' && this.planEmitted) {
+          const { outcome } = event as RunFinishedEvent;
+          const cancelled = outcome?.type === 'cancelled';
+          // A run that stops for a decision completed its phase but left the
+          // declared work unfinished; it is neither a failure nor success.
+          const awaitingDecision =
+            this.planEmitted || outcome?.type === 'interrupt';
+          if (this.mode === 'task' && (awaitingDecision || cancelled)) {
             try {
               updateTask(this.taskId, { status: 'stopped', duration });
             } catch {
@@ -690,19 +696,28 @@ export class AGUIEventPersister {
             }
             this.generateAndStoreSummary('dispatch_summary');
           }
-          this.terminalProcess = this.planEmitted ? 'failed' : 'succeeded';
+          this.terminalProcess = cancelled ? 'cancelled' : 'succeeded';
           this.finalizeRootRun(
-            this.planEmitted ? 'failed' : 'completed',
-            this.planEmitted
-              ? 'Run ended with unfinished declared work'
-              : undefined,
+            cancelled ? 'cancelled' : 'completed',
+            cancelled
+              ? 'Run stopped by user'
+              : awaitingDecision
+                ? 'Run ended with unfinished declared work'
+                : undefined,
             {
-              completeness: this.planEmitted ? 'unfinished' : 'complete',
+              completeness:
+                cancelled || awaitingDecision ? 'unfinished' : 'complete',
               delivery: this.artifactDetected ? 'delivered' : 'not_expected',
-              retry: this.planEmitted ? 'user_action' : 'not_safe',
-              ...(this.planEmitted
-                ? { failureCause: 'unfinished_declared_work' }
-                : {}),
+              retry: cancelled
+                ? 'not_safe'
+                : awaitingDecision
+                  ? 'user_action'
+                  : 'not_safe',
+              ...(cancelled
+                ? { failureCause: 'cancelled' }
+                : awaitingDecision
+                  ? { failureCause: 'awaiting_decision' }
+                  : {}),
             },
           );
           recordTraceEvent({
@@ -714,7 +729,7 @@ export class AGUIEventPersister {
             kind: 'model_call',
             agent: this.provider,
             provider: this.provider,
-            status: 'ok',
+            status: cancelled ? 'cancelled' : 'ok',
             startedAt: this.startedAtMs,
             endedAt: Date.now(),
             inputTokens: this.latestUsage.inputTokens ?? null,
@@ -722,7 +737,9 @@ export class AGUIEventPersister {
             costUsd: this.latestUsage.cost ?? null,
             attrs: {
               planEmitted: this.planEmitted,
-              completeness: this.planEmitted ? 'unfinished' : 'complete',
+              outcome: outcome?.type ?? 'success',
+              completeness:
+                cancelled || awaitingDecision ? 'unfinished' : 'complete',
             },
           });
           if (this.mode === 'task') void this.scanSessionOutputDir();

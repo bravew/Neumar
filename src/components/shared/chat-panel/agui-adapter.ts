@@ -282,8 +282,19 @@ export function reduceChatPanelAguiEvent(
         accumulator: emptyAccumulator(),
       };
     }
-    case EventType.RUN_FINISHED:
-      return { ...state, accumulator: emptyAccumulator() };
+    case EventType.RUN_FINISHED: {
+      // A stop from another tab or the server arrives as a cancelled finish;
+      // close its open tools as a local abort would.
+      const { outcome } = event;
+      const cancelled =
+        typeof outcome === 'object' &&
+        outcome !== null &&
+        'type' in outcome &&
+        outcome.type === 'cancelled';
+      return cancelled
+        ? finalizeChatPanelAguiState(state, 'aborted')
+        : { ...state, accumulator: emptyAccumulator() };
+    }
     default:
       return state;
   }

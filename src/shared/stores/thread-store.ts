@@ -170,6 +170,32 @@ export interface AGUIStreamEvent {
   code?: string;
   role?: string;
   snapshot?: Record<string, unknown>;
+  /** RUN_FINISHED: why the run ended; absent means success. */
+  outcome?: { type?: string };
+}
+
+/**
+ * Tool result text for a run the user stopped. It is the message the server
+ * sent as RUN_ERROR for a stop before stops became a cancelled outcome.
+ */
+const RUN_STOPPED_MESSAGE = 'Run stopped by user';
+
+/** Ends every tool call still waiting for a result. True if any changed. */
+function closeOpenToolCalls(msgs: ThreadMessage[], message: string): boolean {
+  let changed = false;
+  for (const msg of msgs) {
+    for (const toolCall of msg.toolCalls ?? []) {
+      if (toolCall.final) continue;
+      toolCall.toolStage = 'error';
+      toolCall.toolState = createErrorToolCallState(
+        toolCall.function.arguments,
+        message,
+      );
+      toolCall.final = true;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 interface ThreadStore {
@@ -742,7 +768,11 @@ export const useThreadStore = create<ThreadStore>()(
 
           case EventType.RUN_FINISHED: {
             thread.isRunning = false;
-            mutated = false;
+            // A stopped run ends with RUN_FINISHED, not RUN_ERROR, but its
+            // in-flight tool calls will never get a result either.
+            mutated =
+              event.outcome?.type === 'cancelled' &&
+              closeOpenToolCalls(msgs, RUN_STOPPED_MESSAGE);
             break;
           }
 
@@ -750,18 +780,7 @@ export const useThreadStore = create<ThreadStore>()(
             const errorId =
               event.messageId ?? `run-error-${event.seq ?? randomUUID()}`;
             const message = event.message ?? event.content ?? 'Unknown error';
-            for (const msg of msgs) {
-              for (const toolCall of msg.toolCalls ?? []) {
-                if (!toolCall.final) {
-                  toolCall.toolStage = 'error';
-                  toolCall.toolState = createErrorToolCallState(
-                    toolCall.function.arguments,
-                    message,
-                  );
-                  toolCall.final = true;
-                }
-              }
-            }
+            closeOpenToolCalls(msgs, message);
             if (!findMsg(errorId)) {
               pushMessage(thread, {
                 id: errorId,

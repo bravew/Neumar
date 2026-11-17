@@ -131,7 +131,7 @@ export function TaskV2Thread({
 
   const {
     pendingPlan,
-    setPendingPlan,
+    setPendingDecision,
     planRejectedRef,
     handleApprovePlan,
     handleRejectPlan,
@@ -150,7 +150,7 @@ export function TaskV2Thread({
     taskId,
     agent,
     planRejectedRef,
-    setPendingPlan,
+    setPendingDecision,
     runErrorRef,
   );
 

@@ -1,12 +1,12 @@
 import type { RefObject } from 'react';
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble';
 import { getTask, type Task } from '@/shared/db';
 import { autoGenerateTitle } from '@/shared/hooks/agent-title';
-import type { TaskPlan } from '@/shared/hooks/agent-types';
+import type { PendingPlanDecision } from '@/shared/hooks/usePlanInterrupt';
 import { usePostRunEffects } from '@/shared/hooks/usePostRunEffects';
 import { notifyAgentEvent } from '@/shared/lib/notifications';
 
@@ -62,15 +62,15 @@ function mountRunningHook(
   errorRef?: RefObject<string | null>,
 ) {
   const planRejectedRef = { current: false };
-  const setPendingPlan =
-    vi.fn<(plan: React.SetStateAction<TaskPlan | null>) => void>();
+  const setPendingDecision =
+    vi.fn<(decision: PendingPlanDecision | null) => void>();
   const view = renderHook(
     ({ isRunning, messages }) =>
       usePostRunEffects(
         'task-1',
         { isRunning, messages },
         planRejectedRef,
-        setPendingPlan,
+        setPendingDecision,
         errorRef,
       ),
     { initialProps: { isRunning: true, messages } },
@@ -117,6 +117,14 @@ describe('usePostRunEffects terminal error notifications', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('does not notify success for a stopped task or a task awaiting a plan decision', async () => {
+    vi.mocked(getTask).mockResolvedValue(task('stopped'));
+    const view = mountRunningHook([currentUser]);
+    await act(async () => view.finishRun());
+    expect(getTask).toHaveBeenCalledWith('task-1');
+    expect(notifyAgentEvent).not.toHaveBeenCalled();
   });
 
   it('uses the synchronous run error as the failed body even when task status is still completed', async () => {

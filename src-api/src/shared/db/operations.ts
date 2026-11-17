@@ -974,6 +974,27 @@ export function updateOrchestrationRunStatus(
   return stmt.run(...values).changes > 0;
 }
 
+/**
+ * Moves a plan run out of `pending` only once. Two resumes for the same plan
+ * race here; the loser sees `false` and must report an already-resolved
+ * decision instead of starting a second execution.
+ */
+export function decideOrchestrationRun(
+  id: string,
+  from: OrchestrationRunStatus,
+  to: OrchestrationRunStatus,
+): boolean {
+  const db = getDatabase();
+  const result = db
+    .prepare(
+      `UPDATE orchestration_runs
+       SET status = ?, updated_at = datetime('now')
+       WHERE id = ? AND status = ?`,
+    )
+    .run(to, id, from);
+  return result.changes === 1;
+}
+
 export function updateOrchestrationRunPayload(
   id: string,
   payload: string,
