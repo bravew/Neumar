@@ -402,6 +402,61 @@ describe('Agent API', () => {
       expect(mockRecordAgentFileCheckpoint).toHaveBeenCalledWith(checkpoint);
     });
 
+    it('records the checkpoint even when the attempt fails', async () => {
+      mockLatestUserMessageRowId.mockReturnValueOnce(42);
+      mockRecordAgentFileCheckpoint.mockClear();
+      mockRunAgent.mockReturnValueOnce(
+        (async function* () {
+          yield {
+            type: 'session',
+            sessionId: 'live',
+            resumeSessionId: 'sdk-session',
+            cwd: '/work/task-session',
+          };
+          yield {
+            type: 'system',
+            subtype: 'user_checkpoint',
+            id: userMessageId,
+            isProgress: true,
+          };
+          throw new Error('provider failed');
+        })(),
+      );
+      const { agentRoutes } = await import('@/app/api/agent');
+      const response = await agentRoutes.request(
+        jsonReq('/', { prompt: 'Edit a file', taskId: 'task-rewind' }),
+      );
+      expect(response.status).toBe(200);
+      await response.text();
+      expect(mockRecordAgentFileCheckpoint).toHaveBeenCalledWith(checkpoint);
+    });
+
+    it('lists one rewind target per turn using its earliest attempt', async () => {
+      const retry = {
+        ...checkpoint,
+        userMessageId: crypto.randomUUID(),
+        sdkSessionId: 'sdk-retry',
+      };
+      const later = {
+        ...checkpoint,
+        messageRowId: 43,
+        userMessageId: crypto.randomUUID(),
+      };
+      mockListAgentFileCheckpoints.mockReturnValueOnce([
+        checkpoint,
+        retry,
+        later,
+      ]);
+      const { agentRoutes } = await import('@/app/api/agent');
+      const list = await agentRoutes.request('/rewind/checkpoints/task-rewind');
+      expect(await list.json()).toEqual({
+        checkpoints: [
+          { messageRowId: 42, userMessageId },
+          { messageRowId: 43, userMessageId: later.userMessageId },
+        ],
+      });
+    });
+
     it('lists only recorded turns and refuses unknown checkpoint IDs', async () => {
       mockListAgentFileCheckpoints.mockReturnValueOnce([checkpoint]);
       const { agentRoutes } = await import('@/app/api/agent');
@@ -508,6 +563,40 @@ describe('Agent API', () => {
         ['sdk-later', true],
         ['sdk-session', true],
         ['sdk-later', false],
+        ['sdk-session', false],
+      ]);
+    });
+
+    it('rewinds attempts newest-first within the selected turn', async () => {
+      const retry = {
+        ...checkpoint,
+        userMessageId: crypto.randomUUID(),
+        sdkSessionId: 'sdk-retry',
+      };
+      mockGetAgentFileCheckpoint.mockReturnValue(checkpoint);
+      mockListAgentFileCheckpoints.mockReturnValue([checkpoint, retry]);
+      mockRewindClaudeRunFiles.mockResolvedValue({
+        canRewind: true,
+        filesChanged: [],
+      });
+      const { agentRoutes } = await import('@/app/api/agent');
+      const applied = await agentRoutes.request(
+        jsonReq('/rewind', {
+          taskId: 'task-rewind',
+          userMessageId,
+          dryRun: false,
+        }),
+      );
+      expect(applied.status).toBe(200);
+      expect(
+        mockRewindClaudeRunFiles.mock.calls.map(([record, options]) => [
+          record.sdkSessionId,
+          options.dryRun,
+        ]),
+      ).toEqual([
+        ['sdk-retry', true],
+        ['sdk-session', true],
+        ['sdk-retry', false],
         ['sdk-session', false],
       ]);
     });

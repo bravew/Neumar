@@ -42,18 +42,18 @@ export function latestUserMessageRowId(
 }
 
 export function recordAgentFileCheckpoint(input: AgentFileCheckpoint): void {
-  // Keep the first checkpoint recorded for a user turn. Retries reuse the same
-  // message row, and the retry's baseline already contains the previous
-  // attempt's edits, so replacing the original would make "rewind to before
-  // this turn" restore a later state. A stale session fails the rewind's dry
-  // run instead, which refuses before writing anything.
+  // One row per run attempt. A retry reuses the message row but runs in its
+  // own SDK session with its own user-message UUID, and its baseline still
+  // contains the failed attempt's edits. Keeping every attempt lets the
+  // rewind walk them newest-first back to the state before the turn. A
+  // repeated record for the same SDK message is a no-op.
   getDatabase()
     .prepare(
       `INSERT INTO agent_file_checkpoints
          (task_id, message_row_id, user_message_id, sdk_session_id, cwd)
        SELECT ?, id, ?, ?, ? FROM messages
        WHERE id = ? AND task_id = ? AND type = 'user'
-       ON CONFLICT(task_id, message_row_id) DO NOTHING`,
+       ON CONFLICT(task_id, user_message_id) DO NOTHING`,
     )
     .run(
       input.taskId,
@@ -73,7 +73,7 @@ export function listAgentFileCheckpoints(
       `SELECT c.* FROM agent_file_checkpoints c
        JOIN messages m ON m.id = c.message_row_id
        WHERE c.task_id = ? AND COALESCE(m.branch_id, 'main') = 'main'
-       ORDER BY c.message_row_id`,
+       ORDER BY c.message_row_id, c.id`,
     )
     .all(taskId) as CheckpointRow[];
   return rows.map(fromRow);

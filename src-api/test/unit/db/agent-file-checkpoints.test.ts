@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, getDatabase } from '@/shared/db';
 import {
   getAgentFileCheckpoint,
+  listAgentFileCheckpoints,
   recordAgentFileCheckpoint,
 } from '@/shared/db/agent-file-checkpoints';
 import { createSession, createTask, deleteTask } from '@/shared/db/operations';
@@ -37,9 +38,10 @@ describe('agent file checkpoints', () => {
     closeDatabase();
   });
 
-  it('keeps the first checkpoint when a retried turn records another', () => {
+  it('records every attempt of a retried turn in attempt order', () => {
     const messageRowId = insertUserMessage();
     const firstUuid = crypto.randomUUID();
+    const retryUuid = crypto.randomUUID();
     recordAgentFileCheckpoint({
       taskId,
       messageRowId,
@@ -51,20 +53,76 @@ describe('agent file checkpoints', () => {
     recordAgentFileCheckpoint({
       taskId,
       messageRowId,
-      userMessageId: crypto.randomUUID(),
+      userMessageId: retryUuid,
       sdkSessionId: 'sdk-retry',
       cwd: '/work/retry',
     });
 
+    expect(listAgentFileCheckpoints(taskId)).toEqual([
+      {
+        taskId,
+        messageRowId,
+        userMessageId: firstUuid,
+        sdkSessionId: 'sdk-first',
+        cwd: '/work/first',
+      },
+      {
+        taskId,
+        messageRowId,
+        userMessageId: retryUuid,
+        sdkSessionId: 'sdk-retry',
+        cwd: '/work/retry',
+      },
+    ]);
     expect(getAgentFileCheckpoint(taskId, firstUuid)).toMatchObject({
-      messageRowId,
       sdkSessionId: 'sdk-first',
       cwd: '/work/first',
     });
+    expect(getAgentFileCheckpoint(taskId, retryUuid)).toMatchObject({
+      sdkSessionId: 'sdk-retry',
+      cwd: '/work/retry',
+    });
+  });
+
+  it('ignores a repeated record for the same SDK message', () => {
+    const messageRowId = insertUserMessage();
+    const userMessageId = crypto.randomUUID();
+    for (const sdkSessionId of ['sdk-first', 'sdk-second']) {
+      recordAgentFileCheckpoint({
+        taskId,
+        messageRowId,
+        userMessageId,
+        sdkSessionId,
+        cwd: '/work',
+      });
+    }
+
+    expect(listAgentFileCheckpoints(taskId)).toHaveLength(1);
+    expect(getAgentFileCheckpoint(taskId, userMessageId)).toMatchObject({
+      sdkSessionId: 'sdk-first',
+    });
+  });
+
+  it('keeps attempts of different turns in row order', () => {
+    const firstRowId = insertUserMessage();
+    const secondRowId = insertUserMessage();
+    recordAgentFileCheckpoint({
+      taskId,
+      messageRowId: secondRowId,
+      userMessageId: crypto.randomUUID(),
+      sdkSessionId: 'sdk-second',
+      cwd: '/work',
+    });
+    recordAgentFileCheckpoint({
+      taskId,
+      messageRowId: firstRowId,
+      userMessageId: crypto.randomUUID(),
+      sdkSessionId: 'sdk-first',
+      cwd: '/work',
+    });
+
     expect(
-      getDatabase()
-        .prepare('SELECT COUNT(*) AS count FROM agent_file_checkpoints')
-        .get(),
-    ).toEqual({ count: 1 });
+      listAgentFileCheckpoints(taskId).map((row) => row.sdkSessionId),
+    ).toEqual(['sdk-first', 'sdk-second']);
   });
 });
