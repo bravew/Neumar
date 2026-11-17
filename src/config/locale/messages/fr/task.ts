@@ -503,6 +503,7 @@ export default {
   runDiagnosticsExportFailed: 'Impossible d’exporter le dossier d’assistance',
   subAgentsRunningCount: '{count} en cours',
   subAgentDefault: 'Sous-agent',
+  subAgentResult: 'Résultat',
   tokens: 'jetons',
 
   // Media lightbox

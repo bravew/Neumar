@@ -500,6 +500,7 @@ export default {
   runDiagnosticsExportFailed: '无法导出支持包',
   subAgentsRunningCount: '{count} 运行中',
   subAgentDefault: '子代理',
+  subAgentResult: '结果',
   tokens: '令牌',
 
   // Media lightbox

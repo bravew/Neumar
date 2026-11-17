@@ -506,6 +506,7 @@ export default {
   runDiagnosticsExportFailed: 'सहायता बंडल निर्यात नहीं हो सका',
   subAgentsRunningCount: '{count} चल रहे हैं',
   subAgentDefault: 'उप-एजेंट',
+  subAgentResult: 'परिणाम',
   tokens: 'टोकन',
 
   // Media lightbox

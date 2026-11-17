@@ -26,6 +26,8 @@ export interface AGUIMessage {
   /** JSON-encoded MessageAttachment[] for user messages. Travels with the
    *  message so chips survive every rehydration path. */
   attachments?: string;
+  /** Set when a sub-agent produced this message rather than the main agent. */
+  subagentRunId?: string;
 }
 
 /**
@@ -34,8 +36,8 @@ export interface AGUIMessage {
  * order so the expanded view reads as a timeline.
  */
 export type ActivityEntry =
-  | { kind: 'note'; id: string; text: string }
-  | { kind: 'tool'; tc: AGUIToolCall };
+  | { kind: 'note'; id: string; text: string; subagentRunId?: string }
+  | { kind: 'tool'; tc: AGUIToolCall; subagentRunId?: string };
 
 /** Extract tool name from either nested or flat format */
 export function getToolName(tc: AGUIToolCall): string {

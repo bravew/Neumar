@@ -82,11 +82,13 @@ export type GroupedItem =
 /**
  * Is this assistant message a self-contained answer rather than a step along
  * the way? Answers carry prose and no tool calls; anything that invokes a
- * tool is still working.
+ * tool is still working. A sub-agent's prose is its report to the main agent,
+ * never the answer to the user, so it always stays inside the activity group.
  */
 function isFinalAnswer(msg: AGUIMessage): boolean {
   return (
     msg.role === 'assistant' &&
+    !msg.subagentRunId &&
     !!msg.content?.trim() &&
     !msg.toolCalls?.length &&
     !msg.isError &&
@@ -180,8 +182,11 @@ export function groupMessages(
       }
 
       const content = m.content?.trim();
+      const owner = m.subagentRunId
+        ? { subagentRunId: m.subagentRunId }
+        : undefined;
       if (content && !isPlanJson(content)) {
-        entries.push({ kind: 'note', id: m.id, text: content });
+        entries.push({ kind: 'note', id: m.id, text: content, ...owner });
       }
 
       for (const tc of m.toolCalls ?? []) {
@@ -196,7 +201,7 @@ export function groupMessages(
           awaitingQuestionAnswer = true;
           continue;
         }
-        entries.push({ kind: 'tool', tc });
+        entries.push({ kind: 'tool', tc, ...owner });
       }
     }
     flush();

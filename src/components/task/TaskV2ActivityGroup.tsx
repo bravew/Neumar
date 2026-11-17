@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, ChevronRight } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
+import { useThreadSubagents } from '@/shared/providers/agui-provider';
 import { useLanguage } from '@/shared/providers/language-provider';
 
 import type {
@@ -46,9 +47,10 @@ type ToolRun =
   | { type: 'single'; tc: AGUIToolCall }
   | { type: 'polling'; name: string; calls: AGUIToolCall[] };
 
+/** `owner` is the sub-agent that produced the row; none for the main agent. */
 type RenderRow =
-  | { type: 'note'; id: string; text: string }
-  | { type: 'tools'; run: ToolRun };
+  | { type: 'note'; id: string; text: string; owner?: string }
+  | { type: 'tools'; run: ToolRun; owner?: string };
 
 /**
  * Fold consecutive identical tool calls into a single polling row, the same
@@ -58,12 +60,18 @@ function buildRows(entries: ActivityEntry[]): RenderRow[] {
   const rows: RenderRow[] = [];
   for (const entry of entries) {
     if (entry.kind === 'note') {
-      rows.push({ type: 'note', id: entry.id, text: entry.text });
+      rows.push({
+        type: 'note',
+        id: entry.id,
+        text: entry.text,
+        owner: entry.subagentRunId,
+      });
       continue;
     }
     const name = getToolName(entry.tc);
     const last = rows[rows.length - 1];
-    if (last?.type === 'tools') {
+    // Never fold calls from different owners into one polling row.
+    if (last?.type === 'tools' && last.owner === entry.subagentRunId) {
       if (last.run.type === 'polling' && last.run.name === name) {
         last.run.calls.push(entry.tc);
         continue;
@@ -73,7 +81,11 @@ function buildRows(entries: ActivityEntry[]): RenderRow[] {
         continue;
       }
     }
-    rows.push({ type: 'tools', run: { type: 'single', tc: entry.tc } });
+    rows.push({
+      type: 'tools',
+      run: { type: 'single', tc: entry.tc },
+      owner: entry.subagentRunId,
+    });
   }
   return rows;
 }
@@ -136,6 +148,11 @@ export function ActivityGroup({
   const [expanded, setExpanded] = useState(false);
 
   const rows = useMemo(() => buildRows(entries), [entries]);
+  const subagents = useThreadSubagents();
+  const ownerNames = useMemo(
+    () => new Map(subagents.map((a) => [a.id, a.name])),
+    [subagents],
+  );
 
   const uniqueNames = useMemo(
     () => [...new Set(toolCalls.map((tc) => shortToolName(getToolName(tc))))],
@@ -192,25 +209,41 @@ export function ActivityGroup({
 
       {expanded && (
         <div className="border-border/30 border-t px-3 py-1.5">
-          {rows.map((row) =>
-            row.type === 'note' ? (
-              <StepNote key={`note-${row.id}`} text={row.text} />
-            ) : row.run.type === 'single' ? (
-              <ToolCallLine
-                key={row.run.tc.id}
-                tc={row.run.tc}
-                allMessages={allMessages}
-                onCancelTool={onCancelTool}
-              />
-            ) : (
-              <PollingLine
-                key={`poll-${row.run.calls[0].id}`}
-                name={row.run.name}
-                calls={row.run.calls}
-                allMessages={allMessages}
-              />
-            ),
-          )}
+          {rows.map((row, index) => {
+            const content =
+              row.type === 'note' ? (
+                <StepNote key={`note-${row.id}`} text={row.text} />
+              ) : row.run.type === 'single' ? (
+                <ToolCallLine
+                  key={row.run.tc.id}
+                  tc={row.run.tc}
+                  allMessages={allMessages}
+                  onCancelTool={onCancelTool}
+                />
+              ) : (
+                <PollingLine
+                  key={`poll-${row.run.calls[0].id}`}
+                  name={row.run.name}
+                  calls={row.run.calls}
+                  allMessages={allMessages}
+                />
+              );
+            if (!row.owner) return content;
+            const startsRun = rows[index - 1]?.owner !== row.owner;
+            return (
+              <div
+                key={`owned-${index}`}
+                className="border-border/50 ml-1 border-l pl-2"
+              >
+                {startsRun && (
+                  <div className="text-muted-foreground/60 px-1 pt-1 text-[11px] font-medium">
+                    {ownerNames.get(row.owner) || t.task.subAgentDefault}
+                  </div>
+                )}
+                {content}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -503,6 +503,7 @@ export default {
   runDiagnosticsExportFailed: 'No se pudo exportar el paquete de soporte',
   subAgentsRunningCount: '{count} en ejecución',
   subAgentDefault: 'Sub-agente',
+  subAgentResult: 'Resultado',
   tokens: 'tokens',
 
   // Media lightbox

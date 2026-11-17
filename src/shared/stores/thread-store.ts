@@ -39,8 +39,24 @@ export interface ThreadMessage {
     final?: boolean;
   }>;
   toolCallId?: string;
+  /** Sub-agent invocation that produced this message; absent for the parent run. */
+  subagentRunId?: string;
   /** JSON-encoded MessageAttachment[] for user messages (from DB rehydration). */
   attachments?: string;
+}
+
+/** One sub-agent invocation, keyed by the AG-UI `subagentRunId`. */
+export interface ThreadSubagent {
+  id: string;
+  name: string;
+  description?: string;
+  parentSubagentRunId?: string;
+  parentToolCallId?: string;
+  status: 'running' | 'completed' | 'error';
+  result?: string;
+  error?: { message: string; code?: string };
+  startedAt?: number;
+  endedAt?: number;
 }
 
 export type ThreadHydrationState = 'pending' | 'hydrated' | 'error';
@@ -64,6 +80,9 @@ export const THREAD_STORE_REDUCED_EVENT_TYPES = new Set<string>([
   EventType.RUN_ERROR,
   EventType.STATE_SNAPSHOT,
   EventType.STATE_DELTA,
+  EventType.SUBAGENT_STARTED,
+  EventType.SUBAGENT_FINISHED,
+  EventType.SUBAGENT_ERROR,
 ]);
 
 export const THREAD_STORE_IGNORED_EVENT_TYPES = new Set<string>([
@@ -77,12 +96,6 @@ export const THREAD_STORE_IGNORED_EVENT_TYPES = new Set<string>([
   EventType.REASONING_START,
   EventType.REASONING_END,
   EventType.REASONING_ENCRYPTED_VALUE,
-  // First-class in AG-UI 0.0.59. Previously shipped as EventType.CUSTOM
-  // (neuma.subagent_*). Thread store still ignores them; reducing them into
-  // the message tree is a follow-up, not this sweep.
-  EventType.SUBAGENT_STARTED,
-  EventType.SUBAGENT_FINISHED,
-  EventType.SUBAGENT_ERROR,
 ]);
 
 export interface TaskFile {
@@ -134,6 +147,8 @@ interface ThreadAccumulator {
 interface ThreadState {
   messages: ThreadMessage[];
   messagesIndexById: Record<string, number>;
+  /** Sub-agent invocations in the order they started. */
+  subagents: ThreadSubagent[];
   files: TaskFile[];
   filesIndexById: Record<string, number>;
   isRunning: boolean;
@@ -172,6 +187,16 @@ export interface AGUIStreamEvent {
   snapshot?: Record<string, unknown>;
   /** RUN_FINISHED: why the run ended; absent means success. */
   outcome?: { type?: string };
+  timestamp?: number;
+  /** Set on a sub-agent's own events, and on SUBAGENT_* lifecycle events. */
+  subagentRunId?: string;
+  /** SUBAGENT_STARTED */
+  name?: string;
+  description?: string;
+  parentSubagentRunId?: string;
+  parentToolCallId?: string;
+  /** SUBAGENT_FINISHED */
+  result?: unknown;
 }
 
 /**
@@ -179,6 +204,31 @@ export interface AGUIStreamEvent {
  * sent as RUN_ERROR for a stop before stops became a cancelled outcome.
  */
 const RUN_STOPPED_MESSAGE = 'Run stopped by user';
+
+const RUN_ENDED_CODE = 'run_ended';
+
+/**
+ * Ends a sub-agent that is still running. The server closes every child before
+ * a run ends, so this only covers a run that ended without that (a dropped
+ * stream, a crashed process). It is shown as ended early, never as completed.
+ */
+function closeRunningSubagents(
+  subagents: ThreadSubagent[],
+  endedAt: number,
+): boolean {
+  let changed = false;
+  for (const subagent of subagents) {
+    if (subagent.status !== 'running') continue;
+    subagent.status = 'error';
+    subagent.error = {
+      message: 'Run ended before the sub-agent finished',
+      code: RUN_ENDED_CODE,
+    };
+    subagent.endedAt = endedAt;
+    changed = true;
+  }
+  return changed;
+}
 
 /** Ends every tool call still waiting for a result. True if any changed. */
 function closeOpenToolCalls(msgs: ThreadMessage[], message: string): boolean {
@@ -206,7 +256,11 @@ interface ThreadStore {
     taskId: string,
     messages: ThreadMessage[],
     isRunning: boolean,
-    options?: { lastAppliedSeq?: number; files?: TaskFile[] },
+    options?: {
+      lastAppliedSeq?: number;
+      files?: TaskFile[];
+      subagents?: ThreadSubagent[];
+    },
   ) => void;
   setMessages: (
     taskId: string,
@@ -255,6 +309,7 @@ function createThreadState(
   return {
     messages: clonedMessages,
     messagesIndexById: buildMessagesIndex(clonedMessages),
+    subagents: [],
     files: clonedFiles,
     filesIndexById: buildFilesIndex(clonedFiles),
     isRunning,
@@ -383,6 +438,7 @@ function messagesShallowEqual(a: ThreadMessage[], b: ThreadMessage[]): boolean {
       left.isError !== right.isError ||
       left.subtype !== right.subtype ||
       left.toolCallId !== right.toolCallId ||
+      left.subagentRunId !== right.subagentRunId ||
       left.attachments !== right.attachments
     ) {
       return false;
@@ -414,9 +470,15 @@ export const useThreadStore = create<ThreadStore>()(
         const files = options?.files ?? previous?.files ?? [];
         const clonedMessages = cloneMessages(messages);
         const clonedFiles = cloneFiles(files);
+        const subagents = (options?.subagents ?? previous?.subagents ?? []).map(
+          (subagent) => ({ ...subagent }),
+        );
+        // A run that is no longer live cannot have a child still running.
+        if (!isRunning) closeRunningSubagents(subagents, Date.now());
         state.threads[taskId] = {
           messages: clonedMessages,
           messagesIndexById: buildMessagesIndex(clonedMessages),
+          subagents,
           files: clonedFiles,
           filesIndexById: buildFilesIndex(clonedFiles),
           isRunning,
@@ -491,6 +553,9 @@ export const useThreadStore = create<ThreadStore>()(
       set((state) => {
         const thread = ensureThread(state.threads, taskId);
         thread.isRunning = running;
+        // A thread that is not running has no running child, however the
+        // run ended (the provider reports it through here, not RUN_FINISHED).
+        if (!running) closeRunningSubagents(thread.subagents, Date.now());
         thread.lastAccessedAt = Date.now();
       }),
 
@@ -556,6 +621,7 @@ export const useThreadStore = create<ThreadStore>()(
           toolCallId: string,
           toolCallName?: string,
           parentMessageId?: string,
+          subagentRunId?: string,
         ): void => {
           const name = toolCallName ?? acc.toolNames[toolCallId] ?? 'tool';
           acc.toolNames[toolCallId] = name;
@@ -571,6 +637,9 @@ export const useThreadStore = create<ThreadStore>()(
                 'assistant',
               );
           acc.toolParentMsgId[toolCallId] = host.id;
+          if (subagentRunId && !host.subagentRunId) {
+            host.subagentRunId = subagentRunId;
+          }
 
           host.toolCalls = host.toolCalls ?? [];
           if (!host.toolCalls.some((tc) => tc.id === toolCallId)) {
@@ -601,10 +670,12 @@ export const useThreadStore = create<ThreadStore>()(
               break;
             }
             acc.textMessageId = event.messageId;
-            ensureMsg(
+            const started = ensureMsg(
               event.messageId,
               (event.role as ThreadMessage['role']) ?? 'assistant',
             );
+            if (event.subagentRunId)
+              started.subagentRunId = event.subagentRunId;
             break;
           }
 
@@ -668,6 +739,7 @@ export const useThreadStore = create<ThreadStore>()(
               event.toolCallId,
               event.toolCallName,
               event.parentMessageId,
+              event.subagentRunId,
             );
             break;
           }
@@ -756,7 +828,60 @@ export const useThreadStore = create<ThreadStore>()(
               role: 'tool',
               toolCallId: event.toolCallId,
               content: event.content ?? '',
+              ...(event.subagentRunId
+                ? { subagentRunId: event.subagentRunId }
+                : {}),
             });
+            break;
+          }
+
+          case EventType.SUBAGENT_STARTED: {
+            const id = event.subagentRunId;
+            if (!id || thread.subagents.some((a) => a.id === id)) {
+              mutated = false;
+              break;
+            }
+            thread.subagents.push({
+              id,
+              // The protocol leaves the name optional; the UI shows its
+              // localized default for an empty one.
+              name: event.name ?? '',
+              status: 'running',
+              startedAt: event.timestamp ?? Date.now(),
+              ...(event.description === undefined
+                ? {}
+                : { description: event.description }),
+              ...(event.parentSubagentRunId
+                ? { parentSubagentRunId: event.parentSubagentRunId }
+                : {}),
+              ...(event.parentToolCallId
+                ? { parentToolCallId: event.parentToolCallId }
+                : {}),
+            });
+            break;
+          }
+
+          case EventType.SUBAGENT_FINISHED:
+          case EventType.SUBAGENT_ERROR: {
+            const subagent = thread.subagents.find(
+              (a) => a.id === event.subagentRunId,
+            );
+            if (!subagent) {
+              mutated = false;
+              break;
+            }
+            subagent.endedAt = event.timestamp ?? Date.now();
+            if (event.type === EventType.SUBAGENT_FINISHED) {
+              subagent.status = 'completed';
+              if (typeof event.result === 'string')
+                subagent.result = event.result;
+            } else {
+              subagent.status = 'error';
+              subagent.error = {
+                message: event.message ?? '',
+                ...(event.code ? { code: event.code } : {}),
+              };
+            }
             break;
           }
 
@@ -770,9 +895,14 @@ export const useThreadStore = create<ThreadStore>()(
             thread.isRunning = false;
             // A stopped run ends with RUN_FINISHED, not RUN_ERROR, but its
             // in-flight tool calls will never get a result either.
-            mutated =
+            const closedTools =
               event.outcome?.type === 'cancelled' &&
               closeOpenToolCalls(msgs, RUN_STOPPED_MESSAGE);
+            const closedSubagents = closeRunningSubagents(
+              thread.subagents,
+              Date.now(),
+            );
+            mutated = closedTools || closedSubagents;
             break;
           }
 
@@ -781,6 +911,7 @@ export const useThreadStore = create<ThreadStore>()(
               event.messageId ?? `run-error-${event.seq ?? randomUUID()}`;
             const message = event.message ?? event.content ?? 'Unknown error';
             closeOpenToolCalls(msgs, message);
+            closeRunningSubagents(thread.subagents, Date.now());
             if (!findMsg(errorId)) {
               pushMessage(thread, {
                 id: errorId,

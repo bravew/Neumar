@@ -518,6 +518,7 @@ export default {
   runDiagnosticsExportFailed: 'Support bundle could not be exported',
   subAgentsRunningCount: '{count} running',
   subAgentDefault: 'Sub-agent',
+  subAgentResult: 'Result',
   tokens: 'tokens',
 
   // Media lightbox
