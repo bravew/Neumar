@@ -1,11 +1,23 @@
 // Pure read cache. Server's agent_runs is the source of truth.
 
+import type { TokenUsage } from '@ag-ui/core';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
 import { API_BASE_URL } from '@/config';
 
 export type RunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+
+/**
+ * What a run reported on its terminal event. An absent field was not reported;
+ * zero means the provider reported zero.
+ */
+export interface RunUsageRecord {
+  /** One entry per provider and model; cache and reasoning are subsets. */
+  usage?: TokenUsage[];
+  /** This run's own spend; absent when the producer reported none. */
+  costUsd?: number;
+}
 
 export interface RunTreeNode {
   id: string;
@@ -19,6 +31,11 @@ export interface RunTreeNode {
   costUsd: number;
   tokensIn: number;
   tokensOut: number;
+  /**
+   * Null when the run reported no usage. `costUsd` and the token counts above
+   * default to 0, so only this tells "reported nothing" from "reported zero".
+   */
+  usage: RunUsageRecord | null;
   error: string | null;
   completeness: 'complete' | 'unfinished' | 'unknown';
   delivery: 'not_expected' | 'pending' | 'delivered' | 'blocked' | 'failed';

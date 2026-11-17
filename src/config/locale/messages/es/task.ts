@@ -504,6 +504,14 @@ export default {
   subAgentsRunningCount: '{count} en ejecución',
   subAgentDefault: 'Sub-agente',
   subAgentResult: 'Resultado',
+  runStatusRunning: 'En ejecución',
+  runStatusCompleted: 'Completada',
+  runStatusFailed: 'Fallida',
+  runStatusCancelled: 'Cancelada',
+  runUsageCached: 'en caché {count}',
+  runUsageCacheWrite: 'escritura de caché {count}',
+  runUsageReasoning: 'razonamiento {count}',
+  runUsageNotReported: 'Sin uso informado',
   tokens: 'tokens',
 
   // Media lightbox

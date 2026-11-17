@@ -14,6 +14,9 @@ import {
   useRunTreeStore,
 } from '@/shared/stores/run-tree-store';
 
+import { summarizeRunUsage } from './run-usage';
+import { RunUsageDetail } from './RunUsageDetail';
+
 const STATUS_DOT: Record<RunStatus, string> = {
   running: 'bg-amber-500',
   completed: 'bg-emerald-500',
@@ -49,6 +52,7 @@ function formatTokens(n: number): string {
 function RunNodeRow({ node, depth }: { node: RunTreeNode; depth: number }) {
   const [expanded, setExpanded] = useState(node.status === 'running');
   const hasChildren = node.children.length > 0;
+  const usage = summarizeRunUsage(node);
   const details = [
     node.runtimeVersion ? `v${node.runtimeVersion}` : null,
     node.attempt > 0 ? `#${node.attempt + 1}` : null,
@@ -91,10 +95,13 @@ function RunNodeRow({ node, depth }: { node: RunTreeNode; depth: number }) {
         </span>
         <span className="text-muted-foreground ml-auto flex shrink-0 items-center gap-3">
           <StatusIcon status={node.status} />
-          {node.costUsd > 0 && <span>{formatCost(node.costUsd)}</span>}
-          {(node.tokensIn > 0 || node.tokensOut > 0) && (
+          {usage.costUsd !== undefined && (
+            <span>{formatCost(usage.costUsd)}</span>
+          )}
+          {(usage.tokensIn !== undefined || usage.tokensOut !== undefined) && (
             <span className="text-muted-foreground/70">
-              {formatTokens(node.tokensIn)}↑ {formatTokens(node.tokensOut)}↓
+              {formatTokens(usage.tokensIn ?? 0)}↑{' '}
+              {formatTokens(usage.tokensOut ?? 0)}↓
             </span>
           )}
         </span>
@@ -107,6 +114,7 @@ function RunNodeRow({ node, depth }: { node: RunTreeNode; depth: number }) {
           {node.error}
         </div>
       )}
+      {expanded && <RunUsageDetail node={node} paddingLeft={depth * 14 + 30} />}
       {expanded && details.length > 0 && (
         <div
           className="text-muted-foreground mt-0.5 text-xs"

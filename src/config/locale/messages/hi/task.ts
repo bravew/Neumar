@@ -507,6 +507,14 @@ export default {
   subAgentsRunningCount: '{count} चल रहे हैं',
   subAgentDefault: 'उप-एजेंट',
   subAgentResult: 'परिणाम',
+  runStatusRunning: 'चल रहा है',
+  runStatusCompleted: 'पूर्ण',
+  runStatusFailed: 'विफल',
+  runStatusCancelled: 'रद्द',
+  runUsageCached: 'कैश्ड {count}',
+  runUsageCacheWrite: 'कैश राइट {count}',
+  runUsageReasoning: 'रीज़निंग {count}',
+  runUsageNotReported: 'कोई उपयोग रिपोर्ट नहीं हुआ',
   tokens: 'टोकन',
 
   // Media lightbox
