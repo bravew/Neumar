@@ -43,13 +43,16 @@ const taskStarted = (
   toolUseId: string,
   description: string,
   subagentType?: string,
+  extra: Record<string, unknown> = {},
 ) => ({
   type: 'system',
   subtype: 'task_started',
   task_id: taskId,
   tool_use_id: toolUseId,
   description,
+  task_type: 'local_agent',
   ...(subagentType ? { subagent_type: subagentType } : {}),
+  ...extra,
 });
 
 const childText = (parent: string | null, text: string) => ({
@@ -167,5 +170,42 @@ describe('Claude adapter sub-agent attribution', () => {
       'task-b',
       'task-n',
     ]);
+  });
+});
+
+describe('Claude adapter: tasks that are not sub-agents', () => {
+  const out = mapSdkMessages([
+    taskStarted('bash-1', 'toolu_bash', 'sleep 300', undefined, {
+      task_type: 'local_bash',
+    }),
+    taskStarted('watch-1', 'toolu_watch', 'watcher', undefined, {
+      ambient: true,
+    }),
+    taskStarted('quiet-1', 'toolu_quiet', 'housekeeping', undefined, {
+      skip_transcript: true,
+    }),
+    childText('toolu_bash', 'bash output'),
+    taskNotification('bash-1', 'toolu_bash', 'completed', 'done'),
+    taskNotification('watch-1', 'toolu_watch', 'stopped', 'stopped'),
+  ]);
+
+  it('never reports them as sub-agents', () => {
+    expect(out.filter((m) => m.type.startsWith('subagent_'))).toEqual([]);
+  });
+
+  it('keeps their legacy step messages untagged so AG-UI still shows them as steps', () => {
+    const steps = out.filter(
+      (m) => m.type === 'step_started' || m.type === 'step_finished',
+    );
+    expect(steps).toHaveLength(5);
+    expect(steps.every((m) => m.subagentRunId === undefined)).toBe(true);
+  });
+
+  it('keeps text whose parent call is a bash task with the parent run', () => {
+    const text = out.find(
+      (m) => m.type === 'text' && m.content === 'bash output',
+    );
+    expect(text).toBeDefined();
+    expect(text?.subagentRunId).toBeUndefined();
   });
 });

@@ -697,6 +697,7 @@ export class AGUIEventPersister {
         }
 
         case EventType.RUN_ERROR: {
+          this.closeOpenSubagents();
           if (this.terminalProcess) {
             logger.warn('Ignoring late RUN_ERROR after terminal verdict', {
               runId: this.runId,
@@ -784,6 +785,7 @@ export class AGUIEventPersister {
         }
 
         case EventType.RUN_FINISHED: {
+          this.closeOpenSubagents();
           if (this.terminalProcess) break;
           this.flushPending();
           const duration = Date.now() - this.startedAtMs;
@@ -970,6 +972,24 @@ export class AGUIEventPersister {
         taskId: this.taskId,
         messageId: params.messageId,
         error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * The emitter closes every child before a run ends. This covers a run that
+   * ends without it, such as a synthetic RUN_ERROR from the transport, so a
+   * finished run never leaves a card that reads as still running.
+   */
+  private closeOpenSubagents(): void {
+    for (const [subagentRunId, record] of this.subagentRecords) {
+      if (record.status !== 'running') continue;
+      this.endSubagent(subagentRunId, {
+        status: 'error',
+        error: {
+          message: 'Run ended before the sub-agent finished',
+          code: 'run_ended',
+        },
       });
     }
   }

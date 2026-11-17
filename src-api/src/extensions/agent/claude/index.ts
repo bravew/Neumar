@@ -1339,6 +1339,24 @@ interface SubagentLedger {
   issuedBy: Map<string, string | undefined>;
   /** Task tool call → the SDK task id of the invocation it spawned. */
   spawnedTask: Map<string, string>;
+  /** SDK task ids that are sub-agents; bash, workflow, and ambient tasks are not. */
+  agentTasks: Set<string>;
+}
+
+/**
+ * `task_started` also announces background Bash commands, workflows, and
+ * ambient housekeeping. Only a spawned sub-agent is a sub-agent: the SDK says
+ * hosts should keep ambient and skip_transcript tasks out of activity views.
+ */
+function isSubagentTask(task: {
+  task_type?: string;
+  subagent_type?: string;
+  ambient?: boolean;
+  skip_transcript?: boolean;
+}): boolean {
+  if (task.ambient || task.skip_transcript) return false;
+  if (task.task_type !== undefined) return task.task_type === 'local_agent';
+  return task.subagent_type !== undefined;
 }
 
 /**
@@ -6206,7 +6224,11 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
   private subagentLedger(sessionId: string): SubagentLedger {
     let ledger = this.subagentLedgers.get(sessionId);
     if (!ledger) {
-      ledger = { issuedBy: new Map(), spawnedTask: new Map() };
+      ledger = {
+        issuedBy: new Map(),
+        spawnedTask: new Map(),
+        agentTasks: new Set(),
+      };
       this.subagentLedgers.set(sessionId, ledger);
     }
     return ledger;
@@ -6581,28 +6603,34 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
           sysMsg.task_id,
         );
         logger.info(`[${sessionId}] Sub-agent started: ${stepName}`);
+        const isSubagent = isSubagentTask(sysMsg);
         const ledger = this.subagentLedger(sessionId);
         const parentSubagentRunId = sysMsg.tool_use_id
           ? ledger.issuedBy.get(sysMsg.tool_use_id)
           : undefined;
-        if (sysMsg.tool_use_id && sysMsg.task_id) {
-          ledger.spawnedTask.set(sysMsg.tool_use_id, sysMsg.task_id);
+        if (isSubagent && sysMsg.task_id) {
+          ledger.agentTasks.add(sysMsg.task_id);
+          if (sysMsg.tool_use_id) {
+            ledger.spawnedTask.set(sysMsg.tool_use_id, sysMsg.task_id);
+          }
         }
         yield {
           type: 'step_started',
           stepName,
           id: sysMsg.task_id,
           parentToolUseId: sysMsg.tool_use_id,
-          subagentRunId: sysMsg.task_id,
+          ...(isSubagent ? { subagentRunId: sysMsg.task_id } : {}),
         };
-        yield {
-          type: 'subagent_started',
-          subagentRunId: sysMsg.task_id,
-          subagentName: sysMsg.subagent_type ?? sysMsg.description,
-          subagentDescription: sysMsg.description,
-          parentSubagentRunId,
-          parentToolCallId: sysMsg.tool_use_id,
-        };
+        if (isSubagent) {
+          yield {
+            type: 'subagent_started',
+            subagentRunId: sysMsg.task_id,
+            subagentName: sysMsg.subagent_type ?? sysMsg.description,
+            subagentDescription: sysMsg.description,
+            parentSubagentRunId,
+            parentToolCallId: sysMsg.tool_use_id,
+          };
+        }
       } else if (sysMsg.subtype === 'task_notification') {
         const notifMsg = message as {
           type: string;
@@ -6624,12 +6652,15 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
           sysMsg.task_id,
         );
         logger.info(`[${sessionId}] Sub-agent finished: ${stepName}`);
+        const wasSubagent =
+          !!sysMsg.task_id &&
+          this.subagentLedger(sessionId).agentTasks.has(sysMsg.task_id);
         yield {
           type: 'step_finished',
           stepName,
           id: sysMsg.task_id,
           parentToolUseId: sysMsg.tool_use_id,
-          subagentRunId: sysMsg.task_id,
+          ...(wasSubagent ? { subagentRunId: sysMsg.task_id } : {}),
           subtype: notifMsg.status,
           duration: notifMsg.usage?.duration_ms,
           usage: notifMsg.usage
@@ -6641,13 +6672,14 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         };
         // Only a completed notification is a success. A failure or a stop is
         // reported as an error so a cancelled child is never shown as done.
-        if (notifMsg.status === 'completed') {
+        // A background command or workflow has no sub-agent card to close.
+        if (wasSubagent && notifMsg.status === 'completed') {
           yield {
             type: 'subagent_finished',
             subagentRunId: sysMsg.task_id,
             output: notifMsg.summary,
           };
-        } else {
+        } else if (wasSubagent) {
           yield {
             type: 'subagent_error',
             subagentRunId: sysMsg.task_id,

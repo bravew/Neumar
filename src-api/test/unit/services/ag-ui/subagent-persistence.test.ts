@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import type { BaseEvent } from '@ag-ui/core';
+import { EventType, type BaseEvent } from '@ag-ui/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AgentMessage } from '@/core/agent/types';
@@ -174,6 +174,27 @@ describe('sub-agent persistence and history replay', () => {
     ]);
 
     expect(dbMessagesToSubagents(rows)).toEqual([
+      expect.objectContaining({
+        id: 'task-a',
+        status: 'error',
+        error: expect.objectContaining({ code: 'run_ended' }),
+      }),
+    ]);
+  });
+
+  it('closes a running child when the run ends with a RUN_ERROR the emitter never saw', async () => {
+    const persister = new AGUIEventPersister(TASK_ID, 'run-1', tempHome);
+    persister.handleEvent({
+      type: EventType.SUBAGENT_STARTED,
+      subagentRunId: 'task-a',
+      name: 'Scan',
+    } as BaseEvent);
+    persister.handleEvent({
+      type: EventType.RUN_ERROR,
+      message: 'transport failed',
+    } as BaseEvent);
+
+    expect(dbMessagesToSubagents(getMessagesByTaskId(TASK_ID))).toEqual([
       expect.objectContaining({
         id: 'task-a',
         status: 'error',
