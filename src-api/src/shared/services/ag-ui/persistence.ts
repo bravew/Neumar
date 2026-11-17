@@ -644,6 +644,7 @@ export class AGUIEventPersister {
           const record: SubagentRecord = {
             name: e.name,
             status: 'running',
+            startedAt: Date.now(),
             ...(e.description === undefined
               ? {}
               : { description: e.description }),
@@ -1002,7 +1003,11 @@ export class AGUIEventPersister {
     if (this.mode !== 'task') return;
     const current = this.subagentRecords.get(subagentRunId);
     if (!current) return;
-    const ended: SubagentRecord = { ...current, ...outcome };
+    const ended: SubagentRecord = {
+      ...current,
+      ...outcome,
+      endedAt: Date.now(),
+    };
     this.subagentRecords.set(subagentRunId, ended);
     try {
       getUpdateMessageContentStmt().run(

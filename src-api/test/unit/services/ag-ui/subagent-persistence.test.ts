@@ -117,6 +117,10 @@ describe('sub-agent persistence and history replay', () => {
   it('records each invocation with its ownership and terminal status', async () => {
     const rows = await persist(PARENT_AND_TWO_CHILDREN);
 
+    const timing = {
+      startedAt: expect.any(Number),
+      endedAt: expect.any(Number),
+    };
     expect(dbMessagesToSubagents(rows)).toEqual([
       {
         id: 'task-a',
@@ -125,6 +129,7 @@ describe('sub-agent persistence and history replay', () => {
         parentToolCallId: 'toolu_A',
         status: 'completed',
         result: 'Found 3',
+        ...timing,
       },
       {
         id: 'task-b',
@@ -133,6 +138,7 @@ describe('sub-agent persistence and history replay', () => {
         parentToolCallId: 'toolu_B',
         status: 'error',
         error: { message: 'Stopped by user', code: 'stopped' },
+        ...timing,
       },
     ]);
   });

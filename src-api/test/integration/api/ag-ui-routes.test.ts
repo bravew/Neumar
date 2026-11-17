@@ -654,6 +654,26 @@ describe('AG-UI Routes', () => {
       expect(Array.isArray(body.messages)).toBe(true);
       expect(Array.isArray(body.files)).toBe(true);
     });
+
+    it('returns the sub-agent invocations built from the stored rows', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const operations = await import('@/shared/db/operations');
+      const history = await import('@/shared/services/ag-ui/history');
+      const rows = [{ id: 'row-1' }] as never;
+      const runs = [
+        { id: 'task-a', name: 'Scan', status: 'completed', result: 'done' },
+      ];
+      vi.mocked(operations.getMessagesByTaskId).mockReturnValueOnce(rows);
+      vi.mocked(history.dbMessagesToSubagents).mockReturnValueOnce(
+        runs as never,
+      );
+
+      const res = await aguiRoutes.request('/history/task-abc');
+      const body = (await res.json()) as { subagents: unknown };
+
+      expect(history.dbMessagesToSubagents).toHaveBeenCalledWith(rows);
+      expect(body.subagents).toEqual(runs);
+    });
   });
 
   // ---- GET /pending-plan/:taskId ----
@@ -850,6 +870,43 @@ describe('AG-UI Routes', () => {
       expect(body.indexOf('MESSAGES_SNAPSHOT')).toBeLessThan(
         body.indexOf('RUN_FINISHED'),
       );
+    });
+
+    it('carries the sub-agent invocations in the gap snapshot', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const operations = await import('@/shared/db/operations');
+      const journal = await import('@/shared/services/ag-ui/journal');
+      const history = await import('@/shared/services/ag-ui/history');
+      vi.mocked(operations.getAgentRun).mockReturnValueOnce({
+        id: 'run-gap',
+        mode: 'task',
+        owner_key: 'task-gap',
+        status: 'completed',
+        delivery: 'not_expected',
+        delivery_reconciliation_deadline: null,
+      } as never);
+      vi.mocked(journal.replayAGUIEvents).mockReturnValueOnce([
+        { type: 'RUN_FINISHED', seq: 4 } as never,
+      ]);
+      vi.mocked(history.dbMessagesToSubagents).mockReturnValueOnce([
+        { id: 'task-a', name: 'Scan', status: 'running' },
+      ] as never);
+
+      const res = await aguiRoutes.request(
+        new Request('http://localhost/subscribe/task/task-gap/run-gap', {
+          headers: { 'Last-Event-ID': '1' },
+        }),
+      );
+      const body = await res.text();
+
+      const snapshot = body
+        .split('\n')
+        .filter((line) => line.startsWith('data: '))
+        .map((line) => JSON.parse(line.slice(6)) as Record<string, unknown>)
+        .find((event) => event.type === 'MESSAGES_SNAPSHOT');
+      expect(snapshot?.subagents).toEqual([
+        { id: 'task-a', name: 'Scan', status: 'running' },
+      ]);
     });
   });
 });
