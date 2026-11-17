@@ -2635,6 +2635,8 @@ export interface AgentRunRow {
     | 'resume_after_restart'
     | null;
   delivery_reconciliation_deadline: string | null;
+  /** JSON `RunUsageRecord`; NULL when the run reported no usage. */
+  usage_json: string | null;
 }
 
 export interface ReserveAgentRunInput {
@@ -2974,6 +2976,8 @@ export function finishAgentRun(input: {
   costUsd?: number;
   tokensIn?: number;
   tokensOut?: number;
+  /** Serialized `RunUsageRecord`; leave undefined when nothing was reported. */
+  usageJson?: string;
   error?: string | null;
   completeness?: AgentRunRow['completeness'];
   delivery?: AgentRunRow['delivery'];
@@ -2987,6 +2991,7 @@ export function finishAgentRun(input: {
            cost_usd = COALESCE(?, cost_usd),
            tokens_in = COALESCE(?, tokens_in),
            tokens_out = COALESCE(?, tokens_out),
+           usage_json = COALESCE(?, usage_json),
            error = ?, completeness = COALESCE(?, completeness),
            delivery = COALESCE(?, delivery), retry = COALESCE(?, retry),
            failure_cause = COALESCE(?, failure_cause)
@@ -2997,6 +3002,7 @@ export function finishAgentRun(input: {
       input.costUsd ?? null,
       input.tokensIn ?? null,
       input.tokensOut ?? null,
+      input.usageJson ?? null,
       input.error ?? null,
       input.completeness ?? null,
       input.delivery ?? null,

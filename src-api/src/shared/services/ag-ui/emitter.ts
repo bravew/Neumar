@@ -34,6 +34,7 @@ import type { AgentMessage } from '@/core/agent/types';
 
 import { CustomEventName } from './event-schema';
 import { planInterrupt } from './interrupts';
+import { RunUsageAccumulator } from './run-usage';
 
 /** Attribution field for a message owned by a sub-agent; empty for the parent run. */
 function ownerField(subagentRunId: string | undefined): {
@@ -63,6 +64,9 @@ export interface AGUIRunContext {
    * user stopped it, whatever error the adapter surfaced on the way out.
    */
   signal?: AbortSignal;
+  /** Agent provider and model the run's usage is attributed to. */
+  provider?: string;
+  model?: string;
 }
 
 /**
@@ -92,11 +96,29 @@ export class AGUIEmitter {
   /** Sub-agent invocations started and not yet ended. */
   private openSubagents = new Set<string>();
 
+  /** This run's own model calls; reported on the terminal event. */
+  private readonly usage: RunUsageAccumulator;
+
   constructor(
     private readonly threadId: string,
     private readonly runId: string,
     private readonly context?: AGUIRunContext,
-  ) {}
+  ) {
+    this.usage = new RunUsageAccumulator({
+      provider: context?.provider,
+      model: context?.model,
+    });
+  }
+
+  /** Usage and spend for the terminal event; both absent when unreported. */
+  private usageFields(): Pick<RunFinishedEvent, 'usage' | 'metadata'> {
+    const usage = this.usage.tokenUsage;
+    const costUsd = this.usage.costUsd;
+    return {
+      ...(usage ? { usage } : {}),
+      ...(costUsd !== undefined ? { metadata: { costUsd } } : {}),
+    };
+  }
 
   async *transform(
     source: AsyncGenerator<AgentMessage>,
@@ -119,7 +141,6 @@ export class AGUIEmitter {
             title: this.context.taskTitle ?? this.threadId,
             phase: 'executing',
           },
-          usage: { inputTokens: 0, outputTokens: 0, cost: 0 },
         },
       });
     }
@@ -146,6 +167,7 @@ export class AGUIEmitter {
       } else {
         yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
           message: err instanceof Error ? err.message : String(err),
+          ...this.usageFields(),
         });
       }
     } finally {
@@ -156,6 +178,7 @@ export class AGUIEmitter {
         yield* this.closeOpenBlocks();
         yield this.event<RunFinishedEvent>(EventType.RUN_FINISHED, {
           outcome: this.outcome(),
+          ...this.usageFields(),
         });
       }
     }
@@ -460,6 +483,8 @@ export class AGUIEmitter {
       }
 
       case 'plan': {
+        // The planning call is part of the run's own spend.
+        this.usage.record(msg);
         if (this.currentMessageId) {
           yield this.event<TextMessageEndEvent>(EventType.TEXT_MESSAGE_END, {
             messageId: this.currentMessageId,
@@ -496,6 +521,7 @@ export class AGUIEmitter {
       }
 
       case 'direct_answer': {
+        this.usage.record(msg);
         // A planner's direct answer is the reply itself. Send it as an
         // assistant message: AG-UI clients render text messages, persistence
         // stores them, and history replays them. As a CUSTOM event it was
@@ -552,9 +578,13 @@ export class AGUIEmitter {
             value: msg,
           });
         }
-        // Emit usage snapshot when the result carries token counts.
+        // Project the run-so-far usage into STATE_SNAPSHOT for consumers that
+        // read `state.usage` live. The terminal event's `usage` is the record;
+        // drop this projection once agui-provider reads usage from it.
         // STATE_SNAPSHOT is fully handled by react-ag-ui; STATE_DELTA was silently dropped in v0.0.21.
-        if (msg.usage || msg.cost != null) {
+        this.usage.record(msg);
+        const projection = this.usage.projection;
+        if (projection) {
           const workspaceName =
             this.context?.workspaceRoot?.split('/').pop() ?? '';
           yield this.event<StateSnapshotEvent>(EventType.STATE_SNAPSHOT, {
@@ -568,11 +598,7 @@ export class AGUIEmitter {
                 title: this.context?.taskTitle ?? this.threadId,
                 phase: 'executing',
               },
-              usage: {
-                inputTokens: msg.usage?.input_tokens ?? 0,
-                outputTokens: msg.usage?.output_tokens ?? 0,
-                cost: msg.cost ?? 0,
-              },
+              usage: projection,
             },
           });
         }
@@ -591,6 +617,7 @@ export class AGUIEmitter {
         yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
           message: msg.message ?? 'Unknown error',
           code: msg.subtype,
+          ...this.usageFields(),
         });
         break;
       }

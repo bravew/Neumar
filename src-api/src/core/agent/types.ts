@@ -143,13 +143,27 @@ export interface AgentMessage {
   id?: string;
   input?: unknown;
   cost?: number;
+  /**
+   * Spend attributable to this call alone. Set by a producer whose `cost` is a
+   * running or session total (Claude restores prior spend on resume), so a run
+   * reports only its own calls. When absent, `cost` is taken as this call's spend.
+   */
+  costDelta?: number;
   duration?: number;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
+    /** A subset of `output_tokens`. */
     reasoning_output_tokens?: number;
     cache_read_input_tokens?: number;
     cache_creation_input_tokens?: number;
+    /**
+     * Whether `input_tokens` already counts the cache fields. Anthropic-style
+     * providers exclude them (`false`); OpenAI-style providers include them
+     * (`true`). Leave it unset when the provider's convention is not known: the
+     * cache counts are then not reported, rather than guessed at.
+     */
+    input_includes_cache?: boolean;
   };
   model?: string;
   // Tool result fields

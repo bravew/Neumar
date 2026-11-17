@@ -121,7 +121,8 @@ export function normalizeOpenAIUsage(
     reasoning_output_tokens: read(completionDetails.reasoning_tokens),
     cache_read_input_tokens: read(promptDetails.cached_tokens),
   };
+  // OpenAI-style prompt_tokens already counts the cached tokens.
   return Object.values(normalized).some((entry) => entry !== undefined)
-    ? normalized
+    ? { ...normalized, input_includes_cache: true }
     : undefined;
 }

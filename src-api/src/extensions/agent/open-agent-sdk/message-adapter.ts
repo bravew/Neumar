@@ -113,6 +113,7 @@ export class SdkMessageProcessor {
                 cache_read_input_tokens: msg.usage.cache_read_input_tokens,
                 cache_creation_input_tokens:
                   msg.usage.cache_creation_input_tokens,
+                input_includes_cache: false,
               }
             : undefined,
         };
