@@ -65,6 +65,7 @@ vi.mock('@/shared/services/ag-ui/emitter', () => ({
 
 vi.mock('@/shared/services/ag-ui/history', () => ({
   dbMessagesToFullAGUI: vi.fn().mockReturnValue([]),
+  dbMessagesToSubagents: vi.fn().mockReturnValue([]),
 }));
 
 vi.mock('@/shared/services/ag-ui/journal', () => ({

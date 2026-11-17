@@ -65,10 +65,10 @@ describe('sub-agent events satisfy the AG-UI client verifier', () => {
       },
       {
         type: 'tool_result',
-        id: 'tu-1',
+        toolUseId: 'tu-1',
         output: 'ok',
         subagentRunId: 'task-a',
-      } as AgentMessage,
+      },
       { type: 'subagent_finished', subagentRunId: 'task-n', output: 'n' },
       { type: 'text', content: 'parent again' },
       { type: 'subagent_error', subagentRunId: 'task-a', message: 'boom' },

@@ -48,7 +48,10 @@ import { activeQueryStore } from '@/shared/services/active-query-store';
 import { AttachmentPromotionService } from '@/shared/services/ag-ui/attachment-promotion';
 import { startDetachedAGUIRun } from '@/shared/services/ag-ui/detached-run';
 import { AGUIEmitter } from '@/shared/services/ag-ui/emitter';
-import { dbMessagesToFullAGUI } from '@/shared/services/ag-ui/history';
+import {
+  dbMessagesToFullAGUI,
+  dbMessagesToSubagents,
+} from '@/shared/services/ag-ui/history';
 import {
   parseDecisionInterruptId,
   ResumeSchema,
@@ -1566,6 +1569,7 @@ agui.get('/history/:taskId', async (c) => {
   const { files } = await restoreReattachFiles(taskId, activeRunContext);
   return c.json({
     messages: aguiMessages,
+    subagents: dbMessagesToSubagents(dbMessages),
     files,
     isRunning: activeBusKey ? taskEventBus.isTaskActive(activeBusKey) : false,
     taskStatus,
@@ -1653,11 +1657,14 @@ agui.get('/subscribe/:mode/:ownerKey/:runId', async (c) => {
     ?.seq;
   const hasGap =
     afterSeq >= 0 && typeof firstSeq === 'number' && firstSeq > afterSeq + 1;
+  const gapMessages =
+    mode.data === 'task' && hasGap ? getMessagesByTaskId(ownerKey) : [];
   const taskSnapshot =
     mode.data === 'task' && hasGap
       ? {
           type: 'MESSAGES_SNAPSHOT',
-          messages: dbMessagesToFullAGUI(getMessagesByTaskId(ownerKey)),
+          messages: dbMessagesToFullAGUI(gapMessages),
+          subagents: dbMessagesToSubagents(gapMessages),
           files: (
             await restoreReattachFiles(
               ownerKey,
@@ -1805,6 +1812,7 @@ agui.get('/subscribe/:taskId', async (c) => {
           const snapshot = {
             type: 'MESSAGES_SNAPSHOT',
             messages: snapshotMessages,
+            subagents: dbMessagesToSubagents(dbMessages),
             files: snapshotFiles,
             seq: lastEventId ?? -1,
             timestamp: Date.now(),

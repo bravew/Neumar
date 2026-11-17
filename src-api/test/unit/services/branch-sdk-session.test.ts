@@ -193,7 +193,7 @@ describe('branch SDK session migration', () => {
   it('is registered as the next migration version', () => {
     const versions = DATABASE_MIGRATIONS.map((m) => m.version);
     expect(versions).toContain(109);
-    expect(Math.max(...versions)).toBe(111);
+    expect(Math.max(...versions)).toBe(112);
   });
 });
 

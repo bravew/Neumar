@@ -7,6 +7,12 @@
 
 import type { Message } from '@/shared/db/types';
 
+import {
+  parseSubagentRecord,
+  SUBAGENT_MESSAGE_TYPE,
+  type SubagentRun,
+} from './subagent-record';
+
 /** CopilotKit-compatible message shape (from useAgent().messages) */
 export interface AGUIHistoryMessage {
   id: string;
@@ -26,6 +32,8 @@ export interface AGUIHistoryMessage {
     final?: boolean;
   }>;
   toolCallId?: string;
+  /** Sub-agent invocation that produced this message; absent for the parent run. */
+  subagentRunId?: string;
   /**
    * JSON-encoded `MessageAttachment[]` for user messages. Travels with the
    * message itself (best-practice mirrored from Stream Chat / Gifted Chat
@@ -62,6 +70,12 @@ export function dbMessagesToFullAGUI(
       currentAssistant = null;
     }
   };
+  /** A message never mixes the parent's output with a child's, or two children's. */
+  const switchOwner = (owner: string | undefined) => {
+    if (currentAssistant && currentAssistant.subagentRunId !== owner) {
+      flushAssistant();
+    }
+  };
 
   for (const msg of messages) {
     switch (msg.type) {
@@ -93,6 +107,8 @@ export function dbMessagesToFullAGUI(
             });
           }
         } else if (msg.content) {
+          const owner = msg.subagent_run_id ?? undefined;
+          switchOwner(owner);
           // Accumulate text into current assistant message or create new one
           if (currentAssistant) {
             currentAssistant.content =
@@ -102,6 +118,7 @@ export function dbMessagesToFullAGUI(
               id: msg.message_id ?? String(msg.id),
               role: 'assistant',
               content: msg.content,
+              ...(owner ? { subagentRunId: owner } : {}),
             };
           }
         }
@@ -110,11 +127,14 @@ export function dbMessagesToFullAGUI(
 
       case 'tool_use': {
         // Tool calls attach to the current assistant message
+        const toolOwner = msg.subagent_run_id ?? undefined;
+        switchOwner(toolOwner);
         if (!currentAssistant) {
           currentAssistant = {
             id: `assistant_${msg.id}`,
             role: 'assistant',
             content: '',
+            ...(toolOwner ? { subagentRunId: toolOwner } : {}),
           };
         }
         if (!currentAssistant.toolCalls) {
@@ -153,7 +173,17 @@ export function dbMessagesToFullAGUI(
           role: 'tool',
           content: msg.tool_output ?? '',
           toolCallId: msg.tool_use_id ?? undefined,
+          ...(msg.subagent_run_id
+            ? { subagentRunId: msg.subagent_run_id }
+            : {}),
         });
+        break;
+      }
+
+      case SUBAGENT_MESSAGE_TYPE: {
+        // Rendered as an activity card from dbMessagesToSubagents, never as
+        // a chat message.
+        flushAssistant();
         break;
       }
 
@@ -199,4 +229,20 @@ export function dbMessagesToFullAGUI(
 
   flushAssistant();
   return result;
+}
+
+/**
+ * The sub-agent invocations of a thread, in the order they started. A row that
+ * still says `running` belongs to a run that is no longer live: the persister
+ * closes every invocation before the run ends, so a leftover only appears when
+ * the process died mid-run. Callers that know a run is live keep that state.
+ */
+export function dbMessagesToSubagents(messages: Message[]): SubagentRun[] {
+  const runs: SubagentRun[] = [];
+  for (const msg of messages) {
+    if (msg.type !== SUBAGENT_MESSAGE_TYPE || !msg.subagent_run_id) continue;
+    const record = parseSubagentRecord(msg.content);
+    if (record) runs.push({ id: msg.subagent_run_id, ...record });
+  }
+  return runs;
 }

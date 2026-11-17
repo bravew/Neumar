@@ -3983,13 +3983,13 @@ export function createBranch(taskId: string, fromMessageId: number): string {
       task_id, type, content, tool_name, tool_input, tool_output, tool_use_id,
       subtype, error_message, attachments, message_id, cost,
       usage_input, usage_output, usage_cache_read, usage_cache_creation,
-      model, created_at, branch_id, parent_message_id
+      model, created_at, branch_id, parent_message_id, subagent_run_id
     )
     SELECT
       task_id, type, content, tool_name, tool_input, tool_output, tool_use_id,
       subtype, error_message, attachments, NULL, cost,
       usage_input, usage_output, usage_cache_read, usage_cache_creation,
-      model, created_at, ?, ?
+      model, created_at, ?, ?, subagent_run_id
     FROM messages
     WHERE task_id = ? AND id <= ? AND branch_id = 'main'
   `).run(branchId, fromMessageId, taskId, fromMessageId);
@@ -4068,13 +4068,13 @@ export function createBranchWithEditedMessage(
         task_id, type, content, tool_name, tool_input, tool_output, tool_use_id,
         subtype, error_message, attachments, message_id, cost,
         usage_input, usage_output, usage_cache_read, usage_cache_creation,
-        model, created_at, branch_id, parent_message_id
+        model, created_at, branch_id, parent_message_id, subagent_run_id
       )
       SELECT
         task_id, type, content, tool_name, tool_input, tool_output, tool_use_id,
         subtype, error_message, attachments, NULL, cost,
         usage_input, usage_output, usage_cache_read, usage_cache_creation,
-        model, created_at, ?, ?
+        model, created_at, ?, ?, subagent_run_id
       FROM messages
       WHERE task_id = ? AND id < ? AND branch_id = 'main'
     `).run(branchId, fromMessageId, taskId, fromMessageId);
@@ -4117,7 +4117,8 @@ export function searchMessages(taskId: string, query: string): Message[] {
   return db
     .prepare(
       `SELECT * FROM messages
-       WHERE task_id = ? AND content LIKE '%' || ? || '%'
+       WHERE task_id = ? AND type != 'subagent'
+         AND content LIKE '%' || ? || '%'
        ORDER BY id ASC
        LIMIT 100`,
     )

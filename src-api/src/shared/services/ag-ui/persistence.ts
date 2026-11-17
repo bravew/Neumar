@@ -46,6 +46,11 @@ import {
   SubagentFinishedPayloadSchema,
   SubagentStartedPayloadSchema,
 } from './event-schema';
+import {
+  SUBAGENT_MESSAGE_TYPE,
+  subagentMessageId,
+  type SubagentRecord,
+} from './subagent-record';
 
 /**
  * Canonicalize a path so two different absolute references to the same
@@ -164,12 +169,41 @@ function getInsertMessageStmt(): Database.Statement {
       stmt: db.prepare(`
         INSERT OR IGNORE INTO messages (
           task_id, type, content, tool_name, tool_input, tool_output,
-          tool_use_id, subtype, error_message, message_id, run_id, branch_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          tool_use_id, subtype, error_message, message_id, run_id, branch_id,
+          subagent_run_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
     };
   }
   return insertMessageStmtCache.stmt;
+}
+
+let updateMessageContentStmtCache: {
+  db: Database.Database;
+  stmt: Database.Statement;
+} | null = null;
+
+function getUpdateMessageContentStmt(): Database.Statement {
+  const db = getDatabase();
+  if (
+    !updateMessageContentStmtCache ||
+    updateMessageContentStmtCache.db !== db
+  ) {
+    updateMessageContentStmtCache = {
+      db,
+      stmt: db.prepare(
+        'UPDATE messages SET content = ? WHERE task_id = ? AND message_id = ?',
+      ),
+    };
+  }
+  return updateMessageContentStmtCache.stmt;
+}
+
+/** The AG-UI `subagentRunId` an event carries, if a sub-agent produced it. */
+function eventOwner(event: BaseEvent): string | undefined {
+  const owner = (event as BaseEvent & { subagentRunId?: unknown })
+    .subagentRunId;
+  return typeof owner === 'string' && owner ? owner : undefined;
 }
 
 /**
@@ -181,6 +215,12 @@ export class AGUIEventPersister {
   private pendingTextMessageId: string | null = null;
   private pendingReasoningText = '';
   private pendingReasoningMessageId: string | null = null;
+  /** Sub-agent invocation that owns the text block in progress. */
+  private pendingTextOwner: string | undefined;
+  /** Sub-agent invocation that owns each open tool call, by tool call id. */
+  private pendingToolOwners: Record<string, string> = {};
+  /** Live record per invocation, rewritten onto its row when it ends. */
+  private subagentRecords = new Map<string, SubagentRecord>();
   private pendingToolArgs: Record<string, string> = {};
   private pendingToolNames: Record<string, string> = {};
   private pendingToolStartedAt: Record<string, number> = {};
@@ -333,6 +373,7 @@ export class AGUIEventPersister {
         case EventType.TEXT_MESSAGE_START: {
           const e = event as BaseEvent & { messageId: string };
           this.pendingTextMessageId = e.messageId;
+          this.pendingTextOwner = eventOwner(event);
           this.pendingText = '';
           break;
         }
@@ -349,15 +390,21 @@ export class AGUIEventPersister {
               type: 'text',
               content: this.pendingText,
               messageId: this.pendingTextMessageId,
+              subagentRunId: this.pendingTextOwner,
             });
-            // Cap accumulated text to avoid unbounded memory growth on long runs
-            if (this.assistantTextAccum.length < 8000) {
+            // The dispatch summary describes the parent run, so a child's
+            // text stays out of it. Cap it to bound memory on long runs.
+            if (
+              !this.pendingTextOwner &&
+              this.assistantTextAccum.length < 8000
+            ) {
               this.assistantTextAccum += this.pendingText + '\n';
             }
             this.extractFilesFromOutput(this.pendingText);
           }
           this.pendingText = '';
           this.pendingTextMessageId = null;
+          this.pendingTextOwner = undefined;
           break;
         }
 
@@ -396,6 +443,8 @@ export class AGUIEventPersister {
           this.pendingToolArgs[e.toolCallId] = '';
           this.pendingToolNames[e.toolCallId] = e.toolCallName ?? 'unknown';
           this.pendingToolStartedAt[e.toolCallId] = Date.now();
+          const toolOwner = eventOwner(event);
+          if (toolOwner) this.pendingToolOwners[e.toolCallId] = toolOwner;
           break;
         }
 
@@ -417,6 +466,7 @@ export class AGUIEventPersister {
             toolInput: toolArgs,
             toolUseId: e.toolCallId,
             messageId: `${this.taskId}_${e.toolCallId}`,
+            subagentRunId: this.pendingToolOwners[e.toolCallId],
           });
           recordTraceEvent({
             id: `${this.taskId}_${this.runId ?? 'run'}_${e.toolCallId}`,
@@ -463,7 +513,10 @@ export class AGUIEventPersister {
             toolOutput: e.content,
             toolUseId: e.toolCallId,
             messageId: e.messageId ?? `${this.taskId}_result_${e.toolCallId}`,
+            subagentRunId:
+              eventOwner(event) ?? this.pendingToolOwners[e.toolCallId],
           });
+          delete this.pendingToolOwners[e.toolCallId];
           // Phase 7: cap trace event output to a fixed budget. The defended
           // content already replaces BLOCK results with a placeholder before
           // reaching this layer, so this cap is a size hardening guard, not
@@ -577,6 +630,69 @@ export class AGUIEventPersister {
               }
             }
           }
+          break;
+        }
+
+        case EventType.SUBAGENT_STARTED: {
+          const e = event as BaseEvent & {
+            subagentRunId: string;
+            name: string;
+            description?: string;
+            parentSubagentRunId?: string;
+            parentToolCallId?: string;
+          };
+          const record: SubagentRecord = {
+            name: e.name,
+            status: 'running',
+            ...(e.description === undefined
+              ? {}
+              : { description: e.description }),
+            ...(e.parentSubagentRunId
+              ? { parentSubagentRunId: e.parentSubagentRunId }
+              : {}),
+            ...(e.parentToolCallId
+              ? { parentToolCallId: e.parentToolCallId }
+              : {}),
+          };
+          this.subagentRecords.set(e.subagentRunId, record);
+          this.insertMessage({
+            type: SUBAGENT_MESSAGE_TYPE,
+            content: JSON.stringify(record),
+            messageId: subagentMessageId(
+              this.taskId,
+              this.runId,
+              e.subagentRunId,
+            ),
+            subagentRunId: e.subagentRunId,
+          });
+          break;
+        }
+
+        case EventType.SUBAGENT_FINISHED: {
+          const e = event as BaseEvent & {
+            subagentRunId: string;
+            result?: string;
+          };
+          this.endSubagent(e.subagentRunId, {
+            status: 'completed',
+            ...(e.result === undefined ? {} : { result: e.result }),
+          });
+          break;
+        }
+
+        case EventType.SUBAGENT_ERROR: {
+          const e = event as BaseEvent & {
+            subagentRunId: string;
+            message: string;
+            code?: string;
+          };
+          this.endSubagent(e.subagentRunId, {
+            status: 'error',
+            error: {
+              message: e.message,
+              ...(e.code ? { code: e.code } : {}),
+            },
+          });
           break;
         }
 
@@ -828,6 +944,8 @@ export class AGUIEventPersister {
     subtype?: string;
     errorMessage?: string;
     messageId?: string;
+    /** AG-UI `subagentRunId` of the invocation that produced the row. */
+    subagentRunId?: string;
   }): void {
     if (this.mode !== 'task') return;
     try {
@@ -844,12 +962,38 @@ export class AGUIEventPersister {
         params.messageId ?? null,
         this.runId ?? null,
         this.branchId,
+        params.subagentRunId ?? null,
       );
     } catch (err) {
       // Best-effort — don't crash the stream for a persistence failure
       logger.error('INSERT OR IGNORE failed', {
         taskId: this.taskId,
         messageId: params.messageId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /** Rewrites a sub-agent's row with its terminal status. */
+  private endSubagent(
+    subagentRunId: string,
+    outcome: Pick<SubagentRecord, 'status' | 'result' | 'error'>,
+  ): void {
+    if (this.mode !== 'task') return;
+    const current = this.subagentRecords.get(subagentRunId);
+    if (!current) return;
+    const ended: SubagentRecord = { ...current, ...outcome };
+    this.subagentRecords.set(subagentRunId, ended);
+    try {
+      getUpdateMessageContentStmt().run(
+        JSON.stringify(ended),
+        this.taskId,
+        subagentMessageId(this.taskId, this.runId, subagentRunId),
+      );
+    } catch (err) {
+      logger.error('Sub-agent status update failed', {
+        taskId: this.taskId,
+        subagentRunId,
         error: err instanceof Error ? err.message : String(err),
       });
     }
