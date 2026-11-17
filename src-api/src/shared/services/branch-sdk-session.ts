@@ -174,9 +174,10 @@ function recordModeFor(
 
 /**
  * Pass the run's messages through and, when it finishes without an error,
- * record the SDK session it wrote. Also captures the first replayed user
- * message UUID (the prompt's file checkpoint) and the SDK working directory,
- * which a later "Fork and restore files" needs to rewind this run.
+ * record the SDK session it wrote. File checkpoints are retained even when
+ * the run fails or is cancelled: its tracked edits still need to be rewound.
+ * Conversation sessions remain success-only so incomplete history cannot
+ * seed a fork.
  */
 export async function* withBranchSdkSessionRecording(
   stream: AsyncGenerator<AgentMessage>,
@@ -185,24 +186,49 @@ export async function* withBranchSdkSessionRecording(
   let promptSdkUuid: string | undefined;
   let cwd: string | undefined;
   let failed = false;
-  for await (const message of stream) {
-    if (message.type === 'error') failed = true;
-    if (
-      message.type === 'system' &&
-      message.subtype === 'user_checkpoint' &&
-      !promptSdkUuid &&
-      message.id
-    ) {
-      promptSdkUuid = message.id;
+  const record = recordModeFor(ctx);
+  try {
+    for await (const message of stream) {
+      if (message.type === 'error') failed = true;
+      if (
+        message.type === 'system' &&
+        message.subtype === 'user_checkpoint' &&
+        !promptSdkUuid &&
+        message.id
+      ) {
+        promptSdkUuid = message.id;
+      }
+      if (message.type === 'session' && !cwd) {
+        cwd = (message as AgentMessage & { cwd?: string }).cwd;
+      }
+      yield message;
     }
-    if (message.type === 'session' && !cwd) {
-      cwd = (message as AgentMessage & { cwd?: string }).cwd;
+  } finally {
+    // A throw, abort, or consumer closing the generator must not lose the
+    // baseline of files the attempt already edited.
+    if (ctx.provider === 'claude' && record?.sdkSessionId && promptSdkUuid) {
+      try {
+        const messageRowId = latestUserMessageRowId(ctx.taskId, ctx.runId);
+        if (messageRowId) {
+          recordAgentFileCheckpoint({
+            taskId: ctx.taskId,
+            messageRowId,
+            userMessageId: promptSdkUuid,
+            sdkSessionId: record.sdkSessionId,
+            cwd: cwd ?? null,
+          });
+        }
+      } catch (err) {
+        logger.warn('Failed to record file checkpoint', {
+          taskId: ctx.taskId,
+          runId: ctx.runId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
-    yield message;
   }
   if (failed || ctx.signal?.aborted) return;
 
-  const record = recordModeFor(ctx);
   if (!record) return;
   try {
     recordBranchSdkSession({
@@ -219,21 +245,6 @@ export async function* withBranchSdkSessionRecording(
       promptSdkUuid,
       cwd,
     });
-    const messageRowId = latestUserMessageRowId(ctx.taskId, ctx.runId);
-    if (
-      ctx.provider === 'claude' &&
-      record.sdkSessionId &&
-      promptSdkUuid &&
-      messageRowId
-    ) {
-      recordAgentFileCheckpoint({
-        taskId: ctx.taskId,
-        messageRowId,
-        userMessageId: promptSdkUuid,
-        sdkSessionId: record.sdkSessionId,
-        cwd: cwd ?? null,
-      });
-    }
   } catch (err) {
     // Best-effort: without a record the branch keeps the text history path.
     logger.warn('Failed to record branch SDK session', {

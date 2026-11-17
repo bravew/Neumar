@@ -234,6 +234,83 @@ describe('branch SDK session resolution', () => {
     expect(hasUnrecordedUserTurnsSince(taskId, userRow)).toBe(true);
   });
 
+  it.each(['error', 'throw', 'abort', 'close'] as const)(
+    'keeps the main-turn file checkpoint when the stream ends with %s',
+    async (ending) => {
+      const runId = 'interrupted-run';
+      const userRow = insertMessage({ type: 'user', runId });
+      const promptUuid = randomUUID();
+      const controller = new AbortController();
+      const failure = new Error('provider failed after editing');
+      const stream = withBranchSdkSessionRecording(
+        (async function* (): AsyncGenerator<AgentMessage> {
+          yield { type: 'session', sessionId: 'adapter', cwd: '/work/task' };
+          yield {
+            type: 'system',
+            subtype: 'user_checkpoint',
+            id: promptUuid,
+          };
+          if (ending === 'throw') throw failure;
+          if (ending === 'abort') controller.abort();
+          if (ending === 'error')
+            yield { type: 'error', message: failure.message };
+        })(),
+        {
+          taskId,
+          branchId: 'main',
+          runId,
+          provider: 'claude',
+          plan: { path: 'main' },
+          sdkSessionId: 'sdk-interrupted',
+          signal: controller.signal,
+        },
+      );
+
+      if (ending === 'close') {
+        await stream.next();
+        await stream.next();
+        await stream.return(undefined);
+      } else if (ending === 'throw') {
+        await expect(drain(stream)).rejects.toBe(failure);
+      } else {
+        await drain(stream);
+      }
+
+      expect(listAgentFileCheckpoints(taskId)).toEqual([
+        {
+          taskId,
+          messageRowId: userRow,
+          userMessageId: promptUuid,
+          sdkSessionId: 'sdk-interrupted',
+          cwd: '/work/task',
+        },
+      ]);
+      expect(hasUnrecordedUserTurnsSince(taskId, userRow)).toBe(false);
+      // Failed/incomplete conversation history must still not seed a fork.
+      expect(getLatestBranchSdkSession(taskId, 'main')).toBeNull();
+    },
+  );
+
+  it('does not invent a file checkpoint if the run failed before emitting one', async () => {
+    const runId = 'startup-failure';
+    const userRow = insertMessage({ type: 'user', runId });
+    await drain(
+      withBranchSdkSessionRecording(
+        agentRun([{ type: 'error', message: 'SDK failed to start' }]),
+        {
+          taskId,
+          branchId: 'main',
+          runId,
+          provider: 'claude',
+          plan: { path: 'main' },
+          sdkSessionId: 'sdk-missing',
+        },
+      ),
+    );
+    expect(listAgentFileCheckpoints(taskId)).toEqual([]);
+    expect(hasUnrecordedUserTurnsSince(taskId, userRow)).toBe(true);
+  });
+
   it('keeps main on its existing per-run text history path', () => {
     expect(
       resolveBranchContextPlan({
