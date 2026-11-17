@@ -995,6 +995,11 @@ try {
     bundle: true,
     platform: 'node',
     format: 'cjs',
+    // The sidecar runs on the Node 22 binary pkg embeds (node22-* targets).
+    // Without an explicit target esbuild emits newer syntax verbatim, and
+    // Node 22 cannot parse `using` declarations — the packaged sidecar then
+    // ships with neither bytecode nor source and exits on startup.
+    target: 'node22',
     external: [
       'sherpa-onnx-node',
       // Playwright is dynamically imported in design.ts/sandbox.ts. Bundling it
@@ -1037,6 +1042,16 @@ try {
   });
 
   buildLog('[build] dist/bundle.cjs written');
+
+  // pkg embeds Node 22 for the sidecar, so the bundle must parse there.
+  // `target: 'node22'` lowers `using` declarations; if one survives, the
+  // packaged binary ships with neither bytecode nor source and exits on
+  // startup with "[pkg] no source or bytecode".
+  if (/^\s*using\s+[A-Za-z_$]/m.test(readFileSync('dist/bundle.cjs', 'utf8'))) {
+    throw new Error(
+      '[build] dist/bundle.cjs still contains `using` declarations, which the Node 22 sidecar cannot parse',
+    );
+  }
 
   // Resolve and copy the correct native addon for the pkg target
   await resolveNativeAddon();
