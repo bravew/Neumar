@@ -1329,6 +1329,19 @@ export async function ensureClaudeCode(): Promise<string | undefined> {
 // expandPath is imported from @/shared/utils/paths (see top-level imports)
 
 /**
+ * What the SDK told us about sub-agent identity in one session. Keys are Task
+ * tool call ids, which the SDK stamps on sub-agent messages as
+ * `parent_tool_use_id`. Identity comes only from those ids; descriptions and
+ * timing never decide ownership.
+ */
+interface SubagentLedger {
+  /** Task tool call → the invocation that issued it (undefined: the parent run). */
+  issuedBy: Map<string, string | undefined>;
+  /** Task tool call → the SDK task id of the invocation it spawned. */
+  spawnedTask: Map<string, string>;
+}
+
+/**
  * Build a unique-per-sub-agent step name. `task_id` provides identity
  * (so sibling sub-agents with identical descriptions stay distinct in the
  * AG-UI active-step table); description provides a readable display label.
@@ -2086,6 +2099,8 @@ export class ClaudeAgent extends BaseAgent {
   private readonly containerManager = new ContainerManager();
   /** Per-session counter of consecutive SDK control-channel error results. */
   private readonly sdkControlErrorCounts = new Map<string, number>();
+  /** Per-session sub-agent identity learned from the SDK's Task tool calls. */
+  private readonly subagentLedgers = new Map<string, SubagentLedger>();
   /** sessionId → the turn ceiling this run was configured with (P2-5). */
   private readonly effectiveMaxTurns = new Map<string, number>();
 
@@ -3796,6 +3811,7 @@ User's request (answer this AFTER reading the images):
       } finally {
         if (options?.taskId) activeQueryStore.unregister(options.taskId);
         this.sdkControlErrorCounts.delete(session.id);
+        this.subagentLedgers.delete(session.id);
       }
 
       await logContextUsage(queryObj, session.id, 'Run');
@@ -5753,6 +5769,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       } finally {
         if (options.taskId) activeQueryStore.unregister(options.taskId);
         this.sdkControlErrorCounts.delete(session.id);
+        this.subagentLedgers.delete(session.id);
       }
 
       await logContextUsage(queryObj, session.id, 'Execution');
@@ -6177,6 +6194,24 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
    * looks like an error envelope (≤400 chars) — long LLM replies that
    * mention auth keywords in passing must not be clobbered.
    */
+  /** The sub-agent invocation that a parent tool call spawned, when the SDK named one. */
+  private subagentOwner(
+    sessionId: string,
+    parentToolUseId: string | null | undefined,
+  ): string | undefined {
+    if (!parentToolUseId) return undefined;
+    return this.subagentLedger(sessionId).spawnedTask.get(parentToolUseId);
+  }
+
+  private subagentLedger(sessionId: string): SubagentLedger {
+    let ledger = this.subagentLedgers.get(sessionId);
+    if (!ledger) {
+      ledger = { issuedBy: new Map(), spawnedTask: new Map() };
+      this.subagentLedgers.set(sessionId, ledger);
+    }
+    return ledger;
+  }
+
   private sanitizeText(text: string): string {
     let sanitized = text;
 
@@ -6260,29 +6295,47 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
     observeClaudeStepUsage(sessionId, message);
     yield* mapClaudeStreamSignals(message);
 
+    // Messages from inside a sub-agent carry the Task call that spawned it.
+    // They are attributed only when that call maps to a known invocation;
+    // anything else stays with the parent run rather than guessing an owner.
+    const subagentRunId = this.subagentOwner(
+      sessionId,
+      (message as { parent_tool_use_id?: string | null }).parent_tool_use_id,
+    );
+
     if (msg.type === 'assistant' && msg.message?.content) {
       for (const block of msg.message.content as Record<string, unknown>[]) {
         if ('text' in block) {
           const sanitizedText = this.sanitizeText(block.text as string);
+          // Dedupe per owner so child text identical to parent text is kept.
           const textHash = claudeStreamTextDedupeKey(sanitizedText);
-          if (!sentTextHashes.has(textHash)) {
-            sentTextHashes.add(textHash);
+          const dedupeKey = subagentRunId
+            ? `${subagentRunId}:${textHash}`
+            : textHash;
+          if (!sentTextHashes.has(dedupeKey)) {
+            sentTextHashes.add(dedupeKey);
             logger.info(
               `[${sessionId}] Text: ${sanitizedText.slice(0, 80)}...`,
             );
-            yield { type: 'text', content: sanitizedText };
+            yield {
+              type: 'text',
+              content: sanitizedText,
+              ...(subagentRunId ? { subagentRunId } : {}),
+            };
           }
         } else if ('name' in block && 'id' in block) {
           const toolId = block.id as string;
           if (!sentToolIds.has(toolId)) {
             sentToolIds.add(toolId);
             toolNames?.set(toolId, block.name as string);
+            this.subagentLedger(sessionId).issuedBy.set(toolId, subagentRunId);
             logger.info(`[${sessionId}] Tool: ${block.name}`);
             yield {
               type: 'tool_use',
               id: toolId,
               name: block.name as string,
               input: block.input,
+              ...(subagentRunId ? { subagentRunId } : {}),
             };
           }
         }
@@ -6354,6 +6407,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
             toolUseId: (toolUseId ?? '') as string,
             output: displayOutput,
             isError,
+            ...(subagentRunId ? { subagentRunId } : {}),
           };
 
           const isSdkControlError =
@@ -6490,6 +6544,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         compact_metadata?: { trigger?: string; pre_tokens?: number };
         task_id?: string;
         description?: string;
+        subagent_type?: string;
         tool_use_id?: string;
       };
 
@@ -6519,19 +6574,34 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         };
       } else if (sysMsg.subtype === 'task_started') {
         // Combine description (for display) with task_id (for uniqueness).
-        // AG-UI uses stepName as the active-step identity key, so sibling
-        // sub-agents sharing a description (e.g. two "Wait 15s between polls"
-        // pollers) would otherwise collide and fail STEP_STARTED validation.
+        // The legacy step keeps that display name; the AG-UI stream identifies
+        // the invocation by its task id.
         const stepName = buildSubAgentStepName(
           sysMsg.description,
           sysMsg.task_id,
         );
         logger.info(`[${sessionId}] Sub-agent started: ${stepName}`);
+        const ledger = this.subagentLedger(sessionId);
+        const parentSubagentRunId = sysMsg.tool_use_id
+          ? ledger.issuedBy.get(sysMsg.tool_use_id)
+          : undefined;
+        if (sysMsg.tool_use_id && sysMsg.task_id) {
+          ledger.spawnedTask.set(sysMsg.tool_use_id, sysMsg.task_id);
+        }
         yield {
           type: 'step_started',
           stepName,
           id: sysMsg.task_id,
           parentToolUseId: sysMsg.tool_use_id,
+          subagentRunId: sysMsg.task_id,
+        };
+        yield {
+          type: 'subagent_started',
+          subagentRunId: sysMsg.task_id,
+          subagentName: sysMsg.subagent_type ?? sysMsg.description,
+          subagentDescription: sysMsg.description,
+          parentSubagentRunId,
+          parentToolCallId: sysMsg.tool_use_id,
         };
       } else if (sysMsg.subtype === 'task_notification') {
         const notifMsg = message as {
@@ -6541,6 +6611,8 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
           description?: string;
           tool_use_id?: string;
           status?: string;
+          reason?: string;
+          summary?: string;
           usage?: {
             total_tokens?: number;
             duration_ms?: number;
@@ -6557,6 +6629,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
           stepName,
           id: sysMsg.task_id,
           parentToolUseId: sysMsg.tool_use_id,
+          subagentRunId: sysMsg.task_id,
           subtype: notifMsg.status,
           duration: notifMsg.usage?.duration_ms,
           usage: notifMsg.usage
@@ -6566,6 +6639,22 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
               }
             : undefined,
         };
+        // Only a completed notification is a success. A failure or a stop is
+        // reported as an error so a cancelled child is never shown as done.
+        if (notifMsg.status === 'completed') {
+          yield {
+            type: 'subagent_finished',
+            subagentRunId: sysMsg.task_id,
+            output: notifMsg.summary,
+          };
+        } else {
+          yield {
+            type: 'subagent_error',
+            subagentRunId: sysMsg.task_id,
+            message: notifMsg.summary ?? `Sub-agent ${notifMsg.status}`,
+            code: notifMsg.reason ?? notifMsg.status ?? 'failed',
+          };
+        }
       } else if (sysMsg.subtype === 'task_progress') {
         const progressTaskMsg = message as {
           type: string;

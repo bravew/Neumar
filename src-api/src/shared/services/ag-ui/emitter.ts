@@ -13,6 +13,9 @@ import {
   type RunStartedEvent,
   type StateSnapshotEvent,
   type StepFinishedEvent,
+  type SubagentErrorEvent,
+  type SubagentFinishedEvent,
+  type SubagentStartedEvent,
   type StepStartedEvent,
   type TextMessageContentEvent,
   type TextMessageEndEvent,
@@ -31,6 +34,13 @@ import type { AgentMessage } from '@/core/agent/types';
 
 import { CustomEventName } from './event-schema';
 import { planInterrupt } from './interrupts';
+
+/** Attribution field for a message owned by a sub-agent; empty for the parent run. */
+function ownerField(subagentRunId: string | undefined): {
+  subagentRunId?: string;
+} {
+  return subagentRunId ? { subagentRunId } : {};
+}
 
 /**
  * Optional context emitted as STATE_SNAPSHOT at run start.
@@ -77,6 +87,10 @@ export class AGUIEmitter {
   private pendingInterrupts: Interrupt[] = [];
   /** User aborted the run — reported as the standard cancelled outcome. */
   private cancelled = false;
+  /** Sub-agent that owns the open text block; undefined is the parent run. */
+  private currentMessageOwner: string | undefined = undefined;
+  /** Sub-agent invocations started and not yet ended. */
+  private openSubagents = new Set<string>();
 
   constructor(
     private readonly threadId: string,
@@ -157,24 +171,27 @@ export class AGUIEmitter {
   }
 
   private *closeOpenBlocks(): Generator<BaseEvent> {
-    if (this.currentMessageId) {
-      yield this.event<TextMessageEndEvent>(EventType.TEXT_MESSAGE_END, {
-        messageId: this.currentMessageId,
-      });
-      this.currentMessageId = null;
-    }
+    yield* this.endText();
     for (const [toolCallId] of this.activeToolCalls) {
       yield this.event<ToolCallEndEvent>(EventType.TOOL_CALL_END, {
         toolCallId,
       });
     }
     this.activeToolCalls.clear();
+    // Close sub-agent invocations the SDK never reported finished, so RUN_FINISHED
+    // is not rejected while they are open. They end as errors: a missing
+    // notification is not evidence the delegated work completed.
+    for (const subagentRunId of this.openSubagents) {
+      yield this.event<SubagentErrorEvent>(EventType.SUBAGENT_ERROR, {
+        subagentRunId,
+        message: 'Sub-agent did not report completion',
+        code: 'run_ended',
+      });
+    }
+    this.openSubagents.clear();
     // Close any still-active STEPs before RUN_FINISHED. The AG-UI verifier
-    // (@ag-ui/client verify.ts) rejects RUN_FINISHED while steps are open —
-    // happens when a sub-agent started but never emitted task_notification
-    // (early abort, crash, SDK dropped the notification). Without this
-    // flush the whole run errors with "Cannot send 'RUN_FINISHED' while
-    // steps are still active".
+    // (@ag-ui/client verify.ts) rejects RUN_FINISHED while steps are open.
+    // Only workflow steps (planning, execution) reach this set now.
     for (const stepName of this.activeSteps) {
       yield this.event<StepFinishedEvent>(EventType.STEP_FINISHED, {
         stepName,
@@ -183,18 +200,49 @@ export class AGUIEmitter {
     this.activeSteps.clear();
   }
 
+  /** Closes the open text block, if any. */
+  private *endText(): Generator<BaseEvent> {
+    if (!this.currentMessageId) return;
+    yield this.event<TextMessageEndEvent>(EventType.TEXT_MESSAGE_END, {
+      messageId: this.currentMessageId,
+    });
+    this.currentMessageId = null;
+    this.currentMessageOwner = undefined;
+  }
+
+  /** Text blocks never mix owners: a change of owner closes the open block. */
+  private *closeTextFor(owner: string | undefined): Generator<BaseEvent> {
+    if (this.currentMessageOwner !== owner) yield* this.endText();
+  }
+
+  /** Starts an invocation whose messages arrive before its lifecycle event. */
+  private *ensureSubagent(
+    subagentRunId: string | undefined,
+  ): Generator<BaseEvent> {
+    if (!subagentRunId || this.openSubagents.has(subagentRunId)) return;
+    this.openSubagents.add(subagentRunId);
+    yield this.event<SubagentStartedEvent>(EventType.SUBAGENT_STARTED, {
+      subagentRunId,
+      name: 'subagent',
+    });
+  }
+
   private *mapMessage(msg: AgentMessage): Generator<BaseEvent> {
     switch (msg.type) {
       case 'text': {
         // Skip empty deltas — @ag-ui/client rejects delta === ''
         if (!msg.content) break;
+        yield* this.ensureSubagent(msg.subagentRunId);
+        yield* this.closeTextFor(msg.subagentRunId);
         if (!this.currentMessageId) {
           this.currentMessageId = msg.id ?? crypto.randomUUID();
+          this.currentMessageOwner = msg.subagentRunId;
           yield this.event<TextMessageStartEvent>(
             EventType.TEXT_MESSAGE_START,
             {
               messageId: this.currentMessageId,
               role: 'assistant',
+              ...ownerField(msg.subagentRunId),
             },
           );
         }
@@ -203,6 +251,7 @@ export class AGUIEmitter {
           {
             messageId: this.currentMessageId,
             delta: msg.content,
+            ...ownerField(msg.subagentRunId),
           },
         );
         break;
@@ -258,29 +307,28 @@ export class AGUIEmitter {
       }
 
       case 'tool_use': {
+        yield* this.ensureSubagent(msg.subagentRunId);
         // Close any open text message before starting a tool call
-        if (this.currentMessageId) {
-          yield this.event<TextMessageEndEvent>(EventType.TEXT_MESSAGE_END, {
-            messageId: this.currentMessageId,
-          });
-          this.currentMessageId = null;
-        }
+        yield* this.endText();
         const toolCallId = msg.id ?? crypto.randomUUID();
         this.activeToolCalls.set(toolCallId, msg.name ?? 'unknown');
         yield this.event<ToolCallStartEvent>(EventType.TOOL_CALL_START, {
           toolCallId,
           toolCallName: msg.name ?? 'unknown',
           parentMessageId: undefined,
+          ...ownerField(msg.subagentRunId),
         });
         // Args as single chunk (progressive streaming deferred to Phase 5)
         if (msg.input != null) {
           yield this.event<ToolCallArgsEvent>(EventType.TOOL_CALL_ARGS, {
             toolCallId,
             delta: JSON.stringify(msg.input),
+            ...ownerField(msg.subagentRunId),
           });
         }
         yield this.event<ToolCallEndEvent>(EventType.TOOL_CALL_END, {
           toolCallId,
+          ...ownerField(msg.subagentRunId),
         });
         this.activeToolCalls.delete(toolCallId);
         break;
@@ -329,12 +377,63 @@ export class AGUIEmitter {
             content,
             role: 'tool',
             ...(msg.isError === undefined ? {} : { isError: msg.isError }),
+            ...ownerField(msg.subagentRunId),
           },
         );
         break;
       }
 
+      case 'subagent_started': {
+        const subagentRunId = msg.subagentRunId;
+        if (!subagentRunId || this.openSubagents.has(subagentRunId)) break;
+        this.openSubagents.add(subagentRunId);
+        yield this.event<SubagentStartedEvent>(EventType.SUBAGENT_STARTED, {
+          subagentRunId,
+          name: msg.subagentName ?? 'subagent',
+          ...(msg.subagentDescription === undefined
+            ? {}
+            : { description: msg.subagentDescription }),
+          ...(msg.parentSubagentRunId
+            ? { parentSubagentRunId: msg.parentSubagentRunId }
+            : {}),
+          ...(msg.parentToolCallId
+            ? { parentToolCallId: msg.parentToolCallId }
+            : {}),
+        });
+        break;
+      }
+
+      case 'subagent_finished': {
+        const subagentRunId = msg.subagentRunId;
+        if (!subagentRunId) break;
+        yield* this.ensureSubagent(subagentRunId);
+        if (this.currentMessageOwner === subagentRunId) yield* this.endText();
+        this.openSubagents.delete(subagentRunId);
+        yield this.event<SubagentFinishedEvent>(EventType.SUBAGENT_FINISHED, {
+          subagentRunId,
+          ...(msg.output === undefined ? {} : { result: msg.output }),
+        });
+        break;
+      }
+
+      case 'subagent_error': {
+        const subagentRunId = msg.subagentRunId;
+        if (!subagentRunId) break;
+        yield* this.ensureSubagent(subagentRunId);
+        if (this.currentMessageOwner === subagentRunId) yield* this.endText();
+        this.openSubagents.delete(subagentRunId);
+        yield this.event<SubagentErrorEvent>(EventType.SUBAGENT_ERROR, {
+          subagentRunId,
+          message: msg.message ?? 'Sub-agent failed',
+          ...(msg.code ? { code: msg.code } : {}),
+        });
+        break;
+      }
+
       case 'step_started': {
+        // Sub-agent lifecycles travel as subagent_* messages; these legacy
+        // step messages are kept for the non-AG-UI consumers only.
+        if (msg.subagentRunId) break;
         const stepName = msg.stepName ?? 'step';
         // AG-UI rejects STEP_STARTED if stepName is already active.
         if (this.activeSteps.has(stepName)) break;
@@ -346,6 +445,7 @@ export class AGUIEmitter {
       }
 
       case 'step_finished': {
+        if (msg.subagentRunId) break;
         const stepName = msg.stepName ?? 'step';
         // Guard: skip STEP_FINISHED for steps that were never started
         // (e.g., sub-agent lifecycle events where STEP_STARTED was lost)

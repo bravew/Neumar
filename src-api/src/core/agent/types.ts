@@ -77,6 +77,9 @@ export type AgentMessageType =
   | 'planning_status'
   | 'step_started'
   | 'step_finished'
+  | 'subagent_started'
+  | 'subagent_finished'
+  | 'subagent_error'
   | 'permission_request'
   | 'system'
   | 'tool_progress';
@@ -164,6 +167,16 @@ export interface AgentMessage {
   thinkingText?: string;
   // Step lifecycle fields
   stepName?: string;
+  // Sub-agent attribution. `subagentRunId` names one invocation (the SDK
+  // task id); absent means the message belongs to the parent run itself.
+  subagentRunId?: string;
+  /** Sub-agent type or label for subagent_started. */
+  subagentName?: string;
+  subagentDescription?: string;
+  /** Enclosing invocation when this sub-agent was spawned by another. */
+  parentSubagentRunId?: string;
+  /** The Task tool call in the parent that spawned this invocation. */
+  parentToolCallId?: string;
   // Permission fields
   permission?: {
     id: string;
