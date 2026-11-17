@@ -75,9 +75,6 @@ const AGUI_EVENT_TYPES = new Set<string>([
   EventType.REASONING_MESSAGE_CONTENT,
   EventType.REASONING_MESSAGE_CHUNK,
   EventType.REASONING_MESSAGE_END,
-  EventType.THINKING_TEXT_MESSAGE_START,
-  EventType.THINKING_TEXT_MESSAGE_CONTENT,
-  EventType.THINKING_TEXT_MESSAGE_END,
   EventType.TOOL_CALL_START,
   EventType.TOOL_CALL_ARGS,
   EventType.TOOL_CALL_CHUNK,
@@ -221,8 +218,7 @@ export function reduceChatPanelAguiEvent(
         ...state,
         accumulator: { ...state.accumulator, textMessageId: null },
       };
-    case EventType.REASONING_MESSAGE_START:
-    case EventType.THINKING_TEXT_MESSAGE_START: {
+    case EventType.REASONING_MESSAGE_START: {
       const id = getString(event, 'messageId') ?? createId('reasoning');
       return {
         messages: upsertTextMessage(state.messages, {
@@ -236,8 +232,7 @@ export function reduceChatPanelAguiEvent(
       };
     }
     case EventType.REASONING_MESSAGE_CONTENT:
-    case EventType.REASONING_MESSAGE_CHUNK:
-    case EventType.THINKING_TEXT_MESSAGE_CONTENT: {
+    case EventType.REASONING_MESSAGE_CHUNK: {
       const id =
         getString(event, 'messageId') ?? state.accumulator.reasoningMessageId;
       const delta = getString(event, 'delta');
@@ -252,7 +247,6 @@ export function reduceChatPanelAguiEvent(
       };
     }
     case EventType.REASONING_MESSAGE_END:
-    case EventType.THINKING_TEXT_MESSAGE_END:
       return {
         ...state,
         accumulator: { ...state.accumulator, reasoningMessageId: null },
