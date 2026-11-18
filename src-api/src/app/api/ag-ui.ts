@@ -521,11 +521,14 @@ function terminalRunStream(
   });
 }
 
-// AG-UI protocol sends content as string or ContentBlock[] — accept both
+// AG-UI protocol sends content as string or ContentBlock[]. An `activity`
+// message carries an object; it is accepted so a thread that holds one can
+// run, and is then dropped by the role filter before model input is built.
 const messageContentSchema = z
-  .union([z.string(), z.array(z.unknown())])
+  .union([z.string(), z.array(z.unknown()), z.record(z.string(), z.unknown())])
   .nullable()
   .optional();
+type MessageContent = z.infer<typeof messageContentSchema>;
 
 const imageBlockSchema = z.object({
   type: z.literal('image'),
@@ -629,7 +632,7 @@ function buildConversationFromDb(messages: Message[]): ConversationMessage[] {
  * that escape before the stream is opened (e.g. JSON parse failures).
  */
 /** Extract plain text from AG-UI message content (string or ContentBlock[]). */
-function extractText(content: string | unknown[] | null | undefined): string {
+function extractText(content: MessageContent): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
@@ -644,9 +647,7 @@ function extractText(content: string | unknown[] | null | undefined): string {
 }
 
 /** Extract image attachments from AG-UI message content (ContentBlock[]). */
-function extractImages(
-  content: string | unknown[] | null | undefined,
-): ImageAttachment[] {
+function extractImages(content: MessageContent): ImageAttachment[] {
   if (!Array.isArray(content)) return [];
   const images: ImageAttachment[] = [];
   for (const block of content) {

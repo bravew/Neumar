@@ -166,7 +166,11 @@ describe('sub-agent persistence and history replay', () => {
       subagentRunId: 'task-a',
     });
     // Cards come from dbMessagesToSubagents, never as chat messages.
-    expect(history.some((m) => m.content?.includes('"status"'))).toBe(false);
+    expect(
+      history.some(
+        (m) => typeof m.content === 'string' && m.content.includes('"status"'),
+      ),
+    ).toBe(false);
   });
 
   it('closes a child the run never finished as an error, so history never shows it running', async () => {

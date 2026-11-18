@@ -24,8 +24,14 @@ import { randomUUID } from '@/shared/utils/uuid';
 /** CopilotKit-compatible message shape */
 export interface ThreadMessage {
   id: string;
-  role: 'user' | 'assistant' | 'tool' | 'reasoning';
-  content?: string;
+  role: 'user' | 'assistant' | 'tool' | 'reasoning' | 'activity';
+  content?: string | Record<string, unknown>;
+  /**
+   * An `activity` message carries its payload as an object in `content`, the
+   * AG-UI wire shape, so history, CopilotKit and the reducer agree. It is a
+   * UI-only message and never part of the model's conversation.
+   */
+  activityType?: string;
   /** Marks this assistant message as a persisted agent error (RUN_ERROR). */
   isError?: boolean;
   /** Optional subtype — e.g. 'dispatch_summary', 'run_error_summary'. */
@@ -80,15 +86,15 @@ export const THREAD_STORE_REDUCED_EVENT_TYPES = new Set<string>([
   EventType.RUN_ERROR,
   EventType.STATE_SNAPSHOT,
   EventType.STATE_DELTA,
+  EventType.ACTIVITY_SNAPSHOT,
+  EventType.ACTIVITY_DELTA,
+  EventType.MESSAGES_SNAPSHOT,
   EventType.SUBAGENT_STARTED,
   EventType.SUBAGENT_FINISHED,
   EventType.SUBAGENT_ERROR,
 ]);
 
 export const THREAD_STORE_IGNORED_EVENT_TYPES = new Set<string>([
-  EventType.MESSAGES_SNAPSHOT,
-  EventType.ACTIVITY_SNAPSHOT,
-  EventType.ACTIVITY_DELTA,
   EventType.RAW,
   EventType.CUSTOM,
   EventType.STEP_STARTED,
@@ -167,9 +173,185 @@ interface ThreadState {
 
 /** Minimal AG-UI event shape — only the fields we need to reduce. */
 export interface JsonPatchOperation {
-  op: 'add' | 'replace' | 'remove';
+  op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
   path: string;
+  from?: string;
   value?: unknown;
+}
+
+function decodeJsonPointer(path: string): string[] | undefined {
+  if (path === '') return [];
+  if (!path.startsWith('/')) return undefined;
+  try {
+    return path
+      .slice(1)
+      .split('/')
+      .map((part) => {
+        if (/~(?![01])/.test(part)) throw new Error('invalid pointer escape');
+        return part.replace(/~1/g, '/').replace(/~0/g, '~');
+      });
+  } catch {
+    return undefined;
+  }
+}
+
+function jsonClone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/** RFC 6902 `test` equality: deep, and insensitive to object key order. */
+function jsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || !a || !b) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, i) => jsonEqual(item, b[i]))
+    );
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(right, key) &&
+        jsonEqual(left[key], right[key]),
+    )
+  );
+}
+
+/** A canonical array index: no sign, no leading zero, no exponent, not empty. */
+const ARRAY_INDEX = /^(0|[1-9]\d*)$/;
+
+/** Apply a structurally checked RFC 6902 patch to a private JSON clone. */
+export function applyActivityPatch(
+  source: Record<string, unknown>,
+  rawPatch: unknown,
+): Record<string, unknown> | undefined {
+  if (!Array.isArray(rawPatch)) return undefined;
+  let document: unknown = jsonClone(source);
+  const locate = (root: unknown, parts: string[]) => {
+    let value = root;
+    for (const part of parts) {
+      if (Array.isArray(value)) {
+        if (!ARRAY_INDEX.test(part) || Number(part) >= value.length)
+          return undefined;
+        value = value[Number(part)];
+      } else if (
+        value &&
+        typeof value === 'object' &&
+        Object.prototype.hasOwnProperty.call(value, part)
+      ) {
+        value = (value as Record<string, unknown>)[part];
+      } else return undefined;
+    }
+    return value;
+  };
+  const write = (
+    root: unknown,
+    parts: string[],
+    op: 'add' | 'remove' | 'replace',
+    value?: unknown,
+  ): unknown => {
+    if (!parts.length) {
+      if (op === 'remove') throw new Error('cannot remove document root');
+      return jsonClone(value);
+    }
+    const parent = locate(root, parts.slice(0, -1));
+    const key = parts.at(-1)!;
+    if (parent && typeof parent === 'object') {
+      for (const part of parts) {
+        if (
+          part === '__proto__' ||
+          part === 'constructor' ||
+          part === 'prototype'
+        )
+          throw new Error('unsafe JSON pointer');
+      }
+      if (Array.isArray(parent)) {
+        const index =
+          key === '-' && op === 'add'
+            ? parent.length
+            : ARRAY_INDEX.test(key)
+              ? Number(key)
+              : -1;
+        if (
+          index < 0 ||
+          index > parent.length ||
+          (op !== 'add' && index >= parent.length)
+        )
+          throw new Error('invalid array index');
+        if (op === 'add') parent.splice(index, 0, jsonClone(value));
+        else if (op === 'remove') parent.splice(index, 1);
+        else parent[index] = jsonClone(value);
+      } else {
+        const record = parent as Record<string, unknown>;
+        if (op !== 'add' && !Object.prototype.hasOwnProperty.call(record, key))
+          throw new Error('path does not exist');
+        if (op === 'remove') delete record[key];
+        else record[key] = jsonClone(value);
+      }
+      return root;
+    }
+    throw new Error('parent path does not exist');
+  };
+  try {
+    for (const raw of rawPatch) {
+      if (!raw || typeof raw !== 'object') return undefined;
+      const operation = raw as JsonPatchOperation;
+      const path = decodeJsonPointer(operation.path);
+      if (!path || typeof operation.op !== 'string') return undefined;
+      switch (operation.op) {
+        case 'add':
+        case 'replace':
+          if (!('value' in operation)) return undefined;
+          document = write(document, path, operation.op, operation.value);
+          break;
+        case 'remove':
+          document = write(document, path, 'remove');
+          break;
+        case 'copy':
+        case 'move': {
+          const from =
+            operation.from === undefined
+              ? undefined
+              : decodeJsonPointer(operation.from);
+          if (!from) return undefined;
+          const value = locate(document, from);
+          if (value === undefined) return undefined;
+          if (operation.op === 'move') {
+            if (
+              path.length > from.length &&
+              from.every((part, i) => path[i] === part)
+            )
+              return undefined;
+            document = write(document, from, 'remove');
+          }
+          document = write(document, path, 'add', value);
+          break;
+        }
+        case 'test': {
+          if (
+            !('value' in operation) ||
+            !jsonEqual(locate(document, path), operation.value)
+          )
+            return undefined;
+          break;
+        }
+        default:
+          return undefined;
+      }
+    }
+    return document && typeof document === 'object' && !Array.isArray(document)
+      ? (document as Record<string, unknown>)
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export interface AGUIStreamEvent {
@@ -180,11 +362,18 @@ export interface AGUIStreamEvent {
   toolCallId?: string;
   toolCallName?: string;
   parentMessageId?: string;
-  content?: string;
+  /** A string for text and tool results; an object for ACTIVITY_SNAPSHOT. */
+  content?: string | Record<string, unknown>;
   message?: string;
   code?: string;
   role?: string;
   snapshot?: Record<string, unknown>;
+  /** ACTIVITY_SNAPSHOT / ACTIVITY_DELTA */
+  activityType?: string;
+  replace?: boolean;
+  patch?: unknown;
+  /** MESSAGES_SNAPSHOT */
+  messages?: ThreadMessage[];
   /** RUN_FINISHED: why the run ended; absent means success. */
   outcome?: { type?: string };
   timestamp?: number;
@@ -814,7 +1003,7 @@ export const useThreadStore = create<ThreadStore>()(
               completedTool.final = true;
               completedTool.toolState = createCompleteToolCallState(
                 completedTool.function.arguments,
-                event.content ?? '',
+                typeof event.content === 'string' ? event.content : '',
               );
             }
             const resultId =
@@ -827,7 +1016,7 @@ export const useThreadStore = create<ThreadStore>()(
               id: resultId,
               role: 'tool',
               toolCallId: event.toolCallId,
-              content: event.content ?? '',
+              content: typeof event.content === 'string' ? event.content : '',
               ...(event.subagentRunId
                 ? { subagentRunId: event.subagentRunId }
                 : {}),
@@ -885,6 +1074,129 @@ export const useThreadStore = create<ThreadStore>()(
             break;
           }
 
+          case EventType.ACTIVITY_SNAPSHOT: {
+            const id = event.messageId;
+            const activityType = event.activityType;
+            const content = event.content;
+            if (
+              !id ||
+              (activityType !== 'plan' && activityType !== 'status') ||
+              !content ||
+              typeof content !== 'object' ||
+              Array.isArray(content)
+            ) {
+              mutated = false;
+              break;
+            }
+            const existing = findMsg(id);
+            // `replace: false` means leave an existing activity untouched; it
+            // never means shallow merge. A colliding conversation message is
+            // not converted into an activity.
+            if (existing) {
+              if (
+                event.replace === false ||
+                existing.role !== 'activity' ||
+                existing.activityType !== activityType
+              ) {
+                mutated = false;
+                break;
+              }
+              existing.content = jsonClone(content);
+              existing.subagentRunId ??= event.subagentRunId;
+            } else {
+              pushMessage(thread, {
+                id,
+                role: 'activity',
+                activityType,
+                content: jsonClone(content),
+                ...(event.subagentRunId
+                  ? { subagentRunId: event.subagentRunId }
+                  : {}),
+              });
+            }
+            break;
+          }
+
+          case EventType.ACTIVITY_DELTA: {
+            const id = event.messageId;
+            const activityType = event.activityType;
+            const existing = id ? findMsg(id) : undefined;
+            if (
+              !id ||
+              (activityType !== 'plan' && activityType !== 'status') ||
+              !existing ||
+              existing.role !== 'activity' ||
+              existing.activityType !== activityType ||
+              !existing.content ||
+              typeof existing.content !== 'object'
+            ) {
+              mutated = false;
+              break;
+            }
+            const patched = applyActivityPatch(existing.content, event.patch);
+            if (!patched) {
+              mutated = false;
+              break;
+            }
+            existing.content = patched;
+            existing.subagentRunId ??= event.subagentRunId;
+            break;
+          }
+
+          case EventType.MESSAGES_SNAPSHOT: {
+            if (!Array.isArray(event.messages)) {
+              mutated = false;
+              break;
+            }
+            const snapshot: ThreadMessage[] = [];
+            for (const raw of event.messages) {
+              if (!raw || typeof raw !== 'object') continue;
+              const role = raw.role;
+              const id = raw.id;
+              if (typeof id !== 'string') continue;
+              if (role === 'activity') {
+                const activityType = raw.activityType;
+                const content = raw.content;
+                if (
+                  (activityType !== 'plan' && activityType !== 'status') ||
+                  !content ||
+                  typeof content !== 'object' ||
+                  Array.isArray(content)
+                )
+                  continue;
+                snapshot.push({
+                  id,
+                  role: 'activity',
+                  activityType,
+                  content: jsonClone(content as Record<string, unknown>),
+                  ...(typeof raw.subagentRunId === 'string'
+                    ? { subagentRunId: raw.subagentRunId }
+                    : {}),
+                });
+              } else if (
+                role === 'user' ||
+                role === 'assistant' ||
+                role === 'tool' ||
+                role === 'reasoning'
+              ) {
+                snapshot.push({
+                  ...raw,
+                  id,
+                  role,
+                  ...(typeof raw.content === 'string'
+                    ? { content: raw.content }
+                    : {}),
+                } as ThreadMessage);
+              }
+            }
+            const clonedMessages = cloneMessages(snapshot);
+            thread.messages = clonedMessages;
+            thread.messagesIndexById = buildMessagesIndex(clonedMessages);
+            thread.lastAppliedSeq = event.seq ?? thread.lastAppliedSeq;
+            mutated = true;
+            break;
+          }
+
           case EventType.RUN_STARTED: {
             thread.isRunning = true;
             mutated = false;
@@ -909,7 +1221,10 @@ export const useThreadStore = create<ThreadStore>()(
           case EventType.RUN_ERROR: {
             const errorId =
               event.messageId ?? `run-error-${event.seq ?? randomUUID()}`;
-            const message = event.message ?? event.content ?? 'Unknown error';
+            const message =
+              event.message ??
+              (typeof event.content === 'string' ? event.content : undefined) ??
+              'Unknown error';
             closeOpenToolCalls(msgs, message);
             closeRunningSubagents(thread.subagents, Date.now());
             if (!findMsg(errorId)) {

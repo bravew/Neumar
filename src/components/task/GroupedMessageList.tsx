@@ -22,6 +22,7 @@ import {
   MessageBubble,
   ToolCallGroup,
 } from '@/components/task/TaskV2MessageBubble';
+import { StatusWidget } from '@/components/task/TaskV2StatusWidget';
 import { UserMessageBubble } from '@/components/task/UserMessageBubble';
 import { getSettings } from '@/shared/db/settings';
 import type { TaskPlan } from '@/shared/hooks/agent-types';
@@ -212,6 +213,14 @@ export function renderGroupedItem(
           allMessages={ctx.messages}
           isRunning={ctx.isRunning}
           onCancelTool={ctx.onCancelTool}
+        />
+      );
+    case 'status-widget':
+      return (
+        <StatusWidget
+          key={item.key}
+          status={item.status}
+          isRunning={ctx.isRunning}
         />
       );
     case 'plan-approval':

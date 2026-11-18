@@ -574,6 +574,52 @@ describe('AG-UI Routes', () => {
     });
   });
 
+  describe('POST /run with activity messages in the thread', () => {
+    // The AG-UI client keeps activity messages in its list and sends them back
+    // on the next run. Their `content` is an object, not text.
+    const activityRequest = () =>
+      jsonReq('/run', {
+        threadId: 'thread-activity',
+        messages: [
+          { id: 'u1', role: 'user', content: 'First question' },
+          {
+            id: 'status-1',
+            role: 'activity',
+            activityType: 'status',
+            content: { phase: 'planning', message: 'SECRET-ACTIVITY-TEXT' },
+          },
+          { id: 'a1', role: 'assistant', content: 'First answer' },
+          { id: 'u2', role: 'user', content: 'Follow-up' },
+        ],
+        forwardedProps: { taskId: 'task-activity' },
+      });
+
+    it('accepts the request and keeps activity content out of model input', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const agent = await import('@/shared/services/agent');
+      const branchSessions =
+        await import('@/shared/services/branch-sdk-session');
+      vi.mocked(agent.runAgent).mockClear();
+      vi.mocked(agent.resolveAgentProvider).mockReturnValueOnce('codex');
+      vi.mocked(branchSessions.resolveBranchContextPlan).mockReturnValueOnce({
+        path: 'text',
+        reason: 'runtime-without-fork',
+      });
+
+      const res = await aguiRoutes.request(activityRequest());
+
+      expect(res.status).not.toBe(400);
+      const [prompt, options] = vi.mocked(agent.runAgent).mock.calls.at(-1)!;
+      expect(options.conversation).toEqual([
+        { role: 'user', content: 'First question' },
+        { role: 'assistant', content: 'First answer' },
+      ]);
+      expect(JSON.stringify([prompt, options])).not.toContain(
+        'SECRET-ACTIVITY-TEXT',
+      );
+    });
+  });
+
   // ---- POST /stop/:taskId ----
 
   describe('POST /stop/:taskId', () => {
