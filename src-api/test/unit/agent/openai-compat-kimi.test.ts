@@ -125,6 +125,8 @@ describe('Kimi K3 OpenAI-compatible dialect', () => {
       output_tokens: 40,
       reasoning_output_tokens: 30,
       cache_read_input_tokens: 100,
+      // prompt_tokens already counts the cached tokens.
+      input_includes_cache: true,
     });
   });
 });

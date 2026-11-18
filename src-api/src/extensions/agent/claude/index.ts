@@ -6531,6 +6531,9 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
         subtype: msg.subtype,
         content: msg.subtype,
         cost: this.effectiveCost(msg.total_cost_usd),
+        // `cost` is the SDK's session total, which a resume restores from the
+        // transcript. The run's own spend is the delta settled above.
+        costDelta: this.effectiveCost(telemetry.billableCostUsd),
         duration: msg.duration_ms,
         terminalReason,
         ...(maxTurns !== undefined ? { maxTurns } : {}),
@@ -6553,6 +6556,8 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
               cache_read_input_tokens: msg.usage.cache_read_input_tokens,
               cache_creation_input_tokens:
                 msg.usage.cache_creation_input_tokens,
+              // Anthropic reports the cache beside, not inside, input_tokens.
+              input_includes_cache: false,
             }
           : undefined,
       };

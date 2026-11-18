@@ -53,6 +53,7 @@ const alterCallers = [
   { version: 108, table: 'video_intent_log', repairable: true },
   { version: 111, table: 'agent_file_checkpoints' },
   { version: 112, table: 'messages' },
+  { version: 113, table: 'agent_runs' },
 ];
 
 function schema(database: Database.Database) {

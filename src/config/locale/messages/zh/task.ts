@@ -501,6 +501,14 @@ export default {
   subAgentsRunningCount: '{count} 运行中',
   subAgentDefault: '子代理',
   subAgentResult: '结果',
+  runStatusRunning: '运行中',
+  runStatusCompleted: '已完成',
+  runStatusFailed: '失败',
+  runStatusCancelled: '已取消',
+  runUsageCached: '缓存 {count}',
+  runUsageCacheWrite: '缓存写入 {count}',
+  runUsageReasoning: '推理 {count}',
+  runUsageNotReported: '未报告用量',
   tokens: '令牌',
 
   // Media lightbox

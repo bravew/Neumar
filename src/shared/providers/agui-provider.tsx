@@ -18,10 +18,14 @@ import type {
 
 // ── Workspace state context (P1b: cost/usage display) ─────────────────────────
 
+/**
+ * Run-so-far projection from STATE_SNAPSHOT. A field the provider did not
+ * report is absent, not 0; the run's terminal event carries the full record.
+ */
 export interface WorkspaceUsage {
-  inputTokens: number;
-  outputTokens: number;
-  cost: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cost?: number;
 }
 
 interface WorkspaceState {
@@ -325,16 +329,16 @@ function AgUiProviderInner({
     const sub = agent.subscribe({
       onStateChanged: ({ state }) => {
         const s = state as Record<string, unknown>;
-        const usageRaw = s?.usage as Record<string, number> | undefined;
+        const usageRaw = s?.usage as WorkspaceUsage | undefined;
         const workspaceRaw = s?.workspace as Record<string, string> | undefined;
         const taskRaw = s?.task as Record<string, string> | undefined;
         if (!usageRaw && !workspaceRaw && !taskRaw) return;
         setWsState((prev) => ({
           usage: usageRaw
             ? {
-                inputTokens: usageRaw.inputTokens ?? 0,
-                outputTokens: usageRaw.outputTokens ?? 0,
-                cost: usageRaw.cost ?? 0,
+                inputTokens: usageRaw.inputTokens,
+                outputTokens: usageRaw.outputTokens,
+                cost: usageRaw.cost,
               }
             : prev.usage,
           workspacePath: workspaceRaw?.path ?? prev.workspacePath,

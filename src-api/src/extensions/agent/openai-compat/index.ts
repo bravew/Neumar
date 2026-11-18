@@ -76,18 +76,28 @@ function mergeUsage(
 ): AgentMessage['usage'] {
   if (!aggregate) return turn;
   if (!turn) return aggregate;
+  // A count neither side reported stays absent: zero would claim it was reported.
+  const sum = (left?: number, right?: number): number | undefined =>
+    left === undefined && right === undefined
+      ? undefined
+      : (left ?? 0) + (right ?? 0);
   return {
-    input_tokens: (aggregate.input_tokens ?? 0) + (turn.input_tokens ?? 0),
-    output_tokens: (aggregate.output_tokens ?? 0) + (turn.output_tokens ?? 0),
-    reasoning_output_tokens:
-      (aggregate.reasoning_output_tokens ?? 0) +
-      (turn.reasoning_output_tokens ?? 0),
-    cache_read_input_tokens:
-      (aggregate.cache_read_input_tokens ?? 0) +
-      (turn.cache_read_input_tokens ?? 0),
-    cache_creation_input_tokens:
-      (aggregate.cache_creation_input_tokens ?? 0) +
-      (turn.cache_creation_input_tokens ?? 0),
+    input_tokens: sum(aggregate.input_tokens, turn.input_tokens),
+    output_tokens: sum(aggregate.output_tokens, turn.output_tokens),
+    reasoning_output_tokens: sum(
+      aggregate.reasoning_output_tokens,
+      turn.reasoning_output_tokens,
+    ),
+    cache_read_input_tokens: sum(
+      aggregate.cache_read_input_tokens,
+      turn.cache_read_input_tokens,
+    ),
+    cache_creation_input_tokens: sum(
+      aggregate.cache_creation_input_tokens,
+      turn.cache_creation_input_tokens,
+    ),
+    input_includes_cache:
+      aggregate.input_includes_cache ?? turn.input_includes_cache,
   };
 }
 

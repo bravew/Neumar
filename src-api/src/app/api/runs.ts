@@ -16,6 +16,10 @@ import {
 } from '@/shared/db/operations';
 import { getExecutionDiagnostics } from '@/shared/observability/execution-diagnostics';
 import { buildSupportBundle } from '@/shared/observability/support-bundle';
+import {
+  parseRunUsageRecord,
+  type RunUsageRecord,
+} from '@/shared/services/ag-ui/run-usage';
 import { createLogger } from '@/shared/utils/logger';
 
 const logger = createLogger('RunsRoutes');
@@ -34,6 +38,13 @@ export interface RunTreeNode {
   costUsd: number;
   tokensIn: number;
   tokensOut: number;
+  /**
+   * What the run reported on its terminal event, with the provider/model split
+   * and cache/reasoning subsets. Null when it reported nothing. `costUsd` and
+   * the token fields above default to 0, so only this tells "none reported"
+   * from "reported zero".
+   */
+  usage: RunUsageRecord | null;
   error: string | null;
   completeness: AgentRunRow['completeness'];
   delivery: AgentRunRow['delivery'];
@@ -86,6 +97,7 @@ function rowToNode(row: AgentRunRow): RunTreeNode {
     costUsd: row.cost_usd,
     tokensIn: row.tokens_in,
     tokensOut: row.tokens_out,
+    usage: parseRunUsageRecord(row.usage_json) ?? null,
     error: row.error,
     completeness: row.completeness,
     delivery: row.delivery,

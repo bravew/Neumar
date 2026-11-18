@@ -885,6 +885,8 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       workspaceRoot: wsRoot,
       taskTitle: planGoal,
       signal: execSession.abortController.signal,
+      provider: validatedModelConfig?.agentType ?? 'claude',
+      model: validatedModelConfig?.model,
     });
 
     const busKey = `agui-${effectiveTaskId}-${runId}`;
@@ -1299,6 +1301,8 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
     // Only a planning run ends with a decision to make.
     planInterrupt: !skipPlanning,
     signal: session.abortController.signal,
+    provider: validatedModelConfig?.agentType ?? 'claude',
+    model: validatedModelConfig?.model,
   });
 
   const abortSignal = c.req.raw.signal;

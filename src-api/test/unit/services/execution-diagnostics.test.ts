@@ -41,6 +41,7 @@ function run(partial: Partial<AgentRunRow> = {}): AgentRunRow {
     run_index: 0,
     recovery_action: null,
     delivery_reconciliation_deadline: null,
+    usage_json: null,
     ...partial,
   };
 }

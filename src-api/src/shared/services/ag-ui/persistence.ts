@@ -47,6 +47,11 @@ import {
   SubagentStartedPayloadSchema,
 } from './event-schema';
 import {
+  runUsageFromTerminalEvent,
+  sumRunTokens,
+  type RunUsageRecord,
+} from './run-usage';
+import {
   SUBAGENT_MESSAGE_TYPE,
   subagentMessageId,
   type SubagentRecord,
@@ -233,12 +238,6 @@ export class AGUIEventPersister {
   private assistantTextAccum = '';
   /** Tracks unique tool names used during the run for dispatch summary. */
   private toolsUsedSet = new Set<string>();
-  /** Latest cumulative usage from STATE_SNAPSHOT — flushed onto agent_runs at finish. */
-  private latestUsage: {
-    cost?: number;
-    inputTokens?: number;
-    outputTokens?: number;
-  } = {};
   private rootRunPersisted = false;
   private terminalProcess: 'succeeded' | 'failed' | 'cancelled' | null = null;
   private artifactDetected = false;
@@ -315,15 +314,19 @@ export class AGUIEventPersister {
       retry: 'not_safe' | 'safe_once' | 'user_action';
       failureCause?: string;
     },
+    usage?: RunUsageRecord,
   ): void {
     if (!this.rootRunPersisted || !this.runId) return;
     try {
       finishAgentRun({
         id: this.runId,
         status,
-        costUsd: this.latestUsage.cost,
-        tokensIn: this.latestUsage.inputTokens,
-        tokensOut: this.latestUsage.outputTokens,
+        // Only what the terminal event reported: a run that reported nothing
+        // keeps NULL usage rather than a fabricated zero.
+        costUsd: usage?.costUsd,
+        tokensIn: sumRunTokens(usage?.usage, (entry) => entry.inputTokens),
+        tokensOut: sumRunTokens(usage?.usage, (entry) => entry.outputTokens),
+        usageJson: usage ? JSON.stringify(usage) : undefined,
         error: error ?? null,
         completeness: verdict?.completeness,
         delivery: verdict?.delivery,
@@ -699,6 +702,7 @@ export class AGUIEventPersister {
 
         case EventType.RUN_ERROR: {
           this.closeOpenSubagents();
+          const runUsage = runUsageFromTerminalEvent(event);
           if (this.terminalProcess) {
             logger.warn('Ignoring late RUN_ERROR after terminal verdict', {
               runId: this.runId,
@@ -754,6 +758,7 @@ export class AGUIEventPersister {
               retry: adaptedFailure.verdict.retry,
               failureCause: adaptedFailure.verdict.failureCause,
             },
+            runUsage,
           );
           recordTraceEvent({
             id:
@@ -767,9 +772,13 @@ export class AGUIEventPersister {
             status: isCancelled ? 'cancelled' : 'error',
             startedAt: this.startedAtMs,
             endedAt: Date.now(),
-            inputTokens: this.latestUsage.inputTokens ?? null,
-            outputTokens: this.latestUsage.outputTokens ?? null,
-            costUsd: this.latestUsage.cost ?? null,
+            inputTokens:
+              sumRunTokens(runUsage?.usage, (entry) => entry.inputTokens) ??
+              null,
+            outputTokens:
+              sumRunTokens(runUsage?.usage, (entry) => entry.outputTokens) ??
+              null,
+            costUsd: runUsage?.costUsd ?? null,
             attrs: {
               failureCause: failure.cause,
               retryDisposition: failure.retryDisposition,
@@ -787,6 +796,7 @@ export class AGUIEventPersister {
 
         case EventType.RUN_FINISHED: {
           this.closeOpenSubagents();
+          const runUsage = runUsageFromTerminalEvent(event);
           if (this.terminalProcess) break;
           this.flushPending();
           const duration = Date.now() - this.startedAtMs;
@@ -838,6 +848,7 @@ export class AGUIEventPersister {
                   ? { failureCause: 'awaiting_decision' }
                   : {}),
             },
+            runUsage,
           );
           recordTraceEvent({
             id:
@@ -851,9 +862,13 @@ export class AGUIEventPersister {
             status: cancelled ? 'cancelled' : 'ok',
             startedAt: this.startedAtMs,
             endedAt: Date.now(),
-            inputTokens: this.latestUsage.inputTokens ?? null,
-            outputTokens: this.latestUsage.outputTokens ?? null,
-            costUsd: this.latestUsage.cost ?? null,
+            inputTokens:
+              sumRunTokens(runUsage?.usage, (entry) => entry.inputTokens) ??
+              null,
+            outputTokens:
+              sumRunTokens(runUsage?.usage, (entry) => entry.outputTokens) ??
+              null,
+            costUsd: runUsage?.costUsd ?? null,
             attrs: {
               planEmitted: this.planEmitted,
               outcome: outcome?.type ?? 'success',
@@ -878,22 +893,16 @@ export class AGUIEventPersister {
           const usageData = snapshot?.usage as
             | { inputTokens?: number; outputTokens?: number; cost?: number }
             | undefined;
-          if (
-            usageData &&
-            (usageData.cost != null || usageData.inputTokens != null)
-          ) {
-            // Stash for finalizeRootRun — we use the last-seen snapshot to
-            // attribute final cost/tokens to the run row.
-            this.latestUsage = { ...this.latestUsage, ...usageData };
-            if (this.mode === 'task')
-              try {
-                // cost from STATE_SNAPSHOT is already billing-aware (zeroed by effectiveCost)
-                updateTask(this.taskId, {
-                  cost: usageData.cost != null ? usageData.cost : undefined,
-                });
-              } catch {
-                // Best-effort
-              }
+          // The run row takes its usage from the terminal event, not from here:
+          // a snapshot is a live projection. Only the task-level cost, which
+          // the producer reports as a session total, still comes from it.
+          if (usageData?.cost != null && this.mode === 'task') {
+            try {
+              // cost from STATE_SNAPSHOT is already billing-aware (zeroed by effectiveCost)
+              updateTask(this.taskId, { cost: usageData.cost });
+            } catch {
+              // Best-effort
+            }
           }
           break;
         }
