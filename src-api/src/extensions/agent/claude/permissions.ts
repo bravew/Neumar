@@ -31,6 +31,7 @@ import type {
 
 import type { DenialTracker } from '@/core/agent/denial-tracker';
 import type { LoopGuard } from '@/core/agent/loop-guard';
+import { openPermissionWait } from '@/core/agent/permission-waits';
 import { AutoClassifier } from '@/core/agent/safety/auto-classifier';
 import {
   assessRiskLevel,
@@ -55,6 +56,9 @@ const SDK_MCP_SERVER_SOURCE = 'sdk';
 export const HEADLESS_DENY_MESSAGE =
   'This run has no approval surface, so tools that need approval are denied. ' +
   'Allow the tool explicitly for this automation or channel to use it.';
+
+/** Max time (ms) a permission request can sit pending before auto-deny. */
+export const PERMISSION_TTL_MS = 5 * 60 * 1000;
 
 export interface PendingPermission {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -520,8 +524,18 @@ export function buildCanUseTool(
     });
     // Wait for user response via /agent/permission endpoint
     return new Promise((resolve) => {
+      const createdAt = Date.now();
+      // Open for as long as this callback blocks; every settle path below
+      // closes it, so a run never pauses on a prompt nobody is waiting on.
+      const settleWait = openPermissionWait({
+        taskId,
+        sessionId,
+        prompt,
+        expiresAt: createdAt + PERMISSION_TTL_MS,
+      });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const trackedResolve = (result: any) => {
+        settleWait();
         if (result?.behavior === 'deny') {
           denialTracker.record(toolName, inputStr);
         }
@@ -534,11 +548,12 @@ export function buildCanUseTool(
         taskId,
         sessionId,
         prompt,
-        createdAt: Date.now(),
+        createdAt,
         registry: permissionRegistry,
         suppressAlwaysAllowRule: options.suppressAlwaysAllowRule === true,
       });
       const onAbort = () => {
+        settleWait();
         if (pendingPermissions.has(requestId)) {
           pendingPermissions.delete(requestId);
           resolve({

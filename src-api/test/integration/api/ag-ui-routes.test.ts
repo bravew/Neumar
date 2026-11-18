@@ -493,6 +493,25 @@ describe('AG-UI Routes', () => {
       const res = await aguiRoutes.request(
         resumeRequest([
           {
+            interruptId: 'question:q-1',
+            status: 'resolved',
+            payload: { answer: 'yes' },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({
+        code: 'continuation_requires_live_endpoint',
+      });
+    });
+
+    it('reports a permission nothing is waiting on as unavailable', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
             interruptId: 'permission:p-1',
             status: 'resolved',
             payload: { approved: true },
@@ -502,7 +521,7 @@ describe('AG-UI Routes', () => {
 
       expect(res.status).toBe(409);
       expect(await res.json()).toMatchObject({
-        code: 'continuation_requires_live_endpoint',
+        code: 'continuation_unavailable',
       });
     });
   });

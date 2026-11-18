@@ -231,6 +231,7 @@ import {
   applyPermissionPolicy,
   buildCanUseTool,
   listOpenPermissions,
+  PERMISSION_TTL_MS,
   type PendingPermission,
 } from './permissions';
 import { ContainerManager, executePTC } from './ptc';
@@ -1683,9 +1684,6 @@ export function buildSubAgentDefinitions(
  * The /agent/permission endpoint resolves it when the user responds.
  */
 const pendingPermissions = new Map<string, PendingPermission>();
-
-/** Max time (ms) a permission request can sit pending before auto-deny */
-const PERMISSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /** Periodically clean up stale pending permissions that outlived their TTL */
 setInterval(() => {

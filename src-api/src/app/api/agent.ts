@@ -2127,25 +2127,15 @@ agentRoutes.post(
   zValidator('json', PermissionResponseSchema),
   async (c) => {
     const body = c.req.valid('json');
-    const { resolvePermission } =
-      await import('@/extensions/agent/claude/index');
-    const resolved = resolvePermission(
-      body.permissionId,
-      body.approved,
-      body.alwaysAllow,
-      body.sessionId,
-    );
-    const sharedResolved = resolved
-      ? false
-      : (
-          await import('@/core/agent/tool-permission-registry')
-        ).resolveHostToolPermission(
-          body.permissionId,
-          body.approved,
-          body.alwaysAllow,
-          body.sessionId,
-        );
-    if (!resolved && !sharedResolved) {
+    const { answerPermissionRequest } =
+      await import('@/core/agent/answer-permission');
+    const answered = await answerPermissionRequest({
+      requestId: body.permissionId,
+      approved: body.approved,
+      alwaysAllow: body.alwaysAllow,
+      sessionId: body.sessionId,
+    });
+    if (!answered) {
       return c.json(
         { error: 'Permission request not found or already resolved' },
         404 as ContentfulStatusCode,

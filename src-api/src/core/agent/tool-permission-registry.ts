@@ -1,6 +1,7 @@
 import { taskEventBus } from '@/shared/services/task-event-bus';
 import { createLogger } from '@/shared/utils/logger';
 
+import { openPermissionWait } from './permission-waits';
 import type { AgentMessage } from './types';
 
 const logger = createLogger('ToolPermissionRegistry');
@@ -233,6 +234,9 @@ export function requestHostToolPermission(params: {
   registry: ToolPermissionRegistry;
   signal: AbortSignal;
 }): Promise<boolean> {
+  // An already-aborted run gets no prompt: the abort listener below would
+  // never fire for it, and the wait would stay open.
+  if (params.signal.aborted) return Promise.resolve(false);
   const requestId = crypto.randomUUID();
   const command =
     typeof params.input === 'string'
@@ -250,18 +254,29 @@ export function requestHostToolPermission(params: {
     permission: prompt,
   });
   return new Promise((resolve) => {
+    // Open until settled, so a run can pause on it; see permission-waits.ts.
+    const settleWait = openPermissionWait({
+      taskId: params.taskId,
+      sessionId: params.sessionId,
+      prompt,
+      expiresAt: null,
+    });
+    const finish = (approved: boolean) => {
+      settleWait();
+      resolve(approved);
+    };
     pendingHostPermissions.set(requestId, {
       taskId: params.taskId,
       sessionId: params.sessionId,
       toolName: params.toolName,
       prompt,
       registry: params.registry,
-      resolve,
+      resolve: finish,
     });
     params.signal.addEventListener(
       'abort',
       () => {
-        if (pendingHostPermissions.delete(requestId)) resolve(false);
+        if (pendingHostPermissions.delete(requestId)) finish(false);
       },
       { once: true },
     );
