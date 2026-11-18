@@ -16,8 +16,9 @@ import {
 /** CopilotKit-compatible message shape (from useAgent().messages) */
 export interface AGUIHistoryMessage {
   id: string;
-  role: 'user' | 'assistant' | 'tool' | 'reasoning';
-  content?: string;
+  role: 'user' | 'assistant' | 'tool' | 'reasoning' | 'activity';
+  content?: string | Record<string, unknown>;
+  activityType?: string;
   /** True when this message represents an agent error (rate limit, auth failure, etc.) */
   isError?: boolean;
   /** Optional message subtype — propagates to the UI for tailored rendering
@@ -180,9 +181,37 @@ export function dbMessagesToFullAGUI(
         break;
       }
 
+      case 'activity': {
+        flushAssistant();
+        let content: unknown;
+        try {
+          content = JSON.parse(msg.content ?? '');
+        } catch {
+          break;
+        }
+        if (
+          !content ||
+          typeof content !== 'object' ||
+          Array.isArray(content) ||
+          (msg.subtype !== 'plan' && msg.subtype !== 'status')
+        ) {
+          break;
+        }
+        result.push({
+          id: msg.message_id ?? String(msg.id),
+          role: 'activity',
+          activityType: msg.subtype,
+          content: content as Record<string, unknown>,
+          ...(msg.subagent_run_id
+            ? { subagentRunId: msg.subagent_run_id }
+            : {}),
+        });
+        break;
+      }
+
       case SUBAGENT_MESSAGE_TYPE: {
-        // Rendered as an activity card from dbMessagesToSubagents, never as
-        // a chat message.
+        // Rendered as a sub-agent card from dbMessagesToSubagents, never as
+        // a conversation message.
         flushAssistant();
         break;
       }

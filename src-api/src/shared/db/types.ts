@@ -124,7 +124,8 @@ export type MessageType =
   | 'error'
   | 'user'
   | 'plan'
-  | 'subagent';
+  | 'subagent'
+  | 'activity';
 
 export interface Message {
   /**

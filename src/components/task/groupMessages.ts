@@ -6,6 +6,10 @@
  * can be unit-tested and reasoned about on its own.
  */
 import type { Artifact } from '@/components/artifacts/types';
+import {
+  readStatusActivity,
+  type StatusActivity,
+} from '@/components/task/statusActivity';
 import type {
   ActivityEntry,
   AGUIMessage,
@@ -50,6 +54,11 @@ export type GroupedItem =
       type: 'activity';
       key: string;
       entries: ActivityEntry[];
+    }
+  | {
+      type: 'status-widget';
+      key: string;
+      status: StatusActivity;
     }
   | {
       type: 'plan-approval';
@@ -149,8 +158,23 @@ export function groupMessages(
     // Collect the whole agent turn — everything up to the next user message.
     let end = i;
     while (end < messages.length && messages[end].role !== 'user') end++;
-    const turn = messages.slice(i, end);
+    const rawTurn = messages.slice(i, end);
     i = end;
+
+    // Activity messages are widgets, not conversation: lift them out so they
+    // never sit in the work list or stop the answer from being peeled off the
+    // back. Only a live planning phase is shown; a settled one is history.
+    const turn: AGUIMessage[] = [];
+    for (const m of rawTurn) {
+      if (m.role !== 'activity') {
+        turn.push(m);
+        continue;
+      }
+      const status = readStatusActivity(m);
+      if (status?.phase === 'planning') {
+        items.push({ type: 'status-widget', key: m.id, status });
+      }
+    }
 
     // Peel the trailing answer off the back of the turn. Consecutive
     // content-only assistant messages at the end are all part of it (the

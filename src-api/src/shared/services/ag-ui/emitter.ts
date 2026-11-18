@@ -1,5 +1,7 @@
 import {
   EventType,
+  type ActivityDeltaEvent,
+  type ActivitySnapshotEvent,
   type BaseEvent,
   type CustomEvent,
   type Interrupt,
@@ -35,6 +37,14 @@ import type { AgentMessage } from '@/core/agent/types';
 import { CustomEventName } from './event-schema';
 import { planInterrupt } from './interrupts';
 import { RunUsageAccumulator } from './run-usage';
+
+/** Message types that mean the planning phase has finished. */
+const PLANNING_ENDED_BY = new Set<AgentMessage['type']>([
+  'plan',
+  'direct_answer',
+  'text',
+  'tool_use',
+]);
 
 /** Attribution field for a message owned by a sub-agent; empty for the parent run. */
 function ownerField(subagentRunId: string | undefined): {
@@ -95,6 +105,8 @@ export class AGUIEmitter {
   private currentMessageOwner: string | undefined = undefined;
   /** Sub-agent invocations started and not yet ended. */
   private openSubagents = new Set<string>();
+  /** Id of this run's planning status activity while it is open. */
+  private planningActivityId: string | null = null;
 
   /** This run's own model calls; reported on the terminal event. */
   private readonly usage: RunUsageAccumulator;
@@ -159,6 +171,7 @@ export class AGUIEmitter {
       const isAbort =
         this.context?.signal?.aborted === true ||
         (err instanceof Error && err.name === 'AbortError');
+      yield* this.endPlanningActivity(isAbort ? 'cancelled' : 'failed');
       yield* this.closeOpenBlocks();
       if (isAbort) {
         // A user stop is not a failure: report the standard cancelled outcome
@@ -175,6 +188,7 @@ export class AGUIEmitter {
       // closes with RUN_FINISHED. Any other caught error already emitted
       // RUN_ERROR and must not also finish.
       if ((caughtError === undefined || this.cancelled) && !this.terminated) {
+        yield* this.endPlanningActivity(this.cancelled ? 'cancelled' : 'done');
         yield* this.closeOpenBlocks();
         yield this.event<RunFinishedEvent>(EventType.RUN_FINISHED, {
           outcome: this.outcome(),
@@ -223,6 +237,50 @@ export class AGUIEmitter {
     this.activeSteps.clear();
   }
 
+  /**
+   * Opens the planning status widget on the first heartbeat and patches it on
+   * later ones, so one widget carries the whole planning phase.
+   */
+  private *planningActivity(msg: AgentMessage): Generator<BaseEvent> {
+    const message = msg.content ?? 'Planning...';
+    const elapsedMs = msg.elapsedMs ?? 0;
+    if (this.planningActivityId) {
+      yield this.event<ActivityDeltaEvent>(EventType.ACTIVITY_DELTA, {
+        messageId: this.planningActivityId,
+        activityType: 'status',
+        patch: [
+          { op: 'replace', path: '/message', value: message },
+          { op: 'replace', path: '/elapsedMs', value: elapsedMs },
+        ],
+      });
+      return;
+    }
+    this.planningActivityId = `planning-status-${this.runId}`;
+    yield this.event<ActivitySnapshotEvent>(EventType.ACTIVITY_SNAPSHOT, {
+      messageId: this.planningActivityId,
+      activityType: 'status',
+      content: { phase: 'planning', message, elapsedMs },
+      replace: true,
+    });
+  }
+
+  /**
+   * Settles the planning widget, so it never reads as in progress once
+   * planning ended, failed, or was stopped. A no-op when none is open.
+   */
+  private *endPlanningActivity(
+    phase: 'done' | 'failed' | 'cancelled',
+  ): Generator<BaseEvent> {
+    if (!this.planningActivityId) return;
+    const messageId = this.planningActivityId;
+    this.planningActivityId = null;
+    yield this.event<ActivityDeltaEvent>(EventType.ACTIVITY_DELTA, {
+      messageId,
+      activityType: 'status',
+      patch: [{ op: 'replace', path: '/phase', value: phase }],
+    });
+  }
+
   /** Closes the open text block, if any. */
   private *endText(): Generator<BaseEvent> {
     if (!this.currentMessageId) return;
@@ -251,6 +309,10 @@ export class AGUIEmitter {
   }
 
   private *mapMessage(msg: AgentMessage): Generator<BaseEvent> {
+    // Planning is over once the plan, an answer, or real work begins.
+    if (PLANNING_ENDED_BY.has(msg.type)) {
+      yield* this.endPlanningActivity('done');
+    }
     switch (msg.type) {
       case 'text': {
         // Skip empty deltas — @ag-ui/client rejects delta === ''
@@ -281,8 +343,14 @@ export class AGUIEmitter {
       }
 
       case 'planning_status': {
-        // Planning progress heartbeat — emit as CUSTOM event so the frontend
-        // can display status text and elapsed time during long planning phases.
+        // The standard activity is what AG-UI clients render and what
+        // persistence stores, so a reload shows the same single widget.
+        yield* this.planningActivity(msg);
+        // The CUSTOM event stays for the V1 task view: `useAgent` maps it in
+        // agent-messages.ts and RunningIndicator renders it, and neither reads
+        // activity events. Remove it, and the legacy branches in
+        // agent-messages.ts, in the change that deletes that view (TaskDetail
+        // rendering RunningIndicator). The V2 thread renders the activity.
         yield this.event<CustomEvent>(EventType.CUSTOM, {
           name: 'planning_status',
           value: {
@@ -506,6 +574,7 @@ export class AGUIEmitter {
             // Without an id there is no durable record to approve, so an
             // interrupt would be unanswerable. Fail instead of emitting one.
             this.terminated = true;
+            yield* this.endPlanningActivity('failed');
             yield* this.closeOpenBlocks();
             yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
               message:
@@ -613,6 +682,7 @@ export class AGUIEmitter {
           break;
         }
         this.terminated = true;
+        yield* this.endPlanningActivity('failed');
         yield* this.closeOpenBlocks();
         yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
           message: msg.message ?? 'Unknown error',

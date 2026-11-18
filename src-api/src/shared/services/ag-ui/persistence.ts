@@ -155,6 +155,238 @@ function getFileType(
   return 'text';
 }
 
+/** Activity types the app renders; any other type is dropped, not stored. */
+const SUPPORTED_ACTIVITY_TYPES = new Set(['plan', 'status']);
+
+interface ActivityRow {
+  activityType: string;
+  content: Record<string, unknown>;
+  subagentRunId?: string;
+}
+
+let activityStmtCache: {
+  db: Database.Database;
+  select: Database.Statement;
+  update: Database.Statement;
+} | null = null;
+
+function activityStmts() {
+  const db = getDatabase();
+  if (!activityStmtCache || activityStmtCache.db !== db) {
+    activityStmtCache = {
+      db,
+      select: db.prepare(
+        "SELECT content, subtype, subagent_run_id FROM messages WHERE task_id = ? AND message_id = ? AND type = 'activity' LIMIT 1",
+      ),
+      update: db.prepare(
+        "UPDATE messages SET content = ? WHERE task_id = ? AND message_id = ? AND type = 'activity'",
+      ),
+    };
+  }
+  return activityStmtCache;
+}
+
+/**
+ * The stored activity for an id, read from the database rather than a per-run
+ * cache: a delta may patch an activity that an earlier run created.
+ */
+function readActivityRow(
+  taskId: string,
+  messageId: string,
+): ActivityRow | undefined {
+  const row = activityStmts().select.get(taskId, messageId) as
+    | {
+        content: string | null;
+        subtype: string | null;
+        subagent_run_id: string | null;
+      }
+    | undefined;
+  if (!row?.subtype || !SUPPORTED_ACTIVITY_TYPES.has(row.subtype)) {
+    return undefined;
+  }
+  try {
+    const content: unknown = JSON.parse(row.content ?? '');
+    if (!content || typeof content !== 'object' || Array.isArray(content)) {
+      return undefined;
+    }
+    return {
+      activityType: row.subtype,
+      content: content as Record<string, unknown>,
+      ...(row.subagent_run_id ? { subagentRunId: row.subagent_run_id } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function updateActivityContent(
+  taskId: string,
+  messageId: string,
+  content: Record<string, unknown>,
+): void {
+  activityStmts().update.run(JSON.stringify(content), taskId, messageId);
+}
+
+/** RFC 6902 `test` equality: deep, and insensitive to object key order. */
+function jsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || !a || !b) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, i) => jsonEqual(item, b[i]))
+    );
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(right, key) &&
+        jsonEqual(left[key], right[key]),
+    )
+  );
+}
+
+/** A canonical array index: no sign, no leading zero, no exponent, not empty. */
+const ARRAY_INDEX = /^(0|[1-9]\d*)$/;
+
+/**
+ * Apply a validated RFC 6902 operation list to an activity JSON object.
+ * Kept server-side so the journal persists the exact same value the client
+ * projects; every mutation targets a private clone and fails atomically.
+ */
+function patchActivityContent(
+  source: Record<string, unknown>,
+  rawPatch: unknown,
+): Record<string, unknown> | undefined {
+  if (!Array.isArray(rawPatch)) return undefined;
+  const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+  const pointer = (path: unknown): string[] | undefined => {
+    if (typeof path !== 'string') return undefined;
+    if (path === '') return [];
+    if (!path.startsWith('/')) return undefined;
+    const parts = path.slice(1).split('/');
+    if (parts.some((part) => /~(?![01])/.test(part))) return undefined;
+    return parts.map((part) => part.replace(/~1/g, '/').replace(/~0/g, '~'));
+  };
+  const locate = (root: unknown, parts: string[]) => {
+    let value = root;
+    for (const part of parts) {
+      if (Array.isArray(value)) {
+        if (!ARRAY_INDEX.test(part) || Number(part) >= value.length)
+          return undefined;
+        value = value[Number(part)];
+      } else if (
+        value &&
+        typeof value === 'object' &&
+        Object.prototype.hasOwnProperty.call(value, part)
+      ) {
+        value = (value as Record<string, unknown>)[part];
+      } else return undefined;
+    }
+    return value;
+  };
+  const write = (
+    root: unknown,
+    parts: string[],
+    op: string,
+    value?: unknown,
+  ): unknown => {
+    if (!parts.length) return op === 'remove' ? undefined : clone(value);
+    const parent = locate(root, parts.slice(0, -1));
+    const key = parts.at(-1)!;
+    if (!parent || typeof parent !== 'object')
+      throw new Error('missing parent');
+    if (
+      parts.some((part) =>
+        ['__proto__', 'constructor', 'prototype'].includes(part),
+      )
+    )
+      throw new Error('unsafe pointer');
+    if (Array.isArray(parent)) {
+      const index =
+        key === '-' && op === 'add'
+          ? parent.length
+          : ARRAY_INDEX.test(key)
+            ? Number(key)
+            : -1;
+      if (
+        index < 0 ||
+        index > parent.length ||
+        (op !== 'add' && index >= parent.length)
+      )
+        throw new Error('invalid array index');
+      if (op === 'add') parent.splice(index, 0, clone(value));
+      else if (op === 'remove') parent.splice(index, 1);
+      else parent[index] = clone(value);
+    } else {
+      const record = parent as Record<string, unknown>;
+      if (op !== 'add' && !Object.prototype.hasOwnProperty.call(record, key))
+        throw new Error('missing key');
+      if (op === 'remove') delete record[key];
+      else record[key] = clone(value);
+    }
+    return root;
+  };
+  let doc: unknown = clone(source);
+  try {
+    for (const raw of rawPatch) {
+      if (!raw || typeof raw !== 'object') return undefined;
+      const op = raw as {
+        op?: unknown;
+        path?: unknown;
+        from?: unknown;
+        value?: unknown;
+      };
+      const path = pointer(op.path);
+      if (!path) return undefined;
+      switch (op.op) {
+        case 'add':
+        case 'replace':
+          if (!('value' in op)) return undefined;
+          doc = write(doc, path, op.op, op.value);
+          break;
+        case 'remove':
+          doc = write(doc, path, 'remove');
+          break;
+        case 'copy':
+        case 'move': {
+          const from = pointer(op.from);
+          if (!from) return undefined;
+          const value = locate(doc, from);
+          if (value === undefined) return undefined;
+          if (op.op === 'move') {
+            if (
+              path.length > from.length &&
+              from.every((part, index) => path[index] === part)
+            )
+              return undefined;
+            doc = write(doc, from, 'remove');
+          }
+          doc = write(doc, path, 'add', value);
+          break;
+        }
+        case 'test':
+          if (!('value' in op) || !jsonEqual(locate(doc, path), op.value))
+            return undefined;
+          break;
+        default:
+          return undefined;
+      }
+    }
+    return doc && typeof doc === 'object' && !Array.isArray(doc)
+      ? (doc as Record<string, unknown>)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const logger = createLogger('AGUIEventPersister');
 
 // Module-level prepared-statement cache keyed on DB instance. Recompiles on
@@ -370,6 +602,71 @@ export class AGUIEventPersister {
               runId: this.runId,
             },
           });
+          break;
+        }
+
+        case EventType.ACTIVITY_SNAPSHOT: {
+          if (this.mode !== 'task') break;
+          const e = event as BaseEvent & {
+            messageId?: unknown;
+            activityType?: unknown;
+            content?: unknown;
+            replace?: boolean;
+          };
+          const id = typeof e.messageId === 'string' ? e.messageId : '';
+          const activityType = e.activityType;
+          if (
+            !id ||
+            typeof activityType !== 'string' ||
+            !SUPPORTED_ACTIVITY_TYPES.has(activityType) ||
+            !e.content ||
+            typeof e.content !== 'object' ||
+            Array.isArray(e.content)
+          )
+            break;
+          const content = e.content as Record<string, unknown>;
+          const existing = readActivityRow(this.taskId, id);
+          if (existing) {
+            // `replace: false` leaves an existing activity alone; it never
+            // merges. A type change is not a replacement of the same widget.
+            if (e.replace === false || existing.activityType !== activityType) {
+              break;
+            }
+            updateActivityContent(this.taskId, id, content);
+            break;
+          }
+          this.insertMessage({
+            type: 'activity',
+            content: JSON.stringify(content),
+            subtype: activityType,
+            messageId: id,
+            subagentRunId: eventOwner(event),
+          });
+          break;
+        }
+
+        case EventType.ACTIVITY_DELTA: {
+          if (this.mode !== 'task') break;
+          const e = event as BaseEvent & {
+            messageId?: unknown;
+            activityType?: unknown;
+            patch?: unknown;
+          };
+          const id = typeof e.messageId === 'string' ? e.messageId : '';
+          if (!id) break;
+          // A delta for an activity that does not exist is skipped, per the
+          // AG-UI spec; a failed patch leaves the stored content untouched.
+          const existing = readActivityRow(this.taskId, id);
+          if (!existing || existing.activityType !== e.activityType) break;
+          const content = patchActivityContent(existing.content, e.patch);
+          if (!content) break;
+          updateActivityContent(this.taskId, id, content);
+          break;
+        }
+
+        case EventType.MESSAGES_SNAPSHOT: {
+          // A server reconnect projects the DB's current activity rows through
+          // dbMessagesToFullAGUI. They are already durable, so no rewrite here.
           break;
         }
 
