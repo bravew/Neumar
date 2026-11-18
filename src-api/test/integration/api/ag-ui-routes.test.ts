@@ -68,6 +68,10 @@ vi.mock('@/shared/services/ag-ui/history', () => ({
   dbMessagesToSubagents: vi.fn().mockReturnValue([]),
 }));
 
+vi.mock('@/shared/services/ag-ui/open-interrupts', () => ({
+  listOpenInterrupts: vi.fn(),
+}));
+
 vi.mock('@/shared/services/ag-ui/journal', () => ({
   replayAGUIEvents: vi.fn().mockReturnValue([]),
 }));
@@ -731,6 +735,43 @@ describe('AG-UI Routes', () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as Record<string, unknown>;
       expect(body).toHaveProperty('plan');
+    });
+  });
+
+  // ---- GET /interrupts/:taskId ----
+
+  describe('GET /interrupts/:taskId', () => {
+    it('returns every open decision the task is waiting on', async () => {
+      const { listOpenInterrupts } =
+        await import('@/shared/services/ag-ui/open-interrupts');
+      vi.mocked(listOpenInterrupts).mockResolvedValueOnce([
+        { id: 'permission:req-1', reason: 'tool_permission' },
+        { id: 'question:q-1', reason: 'agent_question' },
+      ]);
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request('/interrupts/task-abc');
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        interrupts: [
+          { id: 'permission:req-1', reason: 'tool_permission' },
+          { id: 'question:q-1', reason: 'agent_question' },
+        ],
+      });
+      expect(listOpenInterrupts).toHaveBeenCalledWith('task-abc');
+    });
+
+    it('rejects a task id that is not a plain identifier', async () => {
+      const { listOpenInterrupts } =
+        await import('@/shared/services/ag-ui/open-interrupts');
+      vi.mocked(listOpenInterrupts).mockClear();
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request('/interrupts/..%2Fescape');
+
+      expect(res.status).toBe(400);
+      expect(listOpenInterrupts).not.toHaveBeenCalled();
     });
   });
 

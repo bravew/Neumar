@@ -57,9 +57,9 @@ import {
   ResumeSchema,
 } from '@/shared/services/ag-ui/interrupts';
 import { replayAGUIEvents } from '@/shared/services/ag-ui/journal';
+import { listOpenInterrupts } from '@/shared/services/ag-ui/open-interrupts';
 import { AGUIEventPersister } from '@/shared/services/ag-ui/persistence';
 import {
-  listPlanInterrupts,
   parsePlanRun,
   pendingPlanRun,
   planInterruptForRun,
@@ -1612,11 +1612,11 @@ agui.get('/pending-plan/:taskId', (c) => {
  * cannot recover interrupts from messages, so it asks the backend that owns
  * the decision records.
  */
-agui.get('/interrupts/:taskId', (c) => {
+agui.get('/interrupts/:taskId', async (c) => {
   const rawTaskId = c.req.param('taskId');
   const parsed = taskIdParamSchema.safeParse(rawTaskId);
   if (!parsed.success) return c.json({ error: 'Invalid taskId' }, 400);
-  return c.json({ interrupts: listPlanInterrupts(parsed.data) });
+  return c.json({ interrupts: await listOpenInterrupts(parsed.data) });
 });
 
 /**

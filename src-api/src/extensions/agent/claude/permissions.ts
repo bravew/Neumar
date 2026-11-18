@@ -36,7 +36,11 @@ import {
   assessRiskLevel,
   checkBashCommand,
 } from '@/core/agent/safety/dangerous-patterns';
-import type { ToolPermissionRegistry } from '@/core/agent/tool-permission-registry';
+import type {
+  OpenPermissionPrompt,
+  PermissionPrompt,
+  ToolPermissionRegistry,
+} from '@/core/agent/tool-permission-registry';
 
 import { getSetting } from '@/shared/db/operations';
 import { taskEventBus } from '@/shared/services/task-event-bus';
@@ -58,11 +62,39 @@ export interface PendingPermission {
   toolName: string;
   /** Original tool input, echoed back as `updatedInput` when the user allows. */
   toolInput: unknown;
+  taskId: string;
   sessionId: string;
+  /** The `permission_request` payload the user was shown. */
+  prompt: PermissionPrompt;
   createdAt: number;
   registry: ToolPermissionRegistry;
   /** The SDK forbade a persistent "always allow" rule for this ask. */
   suppressAlwaysAllowRule?: boolean;
+}
+
+/**
+ * Prompts for `taskId` that are still waiting and not past `ttlMs`. A prompt
+ * the expiry sweep has not yet reached is left out, so a caller never offers
+ * a decision the adapter is about to deny.
+ */
+export function listOpenPermissions(
+  pending: ReadonlyMap<string, PendingPermission>,
+  taskId: string,
+  ttlMs: number,
+  now: number = Date.now(),
+): OpenPermissionPrompt[] {
+  const open: OpenPermissionPrompt[] = [];
+  for (const entry of pending.values()) {
+    const expiresAt = entry.createdAt + ttlMs;
+    if (entry.taskId !== taskId || expiresAt <= now) continue;
+    open.push({
+      taskId: entry.taskId,
+      sessionId: entry.sessionId,
+      prompt: entry.prompt,
+      expiresAt,
+    });
+  }
+  return open;
 }
 
 /** Truncate tool input to a short string for logging and denial tracking. */
@@ -474,16 +506,17 @@ export function buildCanUseTool(
     const requestId = crypto.randomUUID();
     const riskLevel = assessRiskLevel(toolName, effectiveInput);
     const inputStr = summarizeInput(effectiveInput);
+    const prompt: PermissionPrompt = {
+      id: requestId,
+      tool: toolName,
+      command: inputStr,
+      description: `Execute ${toolName}`,
+      risk_level: riskLevel,
+      ...buildPromptHints(options),
+    };
     taskEventBus.publish(taskId, {
       type: 'permission_request',
-      permission: {
-        id: requestId,
-        tool: toolName,
-        command: inputStr,
-        description: `Execute ${toolName}`,
-        risk_level: riskLevel,
-        ...buildPromptHints(options),
-      },
+      permission: prompt,
     });
     // Wait for user response via /agent/permission endpoint
     return new Promise((resolve) => {
@@ -498,7 +531,9 @@ export function buildCanUseTool(
         resolve: trackedResolve,
         toolName,
         toolInput: effectiveInput,
+        taskId,
         sessionId,
+        prompt,
         createdAt: Date.now(),
         registry: permissionRegistry,
         suppressAlwaysAllowRule: options.suppressAlwaysAllowRule === true,

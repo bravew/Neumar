@@ -17,6 +17,11 @@
 import type { Interrupt } from '@ag-ui/core';
 import { z } from 'zod';
 
+import type { SerializedAgentQuestion } from '@/core/agent/questions';
+import type {
+  OpenPermissionPrompt,
+  PermissionPrompt,
+} from '@/core/agent/tool-permission-registry';
 import type { TaskPlan } from '@/core/agent/types';
 
 export const DECISION_KINDS = ['plan', 'question', 'permission'] as const;
@@ -164,6 +169,68 @@ export function planInterrupt(taskId: string, plan: TaskPlan): Interrupt {
     reason: DECISION_REASON.plan,
     message: plan.goal,
     responseSchema: decisionResponseSchema('plan'),
+    metadata: { [DECISION_METADATA_KEY]: metadata },
+  };
+}
+
+export interface PermissionDecisionMetadata {
+  kind: 'permission';
+  taskId: string;
+  permission: PermissionPrompt;
+  /** Unix ms after which the adapter denies the request unanswered. */
+  expiresAt?: number;
+}
+
+/**
+ * The interrupt for a tool permission an adapter is waiting on. The id is the
+ * adapter's own request id, so a resume entry can only answer that request.
+ */
+export function permissionInterrupt(open: OpenPermissionPrompt): Interrupt {
+  const metadata: PermissionDecisionMetadata = {
+    kind: 'permission',
+    taskId: open.taskId,
+    permission: open.prompt,
+    ...(open.expiresAt === null ? {} : { expiresAt: open.expiresAt }),
+  };
+  return {
+    id: decisionInterruptId('permission', open.prompt.id),
+    reason: DECISION_REASON.permission,
+    message: open.prompt.description,
+    responseSchema: decisionResponseSchema('permission'),
+    metadata: { [DECISION_METADATA_KEY]: metadata },
+  };
+}
+
+export interface QuestionDecisionMetadata {
+  kind: 'question';
+  taskId: string | null;
+  questions: unknown[];
+  expiresAt?: string;
+}
+
+/** The interrupt for a stored agent question that has not been answered. */
+export function questionInterrupt(
+  question: SerializedAgentQuestion,
+): Interrupt {
+  const first = question.questions[0];
+  const prompt =
+    typeof first === 'object' &&
+    first !== null &&
+    'question' in first &&
+    typeof first.question === 'string'
+      ? first.question
+      : 'The agent has a question';
+  const metadata: QuestionDecisionMetadata = {
+    kind: 'question',
+    taskId: question.taskId,
+    questions: question.questions,
+    ...(question.expiresAt ? { expiresAt: question.expiresAt } : {}),
+  };
+  return {
+    id: decisionInterruptId('question', question.id),
+    reason: DECISION_REASON.question,
+    message: prompt,
+    responseSchema: decisionResponseSchema('question'),
     metadata: { [DECISION_METADATA_KEY]: metadata },
   };
 }

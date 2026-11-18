@@ -6,7 +6,9 @@ import {
   decisionInterruptId,
   parseDecisionInterruptId,
   parseDecisionResponse,
+  permissionInterrupt,
   planInterrupt,
+  questionInterrupt,
 } from '@/shared/services/ag-ui/interrupts';
 
 const plan: TaskPlan = {
@@ -92,5 +94,98 @@ describe('AG-UI decision interrupts', () => {
       response: { approved: false, alwaysAllow: true },
     });
     expect(parseDecisionResponse('permission', {}).ok).toBe(false);
+  });
+});
+
+describe('permission and question interrupts', () => {
+  const prompt = {
+    id: 'req-7',
+    tool: 'Bash',
+    command: '{"command":"ls"}',
+    description: 'Execute Bash',
+    risk_level: 'medium' as const,
+    suppress_always_allow_rule: true,
+  };
+
+  it('names the adapter request and carries the prompt the user was shown', () => {
+    const interrupt = permissionInterrupt({
+      taskId: 'task-1',
+      sessionId: 'session-1',
+      prompt,
+      expiresAt: 1_700_000_000_000,
+    });
+
+    expect(interrupt.id).toBe('permission:req-7');
+    expect(parseDecisionInterruptId(interrupt.id)).toEqual({
+      kind: 'permission',
+      sourceId: 'req-7',
+    });
+    expect(interrupt.reason).toBe('tool_permission');
+    expect(interrupt.message).toBe('Execute Bash');
+    expect(interrupt.metadata).toEqual({
+      decision: {
+        kind: 'permission',
+        taskId: 'task-1',
+        permission: prompt,
+        expiresAt: 1_700_000_000_000,
+      },
+    });
+    expect(interrupt.responseSchema).toMatchObject({
+      properties: { approved: { type: 'boolean' } },
+      required: ['approved'],
+    });
+  });
+
+  it('omits an expiry the adapter never enforces', () => {
+    const interrupt = permissionInterrupt({
+      taskId: 'task-1',
+      sessionId: 'session-1',
+      prompt,
+      expiresAt: null,
+    });
+    expect(interrupt.metadata?.decision).not.toHaveProperty('expiresAt');
+  });
+
+  it('builds a question interrupt from the stored question', () => {
+    const interrupt = questionInterrupt({
+      id: 'q-1',
+      sessionId: 'session-1',
+      taskId: 'task-1',
+      toolUseId: 'tool-1',
+      questions: [{ question: 'Which database?', options: [] }],
+      status: 'pending',
+      answer: null,
+      askedAt: '2026-01-01T00:00:00Z',
+      answeredAt: null,
+      expiresAt: '2026-01-01T01:00:00Z',
+    });
+
+    expect(interrupt.id).toBe('question:q-1');
+    expect(interrupt.reason).toBe('agent_question');
+    expect(interrupt.message).toBe('Which database?');
+    expect(interrupt.metadata).toMatchObject({
+      decision: {
+        kind: 'question',
+        taskId: 'task-1',
+        expiresAt: '2026-01-01T01:00:00Z',
+      },
+    });
+  });
+
+  it('falls back to a generic message for an unreadable question', () => {
+    const interrupt = questionInterrupt({
+      id: 'q-2',
+      sessionId: 'session-1',
+      taskId: null,
+      toolUseId: null,
+      questions: ['not an object'],
+      status: 'pending',
+      answer: null,
+      askedAt: '2026-01-01T00:00:00Z',
+      answeredAt: null,
+      expiresAt: null,
+    });
+    expect(interrupt.message).toBe('The agent has a question');
+    expect(interrupt.metadata?.decision).not.toHaveProperty('expiresAt');
   });
 });

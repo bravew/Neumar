@@ -230,6 +230,7 @@ import {
   allowTool,
   applyPermissionPolicy,
   buildCanUseTool,
+  listOpenPermissions,
   type PendingPermission,
 } from './permissions';
 import { ContainerManager, executePTC } from './ptc';
@@ -1700,6 +1701,11 @@ setInterval(() => {
     }
   }
 }, 60_000).unref(); // unref so timer doesn't prevent process exit
+
+/** Prompts this adapter is still waiting on for one task. */
+export function listOpenClaudePermissions(taskId: string) {
+  return listOpenPermissions(pendingPermissions, taskId, PERMISSION_TTL_MS);
+}
 
 export function resolvePermission(
   requestId: string,
