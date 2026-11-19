@@ -554,7 +554,16 @@ function launchAGUIRun(spec: AGUIRunLaunch): string {
         taskId,
         signal: controller.signal,
         resume: (nextRunId) => {
-          launchAGUIRun({ ...spec, runId: nextRunId });
+          // The continuation is a new emitter. Carry the plan the paused run
+          // left open, so its terminal event settles the same widget.
+          launchAGUIRun({
+            ...spec,
+            runId: nextRunId,
+            emitterContext: {
+              ...spec.emitterContext,
+              planActivityId: emitter.openPlanActivityId() ?? undefined,
+            },
+          });
         },
         abandon: () => {
           spec.source.close();

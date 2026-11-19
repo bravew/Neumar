@@ -224,6 +224,21 @@ describe('sub-agent persistence and history replay', () => {
     ]);
   });
 
+  it("persists a child's reasoning block with its owner", async () => {
+    const rows = await persist([
+      {
+        type: 'thinking',
+        content: 'weighing the options',
+        subagentRunId: 'task-a',
+      },
+    ]);
+
+    const history = dbMessagesToFullAGUI(rows);
+    expect(
+      history.find((m) => m.content === 'weighing the options'),
+    ).toMatchObject({ role: 'reasoning', subagentRunId: 'task-a' });
+  });
+
   it('records a suspension the child reported itself', async () => {
     const rows = await persist([
       {

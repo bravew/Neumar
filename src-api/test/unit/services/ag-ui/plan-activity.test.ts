@@ -167,6 +167,47 @@ describe('the plan checklist as a standard AG-UI activity', () => {
     });
   });
 
+  it('settles the plan a paused run left open when the continuation ends', async () => {
+    // A permission continuation runs on a new emitter, which does not re-emit
+    // the plan; it starts from the id the paused run kept open.
+    const events = await collect([{ type: 'text', content: 'Resumed' }], {
+      planActivityId: 'plan-plan-1',
+    });
+
+    expect(planActivities(events)).toEqual([
+      expect.objectContaining({
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'plan-plan-1',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      }),
+    ]);
+  });
+
+  it('settles the first widget when the run reports a second plan', async () => {
+    const events = await collect([
+      { type: 'plan_activity', plan: PLAN },
+      {
+        type: 'plan_activity',
+        plan: { ...PLAN, id: 'plan-2', goal: 'Ship it again' },
+      },
+    ]);
+
+    // The first widget is settled before the second opens: its approval
+    // interrupt is replaced, so it would otherwise stay awaiting forever.
+    expect(planActivities(events).map((event) => event.messageId)).toEqual([
+      'plan-plan-1',
+      'plan-plan-1',
+      'plan-plan-2',
+      'plan-plan-2',
+    ]);
+    expect(planPhases(events)).toEqual([
+      'running',
+      'cancelled',
+      'running',
+      'done',
+    ]);
+  });
+
   it('is accepted by the AG-UI client, which applies the phase patch itself', async () => {
     const events = await collect([{ type: 'plan_activity', plan: PLAN }]);
 

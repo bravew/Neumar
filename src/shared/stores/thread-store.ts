@@ -732,7 +732,9 @@ export const useThreadStore = create<ThreadStore>()(
               break;
             }
             acc.reasoningMessageId = id;
-            ensureMsg(id, 'reasoning');
+            const started = ensureMsg(id, 'reasoning');
+            if (event.subagentRunId)
+              started.subagentRunId = event.subagentRunId;
             break;
           }
 
@@ -745,6 +747,7 @@ export const useThreadStore = create<ThreadStore>()(
             }
             const msg = ensureMsg(id, 'reasoning');
             msg.content = (msg.content ?? '') + event.delta;
+            if (event.subagentRunId) msg.subagentRunId ??= event.subagentRunId;
             acc.reasoningMessageId ??= id;
             break;
           }

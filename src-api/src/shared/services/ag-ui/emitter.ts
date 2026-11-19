@@ -96,6 +96,12 @@ export interface AGUIRunContext {
   /** Agent provider and model the run's usage is attributed to. */
   provider?: string;
   model?: string;
+  /**
+   * A plan widget an earlier run opened and left unsettled. A permission
+   * continuation runs on a new emitter, so it starts from this id and patches
+   * the same widget when it ends.
+   */
+  planActivityId?: string;
 }
 
 /**
@@ -146,6 +152,7 @@ export class AGUIEmitter {
       provider: context?.provider,
       model: context?.model,
     });
+    this.planActivityId = context?.planActivityId ?? null;
   }
 
   /** Usage and spend for the terminal event; both absent when unreported. */
@@ -161,6 +168,15 @@ export class AGUIEmitter {
   /** True when this run ended at a permission decision and can be continued. */
   isPaused(): boolean {
     return this.paused;
+  }
+
+  /**
+   * The plan widget this run opened or inherited and did not settle. A
+   * continuation emitter takes it over so the widget is patched exactly once
+   * when the work actually ends.
+   */
+  openPlanActivityId(): string | null {
+    return this.planActivityId;
   }
 
   async *transform(
@@ -219,7 +235,8 @@ export class AGUIEmitter {
         (err instanceof Error && err.name === 'AbortError');
       yield* this.endPlanningActivity(isAbort ? 'cancelled' : 'failed');
       yield* this.endPlanActivity(isAbort ? 'cancelled' : 'failed');
-      yield* this.closeOpenBlocks();
+      // A thrown error is never a suspension, whatever decision was pending.
+      yield* this.closeOpenBlocks(false);
       if (isAbort) {
         // A user stop is not a failure: report the standard cancelled outcome
         // and let the task settle as stopped rather than error.
@@ -241,7 +258,9 @@ export class AGUIEmitter {
         if (this.outcome()?.type !== 'interrupt') {
           yield* this.endPlanActivity(this.cancelled ? 'cancelled' : 'done');
         }
-        yield* this.closeOpenBlocks();
+        // Only a run that completes at an interrupt suspends its open
+        // children; the terminal state is not set yet on the error paths.
+        yield* this.closeOpenBlocks(this.outcome()?.type === 'interrupt');
         yield this.event<RunFinishedEvent>(EventType.RUN_FINISHED, {
           outcome: this.outcome(),
           ...this.usageFields(),
@@ -316,7 +335,7 @@ export class AGUIEmitter {
     return undefined;
   }
 
-  private *closeOpenBlocks(): Generator<BaseEvent> {
+  private *closeOpenBlocks(suspended: boolean): Generator<BaseEvent> {
     yield* this.endText();
     for (const [toolCallId] of this.activeToolCalls) {
       yield this.event<ToolCallEndEvent>(EventType.TOOL_CALL_END, {
@@ -329,7 +348,6 @@ export class AGUIEmitter {
     // decision is suspended, not failed: a later run may continue it once the
     // interrupts are answered. Any other ending is an error, because a missing
     // notification is not evidence the delegated work completed.
-    const suspended = this.outcome()?.type === 'interrupt';
     const interruptIds = suspended
       ? this.pendingInterrupts.map((interrupt) => interrupt.id)
       : [];
@@ -416,7 +434,14 @@ export class AGUIEmitter {
     plan: TaskPlan,
     phase: PlanActivityPhase,
   ): Generator<BaseEvent> {
-    this.planActivityId = `plan-${plan.id}`;
+    const nextId = `plan-${plan.id}`;
+    // A run that reports a second plan supersedes the first. Its interrupt is
+    // replaced below, so its widget would otherwise stay awaiting approval
+    // forever.
+    if (this.planActivityId !== null && this.planActivityId !== nextId) {
+      yield* this.endPlanActivity('cancelled');
+    }
+    this.planActivityId = nextId;
     yield this.event<ActivitySnapshotEvent>(EventType.ACTIVITY_SNAPSHOT, {
       messageId: this.planActivityId,
       activityType: 'plan',
@@ -760,7 +785,7 @@ export class AGUIEmitter {
             // interrupt would be unanswerable. Fail instead of emitting one.
             this.terminated = true;
             yield* this.endPlanningActivity('failed');
-            yield* this.closeOpenBlocks();
+            yield* this.closeOpenBlocks(false);
             yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
               message:
                 'Planning produced a plan without an id; it cannot be approved',
@@ -876,7 +901,7 @@ export class AGUIEmitter {
         this.terminated = true;
         yield* this.endPlanningActivity('failed');
         yield* this.endPlanActivity('failed');
-        yield* this.closeOpenBlocks();
+        yield* this.closeOpenBlocks(false);
         yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
           message: msg.message ?? 'Unknown error',
           code: msg.subtype,

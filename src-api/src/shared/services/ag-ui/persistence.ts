@@ -452,6 +452,8 @@ export class AGUIEventPersister {
   private pendingTextMessageId: string | null = null;
   private pendingReasoningText = '';
   private pendingReasoningMessageId: string | null = null;
+  /** Sub-agent invocation that owns the reasoning block in progress. */
+  private pendingReasoningOwner: string | undefined;
   /** Sub-agent invocation that owns the text block in progress. */
   private pendingTextOwner: string | undefined;
   /** Sub-agent invocation that owns each open tool call, by tool call id. */
@@ -712,6 +714,7 @@ export class AGUIEventPersister {
           const e = event as BaseEvent & { messageId: string };
           this.pendingReasoningMessageId = e.messageId;
           this.pendingReasoningText = '';
+          this.pendingReasoningOwner = eventOwner(event);
           break;
         }
 
@@ -728,10 +731,12 @@ export class AGUIEventPersister {
               content: this.pendingReasoningText,
               subtype: 'thinking',
               messageId: this.pendingReasoningMessageId,
+              subagentRunId: this.pendingReasoningOwner,
             });
           }
           this.pendingReasoningText = '';
           this.pendingReasoningMessageId = null;
+          this.pendingReasoningOwner = undefined;
           break;
         }
 
@@ -1232,9 +1237,11 @@ export class AGUIEventPersister {
         type: 'text',
         content: this.pendingText,
         messageId: this.pendingTextMessageId,
+        subagentRunId: this.pendingTextOwner,
       });
       this.pendingText = '';
       this.pendingTextMessageId = null;
+      this.pendingTextOwner = undefined;
     }
     if (this.pendingReasoningText && this.pendingReasoningMessageId) {
       this.insertMessage({
@@ -1242,9 +1249,11 @@ export class AGUIEventPersister {
         content: this.pendingReasoningText,
         subtype: 'thinking',
         messageId: this.pendingReasoningMessageId,
+        subagentRunId: this.pendingReasoningOwner,
       });
       this.pendingReasoningText = '';
       this.pendingReasoningMessageId = null;
+      this.pendingReasoningOwner = undefined;
     }
   }
 

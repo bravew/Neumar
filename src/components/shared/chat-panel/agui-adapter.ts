@@ -327,6 +327,19 @@ export function reduceChatPanelAguiEvent(
           );
           return state;
         }
+        // One id is one widget. A snapshot of another type would silently
+        // replace it here while the thread store rejects the same event.
+        if (existing.activity.activityType !== activityType) {
+          warnSkippedActivity(
+            'ACTIVITY_SNAPSHOT',
+            `activity type changed from '${existing.activity.activityType}'`,
+            id,
+          );
+          return state;
+        }
+        // A replacement is the same widget, so it keeps the owner it was
+        // created with when the event omits one.
+        const nextOwner = owner ?? existing.activity.subagentRunId;
         return {
           ...state,
           messages: state.messages.map((message) =>
@@ -337,7 +350,7 @@ export function reduceChatPanelAguiEvent(
                     id,
                     activityType,
                     content,
-                    ...(owner ? { subagentRunId: owner } : {}),
+                    ...(nextOwner ? { subagentRunId: nextOwner } : {}),
                   },
                 }
               : message,
@@ -510,7 +523,9 @@ export function finalizeChatPanelAguiState(
   return {
     messages:
       reason === 'aborted'
-        ? markOpenTools(state.messages, 'Agent stream was cancelled')
+        ? markOpenSubagents(
+            markOpenTools(state.messages, 'Agent stream was cancelled'),
+          )
         : state.messages,
     accumulator: emptyAccumulator(),
   };
@@ -1123,6 +1138,19 @@ function markOpenTools(
       ) as typeof message.calls,
     };
   });
+}
+
+/**
+ * Settles sub-agent cards a stopped stream left running. The emitter reports
+ * the same ending as `SUBAGENT_ERROR code: 'run_ended'`; a client-side stop
+ * can end before that event arrives.
+ */
+function markOpenSubagents(messages: ChatPanelMessage[]): ChatPanelMessage[] {
+  return messages.map((message) =>
+    message.kind === 'subagent' && message.subagent.status === 'running'
+      ? { ...message, subagent: { ...message.subagent, status: 'error' } }
+      : message,
+  );
 }
 
 function buildQuestionRequest(

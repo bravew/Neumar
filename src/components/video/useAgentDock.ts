@@ -1096,6 +1096,28 @@ function isAgentDockMessage(value: unknown): value is AgentDockMessage {
   const createdAt = getString(value, 'createdAt');
   if (!kind || !id || !role || !createdAt) return false;
   if (kind === 'text') return typeof value.content === 'string';
+  if (kind === 'activity') {
+    const activity = getRecord(value, 'activity');
+    return (
+      role === 'assistant' &&
+      activity !== undefined &&
+      getString(activity, 'id') === id &&
+      typeof getString(activity, 'activityType') === 'string' &&
+      isRecord(activity.content)
+    );
+  }
+  if (kind === 'subagent') {
+    const subagent = getRecord(value, 'subagent');
+    if (role !== 'system' || !subagent) return false;
+    const status = getString(subagent, 'status');
+    return (
+      typeof getString(subagent, 'id') === 'string' &&
+      (status === 'running' ||
+        status === 'completed' ||
+        status === 'suspended' ||
+        status === 'error')
+    );
+  }
   if (kind !== 'action' || !isRecord(value.action)) return false;
   return normalizeAgentActionPayload(value.action) !== null;
 }

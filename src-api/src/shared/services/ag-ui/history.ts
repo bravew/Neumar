@@ -105,6 +105,9 @@ export function dbMessagesToFullAGUI(
               role: 'reasoning',
               content: msg.content,
               subtype: msg.subtype,
+              ...(msg.subagent_run_id
+                ? { subagentRunId: msg.subagent_run_id }
+                : {}),
             });
           }
         } else if (msg.content) {

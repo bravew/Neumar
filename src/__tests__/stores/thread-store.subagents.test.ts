@@ -53,6 +53,45 @@ describe('thread-store sub-agent lifecycle', () => {
     ]);
   });
 
+  it("attributes a child's reasoning block to its invocation", () => {
+    apply(
+      { type: EventType.RUN_STARTED },
+      {
+        type: EventType.REASONING_MESSAGE_START,
+        messageId: 'reason-child',
+        subagentRunId: 'task-a',
+      },
+      {
+        type: EventType.REASONING_MESSAGE_CONTENT,
+        messageId: 'reason-child',
+        delta: 'checking the tree',
+      },
+      { type: EventType.REASONING_MESSAGE_END, messageId: 'reason-child' },
+      {
+        type: EventType.REASONING_MESSAGE_START,
+        messageId: 'reason-parent',
+      },
+      {
+        type: EventType.REASONING_MESSAGE_CONTENT,
+        messageId: 'reason-parent',
+        delta: 'deciding what to do',
+      },
+    );
+
+    const reasoning = thread().messages.filter(
+      (message) => message.role === 'reasoning',
+    );
+    expect(reasoning).toMatchObject([
+      {
+        id: 'reason-child',
+        content: 'checking the tree',
+        subagentRunId: 'task-a',
+      },
+      { id: 'reason-parent', content: 'deciding what to do' },
+    ]);
+    expect(reasoning[1]?.subagentRunId).toBeUndefined();
+  });
+
   it('records an error with its code and keeps nesting', () => {
     apply(
       {

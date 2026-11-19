@@ -310,14 +310,17 @@ test.describe('AG-UI epic browser smoke', () => {
     await expect(widget.getByText('Ship the epic')).toBeVisible();
     await expect(widget.getByText('Completed').first()).toBeVisible();
 
-    // P1: the child has its own card with its status.
-    await expect(page.getByText('Scan', { exact: true })).toBeVisible();
-    await expect(page.getByText('Completed').first()).toBeVisible();
+    // P1: the child has its own card. The plan widget also reads "Completed",
+    // so the status is checked on the child's row itself.
+    const scanRow = page.getByRole('button', { name: /Scan/ });
+    await expect(scanRow).toBeVisible();
+    await expect(scanRow).toContainText('Completed');
 
     // P2: the run's reported usage is visible in the persisted run tree.
     await expect(page.getByText(/Run tree \(1\)/)).toBeVisible();
-    // The rollup header and the run row both carry the tokens.
-    await expect(page.getByText(/1\.2k↑\s*3\.4k↓/).first()).toBeVisible();
+    // The rollup header carries the same tokens as the row, so read the row.
+    const runRow = page.getByRole('button', { name: 'claude run, completed' });
+    await expect(runRow).toContainText(/1\.2k↑\s*3\.4k↓/);
 
     // The run ended cleanly, so the thread is not still running.
     await expect(page.getByRole('button', { name: /stop/i })).toHaveCount(0);

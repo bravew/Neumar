@@ -128,6 +128,8 @@ interface WireEvent {
   type: string;
   runId?: string;
   delta?: string;
+  messageId?: string;
+  patch?: Array<{ op: string; path: string; value: unknown }>;
   outcome?: {
     type: string;
     interrupts?: Array<{ id: string; reason: string }>;
@@ -241,6 +243,62 @@ describe('AG-UI run paused at a tool permission', () => {
     expect(deltas(second)).toEqual(['after:true']);
     expect(finished(second)?.outcome).toBeUndefined();
     expect(hasPermissionHold('task-approve')).toBe(false);
+  });
+
+  it('settles the plan widget a permission-paused run left open', async () => {
+    const { aguiRoutes } = await import('@/app/api/ag-ui');
+    const seen = { approved: null as boolean | null };
+    agent.script = async function* (call: AgentCall) {
+      const { ToolPermissionRegistry, requestHostToolPermission } =
+        await import('@/core/agent/tool-permission-registry');
+      yield {
+        type: 'plan_activity',
+        plan: {
+          id: 'plan-1',
+          goal: 'Ship it',
+          steps: [],
+          createdAt: new Date(),
+        },
+      };
+      seen.approved = await requestHostToolPermission({
+        taskId: call.taskId,
+        sessionId: 'session-1',
+        toolName: 'Bash',
+        input: { command: 'ls' },
+        registry: new ToolPermissionRegistry(),
+        signal: call.signal,
+      });
+      yield { type: 'text', content: `after:${seen.approved}` };
+    };
+
+    const first = await readEvents(
+      await aguiRoutes.request(runRequest('task-plan', 'run-1')),
+    );
+    const id = finished(first)!.outcome!.interrupts![0]!.id;
+    expect(
+      first.filter((event) => event.type === 'ACTIVITY_SNAPSHOT'),
+    ).toHaveLength(1);
+    // The decision is the next run's starting point, so this run leaves the
+    // widget running.
+    expect(
+      first.filter((event) => event.type === 'ACTIVITY_DELTA'),
+    ).toHaveLength(0);
+
+    const second = await readEvents(
+      await aguiRoutes.request(
+        resumeRequest('task-plan', 'run-2', [
+          { interruptId: id, status: 'resolved', payload: { approved: true } },
+        ]),
+      ),
+    );
+
+    // The continuation runs on a new emitter, which settles the same widget.
+    expect(second.filter((event) => event.type === 'ACTIVITY_DELTA')).toEqual([
+      expect.objectContaining({
+        messageId: 'plan-plan-1',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      }),
+    ]);
   });
 
   it('delivers a denial to the agent when the user cancels the interrupt', async () => {

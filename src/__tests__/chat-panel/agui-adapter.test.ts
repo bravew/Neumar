@@ -233,11 +233,26 @@ describe('chat-panel AG-UI adapter', () => {
       },
       { now },
     );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+        name: 'Scan',
+      },
+      { now },
+    );
     const aborted = finalizeChatPanelAguiState(state, 'aborted');
 
     expect(aborted.messages[0]).toMatchObject({
       kind: 'tool',
       calls: [{ id: 'tool-1', stage: 'error', isError: true }],
+    });
+    // The emitter reports a stopped run's open child as run_ended; a local
+    // stop can end before that event arrives, so the card must not stay live.
+    expect(aborted.messages[1]).toMatchObject({
+      id: 'subagent:task-a',
+      subagent: { status: 'error' },
     });
     expect(isChatPanelAguiEventPayload({ type: EventType.RUN_ERROR })).toBe(
       true,
@@ -506,6 +521,72 @@ describe('chat-panel AG-UI adapter', () => {
       message.kind === 'activity' ? message.activity.subagentRunId : 'other',
     );
     expect(owners).toEqual([undefined, 'task-a']);
+  });
+
+  it('rejects a snapshot that would change an existing widget type', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let state = createChatPanelAguiState();
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'widget-1',
+        activityType: 'plan',
+        content: { phase: 'running', goal: 'Ship it', steps: [] },
+      },
+      { now },
+    );
+
+    const next = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'widget-1',
+        activityType: 'status',
+        content: { phase: 'running' },
+      },
+      { now },
+    );
+
+    // The thread store rejects the same event, so both consumers agree.
+    expect(next).toBe(state);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('keeps a widget owner when a replacement omits it', () => {
+    let state = createChatPanelAguiState();
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'status-1',
+        activityType: 'status',
+        content: { phase: 'planning' },
+        subagentRunId: 'task-a',
+      },
+      { now },
+    );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'status-1',
+        activityType: 'status',
+        content: { phase: 'running' },
+      },
+      { now },
+    );
+
+    expect(state.messages).toMatchObject([
+      {
+        id: 'status-1',
+        activity: {
+          content: { phase: 'running' },
+          subagentRunId: 'task-a',
+        },
+      },
+    ]);
   });
 
   it('adds a card for each sub-agent and settles it from its outcome', () => {

@@ -155,7 +155,7 @@ export function AgentDockMessageList({
           const phaseLabel =
             phase === 'awaiting_approval'
               ? dock.awaitingApproval
-              : phase === 'running'
+              : phase === 'running' || phase === 'planning'
                 ? dock.running
                 : phase === 'failed'
                   ? dock.failed
