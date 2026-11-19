@@ -316,6 +316,28 @@ describe('restored dock history', () => {
             createdAt,
             subagent: { id: 'task-b', status: 'unknown' },
           },
+          {
+            id: 'bad-subagent-name',
+            kind: 'subagent',
+            role: 'system',
+            createdAt,
+            subagent: {
+              id: 'task-c',
+              status: 'completed',
+              name: { bad: true },
+            },
+          },
+          {
+            id: 'bad-subagent-parent',
+            kind: 'subagent',
+            role: 'system',
+            createdAt,
+            subagent: {
+              id: 'task-d',
+              status: 'completed',
+              parentSubagentRunId: 7,
+            },
+          },
         ],
       }),
     );

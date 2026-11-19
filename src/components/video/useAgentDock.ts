@@ -1115,7 +1115,10 @@ function isAgentDockMessage(value: unknown): value is AgentDockMessage {
       (status === 'running' ||
         status === 'completed' ||
         status === 'suspended' ||
-        status === 'error')
+        status === 'error') &&
+      // Optional fields are kept as restored, and `name` is rendered as text.
+      isOptionalString(subagent, 'name') &&
+      isOptionalString(subagent, 'parentSubagentRunId')
     );
   }
   if (kind !== 'action' || !isRecord(value.action)) return false;
@@ -1128,6 +1131,14 @@ function getString(
 ): string | undefined {
   const item = value[key];
   return typeof item === 'string' ? item : undefined;
+}
+
+/** True when `key` is absent or holds a string. */
+function isOptionalString(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  return value[key] === undefined || typeof value[key] === 'string';
 }
 
 function getBoolean(
