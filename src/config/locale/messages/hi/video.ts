@@ -1367,6 +1367,8 @@ export default {
       },
     },
     agentDock: {
+      awaitingApproval: 'स्वीकृति की प्रतीक्षा',
+      suspended: 'इनपुट की प्रतीक्षा',
       turnBudget: {
         continue: 'जारी रखें',
         continuePrompt: 'जहाँ रुके थे वहीं से जारी रखें।',

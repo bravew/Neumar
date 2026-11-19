@@ -101,4 +101,35 @@ describe('IntentApprovalCard', () => {
     expect(sendMessage).not.toHaveBeenCalled();
     expect(respond).toHaveBeenCalledWith('perm-1', 'allow');
   });
+
+  it('names the sub-agent that asked', () => {
+    renderWithProviders(
+      <TaskThreadActions respondToPermission={vi.fn()} sendMessage={vi.fn()}>
+        <IntentApprovalCard
+          permission={{ ...permission, agent_id: 'task-a' }}
+          ownerName="Scan"
+        />
+      </TaskThreadActions>,
+    );
+
+    expect(screen.getByText('Requested by Scan')).toBeInTheDocument();
+  });
+
+  it('says a sub-agent asked when its name is not known', () => {
+    renderWithProviders(
+      <TaskThreadActions respondToPermission={vi.fn()} sendMessage={vi.fn()}>
+        <IntentApprovalCard
+          permission={{ ...permission, agent_id: 'task-a' }}
+        />
+      </TaskThreadActions>,
+    );
+
+    expect(screen.getByText('Requested by a sub-agent')).toBeInTheDocument();
+  });
+
+  it('names no owner for the main agent', () => {
+    renderCard(vi.fn());
+
+    expect(screen.queryByText(/^Requested by/)).not.toBeInTheDocument();
+  });
 });

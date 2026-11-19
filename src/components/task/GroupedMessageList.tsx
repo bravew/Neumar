@@ -15,6 +15,7 @@ import {
 import { IntentApprovalCard } from '@/components/task/IntentApprovalCard';
 import { LocalOutputArtifactPreviews } from '@/components/task/LocalOutputArtifactPreviews';
 import { MessageToolbar } from '@/components/task/MessageToolbar';
+import { PlanActivityWidget } from '@/components/task/PlanActivityWidget';
 import { PlanApproval } from '@/components/task/PlanApproval';
 import { ActivityGroup } from '@/components/task/TaskV2ActivityGroup';
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble';
@@ -22,6 +23,7 @@ import {
   MessageBubble,
   ToolCallGroup,
 } from '@/components/task/TaskV2MessageBubble';
+import { StatusWidget } from '@/components/task/TaskV2StatusWidget';
 import { UserMessageBubble } from '@/components/task/UserMessageBubble';
 import { getSettings } from '@/shared/db/settings';
 import type { TaskPlan } from '@/shared/hooks/agent-types';
@@ -214,6 +216,16 @@ export function renderGroupedItem(
           onCancelTool={ctx.onCancelTool}
         />
       );
+    case 'status-widget':
+      return (
+        <StatusWidget
+          key={item.key}
+          status={item.status}
+          isRunning={ctx.isRunning}
+        />
+      );
+    case 'plan-widget':
+      return <PlanActivityWidget key={item.key} plan={item.plan} />;
     case 'plan-approval':
       return (
         <PlanApproval
@@ -226,7 +238,13 @@ export function renderGroupedItem(
         />
       );
     case 'permission':
-      return <IntentApprovalCard key={item.key} permission={item.permission} />;
+      return (
+        <IntentApprovalCard
+          key={item.key}
+          permission={item.permission}
+          ownerName={item.ownerName}
+        />
+      );
     case 'branch-nav':
       return (
         <BranchNavigator

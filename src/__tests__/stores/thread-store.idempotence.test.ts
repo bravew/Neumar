@@ -17,6 +17,49 @@ afterEach(() => {
   useThreadStore.setState({ threads: {} });
 });
 
+describe('thread-store run outcomes', () => {
+  const startTool = (): AGUIStreamEvent[] => [
+    { type: EventType.RUN_STARTED, seq: 0 },
+    {
+      type: EventType.TOOL_CALL_START,
+      seq: 1,
+      toolCallId: 'tool-1',
+      toolCallName: 'Read',
+    },
+  ];
+  const toolCall = () =>
+    useThreadStore
+      .getState()
+      .threads[taskId]?.messages.flatMap((m) => m.toolCalls ?? [])[0];
+
+  it('closes an in-flight tool call when the run is cancelled', () => {
+    for (const event of [
+      ...startTool(),
+      {
+        type: EventType.RUN_FINISHED,
+        seq: 2,
+        outcome: { type: 'cancelled' },
+      },
+    ]) {
+      useThreadStore.getState().applyAGUIEvent(taskId, event);
+    }
+
+    expect(toolCall()).toMatchObject({ toolStage: 'error', final: true });
+    expect(useThreadStore.getState().threads[taskId]?.isRunning).toBe(false);
+  });
+
+  it('leaves tool calls alone on a successful finish', () => {
+    for (const event of [
+      ...startTool(),
+      { type: EventType.RUN_FINISHED, seq: 2 },
+    ]) {
+      useThreadStore.getState().applyAGUIEvent(taskId, event);
+    }
+
+    expect(toolCall()?.final).not.toBe(true);
+  });
+});
+
 describe('thread-store AG-UI replay', () => {
   it('is idempotent when the same seq-bearing event log is replayed', () => {
     const events: AGUIStreamEvent[] = [
@@ -68,6 +111,45 @@ describe('thread-store AG-UI replay', () => {
     }
 
     expect(threadSnapshot()).toBe(firstReplay);
+  });
+
+  it('replays an activity snapshot and patch into one settled widget', () => {
+    const events: AGUIStreamEvent[] = [
+      { type: EventType.RUN_STARTED, seq: 0 },
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        seq: 1,
+        messageId: 'plan-1',
+        activityType: 'plan',
+        content: { phase: 'running', goal: 'Ship it', steps: [] },
+      },
+      {
+        type: EventType.ACTIVITY_DELTA,
+        seq: 2,
+        messageId: 'plan-1',
+        activityType: 'plan',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      },
+      { type: EventType.RUN_FINISHED, seq: 3 },
+    ];
+
+    for (const event of events) {
+      useThreadStore.getState().applyAGUIEvent(taskId, event);
+    }
+    const firstReplay = threadSnapshot();
+
+    for (const event of events) {
+      useThreadStore.getState().applyAGUIEvent(taskId, event);
+    }
+
+    expect(threadSnapshot()).toBe(firstReplay);
+    const messages = useThreadStore.getState().threads[taskId].messages;
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      id: 'plan-1',
+      role: 'activity',
+      content: { phase: 'done', goal: 'Ship it', steps: [] },
+    });
   });
 });
 

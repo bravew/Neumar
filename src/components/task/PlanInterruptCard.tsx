@@ -1,45 +1,59 @@
+import type { Interrupt } from '@ag-ui/core';
 import { useInterrupt } from '@copilotkit/react-core/v2';
 
-import type { TaskPlan } from '@/shared/hooks/agent-types';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 
-interface PlanInterruptValue {
-  type: 'plan_approval';
-  plan: TaskPlan;
-  runId: string;
+interface PlanStepMetadata {
+  id: string;
+  description: string;
+  status: string;
+}
+
+interface PlanDecisionMetadata {
+  kind?: string;
+  plan?: {
+    id?: string;
+    goal?: string;
+    steps?: PlanStepMetadata[];
+  };
 }
 
 /**
- * Plan approval card using CopilotKit's useInterrupt hook.
+ * Plan approval card for the standard AG-UI interrupt flow.
  *
- * Renders outside the chat message list (renderInChat: false).
- * Appears when the agent emits a CUSTOM 'on_interrupt' event with
- * type: 'plan_approval'. The user approves or rejects, and resolve()
- * resumes the agent with { approved: true/false }.
+ * The planning run ends with `RUN_FINISHED.outcome.type === 'interrupt'`; this
+ * card answers the interrupt named in `interrupt.id`. `resolve` submits the
+ * standard `resume` entry; `cancel` submits `status: 'cancelled'`. Both are
+ * bound to that id, so a stale card cannot approve a newer plan.
  *
- * Flow: agent emits on_interrupt → RUN_FINISHED → useInterrupt surfaces UI
- *       → user clicks → resolve() → copilotkit.runAgent() with
- *       forwardedProps.command.resume → backend maps to activeQueryStore.pushReply()
+ * The live task surface renders its own progress card (TaskV2Thread); this
+ * component is the shared standard-card reference for decision surfaces.
  */
 export function PlanInterruptCard() {
   const { t } = useLanguage();
 
-  const element = useInterrupt<PlanInterruptValue, false>({
+  const element = useInterrupt({
     renderInChat: false,
-    enabled: (event) => event.value?.type === 'plan_approval',
-    render: ({ event, resolve }) => {
-      const value = event.value as PlanInterruptValue;
-      const plan = value.plan;
+    enabled: (event) => {
+      const value = event.value as Interrupt | undefined;
+      return value?.reason === 'plan_approval';
+    },
+    render: ({ interrupt, resolve, cancel }) => {
+      const decision = interrupt?.metadata?.decision as
+        | PlanDecisionMetadata
+        | undefined;
+      const plan = decision?.plan;
+      const steps = plan?.steps ?? [];
 
       return (
         <div className="border-border bg-muted/30 mx-4 my-2 rounded-lg border p-3 text-sm">
           <p className="text-foreground mb-2 font-medium">
-            {plan.goal ?? (t.approvals?.title || '')}
+            {plan?.goal ?? interrupt?.message ?? (t.approvals?.title || '')}
           </p>
-          {plan.steps && plan.steps.length > 0 && (
+          {steps.length > 0 && (
             <ol className="mb-3 space-y-1">
-              {plan.steps.map((step, i) => (
+              {steps.map((step, i) => (
                 <li
                   key={step.id ?? i}
                   className="text-muted-foreground flex items-start gap-2"
@@ -52,7 +66,9 @@ export function PlanInterruptCard() {
           )}
           <div className="flex gap-2">
             <button
-              onClick={() => resolve({ approved: true })}
+              onClick={() =>
+                void resolve({ approved: true }, interrupt?.id ?? undefined)
+              }
               className={cn(
                 'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                 'bg-primary text-primary-foreground hover:bg-primary/90',
@@ -61,13 +77,24 @@ export function PlanInterruptCard() {
               {t.approvals?.approve ?? 'Approve'}
             </button>
             <button
-              onClick={() => resolve({ approved: false })}
+              onClick={() =>
+                void resolve({ approved: false }, interrupt?.id ?? undefined)
+              }
               className={cn(
                 'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                 'border-destructive/50 text-destructive hover:bg-destructive/10 border',
               )}
             >
               {t.approvals?.reject ?? 'Reject'}
+            </button>
+            <button
+              onClick={() => void cancel(interrupt?.id ?? undefined)}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                'border-border text-muted-foreground hover:bg-muted border',
+              )}
+            >
+              {t.approvals?.cancel ?? 'Cancel'}
             </button>
           </div>
         </div>

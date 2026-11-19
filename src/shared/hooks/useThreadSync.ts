@@ -14,11 +14,13 @@ import type {
   AGUIStreamEvent,
   TaskFile,
   ThreadMessage,
+  ThreadSubagent,
 } from '@/shared/stores/thread-store';
 
 interface SSEEvent extends AGUIStreamEvent {
   messages?: ThreadMessage[];
   files?: TaskFile[];
+  subagents?: ThreadSubagent[];
   message?: string;
   parentMessageId?: string;
 }
@@ -93,6 +95,7 @@ export function useThreadSync(taskId: string | undefined): void {
                 hydrateFromDB(taskId, event.messages, true, {
                   lastAppliedSeq: snapshotSeq,
                   files: event.files,
+                  subagents: event.subagents,
                 });
                 lastSeqRef.current = snapshotSeq;
                 continue;

@@ -10,14 +10,22 @@ import { API_BASE_URL } from '@/config';
 import type { LibraryFile } from '@/shared/db/types';
 import { libraryFileToTaskFile } from '@/shared/lib/task-files';
 import { useThreadStore } from '@/shared/stores/thread-store';
-import type { TaskFile, ThreadMessage } from '@/shared/stores/thread-store';
+import type {
+  TaskFile,
+  ThreadMessage,
+  ThreadSubagent,
+} from '@/shared/stores/thread-store';
 
 // ── Workspace state context (P1b: cost/usage display) ─────────────────────────
 
+/**
+ * Run-so-far projection from STATE_SNAPSHOT. A field the provider did not
+ * report is absent, not 0; the run's terminal event carries the full record.
+ */
 export interface WorkspaceUsage {
-  inputTokens: number;
-  outputTokens: number;
-  cost: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cost?: number;
 }
 
 interface WorkspaceState {
@@ -30,6 +38,7 @@ interface HistoryResponse {
   messages: ThreadMessage[];
   isRunning: boolean;
   files?: TaskFile[];
+  subagents?: ThreadSubagent[];
 }
 
 const WorkspaceStateContext = createContext<WorkspaceState>({
@@ -41,6 +50,24 @@ const WorkspaceStateContext = createContext<WorkspaceState>({
 /** Read workspace state (usage, path, title) populated from AG-UI STATE_SNAPSHOT events. */
 export function useWorkspaceState(): WorkspaceState {
   return useContext(WorkspaceStateContext);
+}
+
+// ── Sub-agents context — lets leaf components read the thread's invocations ──
+
+const ThreadIdContext = createContext<string | null>(null);
+
+const NO_SUBAGENTS: ThreadSubagent[] = [];
+
+/**
+ * The sub-agent invocations of the thread this provider wraps. Empty outside
+ * a provider, so a component that renders elsewhere simply shows no names.
+ */
+export function useThreadSubagents(): ThreadSubagent[] {
+  const threadId = useContext(ThreadIdContext);
+  return useThreadStore(
+    (s) =>
+      (threadId ? s.threads[threadId]?.subagents : undefined) ?? NO_SUBAGENTS,
+  );
 }
 
 // ── Agent actions context — exposes setPendingImages for components inside provider ──
@@ -126,9 +153,21 @@ function isTaskFile(value: unknown): value is TaskFile {
   );
 }
 
+const SUBAGENT_STATUSES = new Set(['running', 'completed', 'error']);
+
+function isThreadSubagent(value: unknown): value is ThreadSubagent {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.status === 'string' &&
+    SUBAGENT_STATUSES.has(value.status)
+  );
+}
+
 function parseHistoryResponse(value: unknown): HistoryResponse | null {
   if (!isRecord(value)) return null;
-  const { files, isRunning, messages } = value;
+  const { files, isRunning, messages, subagents } = value;
   if (typeof isRunning !== 'boolean' || !Array.isArray(messages)) return null;
   if (!messages.every(isThreadMessage)) return null;
   if (
@@ -137,10 +176,17 @@ function parseHistoryResponse(value: unknown): HistoryResponse | null {
   ) {
     return null;
   }
+  if (
+    subagents !== undefined &&
+    (!Array.isArray(subagents) || !subagents.every(isThreadSubagent))
+  ) {
+    return null;
+  }
   return {
     messages,
     isRunning,
     files,
+    subagents,
   };
 }
 
@@ -160,6 +206,7 @@ function AgUiProviderInner({
   const setHydrationState = useThreadStore((s) => s.setHydrationState);
   const setMessages = useThreadStore((s) => s.setMessages);
   const setRunning = useThreadStore((s) => s.setRunning);
+  const applyAGUIEvent = useThreadStore((s) => s.applyAGUIEvent);
 
   // On mount and thread switch: fetch full history from backend and populate Zustand cache.
   // Brand-new tasks still get an empty hydrated cache entry so re-entry is deterministic.
@@ -201,6 +248,7 @@ function AgUiProviderInner({
         );
         hydrateFromDB(threadId, history.messages, history.isRunning, {
           files,
+          subagents: history.subagents,
         });
       } catch {
         // Cleanup cancels an obsolete thread. A request timeout must release
@@ -236,9 +284,20 @@ function AgUiProviderInner({
       onRunErrorEvent: () => {
         setRunning(threadId, false);
       },
+      // Sub-agent cards are not part of the message list, so they reach the
+      // store through their own lifecycle events.
+      onSubagentStartedEvent: ({ event }) => {
+        applyAGUIEvent(threadId, event);
+      },
+      onSubagentFinishedEvent: ({ event }) => {
+        applyAGUIEvent(threadId, event);
+      },
+      onSubagentErrorEvent: ({ event }) => {
+        applyAGUIEvent(threadId, event);
+      },
     });
     return () => sub.unsubscribe();
-  }, [agent, threadId, setMessages, setRunning]);
+  }, [agent, threadId, setMessages, setRunning, applyAGUIEvent]);
 
   // Snapshot CopilotKit messages into Zustand on unmount so the cache
   // survives the provider destruction on task switch. Without this, new
@@ -270,16 +329,16 @@ function AgUiProviderInner({
     const sub = agent.subscribe({
       onStateChanged: ({ state }) => {
         const s = state as Record<string, unknown>;
-        const usageRaw = s?.usage as Record<string, number> | undefined;
+        const usageRaw = s?.usage as WorkspaceUsage | undefined;
         const workspaceRaw = s?.workspace as Record<string, string> | undefined;
         const taskRaw = s?.task as Record<string, string> | undefined;
         if (!usageRaw && !workspaceRaw && !taskRaw) return;
         setWsState((prev) => ({
           usage: usageRaw
             ? {
-                inputTokens: usageRaw.inputTokens ?? 0,
-                outputTokens: usageRaw.outputTokens ?? 0,
-                cost: usageRaw.cost ?? 0,
+                inputTokens: usageRaw.inputTokens,
+                outputTokens: usageRaw.outputTokens,
+                cost: usageRaw.cost,
               }
             : prev.usage,
           workspacePath: workspaceRaw?.path ?? prev.workspacePath,
@@ -302,11 +361,13 @@ function AgUiProviderInner({
   );
 
   return (
-    <WorkspaceStateContext.Provider value={wsState}>
-      <AgentActionsContext.Provider value={agentActions}>
-        {children}
-      </AgentActionsContext.Provider>
-    </WorkspaceStateContext.Provider>
+    <ThreadIdContext.Provider value={threadId}>
+      <WorkspaceStateContext.Provider value={wsState}>
+        <AgentActionsContext.Provider value={agentActions}>
+          {children}
+        </AgentActionsContext.Provider>
+      </WorkspaceStateContext.Provider>
+    </ThreadIdContext.Provider>
   );
 }
 

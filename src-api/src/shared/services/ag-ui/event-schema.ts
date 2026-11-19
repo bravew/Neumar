@@ -1,5 +1,6 @@
-// AG-UI 0.0.52 has no first-class INTERRUPT / ARTIFACT_UPDATE / SUBAGENT_*
-// event types, so we ship them as EventType.CUSTOM with stable names.
+// AG-UI 1.0 models interrupts and sub-agent lifecycle as first-class events.
+// Interrupts now use RUN_FINISHED.outcome / RunAgentInput.resume; the names
+// below remain custom only for artifact and legacy sub-agent payloads.
 
 import { EventType } from '@ag-ui/core';
 import { z } from 'zod';
@@ -11,41 +12,12 @@ export type RiskLevel = z.infer<typeof RiskLevelSchema>;
 export const DEFAULT_RISK_LEVEL: RiskLevel = 'medium';
 
 export const CustomEventName = {
-  Interrupt: 'neuma.interrupt',
   ArtifactUpdate: 'neuma.artifact_update',
   SubagentStarted: 'neuma.subagent_started',
   SubagentFinished: 'neuma.subagent_finished',
   /** Structured runtime signal (`AgentMessage.streamSignal`). */
   StreamSignal: 'neuma.stream_signal',
-  LegacyOnInterrupt: 'on_interrupt',
 } as const;
-
-// ─── INTERRUPT ────────────────────────────────────────────────────────
-
-export const InterruptKindSchema = z.enum([
-  'plan',
-  'sensitive_fs',
-  'external_action',
-  'budget_override',
-  'delegation',
-  'automation_change',
-]);
-export type InterruptKind = z.infer<typeof InterruptKindSchema>;
-
-export const InterruptPayloadSchema = z.object({
-  runId: z.string().min(1),
-  parentRunId: z.string().nullable().default(null),
-  taskId: z.string().min(1),
-  approvalId: z.string().min(1),
-  kind: InterruptKindSchema,
-  risk: RiskLevelSchema,
-  title: z.string().min(1),
-  description: z.string().optional(),
-  payload: z.unknown().optional(),
-  resumeToken: z.string().min(1),
-  expiresAt: z.string().min(1),
-});
-export type InterruptPayload = z.infer<typeof InterruptPayloadSchema>;
 
 export const ArtifactUpdatePayloadSchema = z.object({
   runId: z.string().min(1),
@@ -95,18 +67,11 @@ export function parseCustomEventValue(
   name: string,
   value: unknown,
 ):
-  | { kind: 'interrupt'; payload: InterruptPayload }
   | { kind: 'artifact_update'; payload: ArtifactUpdatePayload }
   | { kind: 'subagent_started'; payload: SubagentStartedPayload }
   | { kind: 'subagent_finished'; payload: SubagentFinishedPayload }
   | null {
   switch (name) {
-    case CustomEventName.Interrupt: {
-      const parsed = InterruptPayloadSchema.safeParse(value);
-      return parsed.success
-        ? { kind: 'interrupt', payload: parsed.data }
-        : null;
-    }
     case CustomEventName.ArtifactUpdate: {
       const parsed = ArtifactUpdatePayloadSchema.safeParse(value);
       return parsed.success

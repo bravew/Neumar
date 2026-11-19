@@ -302,6 +302,7 @@ function run(): AgentRunRow {
     run_index: 0,
     recovery_action: null,
     delivery_reconciliation_deadline: null,
+    usage_json: null,
   };
 }
 

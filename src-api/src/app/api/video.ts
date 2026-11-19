@@ -1367,6 +1367,7 @@ async function startVideoAgenticTurn(
   const emitter = new AGUIEmitter(project.id, runId, {
     workspaceRoot: getVideoWorkspaceRoot(),
     taskTitle: project.name,
+    signal: abortController.signal,
   });
   if (request.context?.pluginId) {
     await loadVideoPlugins({ watch: false });

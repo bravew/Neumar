@@ -176,7 +176,7 @@ describe('AGUIEventPersister persistence', () => {
     });
   });
 
-  it('does not report success while declared plan work is unfinished', () => {
+  it('records a pending plan decision as unfinished, not success or failure', () => {
     const { sessionCwd, taskId, workspaceRoot } = createTaskFixture();
     const persister = new AGUIEventPersister(
       taskId,
@@ -191,14 +191,44 @@ describe('AGUIEventPersister persistence', () => {
       name: 'plan',
       value: { steps: [{ status: 'pending' }] },
     } as never);
-    persister.handleEvent({ type: EventType.RUN_FINISHED } as never);
+    persister.handleEvent({
+      type: EventType.RUN_FINISHED,
+      outcome: {
+        type: 'interrupt',
+        interrupts: [{ id: 'plan:plan-1', reason: 'plan_approval' }],
+      },
+    } as never);
 
     expect(getAgentRunsByTaskId(taskId)[0]).toMatchObject({
-      status: 'failed',
+      status: 'completed',
       completeness: 'unfinished',
       retry: 'user_action',
-      failure_cause: 'unfinished_declared_work',
+      failure_cause: 'awaiting_decision',
     });
+    expect(getTask(taskId)?.status).toBe('stopped');
+  });
+
+  it('records the standard cancelled outcome as a cancelled run', () => {
+    const { sessionCwd, taskId, workspaceRoot } = createTaskFixture();
+    const persister = new AGUIEventPersister(
+      taskId,
+      'run-cancelled-outcome',
+      workspaceRoot,
+      sessionCwd,
+    );
+
+    persister.handleEvent({ type: EventType.RUN_STARTED } as never);
+    persister.handleEvent({
+      type: EventType.RUN_FINISHED,
+      outcome: { type: 'cancelled' },
+    } as never);
+
+    expect(getAgentRunsByTaskId(taskId)[0]).toMatchObject({
+      status: 'cancelled',
+      completeness: 'unfinished',
+      failure_cause: 'cancelled',
+    });
+    expect(getTask(taskId)?.status).toBe('stopped');
   });
 
   it('records artifact delivery independently from process success', () => {

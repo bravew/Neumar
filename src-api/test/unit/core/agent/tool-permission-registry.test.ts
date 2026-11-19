@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ToolPermissionRegistry } from '@/core/agent/tool-permission-registry';
+import {
+  listOpenHostPermissions,
+  requestHostToolPermission,
+  resolveHostToolPermission,
+  ToolPermissionRegistry,
+} from '@/core/agent/tool-permission-registry';
+
+import { taskEventBus } from '@/shared/services/task-event-bus';
 
 describe('ToolPermissionRegistry', () => {
   describe('default classifications', () => {
@@ -134,5 +141,62 @@ describe('ToolPermissionRegistry', () => {
       // destructive → ask
       expect(registry.evaluate('Read', {})).toBe('ask');
     });
+  });
+});
+
+describe('host tool permission prompts', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function ask(taskId: string, signal = new AbortController().signal) {
+    return requestHostToolPermission({
+      taskId,
+      sessionId: 'session-1',
+      toolName: 'Bash',
+      input: { command: 'ls' },
+      registry: new ToolPermissionRegistry(),
+      signal,
+    });
+  }
+
+  it('lists the prompt it published, for its own task only', async () => {
+    const publish = vi.spyOn(taskEventBus, 'publish');
+    const answer = ask('host-task-a');
+    void ask('host-task-b');
+
+    const open = listOpenHostPermissions('host-task-a');
+
+    expect(open).toEqual([
+      {
+        taskId: 'host-task-a',
+        sessionId: 'session-1',
+        prompt: expect.objectContaining({ tool: 'Bash' }),
+        expiresAt: null,
+      },
+    ]);
+    // The listed prompt is the one the live stream showed the user.
+    expect(publish).toHaveBeenCalledWith('host-task-a', {
+      type: 'permission_request',
+      permission: open[0]?.prompt,
+    });
+
+    expect(
+      resolveHostToolPermission(open[0]?.prompt.id ?? '', true, false),
+    ).toBe(true);
+    await expect(answer).resolves.toBe(true);
+    expect(listOpenHostPermissions('host-task-a')).toEqual([]);
+    expect(listOpenHostPermissions('host-task-b')).toHaveLength(1);
+  });
+
+  it('stops listing a prompt when its run is aborted', async () => {
+    const controller = new AbortController();
+    const answer = ask('host-task-c', controller.signal);
+    expect(listOpenHostPermissions('host-task-c')).toHaveLength(1);
+
+    controller.abort();
+
+    await expect(answer).resolves.toBe(false);
+    expect(listOpenHostPermissions('host-task-c')).toEqual([]);
   });
 });

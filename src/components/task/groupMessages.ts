@@ -6,6 +6,14 @@
  * can be unit-tested and reasoned about on its own.
  */
 import type { Artifact } from '@/components/artifacts/types';
+import {
+  readPlanActivity,
+  type PlanActivity,
+} from '@/components/task/planActivity';
+import {
+  readStatusActivity,
+  type StatusActivity,
+} from '@/components/task/statusActivity';
 import type {
   ActivityEntry,
   AGUIMessage,
@@ -52,6 +60,16 @@ export type GroupedItem =
       entries: ActivityEntry[];
     }
   | {
+      type: 'status-widget';
+      key: string;
+      status: StatusActivity;
+    }
+  | {
+      type: 'plan-widget';
+      key: string;
+      plan: PlanActivity;
+    }
+  | {
       type: 'plan-approval';
       key: string;
       plan: TaskPlan;
@@ -77,16 +95,20 @@ export type GroupedItem =
         resolved?: boolean;
         decision?: 'allow' | 'deny' | 'always_allow';
       };
+      /** Display name of the sub-agent that asked, when one is known. */
+      ownerName?: string;
     };
 
 /**
  * Is this assistant message a self-contained answer rather than a step along
  * the way? Answers carry prose and no tool calls; anything that invokes a
- * tool is still working.
+ * tool is still working. A sub-agent's prose is its report to the main agent,
+ * never the answer to the user, so it always stays inside the activity group.
  */
 function isFinalAnswer(msg: AGUIMessage): boolean {
   return (
     msg.role === 'assistant' &&
+    !msg.subagentRunId &&
     !!msg.content?.trim() &&
     !msg.toolCalls?.length &&
     !msg.isError &&
@@ -147,8 +169,26 @@ export function groupMessages(
     // Collect the whole agent turn — everything up to the next user message.
     let end = i;
     while (end < messages.length && messages[end].role !== 'user') end++;
-    const turn = messages.slice(i, end);
+    const rawTurn = messages.slice(i, end);
     i = end;
+
+    // Activity messages are widgets, not conversation: lift them out so they
+    // never sit in the work list or stop the answer from being peeled off the
+    // back. Only a live planning phase is shown; a settled one is history.
+    const turn: AGUIMessage[] = [];
+    for (const m of rawTurn) {
+      if (m.role !== 'activity') {
+        turn.push(m);
+        continue;
+      }
+      const status = readStatusActivity(m);
+      if (status?.phase === 'planning') {
+        items.push({ type: 'status-widget', key: m.id, status });
+        continue;
+      }
+      const plan = readPlanActivity(m);
+      if (plan) items.push({ type: 'plan-widget', key: m.id, plan });
+    }
 
     // Peel the trailing answer off the back of the turn. Consecutive
     // content-only assistant messages at the end are all part of it (the
@@ -180,8 +220,11 @@ export function groupMessages(
       }
 
       const content = m.content?.trim();
+      const owner = m.subagentRunId
+        ? { subagentRunId: m.subagentRunId }
+        : undefined;
       if (content && !isPlanJson(content)) {
-        entries.push({ kind: 'note', id: m.id, text: content });
+        entries.push({ kind: 'note', id: m.id, text: content, ...owner });
       }
 
       for (const tc of m.toolCalls ?? []) {
@@ -196,7 +239,7 @@ export function groupMessages(
           awaitingQuestionAnswer = true;
           continue;
         }
-        entries.push({ kind: 'tool', tc });
+        entries.push({ kind: 'tool', tc, ...owner });
       }
     }
     flush();

@@ -31,12 +31,17 @@ import type {
 
 import type { DenialTracker } from '@/core/agent/denial-tracker';
 import type { LoopGuard } from '@/core/agent/loop-guard';
+import { openPermissionWait } from '@/core/agent/permission-waits';
 import { AutoClassifier } from '@/core/agent/safety/auto-classifier';
 import {
   assessRiskLevel,
   checkBashCommand,
 } from '@/core/agent/safety/dangerous-patterns';
-import type { ToolPermissionRegistry } from '@/core/agent/tool-permission-registry';
+import type {
+  OpenPermissionPrompt,
+  PermissionPrompt,
+  ToolPermissionRegistry,
+} from '@/core/agent/tool-permission-registry';
 
 import { getSetting } from '@/shared/db/operations';
 import { taskEventBus } from '@/shared/services/task-event-bus';
@@ -52,17 +57,48 @@ export const HEADLESS_DENY_MESSAGE =
   'This run has no approval surface, so tools that need approval are denied. ' +
   'Allow the tool explicitly for this automation or channel to use it.';
 
+/** Max time (ms) a permission request can sit pending before auto-deny. */
+export const PERMISSION_TTL_MS = 5 * 60 * 1000;
+
 export interface PendingPermission {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   resolve: (result: any) => void;
   toolName: string;
   /** Original tool input, echoed back as `updatedInput` when the user allows. */
   toolInput: unknown;
+  taskId: string;
   sessionId: string;
+  /** The `permission_request` payload the user was shown. */
+  prompt: PermissionPrompt;
   createdAt: number;
   registry: ToolPermissionRegistry;
   /** The SDK forbade a persistent "always allow" rule for this ask. */
   suppressAlwaysAllowRule?: boolean;
+}
+
+/**
+ * Prompts for `taskId` that are still waiting and not past `ttlMs`. A prompt
+ * the expiry sweep has not yet reached is left out, so a caller never offers
+ * a decision the adapter is about to deny.
+ */
+export function listOpenPermissions(
+  pending: ReadonlyMap<string, PendingPermission>,
+  taskId: string,
+  ttlMs: number,
+  now: number = Date.now(),
+): OpenPermissionPrompt[] {
+  const open: OpenPermissionPrompt[] = [];
+  for (const entry of pending.values()) {
+    const expiresAt = entry.createdAt + ttlMs;
+    if (entry.taskId !== taskId || expiresAt <= now) continue;
+    open.push({
+      taskId: entry.taskId,
+      sessionId: entry.sessionId,
+      prompt: entry.prompt,
+      expiresAt,
+    });
+  }
+  return open;
 }
 
 /** Truncate tool input to a short string for logging and denial tracking. */
@@ -474,21 +510,34 @@ export function buildCanUseTool(
     const requestId = crypto.randomUUID();
     const riskLevel = assessRiskLevel(toolName, effectiveInput);
     const inputStr = summarizeInput(effectiveInput);
+    const prompt: PermissionPrompt = {
+      id: requestId,
+      tool: toolName,
+      command: inputStr,
+      description: `Execute ${toolName}`,
+      risk_level: riskLevel,
+      // A child tool call is asked by the sub-agent, not the parent turn.
+      ...(options.agentID ? { agent_id: options.agentID } : {}),
+      ...buildPromptHints(options),
+    };
     taskEventBus.publish(taskId, {
       type: 'permission_request',
-      permission: {
-        id: requestId,
-        tool: toolName,
-        command: inputStr,
-        description: `Execute ${toolName}`,
-        risk_level: riskLevel,
-        ...buildPromptHints(options),
-      },
+      permission: prompt,
     });
     // Wait for user response via /agent/permission endpoint
     return new Promise((resolve) => {
+      const createdAt = Date.now();
+      // Open for as long as this callback blocks; every settle path below
+      // closes it, so a run never pauses on a prompt nobody is waiting on.
+      const settleWait = openPermissionWait({
+        taskId,
+        sessionId,
+        prompt,
+        expiresAt: createdAt + PERMISSION_TTL_MS,
+      });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const trackedResolve = (result: any) => {
+        settleWait();
         if (result?.behavior === 'deny') {
           denialTracker.record(toolName, inputStr);
         }
@@ -498,12 +547,15 @@ export function buildCanUseTool(
         resolve: trackedResolve,
         toolName,
         toolInput: effectiveInput,
+        taskId,
         sessionId,
-        createdAt: Date.now(),
+        prompt,
+        createdAt,
         registry: permissionRegistry,
         suppressAlwaysAllowRule: options.suppressAlwaysAllowRule === true,
       });
       const onAbort = () => {
+        settleWait();
         if (pendingPermissions.has(requestId)) {
           pendingPermissions.delete(requestId);
           resolve({

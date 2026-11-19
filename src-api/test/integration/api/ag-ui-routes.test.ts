@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { jsonReq } from '../../helpers/request-factory';
 
@@ -51,8 +51,8 @@ vi.mock('@/shared/services/active-query-store', () => ({
 }));
 
 vi.mock('@/shared/services/ag-ui/transport', () => ({
-  runDetachedPipeline: vi.fn(),
-  subscribeSSEToBus: vi.fn(),
+  runDetachedPipeline: vi.fn().mockResolvedValue(undefined),
+  subscribeSSEToBus: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/shared/services/ag-ui/emitter', () => ({
@@ -65,6 +65,11 @@ vi.mock('@/shared/services/ag-ui/emitter', () => ({
 
 vi.mock('@/shared/services/ag-ui/history', () => ({
   dbMessagesToFullAGUI: vi.fn().mockReturnValue([]),
+  dbMessagesToSubagents: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock('@/shared/services/ag-ui/open-interrupts', () => ({
+  listOpenInterrupts: vi.fn(),
 }));
 
 vi.mock('@/shared/services/ag-ui/journal', () => ({
@@ -72,19 +77,26 @@ vi.mock('@/shared/services/ag-ui/journal', () => ({
 }));
 
 vi.mock('@/shared/services/ag-ui/persistence', () => ({
-  AGUIEventPersister: vi.fn().mockImplementation(() => ({
-    wrap: (gen: AsyncGenerator) => gen,
-    runStartedAtMs: Date.now(),
-    scanOutputArtifacts: vi.fn(),
-  })),
+  AGUIEventPersister: class MockAGUIEventPersister {
+    runStartedAtMs = Date.now();
+    scanOutputArtifacts = vi.fn();
+    wrap = (gen: AsyncGenerator) => gen;
+  },
 }));
 
 vi.mock('@/shared/db/operations', () => ({
   AgentRunConflictError: class AgentRunConflictError extends Error {},
+  answerAgentQuestion: vi.fn(),
+  cancelAgentQuestion: vi.fn(),
+  createAgentQuestion: vi.fn(),
   createFileSnapshot: vi.fn(),
+  decideOrchestrationRun: vi.fn(),
+  getAgentQuestion: vi.fn(),
+  getPendingAgentQuestions: vi.fn().mockReturnValue([]),
   getAgentRun: vi.fn(),
   getFilesByTaskId: vi.fn().mockReturnValue([]),
   getMessagesByTaskId: vi.fn().mockReturnValue([]),
+  getOrchestrationRun: vi.fn(),
   getOrchestrationRunsByTaskId: vi.fn().mockReturnValue([]),
   getSetting: vi.fn(),
   getTask: vi.fn().mockImplementation((id: string) => ({
@@ -96,6 +108,7 @@ vi.mock('@/shared/db/operations', () => ({
     run: { id: input.runId },
   })),
   finishAgentRun: vi.fn(),
+  updateOrchestrationRunPayload: vi.fn(),
   updateOrchestrationRunStatus: vi.fn(),
   updateTask: vi.fn(),
 }));
@@ -158,6 +171,363 @@ describe('AG-UI Routes', () => {
       // SSE streaming requires a real connection (c.req.raw.signal unavailable
       // in app.request()). Full SSE testing is done via E2E tests.
       expect(res.status).not.toBe(400);
+    });
+  });
+
+  describe('POST /run with a standard resume', () => {
+    const planRow = (overrides: Record<string, unknown> = {}) => ({
+      id: 'plan-1',
+      task_id: 'task-resume',
+      run_type: 'plan',
+      status: 'pending',
+      payload: JSON.stringify({
+        id: 'plan-1',
+        goal: 'Ship it',
+        steps: [{ id: 's1', description: 'Write it', status: 'pending' }],
+        createdAt: new Date().toISOString(),
+      }),
+      resume_token: null,
+      created_at: '2026-01-01 00:00:00',
+      updated_at: '2026-01-01 00:00:00',
+      ...overrides,
+    });
+
+    const resumeRequest = (
+      entries: Array<Record<string, unknown>>,
+      taskId = 'task-resume',
+    ) =>
+      jsonReq('/run', {
+        threadId: taskId,
+        messages: [{ id: 'u1', role: 'user', content: 'Do the thing' }],
+        forwardedProps: { taskId },
+        resume: entries,
+      });
+
+    beforeEach(async () => {
+      vi.clearAllMocks();
+      const ops = await import('@/shared/db/operations');
+      vi.mocked(ops.getTask).mockReturnValue({
+        id: 'task-resume',
+        status: 'stopped',
+        work_dir: null,
+      } as never);
+      vi.mocked(ops.getOrchestrationRunsByTaskId).mockReturnValue([
+        planRow() as never,
+      ]);
+    });
+
+    it('starts execution for an approved plan named by its interrupt id', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const ops = await import('@/shared/db/operations');
+      const agent = await import('@/shared/services/agent');
+      vi.mocked(ops.getOrchestrationRun).mockReturnValue(planRow() as never);
+      vi.mocked(ops.decideOrchestrationRun).mockReturnValue(true);
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:plan-1',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(200);
+      expect(ops.decideOrchestrationRun).toHaveBeenCalledWith(
+        'plan-1',
+        'pending',
+        'approved',
+      );
+      expect(vi.mocked(agent.runExecutionPhase).mock.calls.at(-1)?.[0]).toBe(
+        'plan-1',
+      );
+    });
+
+    it('finishes without executing when the plan is rejected', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const ops = await import('@/shared/db/operations');
+      const agent = await import('@/shared/services/agent');
+      vi.mocked(ops.getOrchestrationRun).mockReturnValue(planRow() as never);
+      vi.mocked(ops.decideOrchestrationRun).mockReturnValue(true);
+      const before = vi.mocked(agent.runExecutionPhase).mock.calls.length;
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:plan-1',
+            status: 'resolved',
+            payload: { approved: false },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('RUN_STARTED');
+      expect(body).toContain('RUN_FINISHED');
+      expect(body).not.toContain('"type":"interrupt"');
+      expect(ops.decideOrchestrationRun).toHaveBeenCalledWith(
+        'plan-1',
+        'pending',
+        'rejected',
+      );
+      expect(vi.mocked(agent.runExecutionPhase).mock.calls.length).toBe(before);
+    });
+
+    it('reports a cancelled decision with the standard cancelled outcome', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const ops = await import('@/shared/db/operations');
+      vi.mocked(ops.getOrchestrationRun).mockReturnValue(planRow() as never);
+      vi.mocked(ops.decideOrchestrationRun).mockReturnValue(true);
+
+      const res = await aguiRoutes.request(
+        resumeRequest([{ interruptId: 'plan:plan-1', status: 'cancelled' }]),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain('"outcome":{"type":"cancelled"}');
+      expect(ops.decideOrchestrationRun).toHaveBeenCalledWith(
+        'plan-1',
+        'pending',
+        'rejected',
+      );
+    });
+
+    it('rejects a response that does not match the plan schema', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const ops = await import('@/shared/db/operations');
+      vi.mocked(ops.getOrchestrationRun).mockReturnValue(planRow() as never);
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:plan-1',
+            status: 'resolved',
+            payload: { approved: 'yes' },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: 'invalid_response' });
+      expect(ops.decideOrchestrationRun).not.toHaveBeenCalled();
+    });
+
+    it('reports an already answered decision instead of executing twice', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const ops = await import('@/shared/db/operations');
+      vi.mocked(ops.getOrchestrationRun).mockReturnValue(
+        planRow({ status: 'approved' }) as never,
+      );
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:plan-1',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({
+        code: 'already_resolved',
+        status: 'approved',
+      });
+      expect(ops.decideOrchestrationRun).not.toHaveBeenCalled();
+    });
+
+    it('refuses a decision minted for another task', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const ops = await import('@/shared/db/operations');
+      vi.mocked(ops.getOrchestrationRun).mockReturnValue(
+        planRow({ task_id: 'other-task' }) as never,
+      );
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:plan-1',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({ code: 'wrong_thread' });
+    });
+
+    it.each(['pending', 'approved'])(
+      'refuses an older pending plan when a newer plan is %s',
+      async (status) => {
+        const { aguiRoutes } = await import('@/app/api/ag-ui');
+        const ops = await import('@/shared/db/operations');
+        const agent = await import('@/shared/services/agent');
+        vi.mocked(ops.getOrchestrationRun).mockReturnValue(planRow() as never);
+        vi.mocked(ops.getOrchestrationRunsByTaskId).mockReturnValue([
+          planRow({ id: 'new-plan', status }) as never,
+          planRow() as never,
+        ]);
+
+        const res = await aguiRoutes.request(
+          resumeRequest([
+            {
+              interruptId: 'plan:plan-1',
+              status: 'resolved',
+              payload: { approved: true },
+            },
+          ]),
+        );
+
+        expect(res.status).toBe(409);
+        expect(await res.json()).toMatchObject({ code: 'stale_interrupt' });
+        expect(ops.decideOrchestrationRun).not.toHaveBeenCalled();
+        expect(agent.runExecutionPhase).not.toHaveBeenCalled();
+        const pending = await aguiRoutes.request('/pending-plan/task-resume');
+        if (status === 'approved') {
+          expect(await pending.json()).toEqual({ plan: null, interrupt: null });
+        }
+      },
+    );
+
+    it('refuses a plan response while its task is already running', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const ops = await import('@/shared/db/operations');
+      vi.mocked(ops.getOrchestrationRun).mockReturnValue(planRow() as never);
+      vi.mocked(ops.getTask).mockReturnValue({
+        id: 'task-resume',
+        status: 'running',
+      } as never);
+
+      const res = await aguiRoutes.request(
+        resumeRequest([{ interruptId: 'plan:plan-1', status: 'cancelled' }]),
+      );
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({ code: 'stale_interrupt' });
+      expect(ops.decideOrchestrationRun).not.toHaveBeenCalled();
+    });
+
+    it('reports an unknown interrupt', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const ops = await import('@/shared/db/operations');
+      vi.mocked(ops.getOrchestrationRun).mockReturnValue(null);
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:missing',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toMatchObject({ code: 'unknown_interrupt' });
+    });
+
+    it('rejects the same interrupt twice in one batch', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:plan-1',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+          { interruptId: 'plan:plan-1', status: 'cancelled' },
+        ]),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: 'duplicate_interrupt' });
+    });
+
+    it('does not mix a plan decision with a live decision', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:plan-1',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+          {
+            interruptId: 'permission:p-1',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: 'mixed_batch' });
+    });
+
+    it('answers at most one plan per batch', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'plan:plan-1',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+          {
+            interruptId: 'plan:plan-2',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: 'multiple_plans' });
+    });
+
+    // A question is answered by resuming the run (see
+    // ag-ui-question-resume.test.ts); it no longer has a live-endpoint 409.
+    it('reports a question with no stored record as an unknown interrupt', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'question:q-1',
+            status: 'resolved',
+            payload: { answer: 'yes' },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toMatchObject({ code: 'unknown_interrupt' });
+    });
+
+    it('reports a permission nothing is waiting on as unavailable', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request(
+        resumeRequest([
+          {
+            interruptId: 'permission:p-1',
+            status: 'resolved',
+            payload: { approved: true },
+          },
+        ]),
+      );
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({
+        code: 'continuation_unavailable',
+      });
     });
   });
 
@@ -229,6 +599,52 @@ describe('AG-UI Routes', () => {
         { role: 'user', content: 'First question' },
         { role: 'assistant', content: 'First answer' },
       ]);
+    });
+  });
+
+  describe('POST /run with activity messages in the thread', () => {
+    // The AG-UI client keeps activity messages in its list and sends them back
+    // on the next run. Their `content` is an object, not text.
+    const activityRequest = () =>
+      jsonReq('/run', {
+        threadId: 'thread-activity',
+        messages: [
+          { id: 'u1', role: 'user', content: 'First question' },
+          {
+            id: 'status-1',
+            role: 'activity',
+            activityType: 'status',
+            content: { phase: 'planning', message: 'SECRET-ACTIVITY-TEXT' },
+          },
+          { id: 'a1', role: 'assistant', content: 'First answer' },
+          { id: 'u2', role: 'user', content: 'Follow-up' },
+        ],
+        forwardedProps: { taskId: 'task-activity' },
+      });
+
+    it('accepts the request and keeps activity content out of model input', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const agent = await import('@/shared/services/agent');
+      const branchSessions =
+        await import('@/shared/services/branch-sdk-session');
+      vi.mocked(agent.runAgent).mockClear();
+      vi.mocked(agent.resolveAgentProvider).mockReturnValueOnce('codex');
+      vi.mocked(branchSessions.resolveBranchContextPlan).mockReturnValueOnce({
+        path: 'text',
+        reason: 'runtime-without-fork',
+      });
+
+      const res = await aguiRoutes.request(activityRequest());
+
+      expect(res.status).not.toBe(400);
+      const [prompt, options] = vi.mocked(agent.runAgent).mock.calls.at(-1)!;
+      expect(options.conversation).toEqual([
+        { role: 'user', content: 'First question' },
+        { role: 'assistant', content: 'First answer' },
+      ]);
+      expect(JSON.stringify([prompt, options])).not.toContain(
+        'SECRET-ACTIVITY-TEXT',
+      );
     });
   });
 
@@ -312,6 +728,26 @@ describe('AG-UI Routes', () => {
       expect(Array.isArray(body.messages)).toBe(true);
       expect(Array.isArray(body.files)).toBe(true);
     });
+
+    it('returns the sub-agent invocations built from the stored rows', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const operations = await import('@/shared/db/operations');
+      const history = await import('@/shared/services/ag-ui/history');
+      const rows = [{ id: 'row-1' }] as never;
+      const runs = [
+        { id: 'task-a', name: 'Scan', status: 'completed', result: 'done' },
+      ];
+      vi.mocked(operations.getMessagesByTaskId).mockReturnValueOnce(rows);
+      vi.mocked(history.dbMessagesToSubagents).mockReturnValueOnce(
+        runs as never,
+      );
+
+      const res = await aguiRoutes.request('/history/task-abc');
+      const body = (await res.json()) as { subagents: unknown };
+
+      expect(history.dbMessagesToSubagents).toHaveBeenCalledWith(rows);
+      expect(body.subagents).toEqual(runs);
+    });
   });
 
   // ---- GET /pending-plan/:taskId ----
@@ -323,6 +759,43 @@ describe('AG-UI Routes', () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as Record<string, unknown>;
       expect(body).toHaveProperty('plan');
+    });
+  });
+
+  // ---- GET /interrupts/:taskId ----
+
+  describe('GET /interrupts/:taskId', () => {
+    it('returns every open decision the task is waiting on', async () => {
+      const { listOpenInterrupts } =
+        await import('@/shared/services/ag-ui/open-interrupts');
+      vi.mocked(listOpenInterrupts).mockResolvedValueOnce([
+        { id: 'permission:req-1', reason: 'tool_permission' },
+        { id: 'question:q-1', reason: 'agent_question' },
+      ]);
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request('/interrupts/task-abc');
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        interrupts: [
+          { id: 'permission:req-1', reason: 'tool_permission' },
+          { id: 'question:q-1', reason: 'agent_question' },
+        ],
+      });
+      expect(listOpenInterrupts).toHaveBeenCalledWith('task-abc');
+    });
+
+    it('rejects a task id that is not a plain identifier', async () => {
+      const { listOpenInterrupts } =
+        await import('@/shared/services/ag-ui/open-interrupts');
+      vi.mocked(listOpenInterrupts).mockClear();
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+
+      const res = await aguiRoutes.request('/interrupts/..%2Fescape');
+
+      expect(res.status).toBe(400);
+      expect(listOpenInterrupts).not.toHaveBeenCalled();
     });
   });
 
@@ -508,6 +981,43 @@ describe('AG-UI Routes', () => {
       expect(body.indexOf('MESSAGES_SNAPSHOT')).toBeLessThan(
         body.indexOf('RUN_FINISHED'),
       );
+    });
+
+    it('carries the sub-agent invocations in the gap snapshot', async () => {
+      const { aguiRoutes } = await import('@/app/api/ag-ui');
+      const operations = await import('@/shared/db/operations');
+      const journal = await import('@/shared/services/ag-ui/journal');
+      const history = await import('@/shared/services/ag-ui/history');
+      vi.mocked(operations.getAgentRun).mockReturnValueOnce({
+        id: 'run-gap',
+        mode: 'task',
+        owner_key: 'task-gap',
+        status: 'completed',
+        delivery: 'not_expected',
+        delivery_reconciliation_deadline: null,
+      } as never);
+      vi.mocked(journal.replayAGUIEvents).mockReturnValueOnce([
+        { type: 'RUN_FINISHED', seq: 4 } as never,
+      ]);
+      vi.mocked(history.dbMessagesToSubagents).mockReturnValueOnce([
+        { id: 'task-a', name: 'Scan', status: 'running' },
+      ] as never);
+
+      const res = await aguiRoutes.request(
+        new Request('http://localhost/subscribe/task/task-gap/run-gap', {
+          headers: { 'Last-Event-ID': '1' },
+        }),
+      );
+      const body = await res.text();
+
+      const snapshot = body
+        .split('\n')
+        .filter((line) => line.startsWith('data: '))
+        .map((line) => JSON.parse(line.slice(6)) as Record<string, unknown>)
+        .find((event) => event.type === 'MESSAGES_SNAPSHOT');
+      expect(snapshot?.subagents).toEqual([
+        { id: 'task-a', name: 'Scan', status: 'running' },
+      ]);
     });
   });
 });

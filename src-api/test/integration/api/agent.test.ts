@@ -166,6 +166,7 @@ vi.mock('@/shared/db/operations', () => ({
   getAgentQuestion: vi.fn().mockReturnValue(null),
   getPendingAgentQuestions: vi.fn().mockReturnValue([]),
   answerAgentQuestion: vi.fn().mockReturnValue(null),
+  cancelAgentQuestion: vi.fn().mockReturnValue(false),
   getSession: vi.fn().mockReturnValue(null),
   getSetting: vi.fn().mockReturnValue(null),
   getTask: (...args: unknown[]) => mockGetTask(...args),

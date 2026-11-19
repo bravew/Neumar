@@ -14,7 +14,7 @@ import { readdir, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { EventType } from '@ag-ui/core';
-import type { BaseEvent } from '@ag-ui/core';
+import type { BaseEvent, RunFinishedEvent } from '@ag-ui/core';
 import type Database from 'better-sqlite3';
 
 import { classifyRunFailure } from '@/core/agent/error-retry';
@@ -46,6 +46,16 @@ import {
   SubagentFinishedPayloadSchema,
   SubagentStartedPayloadSchema,
 } from './event-schema';
+import {
+  runUsageFromTerminalEvent,
+  sumRunTokens,
+  type RunUsageRecord,
+} from './run-usage';
+import {
+  SUBAGENT_MESSAGE_TYPE,
+  subagentMessageId,
+  type SubagentRecord,
+} from './subagent-record';
 
 /**
  * Canonicalize a path so two different absolute references to the same
@@ -145,6 +155,238 @@ function getFileType(
   return 'text';
 }
 
+/** Activity types the app renders; any other type is dropped, not stored. */
+const SUPPORTED_ACTIVITY_TYPES = new Set(['plan', 'status']);
+
+interface ActivityRow {
+  activityType: string;
+  content: Record<string, unknown>;
+  subagentRunId?: string;
+}
+
+let activityStmtCache: {
+  db: Database.Database;
+  select: Database.Statement;
+  update: Database.Statement;
+} | null = null;
+
+function activityStmts() {
+  const db = getDatabase();
+  if (!activityStmtCache || activityStmtCache.db !== db) {
+    activityStmtCache = {
+      db,
+      select: db.prepare(
+        "SELECT content, subtype, subagent_run_id FROM messages WHERE task_id = ? AND message_id = ? AND type = 'activity' LIMIT 1",
+      ),
+      update: db.prepare(
+        "UPDATE messages SET content = ? WHERE task_id = ? AND message_id = ? AND type = 'activity'",
+      ),
+    };
+  }
+  return activityStmtCache;
+}
+
+/**
+ * The stored activity for an id, read from the database rather than a per-run
+ * cache: a delta may patch an activity that an earlier run created.
+ */
+function readActivityRow(
+  taskId: string,
+  messageId: string,
+): ActivityRow | undefined {
+  const row = activityStmts().select.get(taskId, messageId) as
+    | {
+        content: string | null;
+        subtype: string | null;
+        subagent_run_id: string | null;
+      }
+    | undefined;
+  if (!row?.subtype || !SUPPORTED_ACTIVITY_TYPES.has(row.subtype)) {
+    return undefined;
+  }
+  try {
+    const content: unknown = JSON.parse(row.content ?? '');
+    if (!content || typeof content !== 'object' || Array.isArray(content)) {
+      return undefined;
+    }
+    return {
+      activityType: row.subtype,
+      content: content as Record<string, unknown>,
+      ...(row.subagent_run_id ? { subagentRunId: row.subagent_run_id } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function updateActivityContent(
+  taskId: string,
+  messageId: string,
+  content: Record<string, unknown>,
+): void {
+  activityStmts().update.run(JSON.stringify(content), taskId, messageId);
+}
+
+/** RFC 6902 `test` equality: deep, and insensitive to object key order. */
+function jsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || !a || !b) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, i) => jsonEqual(item, b[i]))
+    );
+  }
+  const left = a as Record<string, unknown>;
+  const right = b as Record<string, unknown>;
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(right, key) &&
+        jsonEqual(left[key], right[key]),
+    )
+  );
+}
+
+/** A canonical array index: no sign, no leading zero, no exponent, not empty. */
+const ARRAY_INDEX = /^(0|[1-9]\d*)$/;
+
+/**
+ * Apply a validated RFC 6902 operation list to an activity JSON object.
+ * Kept server-side so the journal persists the exact same value the client
+ * projects; every mutation targets a private clone and fails atomically.
+ */
+function patchActivityContent(
+  source: Record<string, unknown>,
+  rawPatch: unknown,
+): Record<string, unknown> | undefined {
+  if (!Array.isArray(rawPatch)) return undefined;
+  const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+  const pointer = (path: unknown): string[] | undefined => {
+    if (typeof path !== 'string') return undefined;
+    if (path === '') return [];
+    if (!path.startsWith('/')) return undefined;
+    const parts = path.slice(1).split('/');
+    if (parts.some((part) => /~(?![01])/.test(part))) return undefined;
+    return parts.map((part) => part.replace(/~1/g, '/').replace(/~0/g, '~'));
+  };
+  const locate = (root: unknown, parts: string[]) => {
+    let value = root;
+    for (const part of parts) {
+      if (Array.isArray(value)) {
+        if (!ARRAY_INDEX.test(part) || Number(part) >= value.length)
+          return undefined;
+        value = value[Number(part)];
+      } else if (
+        value &&
+        typeof value === 'object' &&
+        Object.prototype.hasOwnProperty.call(value, part)
+      ) {
+        value = (value as Record<string, unknown>)[part];
+      } else return undefined;
+    }
+    return value;
+  };
+  const write = (
+    root: unknown,
+    parts: string[],
+    op: string,
+    value?: unknown,
+  ): unknown => {
+    if (!parts.length) return op === 'remove' ? undefined : clone(value);
+    const parent = locate(root, parts.slice(0, -1));
+    const key = parts.at(-1)!;
+    if (!parent || typeof parent !== 'object')
+      throw new Error('missing parent');
+    if (
+      parts.some((part) =>
+        ['__proto__', 'constructor', 'prototype'].includes(part),
+      )
+    )
+      throw new Error('unsafe pointer');
+    if (Array.isArray(parent)) {
+      const index =
+        key === '-' && op === 'add'
+          ? parent.length
+          : ARRAY_INDEX.test(key)
+            ? Number(key)
+            : -1;
+      if (
+        index < 0 ||
+        index > parent.length ||
+        (op !== 'add' && index >= parent.length)
+      )
+        throw new Error('invalid array index');
+      if (op === 'add') parent.splice(index, 0, clone(value));
+      else if (op === 'remove') parent.splice(index, 1);
+      else parent[index] = clone(value);
+    } else {
+      const record = parent as Record<string, unknown>;
+      if (op !== 'add' && !Object.prototype.hasOwnProperty.call(record, key))
+        throw new Error('missing key');
+      if (op === 'remove') delete record[key];
+      else record[key] = clone(value);
+    }
+    return root;
+  };
+  let doc: unknown = clone(source);
+  try {
+    for (const raw of rawPatch) {
+      if (!raw || typeof raw !== 'object') return undefined;
+      const op = raw as {
+        op?: unknown;
+        path?: unknown;
+        from?: unknown;
+        value?: unknown;
+      };
+      const path = pointer(op.path);
+      if (!path) return undefined;
+      switch (op.op) {
+        case 'add':
+        case 'replace':
+          if (!('value' in op)) return undefined;
+          doc = write(doc, path, op.op, op.value);
+          break;
+        case 'remove':
+          doc = write(doc, path, 'remove');
+          break;
+        case 'copy':
+        case 'move': {
+          const from = pointer(op.from);
+          if (!from) return undefined;
+          const value = locate(doc, from);
+          if (value === undefined) return undefined;
+          if (op.op === 'move') {
+            if (
+              path.length > from.length &&
+              from.every((part, index) => path[index] === part)
+            )
+              return undefined;
+            doc = write(doc, from, 'remove');
+          }
+          doc = write(doc, path, 'add', value);
+          break;
+        }
+        case 'test':
+          if (!('value' in op) || !jsonEqual(locate(doc, path), op.value))
+            return undefined;
+          break;
+        default:
+          return undefined;
+      }
+    }
+    return doc && typeof doc === 'object' && !Array.isArray(doc)
+      ? (doc as Record<string, unknown>)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const logger = createLogger('AGUIEventPersister');
 
 // Module-level prepared-statement cache keyed on DB instance. Recompiles on
@@ -164,12 +406,41 @@ function getInsertMessageStmt(): Database.Statement {
       stmt: db.prepare(`
         INSERT OR IGNORE INTO messages (
           task_id, type, content, tool_name, tool_input, tool_output,
-          tool_use_id, subtype, error_message, message_id, run_id, branch_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          tool_use_id, subtype, error_message, message_id, run_id, branch_id,
+          subagent_run_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
     };
   }
   return insertMessageStmtCache.stmt;
+}
+
+let updateMessageContentStmtCache: {
+  db: Database.Database;
+  stmt: Database.Statement;
+} | null = null;
+
+function getUpdateMessageContentStmt(): Database.Statement {
+  const db = getDatabase();
+  if (
+    !updateMessageContentStmtCache ||
+    updateMessageContentStmtCache.db !== db
+  ) {
+    updateMessageContentStmtCache = {
+      db,
+      stmt: db.prepare(
+        'UPDATE messages SET content = ? WHERE task_id = ? AND message_id = ?',
+      ),
+    };
+  }
+  return updateMessageContentStmtCache.stmt;
+}
+
+/** The AG-UI `subagentRunId` an event carries, if a sub-agent produced it. */
+function eventOwner(event: BaseEvent): string | undefined {
+  const owner = (event as BaseEvent & { subagentRunId?: unknown })
+    .subagentRunId;
+  return typeof owner === 'string' && owner ? owner : undefined;
 }
 
 /**
@@ -181,6 +452,14 @@ export class AGUIEventPersister {
   private pendingTextMessageId: string | null = null;
   private pendingReasoningText = '';
   private pendingReasoningMessageId: string | null = null;
+  /** Sub-agent invocation that owns the reasoning block in progress. */
+  private pendingReasoningOwner: string | undefined;
+  /** Sub-agent invocation that owns the text block in progress. */
+  private pendingTextOwner: string | undefined;
+  /** Sub-agent invocation that owns each open tool call, by tool call id. */
+  private pendingToolOwners: Record<string, string> = {};
+  /** Live record per invocation, rewritten onto its row when it ends. */
+  private subagentRecords = new Map<string, SubagentRecord>();
   private pendingToolArgs: Record<string, string> = {};
   private pendingToolNames: Record<string, string> = {};
   private pendingToolStartedAt: Record<string, number> = {};
@@ -193,12 +472,6 @@ export class AGUIEventPersister {
   private assistantTextAccum = '';
   /** Tracks unique tool names used during the run for dispatch summary. */
   private toolsUsedSet = new Set<string>();
-  /** Latest cumulative usage from STATE_SNAPSHOT — flushed onto agent_runs at finish. */
-  private latestUsage: {
-    cost?: number;
-    inputTokens?: number;
-    outputTokens?: number;
-  } = {};
   private rootRunPersisted = false;
   private terminalProcess: 'succeeded' | 'failed' | 'cancelled' | null = null;
   private artifactDetected = false;
@@ -275,15 +548,19 @@ export class AGUIEventPersister {
       retry: 'not_safe' | 'safe_once' | 'user_action';
       failureCause?: string;
     },
+    usage?: RunUsageRecord,
   ): void {
     if (!this.rootRunPersisted || !this.runId) return;
     try {
       finishAgentRun({
         id: this.runId,
         status,
-        costUsd: this.latestUsage.cost,
-        tokensIn: this.latestUsage.inputTokens,
-        tokensOut: this.latestUsage.outputTokens,
+        // Only what the terminal event reported: a run that reported nothing
+        // keeps NULL usage rather than a fabricated zero.
+        costUsd: usage?.costUsd,
+        tokensIn: sumRunTokens(usage?.usage, (entry) => entry.inputTokens),
+        tokensOut: sumRunTokens(usage?.usage, (entry) => entry.outputTokens),
+        usageJson: usage ? JSON.stringify(usage) : undefined,
         error: error ?? null,
         completeness: verdict?.completeness,
         delivery: verdict?.delivery,
@@ -330,9 +607,75 @@ export class AGUIEventPersister {
           break;
         }
 
+        case EventType.ACTIVITY_SNAPSHOT: {
+          if (this.mode !== 'task') break;
+          const e = event as BaseEvent & {
+            messageId?: unknown;
+            activityType?: unknown;
+            content?: unknown;
+            replace?: boolean;
+          };
+          const id = typeof e.messageId === 'string' ? e.messageId : '';
+          const activityType = e.activityType;
+          if (
+            !id ||
+            typeof activityType !== 'string' ||
+            !SUPPORTED_ACTIVITY_TYPES.has(activityType) ||
+            !e.content ||
+            typeof e.content !== 'object' ||
+            Array.isArray(e.content)
+          )
+            break;
+          const content = e.content as Record<string, unknown>;
+          const existing = readActivityRow(this.taskId, id);
+          if (existing) {
+            // `replace: false` leaves an existing activity alone; it never
+            // merges. A type change is not a replacement of the same widget.
+            if (e.replace === false || existing.activityType !== activityType) {
+              break;
+            }
+            updateActivityContent(this.taskId, id, content);
+            break;
+          }
+          this.insertMessage({
+            type: 'activity',
+            content: JSON.stringify(content),
+            subtype: activityType,
+            messageId: id,
+            subagentRunId: eventOwner(event),
+          });
+          break;
+        }
+
+        case EventType.ACTIVITY_DELTA: {
+          if (this.mode !== 'task') break;
+          const e = event as BaseEvent & {
+            messageId?: unknown;
+            activityType?: unknown;
+            patch?: unknown;
+          };
+          const id = typeof e.messageId === 'string' ? e.messageId : '';
+          if (!id) break;
+          // A delta for an activity that does not exist is skipped, per the
+          // AG-UI spec; a failed patch leaves the stored content untouched.
+          const existing = readActivityRow(this.taskId, id);
+          if (!existing || existing.activityType !== e.activityType) break;
+          const content = patchActivityContent(existing.content, e.patch);
+          if (!content) break;
+          updateActivityContent(this.taskId, id, content);
+          break;
+        }
+
+        case EventType.MESSAGES_SNAPSHOT: {
+          // A server reconnect projects the DB's current activity rows through
+          // dbMessagesToFullAGUI. They are already durable, so no rewrite here.
+          break;
+        }
+
         case EventType.TEXT_MESSAGE_START: {
           const e = event as BaseEvent & { messageId: string };
           this.pendingTextMessageId = e.messageId;
+          this.pendingTextOwner = eventOwner(event);
           this.pendingText = '';
           break;
         }
@@ -349,15 +692,21 @@ export class AGUIEventPersister {
               type: 'text',
               content: this.pendingText,
               messageId: this.pendingTextMessageId,
+              subagentRunId: this.pendingTextOwner,
             });
-            // Cap accumulated text to avoid unbounded memory growth on long runs
-            if (this.assistantTextAccum.length < 8000) {
+            // The dispatch summary describes the parent run, so a child's
+            // text stays out of it. Cap it to bound memory on long runs.
+            if (
+              !this.pendingTextOwner &&
+              this.assistantTextAccum.length < 8000
+            ) {
               this.assistantTextAccum += this.pendingText + '\n';
             }
             this.extractFilesFromOutput(this.pendingText);
           }
           this.pendingText = '';
           this.pendingTextMessageId = null;
+          this.pendingTextOwner = undefined;
           break;
         }
 
@@ -365,6 +714,7 @@ export class AGUIEventPersister {
           const e = event as BaseEvent & { messageId: string };
           this.pendingReasoningMessageId = e.messageId;
           this.pendingReasoningText = '';
+          this.pendingReasoningOwner = eventOwner(event);
           break;
         }
 
@@ -381,10 +731,12 @@ export class AGUIEventPersister {
               content: this.pendingReasoningText,
               subtype: 'thinking',
               messageId: this.pendingReasoningMessageId,
+              subagentRunId: this.pendingReasoningOwner,
             });
           }
           this.pendingReasoningText = '';
           this.pendingReasoningMessageId = null;
+          this.pendingReasoningOwner = undefined;
           break;
         }
 
@@ -396,6 +748,8 @@ export class AGUIEventPersister {
           this.pendingToolArgs[e.toolCallId] = '';
           this.pendingToolNames[e.toolCallId] = e.toolCallName ?? 'unknown';
           this.pendingToolStartedAt[e.toolCallId] = Date.now();
+          const toolOwner = eventOwner(event);
+          if (toolOwner) this.pendingToolOwners[e.toolCallId] = toolOwner;
           break;
         }
 
@@ -417,6 +771,7 @@ export class AGUIEventPersister {
             toolInput: toolArgs,
             toolUseId: e.toolCallId,
             messageId: `${this.taskId}_${e.toolCallId}`,
+            subagentRunId: this.pendingToolOwners[e.toolCallId],
           });
           recordTraceEvent({
             id: `${this.taskId}_${this.runId ?? 'run'}_${e.toolCallId}`,
@@ -463,7 +818,10 @@ export class AGUIEventPersister {
             toolOutput: e.content,
             toolUseId: e.toolCallId,
             messageId: e.messageId ?? `${this.taskId}_result_${e.toolCallId}`,
+            subagentRunId:
+              eventOwner(event) ?? this.pendingToolOwners[e.toolCallId],
           });
+          delete this.pendingToolOwners[e.toolCallId];
           // Phase 7: cap trace event output to a fixed budget. The defended
           // content already replaces BLOCK results with a placeholder before
           // reaching this layer, so this cap is a size hardening guard, not
@@ -580,7 +938,85 @@ export class AGUIEventPersister {
           break;
         }
 
+        case EventType.SUBAGENT_STARTED: {
+          const e = event as BaseEvent & {
+            subagentRunId: string;
+            name: string;
+            description?: string;
+            parentSubagentRunId?: string;
+            parentToolCallId?: string;
+          };
+          const record: SubagentRecord = {
+            name: e.name,
+            status: 'running',
+            startedAt: Date.now(),
+            ...(e.description === undefined
+              ? {}
+              : { description: e.description }),
+            ...(e.parentSubagentRunId
+              ? { parentSubagentRunId: e.parentSubagentRunId }
+              : {}),
+            ...(e.parentToolCallId
+              ? { parentToolCallId: e.parentToolCallId }
+              : {}),
+          };
+          this.subagentRecords.set(e.subagentRunId, record);
+          this.insertMessage({
+            type: SUBAGENT_MESSAGE_TYPE,
+            content: JSON.stringify(record),
+            messageId: subagentMessageId(
+              this.taskId,
+              this.runId,
+              e.subagentRunId,
+            ),
+            subagentRunId: e.subagentRunId,
+          });
+          break;
+        }
+
+        case EventType.SUBAGENT_FINISHED: {
+          const e = event as BaseEvent & {
+            subagentRunId: string;
+            result?: string;
+            outcome?: { type?: string; interruptIds?: string[] };
+          };
+          // A suspended segment ends awaiting a decision, not as success.
+          this.endSubagent(
+            e.subagentRunId,
+            e.outcome?.type === 'suspended'
+              ? {
+                  status: 'suspended',
+                  ...(e.outcome.interruptIds?.length
+                    ? { interruptIds: e.outcome.interruptIds }
+                    : {}),
+                }
+              : {
+                  status: 'completed',
+                  ...(e.result === undefined ? {} : { result: e.result }),
+                },
+          );
+          break;
+        }
+
+        case EventType.SUBAGENT_ERROR: {
+          const e = event as BaseEvent & {
+            subagentRunId: string;
+            message: string;
+            code?: string;
+          };
+          this.endSubagent(e.subagentRunId, {
+            status: 'error',
+            error: {
+              message: e.message,
+              ...(e.code ? { code: e.code } : {}),
+            },
+          });
+          break;
+        }
+
         case EventType.RUN_ERROR: {
+          this.closeOpenSubagents();
+          const runUsage = runUsageFromTerminalEvent(event);
           if (this.terminalProcess) {
             logger.warn('Ignoring late RUN_ERROR after terminal verdict', {
               runId: this.runId,
@@ -636,6 +1072,7 @@ export class AGUIEventPersister {
               retry: adaptedFailure.verdict.retry,
               failureCause: adaptedFailure.verdict.failureCause,
             },
+            runUsage,
           );
           recordTraceEvent({
             id:
@@ -649,9 +1086,13 @@ export class AGUIEventPersister {
             status: isCancelled ? 'cancelled' : 'error',
             startedAt: this.startedAtMs,
             endedAt: Date.now(),
-            inputTokens: this.latestUsage.inputTokens ?? null,
-            outputTokens: this.latestUsage.outputTokens ?? null,
-            costUsd: this.latestUsage.cost ?? null,
+            inputTokens:
+              sumRunTokens(runUsage?.usage, (entry) => entry.inputTokens) ??
+              null,
+            outputTokens:
+              sumRunTokens(runUsage?.usage, (entry) => entry.outputTokens) ??
+              null,
+            costUsd: runUsage?.costUsd ?? null,
             attrs: {
               failureCause: failure.cause,
               retryDisposition: failure.retryDisposition,
@@ -668,10 +1109,23 @@ export class AGUIEventPersister {
         }
 
         case EventType.RUN_FINISHED: {
+          const { outcome } = event as RunFinishedEvent;
+          this.closeOpenSubagents(
+            outcome?.type === 'interrupt' ? 'suspended' : 'error',
+            outcome?.type === 'interrupt'
+              ? outcome.interrupts?.map((interrupt) => interrupt.id)
+              : undefined,
+          );
+          const runUsage = runUsageFromTerminalEvent(event);
           if (this.terminalProcess) break;
           this.flushPending();
           const duration = Date.now() - this.startedAtMs;
-          if (this.mode === 'task' && this.planEmitted) {
+          const cancelled = outcome?.type === 'cancelled';
+          // A run that stops for a decision completed its phase but left the
+          // declared work unfinished; it is neither a failure nor success.
+          const awaitingDecision =
+            this.planEmitted || outcome?.type === 'interrupt';
+          if (this.mode === 'task' && (awaitingDecision || cancelled)) {
             try {
               updateTask(this.taskId, { status: 'stopped', duration });
             } catch {
@@ -690,20 +1144,30 @@ export class AGUIEventPersister {
             }
             this.generateAndStoreSummary('dispatch_summary');
           }
-          this.terminalProcess = this.planEmitted ? 'failed' : 'succeeded';
+          this.terminalProcess = cancelled ? 'cancelled' : 'succeeded';
           this.finalizeRootRun(
-            this.planEmitted ? 'failed' : 'completed',
-            this.planEmitted
-              ? 'Run ended with unfinished declared work'
-              : undefined,
+            cancelled ? 'cancelled' : 'completed',
+            cancelled
+              ? 'Run stopped by user'
+              : awaitingDecision
+                ? 'Run ended with unfinished declared work'
+                : undefined,
             {
-              completeness: this.planEmitted ? 'unfinished' : 'complete',
+              completeness:
+                cancelled || awaitingDecision ? 'unfinished' : 'complete',
               delivery: this.artifactDetected ? 'delivered' : 'not_expected',
-              retry: this.planEmitted ? 'user_action' : 'not_safe',
-              ...(this.planEmitted
-                ? { failureCause: 'unfinished_declared_work' }
-                : {}),
+              retry: cancelled
+                ? 'not_safe'
+                : awaitingDecision
+                  ? 'user_action'
+                  : 'not_safe',
+              ...(cancelled
+                ? { failureCause: 'cancelled' }
+                : awaitingDecision
+                  ? { failureCause: 'awaiting_decision' }
+                  : {}),
             },
+            runUsage,
           );
           recordTraceEvent({
             id:
@@ -714,15 +1178,21 @@ export class AGUIEventPersister {
             kind: 'model_call',
             agent: this.provider,
             provider: this.provider,
-            status: 'ok',
+            status: cancelled ? 'cancelled' : 'ok',
             startedAt: this.startedAtMs,
             endedAt: Date.now(),
-            inputTokens: this.latestUsage.inputTokens ?? null,
-            outputTokens: this.latestUsage.outputTokens ?? null,
-            costUsd: this.latestUsage.cost ?? null,
+            inputTokens:
+              sumRunTokens(runUsage?.usage, (entry) => entry.inputTokens) ??
+              null,
+            outputTokens:
+              sumRunTokens(runUsage?.usage, (entry) => entry.outputTokens) ??
+              null,
+            costUsd: runUsage?.costUsd ?? null,
             attrs: {
               planEmitted: this.planEmitted,
-              completeness: this.planEmitted ? 'unfinished' : 'complete',
+              outcome: outcome?.type ?? 'success',
+              completeness:
+                cancelled || awaitingDecision ? 'unfinished' : 'complete',
             },
           });
           if (this.mode === 'task') void this.scanSessionOutputDir();
@@ -742,22 +1212,16 @@ export class AGUIEventPersister {
           const usageData = snapshot?.usage as
             | { inputTokens?: number; outputTokens?: number; cost?: number }
             | undefined;
-          if (
-            usageData &&
-            (usageData.cost != null || usageData.inputTokens != null)
-          ) {
-            // Stash for finalizeRootRun — we use the last-seen snapshot to
-            // attribute final cost/tokens to the run row.
-            this.latestUsage = { ...this.latestUsage, ...usageData };
-            if (this.mode === 'task')
-              try {
-                // cost from STATE_SNAPSHOT is already billing-aware (zeroed by effectiveCost)
-                updateTask(this.taskId, {
-                  cost: usageData.cost != null ? usageData.cost : undefined,
-                });
-              } catch {
-                // Best-effort
-              }
+          // The run row takes its usage from the terminal event, not from here:
+          // a snapshot is a live projection. Only the task-level cost, which
+          // the producer reports as a session total, still comes from it.
+          if (usageData?.cost != null && this.mode === 'task') {
+            try {
+              // cost from STATE_SNAPSHOT is already billing-aware (zeroed by effectiveCost)
+              updateTask(this.taskId, { cost: usageData.cost });
+            } catch {
+              // Best-effort
+            }
           }
           break;
         }
@@ -781,9 +1245,11 @@ export class AGUIEventPersister {
         type: 'text',
         content: this.pendingText,
         messageId: this.pendingTextMessageId,
+        subagentRunId: this.pendingTextOwner,
       });
       this.pendingText = '';
       this.pendingTextMessageId = null;
+      this.pendingTextOwner = undefined;
     }
     if (this.pendingReasoningText && this.pendingReasoningMessageId) {
       this.insertMessage({
@@ -791,9 +1257,11 @@ export class AGUIEventPersister {
         content: this.pendingReasoningText,
         subtype: 'thinking',
         messageId: this.pendingReasoningMessageId,
+        subagentRunId: this.pendingReasoningOwner,
       });
       this.pendingReasoningText = '';
       this.pendingReasoningMessageId = null;
+      this.pendingReasoningOwner = undefined;
     }
   }
 
@@ -811,6 +1279,8 @@ export class AGUIEventPersister {
     subtype?: string;
     errorMessage?: string;
     messageId?: string;
+    /** AG-UI `subagentRunId` of the invocation that produced the row. */
+    subagentRunId?: string;
   }): void {
     if (this.mode !== 'task') return;
     try {
@@ -827,12 +1297,75 @@ export class AGUIEventPersister {
         params.messageId ?? null,
         this.runId ?? null,
         this.branchId,
+        params.subagentRunId ?? null,
       );
     } catch (err) {
       // Best-effort — don't crash the stream for a persistence failure
       logger.error('INSERT OR IGNORE failed', {
         taskId: this.taskId,
         messageId: params.messageId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * The emitter closes every child before a run ends. This covers a run that
+   * ends without it, such as a synthetic RUN_ERROR from the transport, so a
+   * finished run never leaves a card that reads as still running. A child left
+   * open when the run paused for a decision is suspended, not failed.
+   */
+  private closeOpenSubagents(
+    status: 'error' | 'suspended' = 'error',
+    interruptIds?: string[],
+  ): void {
+    for (const [subagentRunId, record] of this.subagentRecords) {
+      if (record.status !== 'running') continue;
+      this.endSubagent(
+        subagentRunId,
+        status === 'suspended'
+          ? {
+              status: 'suspended',
+              ...(interruptIds?.length ? { interruptIds } : {}),
+            }
+          : {
+              status: 'error',
+              error: {
+                message: 'Run ended before the sub-agent finished',
+                code: 'run_ended',
+              },
+            },
+      );
+    }
+  }
+
+  /** Rewrites a sub-agent's row with its terminal status. */
+  private endSubagent(
+    subagentRunId: string,
+    outcome: Pick<
+      SubagentRecord,
+      'status' | 'result' | 'error' | 'interruptIds'
+    >,
+  ): void {
+    if (this.mode !== 'task') return;
+    const current = this.subagentRecords.get(subagentRunId);
+    if (!current) return;
+    const ended: SubagentRecord = {
+      ...current,
+      ...outcome,
+      endedAt: Date.now(),
+    };
+    this.subagentRecords.set(subagentRunId, ended);
+    try {
+      getUpdateMessageContentStmt().run(
+        JSON.stringify(ended),
+        this.taskId,
+        subagentMessageId(this.taskId, this.runId, subagentRunId),
+      );
+    } catch (err) {
+      logger.error('Sub-agent status update failed', {
+        taskId: this.taskId,
+        subagentRunId,
         error: err instanceof Error ? err.message : String(err),
       });
     }

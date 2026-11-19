@@ -3,7 +3,13 @@
 
 import { useEffect, useState } from 'react';
 
-import { CheckCircle2, ChevronRight, Loader2, XCircle } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronRight,
+  Loader2,
+  PauseCircle,
+  XCircle,
+} from 'lucide-react';
 
 import { ExecutionDiagnosticsPanel } from '@/components/shared/run-diagnostics/ExecutionDiagnosticsPanel';
 import { cn } from '@/shared/lib/utils';
@@ -14,16 +20,25 @@ import {
   useRunTreeStore,
 } from '@/shared/stores/run-tree-store';
 
-const STATUS_DOT: Record<RunStatus, string> = {
+import { displayRunStatus, summarizeRunUsage } from './run-usage';
+import { RunUsageDetail } from './RunUsageDetail';
+
+type DisplayStatus = RunStatus | 'awaiting_input';
+
+const STATUS_DOT: Record<DisplayStatus, string> = {
   running: 'bg-amber-500',
+  awaiting_input: 'bg-amber-500',
   completed: 'bg-emerald-500',
   failed: 'bg-red-500',
   cancelled: 'bg-gray-400',
 };
 
-function StatusIcon({ status }: { status: RunStatus }) {
+function StatusIcon({ status }: { status: DisplayStatus }) {
   if (status === 'running') {
     return <Loader2 className="size-3 animate-spin text-amber-500" />;
+  }
+  if (status === 'awaiting_input') {
+    return <PauseCircle className="size-3 text-amber-500" />;
   }
   if (status === 'failed') {
     return <XCircle className="size-3 text-red-500" />;
@@ -49,6 +64,8 @@ function formatTokens(n: number): string {
 function RunNodeRow({ node, depth }: { node: RunTreeNode; depth: number }) {
   const [expanded, setExpanded] = useState(node.status === 'running');
   const hasChildren = node.children.length > 0;
+  const status = displayRunStatus(node);
+  const usage = summarizeRunUsage(node);
   const details = [
     node.runtimeVersion ? `v${node.runtimeVersion}` : null,
     node.attempt > 0 ? `#${node.attempt + 1}` : null,
@@ -76,10 +93,7 @@ function RunNodeRow({ node, depth }: { node: RunTreeNode; depth: number }) {
           )}
         />
         <span
-          className={cn(
-            'size-1.5 shrink-0 rounded-full',
-            STATUS_DOT[node.status],
-          )}
+          className={cn('size-1.5 shrink-0 rounded-full', STATUS_DOT[status])}
         />
         <span className="text-foreground truncate font-medium">
           {node.provider}
@@ -90,11 +104,23 @@ function RunNodeRow({ node, depth }: { node: RunTreeNode; depth: number }) {
           ) : null}
         </span>
         <span className="text-muted-foreground ml-auto flex shrink-0 items-center gap-3">
-          <StatusIcon status={node.status} />
-          {node.costUsd > 0 && <span>{formatCost(node.costUsd)}</span>}
-          {(node.tokensIn > 0 || node.tokensOut > 0) && (
+          <StatusIcon status={status} />
+          {usage.costUsd !== undefined && (
+            <span>{formatCost(usage.costUsd)}</span>
+          )}
+          {(usage.tokensIn !== undefined || usage.tokensOut !== undefined) && (
             <span className="text-muted-foreground/70">
-              {formatTokens(node.tokensIn)}↑ {formatTokens(node.tokensOut)}↓
+              {/* A count the provider did not report stays absent. */}
+              {[
+                usage.tokensIn !== undefined
+                  ? `${formatTokens(usage.tokensIn)}↑`
+                  : null,
+                usage.tokensOut !== undefined
+                  ? `${formatTokens(usage.tokensOut)}↓`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' ')}
             </span>
           )}
         </span>
@@ -107,6 +133,7 @@ function RunNodeRow({ node, depth }: { node: RunTreeNode; depth: number }) {
           {node.error}
         </div>
       )}
+      {expanded && <RunUsageDetail node={node} paddingLeft={depth * 14 + 30} />}
       {expanded && details.length > 0 && (
         <div
           className="text-muted-foreground mt-0.5 text-xs"

@@ -44,6 +44,7 @@ function row(partial: Partial<AgentRunRow> & { id: string }): AgentRunRow {
     recovery_action: partial.recovery_action ?? null,
     delivery_reconciliation_deadline:
       partial.delivery_reconciliation_deadline ?? null,
+    usage_json: partial.usage_json ?? null,
   };
 }
 

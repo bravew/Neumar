@@ -72,11 +72,15 @@ export type AgentMessageType =
   | 'error'
   | 'done'
   | 'plan'
+  | 'plan_activity'
   | 'direct_answer'
   | 'thinking'
   | 'planning_status'
   | 'step_started'
   | 'step_finished'
+  | 'subagent_started'
+  | 'subagent_finished'
+  | 'subagent_error'
   | 'permission_request'
   | 'system'
   | 'tool_progress';
@@ -140,13 +144,27 @@ export interface AgentMessage {
   id?: string;
   input?: unknown;
   cost?: number;
+  /**
+   * Spend attributable to this call alone. Set by a producer whose `cost` is a
+   * running or session total (Claude restores prior spend on resume), so a run
+   * reports only its own calls. When absent, `cost` is taken as this call's spend.
+   */
+  costDelta?: number;
   duration?: number;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
+    /** A subset of `output_tokens`. */
     reasoning_output_tokens?: number;
     cache_read_input_tokens?: number;
     cache_creation_input_tokens?: number;
+    /**
+     * Whether `input_tokens` already counts the cache fields. Anthropic-style
+     * providers exclude them (`false`); OpenAI-style providers include them
+     * (`true`). Leave it unset when the provider's convention is not known: the
+     * cache counts are then not reported, rather than guessed at.
+     */
+    input_includes_cache?: boolean;
   };
   model?: string;
   // Tool result fields
@@ -164,6 +182,20 @@ export interface AgentMessage {
   thinkingText?: string;
   // Step lifecycle fields
   stepName?: string;
+  // Sub-agent attribution. `subagentRunId` names one invocation (the SDK
+  // task id); absent means the message belongs to the parent run itself.
+  subagentRunId?: string;
+  /** Sub-agent type or label for subagent_started. */
+  subagentName?: string;
+  subagentDescription?: string;
+  /** Enclosing invocation when this sub-agent was spawned by another. */
+  parentSubagentRunId?: string;
+  /** The Task tool call in the parent that spawned this invocation. */
+  parentToolCallId?: string;
+  /** For subagent_finished: suspended means the segment ended awaiting input. */
+  subagentOutcome?: 'success' | 'suspended';
+  /** Interrupts that suspend the sub-agent, when subagentOutcome is suspended. */
+  interruptIds?: string[];
   // Permission fields
   permission?: {
     id: string;
@@ -177,6 +209,8 @@ export interface AgentMessage {
     suppress_always_allow_rule?: boolean;
     /** MCP server serving the tool; `source: 'sdk'` is an in-process server. */
     mcp_server?: { name: string; source: string };
+    /** Sub-agent invocation that asked, when a child tool needs approval. */
+    agent_id?: string;
   };
   // AG-UI correlation fields
   /** Unique identifier for this run/execution */

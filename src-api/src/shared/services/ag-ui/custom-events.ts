@@ -32,17 +32,7 @@ export type ContextOverflowCustomEvent = {
   };
 };
 
-export type InterruptCustomEvent = {
-  type: 'CUSTOM';
-  name: 'interrupt';
-  value: {
-    reason: 'plan_approval' | 'permission_request' | 'external_action';
-    payload: unknown;
-  };
-};
-
 export type NeumaCustomEvent =
   | PlanCustomEvent
   | DirectAnswerCustomEvent
-  | ContextOverflowCustomEvent
-  | InterruptCustomEvent;
+  | ContextOverflowCustomEvent;

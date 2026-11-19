@@ -430,6 +430,26 @@ export function getPendingAgentQuestionByTaskTool(
   return row ?? null;
 }
 
+/**
+ * The sub-agent invocation that produced a tool call, when one did. The AG-UI
+ * persister records the owner on the tool row; a question raised by a child
+ * can be attributed by the same `tool_use_id`.
+ */
+export function getSubagentRunIdForToolUse(
+  taskId: string,
+  toolUseId: string,
+): string | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      `SELECT subagent_run_id FROM messages
+       WHERE task_id = ? AND tool_use_id = ? AND subagent_run_id IS NOT NULL
+       LIMIT 1`,
+    )
+    .get(taskId, toolUseId) as { subagent_run_id: string } | undefined;
+  return row?.subagent_run_id ?? null;
+}
+
 export function getPendingAgentQuestions(filter: {
   sessionId?: string;
   taskId?: string;
@@ -474,6 +494,20 @@ export function answerAgentQuestion(
     .run(answerJson, id);
   if (result.changes === 0) return getAgentQuestion(id);
   return getAgentQuestion(id);
+}
+
+/** Cancels one question while it is still pending. False when it was already settled. */
+export function cancelAgentQuestion(id: string): boolean {
+  const db = getDatabase();
+  const result = db
+    .prepare(
+      `UPDATE agent_questions
+       SET status = 'cancelled',
+           updated_at = datetime('now')
+       WHERE id = ? AND status = 'pending'`,
+    )
+    .run(id);
+  return result.changes > 0;
 }
 
 export function cancelPendingAgentQuestionsForTask(taskId: string): number {
@@ -972,6 +1006,27 @@ export function updateOrchestrationRunStatus(
     `UPDATE orchestration_runs SET ${updates.join(', ')} WHERE id = ?`,
   );
   return stmt.run(...values).changes > 0;
+}
+
+/**
+ * Moves a plan run out of `pending` only once. Two resumes for the same plan
+ * race here; the loser sees `false` and must report an already-resolved
+ * decision instead of starting a second execution.
+ */
+export function decideOrchestrationRun(
+  id: string,
+  from: OrchestrationRunStatus,
+  to: OrchestrationRunStatus,
+): boolean {
+  const db = getDatabase();
+  const result = db
+    .prepare(
+      `UPDATE orchestration_runs
+       SET status = ?, updated_at = datetime('now')
+       WHERE id = ? AND status = ?`,
+    )
+    .run(to, id, from);
+  return result.changes === 1;
 }
 
 export function updateOrchestrationRunPayload(
@@ -2614,6 +2669,8 @@ export interface AgentRunRow {
     | 'resume_after_restart'
     | null;
   delivery_reconciliation_deadline: string | null;
+  /** JSON `RunUsageRecord`; NULL when the run reported no usage. */
+  usage_json: string | null;
 }
 
 export interface ReserveAgentRunInput {
@@ -2953,6 +3010,8 @@ export function finishAgentRun(input: {
   costUsd?: number;
   tokensIn?: number;
   tokensOut?: number;
+  /** Serialized `RunUsageRecord`; leave undefined when nothing was reported. */
+  usageJson?: string;
   error?: string | null;
   completeness?: AgentRunRow['completeness'];
   delivery?: AgentRunRow['delivery'];
@@ -2966,6 +3025,7 @@ export function finishAgentRun(input: {
            cost_usd = COALESCE(?, cost_usd),
            tokens_in = COALESCE(?, tokens_in),
            tokens_out = COALESCE(?, tokens_out),
+           usage_json = COALESCE(?, usage_json),
            error = ?, completeness = COALESCE(?, completeness),
            delivery = COALESCE(?, delivery), retry = COALESCE(?, retry),
            failure_cause = COALESCE(?, failure_cause)
@@ -2976,6 +3036,7 @@ export function finishAgentRun(input: {
       input.costUsd ?? null,
       input.tokensIn ?? null,
       input.tokensOut ?? null,
+      input.usageJson ?? null,
       input.error ?? null,
       input.completeness ?? null,
       input.delivery ?? null,
@@ -3962,13 +4023,13 @@ export function createBranch(taskId: string, fromMessageId: number): string {
       task_id, type, content, tool_name, tool_input, tool_output, tool_use_id,
       subtype, error_message, attachments, message_id, cost,
       usage_input, usage_output, usage_cache_read, usage_cache_creation,
-      model, created_at, branch_id, parent_message_id
+      model, created_at, branch_id, parent_message_id, subagent_run_id
     )
     SELECT
       task_id, type, content, tool_name, tool_input, tool_output, tool_use_id,
       subtype, error_message, attachments, NULL, cost,
       usage_input, usage_output, usage_cache_read, usage_cache_creation,
-      model, created_at, ?, ?
+      model, created_at, ?, ?, subagent_run_id
     FROM messages
     WHERE task_id = ? AND id <= ? AND branch_id = 'main'
   `).run(branchId, fromMessageId, taskId, fromMessageId);
@@ -4047,13 +4108,13 @@ export function createBranchWithEditedMessage(
         task_id, type, content, tool_name, tool_input, tool_output, tool_use_id,
         subtype, error_message, attachments, message_id, cost,
         usage_input, usage_output, usage_cache_read, usage_cache_creation,
-        model, created_at, branch_id, parent_message_id
+        model, created_at, branch_id, parent_message_id, subagent_run_id
       )
       SELECT
         task_id, type, content, tool_name, tool_input, tool_output, tool_use_id,
         subtype, error_message, attachments, NULL, cost,
         usage_input, usage_output, usage_cache_read, usage_cache_creation,
-        model, created_at, ?, ?
+        model, created_at, ?, ?, subagent_run_id
       FROM messages
       WHERE task_id = ? AND id < ? AND branch_id = 'main'
     `).run(branchId, fromMessageId, taskId, fromMessageId);
@@ -4096,7 +4157,8 @@ export function searchMessages(taskId: string, query: string): Message[] {
   return db
     .prepare(
       `SELECT * FROM messages
-       WHERE task_id = ? AND content LIKE '%' || ? || '%'
+       WHERE task_id = ? AND type != 'subagent'
+         AND content LIKE '%' || ? || '%'
        ORDER BY id ASC
        LIMIT 100`,
     )

@@ -16,6 +16,10 @@ import {
 } from '@/shared/db/operations';
 import { getExecutionDiagnostics } from '@/shared/observability/execution-diagnostics';
 import { buildSupportBundle } from '@/shared/observability/support-bundle';
+import {
+  parseRunUsageRecord,
+  type RunUsageRecord,
+} from '@/shared/services/ag-ui/run-usage';
 import { createLogger } from '@/shared/utils/logger';
 
 const logger = createLogger('RunsRoutes');
@@ -34,6 +38,13 @@ export interface RunTreeNode {
   costUsd: number;
   tokensIn: number;
   tokensOut: number;
+  /**
+   * What the run reported on its terminal event, with the provider/model split
+   * and cache/reasoning subsets. Null when it reported nothing. `costUsd` and
+   * the token fields above default to 0, so only this tells "none reported"
+   * from "reported zero".
+   */
+  usage: RunUsageRecord | null;
   error: string | null;
   completeness: AgentRunRow['completeness'];
   delivery: AgentRunRow['delivery'];
@@ -86,6 +97,7 @@ function rowToNode(row: AgentRunRow): RunTreeNode {
     costUsd: row.cost_usd,
     tokensIn: row.tokens_in,
     tokensOut: row.tokens_out,
+    usage: parseRunUsageRecord(row.usage_json) ?? null,
     error: row.error,
     completeness: row.completeness,
     delivery: row.delivery,
@@ -150,6 +162,7 @@ export function rollupRunTree(rows: AgentRunRow[]): RunTreeRollup {
 export function deriveExecutionOutcomes(
   rows: readonly AgentRunRow[],
   questionRunIds: ReadonlySet<string> = new Set(),
+  interruptedRunIds: ReadonlySet<string> = new Set(),
 ): ExecutionOutcomeSummary[] {
   const groups = new Map<string, AgentRunRow[]>();
   for (const row of rows) {
@@ -171,7 +184,11 @@ export function deriveExecutionOutcomes(
       if (questionRunIds.has(row.id)) lastQuestionIndex = index;
       if (row.recovery_action === 'answer_question') lastAnswerIndex = index;
     });
-    const awaitingInput = lastQuestionIndex > lastAnswerIndex;
+    // The latest run is the one the user is answering. A resume run after it
+    // makes that run the latest, so a decision that was answered no longer
+    // reads as awaiting input.
+    const awaitingInput =
+      interruptedRunIds.has(latest.id) || lastQuestionIndex > lastAnswerIndex;
     const status: ExecutionOutcomeSummary['status'] = ordered.some(
       (row) => row.status === 'running',
     )
@@ -199,6 +216,26 @@ export function deriveExecutionOutcomes(
   });
 }
 
+/** Runs whose journal ends with a standard interrupt outcome. */
+export function interruptedRunIds(rows: readonly AgentRunRow[]): Set<string> {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const terminal = getAgentRunEventsAfter(row.id, -1)
+      .filter((event) => event.event_type === 'RUN_FINISHED')
+      .at(-1);
+    if (!terminal) continue;
+    try {
+      const value = JSON.parse(terminal.event_json) as {
+        outcome?: { type?: unknown };
+      };
+      if (value.outcome?.type === 'interrupt') ids.add(row.id);
+    } catch {
+      // A malformed journal row is not an interrupt.
+    }
+  }
+  return ids;
+}
+
 export function questionRunIds(rows: readonly AgentRunRow[]): Set<string> {
   const ids = new Set<string>();
   for (const row of rows) {
@@ -222,7 +259,11 @@ function runTreeResponse(rows: AgentRunRow[]) {
   return {
     tree: buildRunTree(rows),
     rollup: rollupRunTree(rows),
-    executions: deriveExecutionOutcomes(rows, questionRunIds(rows)),
+    executions: deriveExecutionOutcomes(
+      rows,
+      questionRunIds(rows),
+      interruptedRunIds(rows),
+    ),
   };
 }
 

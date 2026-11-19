@@ -123,7 +123,9 @@ export type MessageType =
   | 'result'
   | 'error'
   | 'user'
-  | 'plan';
+  | 'plan'
+  | 'subagent'
+  | 'activity';
 
 export interface Message {
   /**
@@ -167,6 +169,9 @@ export interface Message {
   usage_cache_read: number | null;
   usage_cache_creation: number | null;
   model: string | null;
+
+  /** AG-UI subagentRunId of the sub-agent that produced this row; NULL for the parent run. */
+  subagent_run_id?: string | null;
 
   /** Branch identifier — default is 'main'. Set by migration 005. */
   branch_id?: string;

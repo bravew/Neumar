@@ -5,9 +5,11 @@ import {
   finalizeChatPanelAguiState,
   isChatPanelAguiEventPayload,
   reduceChatPanelAguiEvent,
+  type ChatPanelActivity,
   type ChatPanelAguiAccumulator,
   type ChatPanelAguiEvent,
   type ChatPanelMessage,
+  type ChatPanelSubagentMessage,
   type ChatToolCall,
   type ChatToolCallStage,
 } from '@/components/shared/chat-panel';
@@ -157,6 +159,20 @@ export type AgentDockMessage =
       role: 'assistant';
       kind: 'tool';
       call: ToolCallRecord;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      role: 'assistant';
+      kind: 'activity';
+      activity: ChatPanelActivity;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      role: 'system';
+      kind: 'subagent';
+      subagent: ChatPanelSubagentMessage['subagent'];
       createdAt: string;
     };
 
@@ -724,6 +740,28 @@ function agentDockMessagesToChatPanel(
         },
       ];
     }
+    if (message.kind === 'activity') {
+      return [
+        {
+          id: message.id,
+          kind: 'activity',
+          role: 'assistant',
+          activity: message.activity,
+          createdAt: message.createdAt,
+        },
+      ];
+    }
+    if (message.kind === 'subagent') {
+      return [
+        {
+          id: message.id,
+          kind: 'subagent',
+          role: 'system',
+          subagent: message.subagent,
+          createdAt: message.createdAt,
+        },
+      ];
+    }
     return [
       {
         id: message.id,
@@ -784,6 +822,28 @@ function chatPanelMessagesToAgentDock(
             },
           ]
         : [];
+    }
+    if (message.kind === 'activity') {
+      return [
+        {
+          id: message.id,
+          kind: 'activity',
+          role: 'assistant',
+          activity: message.activity,
+          createdAt: message.createdAt,
+        },
+      ];
+    }
+    if (message.kind === 'subagent') {
+      return [
+        {
+          id: message.id,
+          kind: 'subagent',
+          role: 'system',
+          subagent: message.subagent,
+          createdAt: message.createdAt,
+        },
+      ];
     }
     if (message.kind !== 'tool') return [];
     return message.calls.map((call) =>
@@ -1036,6 +1096,31 @@ function isAgentDockMessage(value: unknown): value is AgentDockMessage {
   const createdAt = getString(value, 'createdAt');
   if (!kind || !id || !role || !createdAt) return false;
   if (kind === 'text') return typeof value.content === 'string';
+  if (kind === 'activity') {
+    const activity = getRecord(value, 'activity');
+    return (
+      role === 'assistant' &&
+      activity !== undefined &&
+      getString(activity, 'id') === id &&
+      typeof getString(activity, 'activityType') === 'string' &&
+      isRecord(activity.content)
+    );
+  }
+  if (kind === 'subagent') {
+    const subagent = getRecord(value, 'subagent');
+    if (role !== 'system' || !subagent) return false;
+    const status = getString(subagent, 'status');
+    return (
+      typeof getString(subagent, 'id') === 'string' &&
+      (status === 'running' ||
+        status === 'completed' ||
+        status === 'suspended' ||
+        status === 'error') &&
+      // Optional fields are kept as restored, and `name` is rendered as text.
+      isOptionalString(subagent, 'name') &&
+      isOptionalString(subagent, 'parentSubagentRunId')
+    );
+  }
   if (kind !== 'action' || !isRecord(value.action)) return false;
   return normalizeAgentActionPayload(value.action) !== null;
 }
@@ -1046,6 +1131,14 @@ function getString(
 ): string | undefined {
   const item = value[key];
   return typeof item === 'string' ? item : undefined;
+}
+
+/** True when `key` is absent or holds a string. */
+function isOptionalString(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  return value[key] === undefined || typeof value[key] === 'string';
 }
 
 function getBoolean(

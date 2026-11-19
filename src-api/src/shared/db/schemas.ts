@@ -65,6 +65,7 @@ const MessageTypeEnum = z.enum([
   'error',
   'user',
   'plan',
+  'subagent',
 ]);
 
 const FileTypeEnum = z.enum([

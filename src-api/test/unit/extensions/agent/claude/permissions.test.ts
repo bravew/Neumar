@@ -20,6 +20,7 @@ const {
   buildCanUseTool,
   HEADLESS_DENY_MESSAGE,
   isHeadlessRun,
+  listOpenPermissions,
 } = await import('@/extensions/agent/claude/permissions');
 type PendingPermission =
   import('@/extensions/agent/claude/permissions').PendingPermission;
@@ -331,6 +332,38 @@ describe('Claude permission policy', () => {
       ).resolves.toMatchObject({ behavior: 'deny' });
     });
 
+    it('attributes a child agent’s prompt to that sub-agent', async () => {
+      const registry = new ToolPermissionRegistry();
+      const abortController = new AbortController();
+      const canUseTool = buildCanUseTool(
+        new DenialTracker(),
+        registry,
+        new Map(),
+        'task-1',
+        'session-1',
+        new LoopGuard(),
+      );
+
+      const decision = canUseTool(
+        'Bash',
+        { command: 'ls' },
+        callOptions({
+          signal: abortController.signal,
+          agentID: 'child-run',
+        }),
+      );
+
+      expect(publish).toHaveBeenCalledWith(
+        'task-1',
+        expect.objectContaining({
+          permission: expect.objectContaining({ agent_id: 'child-run' }),
+        }),
+      );
+
+      abortController.abort();
+      await expect(decision).resolves.toMatchObject({ behavior: 'deny' });
+    });
+
     it('forwards defaultToNo, suppressAlwaysAllowRule and the MCP server source', async () => {
       const registry = new ToolPermissionRegistry();
       registry.setClassification('mcp__github__delete_repo', 'destructive');
@@ -600,5 +633,88 @@ describe('Claude permission policy', () => {
       const codes = await sdkWarningsFor(options);
       expect(codes).not.toContain('CLAUDE_SDK_CAN_USE_TOOL_SHADOWED');
     });
+  });
+});
+
+describe('open permission prompts', () => {
+  const TTL_MS = 5 * 60 * 1000;
+
+  beforeEach(() => {
+    publish.mockClear();
+  });
+
+  function askOnTask(
+    pending: Map<string, PendingPermission>,
+    taskId: string,
+    command: string,
+  ) {
+    const canUseTool = buildCanUseTool(
+      new DenialTracker(),
+      new ToolPermissionRegistry(),
+      pending,
+      taskId,
+      'session-1',
+      new LoopGuard(),
+    );
+    return canUseTool('Bash', { command }, callOptions());
+  }
+
+  it('lists the prompt the user was shown, scoped to its task', () => {
+    const pending = new Map<string, PendingPermission>();
+    void askOnTask(pending, 'task-a', 'ls');
+    void askOnTask(pending, 'task-b', 'pwd');
+
+    const shown = publish.mock.calls
+      .map(([, message]) => message.permission)
+      .find((permission) => permission.command?.includes('ls'));
+    const open = listOpenPermissions(pending, 'task-a', TTL_MS);
+
+    expect(open).toHaveLength(1);
+    expect(open[0]).toMatchObject({
+      taskId: 'task-a',
+      sessionId: 'session-1',
+      prompt: shown,
+    });
+    expect(open[0]?.prompt.id).toBe([...pending.keys()][0]);
+    expect(listOpenPermissions(pending, 'task-c', TTL_MS)).toEqual([]);
+  });
+
+  it('lists two simultaneous prompts for one task', () => {
+    const pending = new Map<string, PendingPermission>();
+    void askOnTask(pending, 'task-a', 'ls');
+    void askOnTask(pending, 'task-a', 'pwd');
+
+    const ids = listOpenPermissions(pending, 'task-a', TTL_MS).map(
+      (entry) => entry.prompt.id,
+    );
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it('omits a prompt once it is answered or past its expiry', () => {
+    const pending = new Map<string, PendingPermission>();
+    void askOnTask(pending, 'task-a', 'ls');
+    const [requestId, entry] = [...pending.entries()][0] as [
+      string,
+      PendingPermission,
+    ];
+
+    expect(
+      listOpenPermissions(
+        pending,
+        'task-a',
+        TTL_MS,
+        entry.createdAt + TTL_MS - 1,
+      ),
+    ).toHaveLength(1);
+    expect(
+      listOpenPermissions(pending, 'task-a', TTL_MS, entry.createdAt + TTL_MS),
+    ).toEqual([]);
+    expect(
+      listOpenPermissions(pending, 'task-a', TTL_MS, entry.createdAt)[0]
+        ?.expiresAt,
+    ).toBe(entry.createdAt + TTL_MS);
+
+    pending.delete(requestId);
+    expect(listOpenPermissions(pending, 'task-a', TTL_MS)).toEqual([]);
   });
 });

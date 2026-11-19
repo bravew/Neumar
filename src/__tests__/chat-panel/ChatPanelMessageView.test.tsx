@@ -55,6 +55,31 @@ const labels: ChatPanelMessageViewLabels = {
     updated: 'State updated',
     value: 'Value',
   },
+  activity: {
+    title: 'Activity',
+    phase: {
+      awaiting_approval: 'Awaiting approval',
+      running: 'In progress',
+      done: 'Completed',
+      failed: 'Failed',
+      cancelled: 'Cancelled',
+    },
+    step: {
+      pending: 'Pending',
+      in_progress: 'In progress',
+      completed: 'Completed',
+      failed: 'Failed',
+    },
+  },
+  subagent: {
+    title: 'Sub-agent',
+    status: {
+      running: 'Running',
+      completed: 'Completed',
+      suspended: 'Awaiting input',
+      error: 'Failed',
+    },
+  },
 };
 
 describe('ChatPanelMessageView', () => {

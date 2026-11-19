@@ -13,6 +13,11 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
 import {
+  applyActivityPatch,
+  jsonClone,
+  type JsonPatchOperation,
+} from '@/shared/lib/activity-patch';
+import {
   createCompleteToolCallState,
   createErrorToolCallState,
   createExecutingToolCallState,
@@ -24,8 +29,14 @@ import { randomUUID } from '@/shared/utils/uuid';
 /** CopilotKit-compatible message shape */
 export interface ThreadMessage {
   id: string;
-  role: 'user' | 'assistant' | 'tool' | 'reasoning';
-  content?: string;
+  role: 'user' | 'assistant' | 'tool' | 'reasoning' | 'activity';
+  content?: string | Record<string, unknown>;
+  /**
+   * An `activity` message carries its payload as an object in `content`, the
+   * AG-UI wire shape, so history, CopilotKit and the reducer agree. It is a
+   * UI-only message and never part of the model's conversation.
+   */
+  activityType?: string;
   /** Marks this assistant message as a persisted agent error (RUN_ERROR). */
   isError?: boolean;
   /** Optional subtype — e.g. 'dispatch_summary', 'run_error_summary'. */
@@ -39,8 +50,26 @@ export interface ThreadMessage {
     final?: boolean;
   }>;
   toolCallId?: string;
+  /** Sub-agent invocation that produced this message; absent for the parent run. */
+  subagentRunId?: string;
   /** JSON-encoded MessageAttachment[] for user messages (from DB rehydration). */
   attachments?: string;
+}
+
+/** One sub-agent invocation, keyed by the AG-UI `subagentRunId`. */
+export interface ThreadSubagent {
+  id: string;
+  name: string;
+  description?: string;
+  parentSubagentRunId?: string;
+  parentToolCallId?: string;
+  status: 'running' | 'completed' | 'suspended' | 'error';
+  /** Decisions the child raised itself and is waiting on while suspended. */
+  interruptIds?: string[];
+  result?: string;
+  error?: { message: string; code?: string };
+  startedAt?: number;
+  endedAt?: number;
 }
 
 export type ThreadHydrationState = 'pending' | 'hydrated' | 'error';
@@ -64,12 +93,15 @@ export const THREAD_STORE_REDUCED_EVENT_TYPES = new Set<string>([
   EventType.RUN_ERROR,
   EventType.STATE_SNAPSHOT,
   EventType.STATE_DELTA,
+  EventType.ACTIVITY_SNAPSHOT,
+  EventType.ACTIVITY_DELTA,
+  EventType.MESSAGES_SNAPSHOT,
+  EventType.SUBAGENT_STARTED,
+  EventType.SUBAGENT_FINISHED,
+  EventType.SUBAGENT_ERROR,
 ]);
 
 export const THREAD_STORE_IGNORED_EVENT_TYPES = new Set<string>([
-  EventType.MESSAGES_SNAPSHOT,
-  EventType.ACTIVITY_SNAPSHOT,
-  EventType.ACTIVITY_DELTA,
   EventType.RAW,
   EventType.CUSTOM,
   EventType.STEP_STARTED,
@@ -77,12 +109,6 @@ export const THREAD_STORE_IGNORED_EVENT_TYPES = new Set<string>([
   EventType.REASONING_START,
   EventType.REASONING_END,
   EventType.REASONING_ENCRYPTED_VALUE,
-  // First-class in AG-UI 0.0.59. Previously shipped as EventType.CUSTOM
-  // (neuma.subagent_*). Thread store still ignores them; reducing them into
-  // the message tree is a follow-up, not this sweep.
-  EventType.SUBAGENT_STARTED,
-  EventType.SUBAGENT_FINISHED,
-  EventType.SUBAGENT_ERROR,
 ]);
 
 export interface TaskFile {
@@ -134,6 +160,8 @@ interface ThreadAccumulator {
 interface ThreadState {
   messages: ThreadMessage[];
   messagesIndexById: Record<string, number>;
+  /** Sub-agent invocations in the order they started. */
+  subagents: ThreadSubagent[];
   files: TaskFile[];
   filesIndexById: Record<string, number>;
   isRunning: boolean;
@@ -150,13 +178,6 @@ interface ThreadState {
   lastAppliedSeq: number;
 }
 
-/** Minimal AG-UI event shape — only the fields we need to reduce. */
-export interface JsonPatchOperation {
-  op: 'add' | 'replace' | 'remove';
-  path: string;
-  value?: unknown;
-}
-
 export interface AGUIStreamEvent {
   type: string;
   seq?: number;
@@ -165,11 +186,97 @@ export interface AGUIStreamEvent {
   toolCallId?: string;
   toolCallName?: string;
   parentMessageId?: string;
-  content?: string;
+  /** A string for text and tool results; an object for ACTIVITY_SNAPSHOT. */
+  content?: string | Record<string, unknown>;
   message?: string;
   code?: string;
   role?: string;
   snapshot?: Record<string, unknown>;
+  /** ACTIVITY_SNAPSHOT / ACTIVITY_DELTA */
+  activityType?: string;
+  replace?: boolean;
+  patch?: unknown;
+  /** MESSAGES_SNAPSHOT */
+  messages?: ThreadMessage[];
+  /**
+   * RUN_FINISHED: why the run ended; absent means success. A suspended
+   * SUBAGENT_FINISHED carries the same shape and names the decisions it waits on.
+   */
+  outcome?: {
+    type?: string;
+    /** RUN_FINISHED with type 'interrupt': the decisions still open. */
+    interrupts?: unknown[];
+    /** SUBAGENT_FINISHED with type 'suspended'. */
+    interruptIds?: string[];
+  };
+  timestamp?: number;
+  /** Set on a sub-agent's own events, and on SUBAGENT_* lifecycle events. */
+  subagentRunId?: string;
+  /** SUBAGENT_STARTED */
+  name?: string;
+  description?: string;
+  parentSubagentRunId?: string;
+  parentToolCallId?: string;
+  /** SUBAGENT_FINISHED */
+  result?: unknown;
+}
+
+/**
+ * Tool result text for a run the user stopped. It is the message the server
+ * sent as RUN_ERROR for a stop before stops became a cancelled outcome.
+ */
+const RUN_STOPPED_MESSAGE = 'Run stopped by user';
+
+const RUN_ENDED_CODE = 'run_ended';
+
+/** Stop code the server records when the user cancels a run or a sub-agent. */
+const STOPPED_CODE = 'stopped';
+
+/**
+ * Ends a sub-agent that is still running. The server closes every child before
+ * a run ends, so this only covers a run that ended without that (a dropped
+ * stream, a crashed process). It is shown as ended early, never as completed.
+ * A run that ended awaiting a decision suspends its children instead: the work
+ * may continue once the decision is answered.
+ */
+function closeRunningSubagents(
+  subagents: ThreadSubagent[],
+  endedAt: number,
+  status: 'error' | 'suspended' = 'error',
+  error: { message: string; code?: string } = {
+    message: 'Run ended before the sub-agent finished',
+    code: RUN_ENDED_CODE,
+  },
+): boolean {
+  let changed = false;
+  for (const subagent of subagents) {
+    if (subagent.status !== 'running') continue;
+    subagent.status = status;
+    if (status === 'error') {
+      subagent.error = { ...error };
+    }
+    subagent.endedAt = endedAt;
+    changed = true;
+  }
+  return changed;
+}
+
+/** Ends every tool call still waiting for a result. True if any changed. */
+function closeOpenToolCalls(msgs: ThreadMessage[], message: string): boolean {
+  let changed = false;
+  for (const msg of msgs) {
+    for (const toolCall of msg.toolCalls ?? []) {
+      if (toolCall.final) continue;
+      toolCall.toolStage = 'error';
+      toolCall.toolState = createErrorToolCallState(
+        toolCall.function.arguments,
+        message,
+      );
+      toolCall.final = true;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 interface ThreadStore {
@@ -180,7 +287,11 @@ interface ThreadStore {
     taskId: string,
     messages: ThreadMessage[],
     isRunning: boolean,
-    options?: { lastAppliedSeq?: number; files?: TaskFile[] },
+    options?: {
+      lastAppliedSeq?: number;
+      files?: TaskFile[];
+      subagents?: ThreadSubagent[];
+    },
   ) => void;
   setMessages: (
     taskId: string,
@@ -229,6 +340,7 @@ function createThreadState(
   return {
     messages: clonedMessages,
     messagesIndexById: buildMessagesIndex(clonedMessages),
+    subagents: [],
     files: clonedFiles,
     filesIndexById: buildFilesIndex(clonedFiles),
     isRunning,
@@ -260,6 +372,21 @@ function cloneMessages(messages: ThreadMessage[]): ThreadMessage[] {
       function: { ...toolCall.function },
     })),
   }));
+}
+
+/**
+ * The activity spec asks a consumer to warn and skip an event it cannot apply,
+ * so a malformed stream is diagnosable instead of silently losing progress.
+ */
+function warnSkippedActivity(
+  eventType: string,
+  reason: string,
+  messageId?: string,
+): void {
+  console.warn(
+    `[thread-store] ${eventType} skipped: ${reason}`,
+    messageId === undefined ? undefined : { messageId },
+  );
 }
 
 function buildMessagesIndex(messages: ThreadMessage[]): Record<string, number> {
@@ -357,6 +484,7 @@ function messagesShallowEqual(a: ThreadMessage[], b: ThreadMessage[]): boolean {
       left.isError !== right.isError ||
       left.subtype !== right.subtype ||
       left.toolCallId !== right.toolCallId ||
+      left.subagentRunId !== right.subagentRunId ||
       left.attachments !== right.attachments
     ) {
       return false;
@@ -388,9 +516,15 @@ export const useThreadStore = create<ThreadStore>()(
         const files = options?.files ?? previous?.files ?? [];
         const clonedMessages = cloneMessages(messages);
         const clonedFiles = cloneFiles(files);
+        const subagents = (options?.subagents ?? previous?.subagents ?? []).map(
+          (subagent) => ({ ...subagent }),
+        );
+        // A run that is no longer live cannot have a child still running.
+        if (!isRunning) closeRunningSubagents(subagents, Date.now());
         state.threads[taskId] = {
           messages: clonedMessages,
           messagesIndexById: buildMessagesIndex(clonedMessages),
+          subagents,
           files: clonedFiles,
           filesIndexById: buildFilesIndex(clonedFiles),
           isRunning,
@@ -465,6 +599,9 @@ export const useThreadStore = create<ThreadStore>()(
       set((state) => {
         const thread = ensureThread(state.threads, taskId);
         thread.isRunning = running;
+        // A thread that is not running has no running child, however the
+        // run ended (the provider reports it through here, not RUN_FINISHED).
+        if (!running) closeRunningSubagents(thread.subagents, Date.now());
         thread.lastAccessedAt = Date.now();
       }),
 
@@ -530,6 +667,7 @@ export const useThreadStore = create<ThreadStore>()(
           toolCallId: string,
           toolCallName?: string,
           parentMessageId?: string,
+          subagentRunId?: string,
         ): void => {
           const name = toolCallName ?? acc.toolNames[toolCallId] ?? 'tool';
           acc.toolNames[toolCallId] = name;
@@ -545,6 +683,9 @@ export const useThreadStore = create<ThreadStore>()(
                 'assistant',
               );
           acc.toolParentMsgId[toolCallId] = host.id;
+          if (subagentRunId && !host.subagentRunId) {
+            host.subagentRunId = subagentRunId;
+          }
 
           host.toolCalls = host.toolCalls ?? [];
           if (!host.toolCalls.some((tc) => tc.id === toolCallId)) {
@@ -575,10 +716,12 @@ export const useThreadStore = create<ThreadStore>()(
               break;
             }
             acc.textMessageId = event.messageId;
-            ensureMsg(
+            const started = ensureMsg(
               event.messageId,
               (event.role as ThreadMessage['role']) ?? 'assistant',
             );
+            if (event.subagentRunId)
+              started.subagentRunId = event.subagentRunId;
             break;
           }
 
@@ -610,7 +753,9 @@ export const useThreadStore = create<ThreadStore>()(
               break;
             }
             acc.reasoningMessageId = id;
-            ensureMsg(id, 'reasoning');
+            const started = ensureMsg(id, 'reasoning');
+            if (event.subagentRunId)
+              started.subagentRunId = event.subagentRunId;
             break;
           }
 
@@ -623,6 +768,7 @@ export const useThreadStore = create<ThreadStore>()(
             }
             const msg = ensureMsg(id, 'reasoning');
             msg.content = (msg.content ?? '') + event.delta;
+            if (event.subagentRunId) msg.subagentRunId ??= event.subagentRunId;
             acc.reasoningMessageId ??= id;
             break;
           }
@@ -642,6 +788,7 @@ export const useThreadStore = create<ThreadStore>()(
               event.toolCallId,
               event.toolCallName,
               event.parentMessageId,
+              event.subagentRunId,
             );
             break;
           }
@@ -716,7 +863,7 @@ export const useThreadStore = create<ThreadStore>()(
               completedTool.final = true;
               completedTool.toolState = createCompleteToolCallState(
                 completedTool.function.arguments,
-                event.content ?? '',
+                typeof event.content === 'string' ? event.content : '',
               );
             }
             const resultId =
@@ -729,8 +876,258 @@ export const useThreadStore = create<ThreadStore>()(
               id: resultId,
               role: 'tool',
               toolCallId: event.toolCallId,
-              content: event.content ?? '',
+              content: typeof event.content === 'string' ? event.content : '',
+              ...(event.subagentRunId
+                ? { subagentRunId: event.subagentRunId }
+                : {}),
             });
+            break;
+          }
+
+          case EventType.SUBAGENT_STARTED: {
+            const id = event.subagentRunId;
+            if (!id || thread.subagents.some((a) => a.id === id)) {
+              mutated = false;
+              break;
+            }
+            thread.subagents.push({
+              id,
+              // The protocol leaves the name optional; the UI shows its
+              // localized default for an empty one.
+              name: event.name ?? '',
+              status: 'running',
+              startedAt: event.timestamp ?? Date.now(),
+              ...(event.description === undefined
+                ? {}
+                : { description: event.description }),
+              ...(event.parentSubagentRunId
+                ? { parentSubagentRunId: event.parentSubagentRunId }
+                : {}),
+              ...(event.parentToolCallId
+                ? { parentToolCallId: event.parentToolCallId }
+                : {}),
+            });
+            break;
+          }
+
+          case EventType.SUBAGENT_FINISHED:
+          case EventType.SUBAGENT_ERROR: {
+            const subagent = thread.subagents.find(
+              (a) => a.id === event.subagentRunId,
+            );
+            if (!subagent) {
+              mutated = false;
+              break;
+            }
+            subagent.endedAt = event.timestamp ?? Date.now();
+            if (event.type === EventType.SUBAGENT_FINISHED) {
+              // A suspended segment ended awaiting a decision: the invocation
+              // may continue in a later run, so it is not a completion.
+              subagent.status =
+                event.outcome?.type === 'suspended' ? 'suspended' : 'completed';
+              if (event.outcome?.type === 'suspended') {
+                subagent.interruptIds = event.outcome.interruptIds;
+              } else {
+                delete subagent.interruptIds;
+              }
+              if (typeof event.result === 'string')
+                subagent.result = event.result;
+            } else {
+              subagent.status = 'error';
+              subagent.error = {
+                message: event.message ?? '',
+                ...(event.code ? { code: event.code } : {}),
+              };
+            }
+            break;
+          }
+
+          case EventType.ACTIVITY_SNAPSHOT: {
+            const id = event.messageId;
+            const activityType = event.activityType;
+            const content = event.content;
+            if (!id) {
+              warnSkippedActivity('ACTIVITY_SNAPSHOT', 'missing messageId');
+              mutated = false;
+              break;
+            }
+            if (activityType !== 'plan' && activityType !== 'status') {
+              warnSkippedActivity(
+                'ACTIVITY_SNAPSHOT',
+                `unsupported activity type '${String(activityType)}'`,
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (
+              !content ||
+              typeof content !== 'object' ||
+              Array.isArray(content)
+            ) {
+              warnSkippedActivity(
+                'ACTIVITY_SNAPSHOT',
+                'content is not an object',
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            const existing = findMsg(id);
+            // `replace: false` means leave an existing activity untouched; it
+            // never means shallow merge. A colliding conversation message is
+            // not converted into an activity.
+            if (existing) {
+              if (event.replace === false) {
+                mutated = false;
+                break;
+              }
+              if (
+                existing.role !== 'activity' ||
+                existing.activityType !== activityType
+              ) {
+                warnSkippedActivity(
+                  'ACTIVITY_SNAPSHOT',
+                  existing.role !== 'activity'
+                    ? 'message id already belongs to a conversation message'
+                    : `activity type changed from '${existing.activityType}'`,
+                  id,
+                );
+                mutated = false;
+                break;
+              }
+              existing.content = jsonClone(content);
+              existing.subagentRunId ??= event.subagentRunId;
+            } else {
+              pushMessage(thread, {
+                id,
+                role: 'activity',
+                activityType,
+                content: jsonClone(content),
+                ...(event.subagentRunId
+                  ? { subagentRunId: event.subagentRunId }
+                  : {}),
+              });
+            }
+            break;
+          }
+
+          case EventType.ACTIVITY_DELTA: {
+            const id = event.messageId;
+            const activityType = event.activityType;
+            const existing = id ? findMsg(id) : undefined;
+            if (!id) {
+              warnSkippedActivity('ACTIVITY_DELTA', 'missing messageId');
+              mutated = false;
+              break;
+            }
+            if (activityType !== 'plan' && activityType !== 'status') {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                `unsupported activity type '${String(activityType)}'`,
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (!existing) {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                'no message with that id',
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (existing.role !== 'activity') {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                'message is not an activity',
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (existing.activityType !== activityType) {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                `activity type '${activityType}' does not match the widget`,
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (!existing.content || typeof existing.content !== 'object') {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                'content is not an object',
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            const patched = applyActivityPatch(existing.content, event.patch);
+            if (!patched) {
+              warnSkippedActivity('ACTIVITY_DELTA', 'malformed patch', id);
+              mutated = false;
+              break;
+            }
+            existing.content = patched;
+            existing.subagentRunId ??= event.subagentRunId;
+            break;
+          }
+
+          case EventType.MESSAGES_SNAPSHOT: {
+            if (!Array.isArray(event.messages)) {
+              mutated = false;
+              break;
+            }
+            const snapshot: ThreadMessage[] = [];
+            for (const raw of event.messages) {
+              if (!raw || typeof raw !== 'object') continue;
+              const role = raw.role;
+              const id = raw.id;
+              if (typeof id !== 'string') continue;
+              if (role === 'activity') {
+                const activityType = raw.activityType;
+                const content = raw.content;
+                if (
+                  (activityType !== 'plan' && activityType !== 'status') ||
+                  !content ||
+                  typeof content !== 'object' ||
+                  Array.isArray(content)
+                )
+                  continue;
+                snapshot.push({
+                  id,
+                  role: 'activity',
+                  activityType,
+                  content: jsonClone(content as Record<string, unknown>),
+                  ...(typeof raw.subagentRunId === 'string'
+                    ? { subagentRunId: raw.subagentRunId }
+                    : {}),
+                });
+              } else if (
+                role === 'user' ||
+                role === 'assistant' ||
+                role === 'tool' ||
+                role === 'reasoning'
+              ) {
+                snapshot.push({
+                  ...raw,
+                  id,
+                  role,
+                  ...(typeof raw.content === 'string'
+                    ? { content: raw.content }
+                    : {}),
+                } as ThreadMessage);
+              }
+            }
+            const clonedMessages = cloneMessages(snapshot);
+            thread.messages = clonedMessages;
+            thread.messagesIndexById = buildMessagesIndex(clonedMessages);
+            thread.lastAppliedSeq = event.seq ?? thread.lastAppliedSeq;
+            mutated = true;
             break;
           }
 
@@ -742,26 +1139,32 @@ export const useThreadStore = create<ThreadStore>()(
 
           case EventType.RUN_FINISHED: {
             thread.isRunning = false;
-            mutated = false;
+            // A stopped run ends with RUN_FINISHED, not RUN_ERROR, but its
+            // in-flight tool calls will never get a result either.
+            const cancelled = event.outcome?.type === 'cancelled';
+            const closedTools =
+              cancelled && closeOpenToolCalls(msgs, RUN_STOPPED_MESSAGE);
+            const closedSubagents = closeRunningSubagents(
+              thread.subagents,
+              Date.now(),
+              event.outcome?.type === 'interrupt' ? 'suspended' : 'error',
+              cancelled
+                ? { message: RUN_STOPPED_MESSAGE, code: STOPPED_CODE }
+                : undefined,
+            );
+            mutated = closedTools || closedSubagents;
             break;
           }
 
           case EventType.RUN_ERROR: {
             const errorId =
               event.messageId ?? `run-error-${event.seq ?? randomUUID()}`;
-            const message = event.message ?? event.content ?? 'Unknown error';
-            for (const msg of msgs) {
-              for (const toolCall of msg.toolCalls ?? []) {
-                if (!toolCall.final) {
-                  toolCall.toolStage = 'error';
-                  toolCall.toolState = createErrorToolCallState(
-                    toolCall.function.arguments,
-                    message,
-                  );
-                  toolCall.final = true;
-                }
-              }
-            }
+            const message =
+              event.message ??
+              (typeof event.content === 'string' ? event.content : undefined) ??
+              'Unknown error';
+            closeOpenToolCalls(msgs, message);
+            closeRunningSubagents(thread.subagents, Date.now());
             if (!findMsg(errorId)) {
               pushMessage(thread, {
                 id: errorId,
