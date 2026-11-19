@@ -201,7 +201,14 @@ records that own each decision, so a reload or task switch rebuilds the cards.
 Expired questions are left out; an expired or restarted permission has no
 in-memory wait and answers with `409 continuation_unavailable`. Unknown,
 already-resolved, wrong-thread, and schema-invalid entries are rejected before
-any entry in the batch is applied.
+any entry in the batch is applied, and one batch cannot mix a question with a
+different decision kind.
+
+The pre-AG-UI `POST /agent/questions/:id/answer` endpoint remains for the
+legacy chat consumer. It settles the same `agent_questions` row, so whichever
+surface answers first wins and the other sees `409`. It is removed when the
+legacy chat path is deleted; until then both paths must keep the same
+pending-only rule.
 
 A run that pauses at a permission keeps the adapter alive but ends its streamed
 run: the root run is finalized `completed` with `completeness: 'unfinished'` and
