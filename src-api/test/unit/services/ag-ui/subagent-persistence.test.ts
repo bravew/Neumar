@@ -17,6 +17,7 @@ import {
   searchMessages,
 } from '@/shared/db/operations';
 import { AGUIEmitter } from '@/shared/services/ag-ui/emitter';
+import type { AGUIRunContext } from '@/shared/services/ag-ui/emitter';
 import {
   dbMessagesToFullAGUI,
   dbMessagesToSubagents,
@@ -29,8 +30,11 @@ const TASK_ID = 'task-subagent-persistence';
 
 let tempHome = '';
 
-async function emit(messages: AgentMessage[]): Promise<BaseEvent[]> {
-  const emitter = new AGUIEmitter('thread-1', 'run-1');
+async function emit(
+  messages: AgentMessage[],
+  context?: AGUIRunContext,
+): Promise<BaseEvent[]> {
+  const emitter = new AGUIEmitter('thread-1', 'run-1', context);
   async function* source() {
     yield* messages;
   }
@@ -40,14 +44,15 @@ async function emit(messages: AgentMessage[]): Promise<BaseEvent[]> {
 }
 
 /** Runs real emitter output through the persister, as the detached pipeline does. */
-async function persist(messages: AgentMessage[]) {
+async function persist(messages: AgentMessage[], context?: AGUIRunContext) {
   const persister = new AGUIEventPersister(
     TASK_ID,
     'run-1',
     tempHome,
     path.join(tempHome, 'session'),
   );
-  for (const event of await emit(messages)) persister.handleEvent(event);
+  for (const event of await emit(messages, context))
+    persister.handleEvent(event);
   return getMessagesByTaskId(TASK_ID);
 }
 
@@ -189,6 +194,53 @@ describe('sub-agent persistence and history replay', () => {
         status: 'error',
         error: expect.objectContaining({ code: 'run_ended' }),
       }),
+    ]);
+  });
+
+  it('records a child suspended when the run ends on a decision', async () => {
+    const rows = await persist(
+      [
+        {
+          type: 'subagent_started',
+          subagentRunId: 'task-a',
+          subagentName: 'Scan',
+        },
+        { type: 'text', content: 'working', subagentRunId: 'task-a' },
+        {
+          type: 'plan',
+          plan: {
+            id: 'plan-1',
+            goal: 'g',
+            steps: [],
+            createdAt: new Date(),
+          },
+        },
+      ],
+      { planInterrupt: true },
+    );
+
+    expect(dbMessagesToSubagents(rows)).toEqual([
+      expect.objectContaining({ id: 'task-a', status: 'suspended' }),
+    ]);
+  });
+
+  it('records a suspension the child reported itself', async () => {
+    const rows = await persist([
+      {
+        type: 'subagent_started',
+        subagentRunId: 'task-a',
+        subagentName: 'Scan',
+      },
+      {
+        type: 'subagent_finished',
+        subagentRunId: 'task-a',
+        subagentOutcome: 'suspended',
+        interruptIds: ['permission:p1'],
+      },
+    ]);
+
+    expect(dbMessagesToSubagents(rows)).toEqual([
+      expect.objectContaining({ id: 'task-a', status: 'suspended' }),
     ]);
   });
 

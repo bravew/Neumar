@@ -63,7 +63,7 @@ export interface ThreadSubagent {
   description?: string;
   parentSubagentRunId?: string;
   parentToolCallId?: string;
-  status: 'running' | 'completed' | 'error';
+  status: 'running' | 'completed' | 'suspended' | 'error';
   result?: string;
   error?: { message: string; code?: string };
   startedAt?: number;
@@ -196,8 +196,17 @@ export interface AGUIStreamEvent {
   patch?: unknown;
   /** MESSAGES_SNAPSHOT */
   messages?: ThreadMessage[];
-  /** RUN_FINISHED: why the run ended; absent means success. */
-  outcome?: { type?: string };
+  /**
+   * RUN_FINISHED: why the run ended; absent means success. A suspended
+   * SUBAGENT_FINISHED carries the same shape and names the decisions it waits on.
+   */
+  outcome?: {
+    type?: string;
+    /** RUN_FINISHED with type 'interrupt': the decisions still open. */
+    interrupts?: unknown[];
+    /** SUBAGENT_FINISHED with type 'suspended'. */
+    interruptIds?: string[];
+  };
   timestamp?: number;
   /** Set on a sub-agent's own events, and on SUBAGENT_* lifecycle events. */
   subagentRunId?: string;
@@ -222,19 +231,24 @@ const RUN_ENDED_CODE = 'run_ended';
  * Ends a sub-agent that is still running. The server closes every child before
  * a run ends, so this only covers a run that ended without that (a dropped
  * stream, a crashed process). It is shown as ended early, never as completed.
+ * A run that ended awaiting a decision suspends its children instead: the work
+ * may continue once the decision is answered.
  */
 function closeRunningSubagents(
   subagents: ThreadSubagent[],
   endedAt: number,
+  status: 'error' | 'suspended' = 'error',
 ): boolean {
   let changed = false;
   for (const subagent of subagents) {
     if (subagent.status !== 'running') continue;
-    subagent.status = 'error';
-    subagent.error = {
-      message: 'Run ended before the sub-agent finished',
-      code: RUN_ENDED_CODE,
-    };
+    subagent.status = status;
+    if (status === 'error') {
+      subagent.error = {
+        message: 'Run ended before the sub-agent finished',
+        code: RUN_ENDED_CODE,
+      };
+    }
     subagent.endedAt = endedAt;
     changed = true;
   }
@@ -883,7 +897,10 @@ export const useThreadStore = create<ThreadStore>()(
             }
             subagent.endedAt = event.timestamp ?? Date.now();
             if (event.type === EventType.SUBAGENT_FINISHED) {
-              subagent.status = 'completed';
+              // A suspended segment ended awaiting a decision: the invocation
+              // may continue in a later run, so it is not a completion.
+              subagent.status =
+                event.outcome?.type === 'suspended' ? 'suspended' : 'completed';
               if (typeof event.result === 'string')
                 subagent.result = event.result;
             } else {
@@ -1035,6 +1052,7 @@ export const useThreadStore = create<ThreadStore>()(
             const closedSubagents = closeRunningSubagents(
               thread.subagents,
               Date.now(),
+              event.outcome?.type === 'interrupt' ? 'suspended' : 'error',
             );
             mutated = closedTools || closedSubagents;
             break;

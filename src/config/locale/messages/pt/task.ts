@@ -456,6 +456,8 @@ export default {
   permissionMcpServer: 'Servidor MCP',
   permissionDefaultToNoHint:
     'Revise com atenção: esta solicitação é negada por padrão.',
+  permissionFromSubAgent: 'Solicitado por {name}',
+  permissionFromUnknownSubAgent: 'Solicitado por um subagente',
   permissionDeniedLabel: 'Negado',
   approvalWhat: 'O quê',
   approvalWhere: 'Onde',
@@ -489,6 +491,7 @@ export default {
   rewindError: 'Não foi possível reverter os arquivos.',
   subAgentRunning: 'Em execução',
   subAgentCompleted: 'Concluído',
+  subAgentSuspended: 'Aguardando resposta',
   subAgentFailed: 'Falhou',
   subAgentCancelled: 'Cancelado',
   subAgentsCount: 'Sub-agentes ({count})',

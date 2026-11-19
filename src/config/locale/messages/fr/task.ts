@@ -448,6 +448,8 @@ export default {
   permissionMcpServer: 'Serveur MCP',
   permissionDefaultToNoHint:
     'Vérifiez attentivement : cette demande est refusée par défaut.',
+  permissionFromSubAgent: 'Demandé par {name}',
+  permissionFromUnknownSubAgent: 'Demandé par un sous-agent',
   permissionDeniedLabel: 'Refusé',
   approvalWhat: 'Quoi',
   approvalWhere: 'Où',
@@ -479,6 +481,7 @@ export default {
   rewindError: 'Impossible de restaurer les fichiers.',
   subAgentRunning: 'En cours',
   subAgentCompleted: 'Terminé',
+  subAgentSuspended: 'En attente de réponse',
   subAgentFailed: 'Échoué',
   subAgentCancelled: 'Annulé',
   subAgentsCount: 'Sous-agents ({count})',

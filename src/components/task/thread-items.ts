@@ -43,14 +43,22 @@ export function injectBranchNav(
 export function appendPermissionItems(
   items: GroupedItem[],
   requests: PermissionRequestState[],
+  subAgents: ReadonlyArray<{ id: string; name: string }> = [],
 ): GroupedItem[] {
   if (requests.length === 0) return items;
+  const nameById = new Map(subAgents.map((agent) => [agent.id, agent.name]));
   return [
     ...items,
-    ...requests.map((permission) => ({
-      type: 'permission' as const,
-      key: `permission-${permission.id}`,
-      permission,
-    })),
+    ...requests.map((permission) => {
+      const ownerName = permission.agent_id
+        ? nameById.get(permission.agent_id)
+        : undefined;
+      return {
+        type: 'permission' as const,
+        key: `permission-${permission.id}`,
+        permission,
+        ...(ownerName ? { ownerName } : {}),
+      };
+    }),
   ];
 }

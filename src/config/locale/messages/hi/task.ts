@@ -451,6 +451,8 @@ export default {
   permissionMcpServer: 'MCP सर्वर',
   permissionDefaultToNoHint:
     'ध्यान से समीक्षा करें: यह अनुरोध डिफ़ॉल्ट रूप से अस्वीकार होता है।',
+  permissionFromSubAgent: '{name} द्वारा अनुरोधित',
+  permissionFromUnknownSubAgent: 'किसी सब-एजेंट द्वारा अनुरोधित',
   permissionDeniedLabel: 'अस्वीकृत',
   approvalWhat: 'क्या',
   approvalWhere: 'कहाँ',
@@ -482,6 +484,7 @@ export default {
   rewindError: 'फ़ाइलें वापस नहीं लाई जा सकीं।',
   subAgentRunning: 'चल रहा है',
   subAgentCompleted: 'पूर्ण',
+  subAgentSuspended: 'इनपुट की प्रतीक्षा',
   subAgentFailed: 'विफल',
   subAgentCancelled: 'रद्द किया गया',
   subAgentsCount: 'उप-एजेंट ({count})',

@@ -13,6 +13,8 @@ export interface PermissionRequest {
   suppress_always_allow_rule?: boolean;
   /** MCP server serving the tool; its name is untrusted display text. */
   mcp_server?: { name: string; source: string };
+  /** Sub-agent invocation that asked, when a child tool needs approval. */
+  agent_id?: string;
 }
 
 // Question types for AskUserQuestion tool

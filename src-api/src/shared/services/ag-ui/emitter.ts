@@ -311,14 +311,30 @@ export class AGUIEmitter {
     }
     this.activeToolCalls.clear();
     // Close sub-agent invocations the SDK never reported finished, so RUN_FINISHED
-    // is not rejected while they are open. They end as errors: a missing
+    // is not rejected while they are open. A child whose segment ends at a
+    // decision is suspended, not failed: a later run may continue it once the
+    // interrupts are answered. Any other ending is an error, because a missing
     // notification is not evidence the delegated work completed.
+    const suspended = this.outcome()?.type === 'interrupt';
+    const interruptIds = suspended
+      ? this.pendingInterrupts.map((interrupt) => interrupt.id)
+      : [];
     for (const subagentRunId of this.openSubagents) {
-      yield this.event<SubagentErrorEvent>(EventType.SUBAGENT_ERROR, {
-        subagentRunId,
-        message: 'Sub-agent did not report completion',
-        code: 'run_ended',
-      });
+      if (suspended) {
+        yield this.event<SubagentFinishedEvent>(EventType.SUBAGENT_FINISHED, {
+          subagentRunId,
+          outcome: {
+            type: 'suspended',
+            ...(interruptIds.length > 0 ? { interruptIds } : {}),
+          },
+        });
+      } else {
+        yield this.event<SubagentErrorEvent>(EventType.SUBAGENT_ERROR, {
+          subagentRunId,
+          message: 'Sub-agent did not report completion',
+          code: 'run_ended',
+        });
+      }
     }
     this.openSubagents.clear();
     // Close any still-active STEPs before RUN_FINISHED. The AG-UI verifier
@@ -663,6 +679,12 @@ export class AGUIEmitter {
             ? { ...msg.plan, _runId: this.runId }
             : { _runId: this.runId },
         });
+        if (msg.plan?.id) {
+          yield* this.planActivity(
+            msg.plan,
+            this.context?.planInterrupt ? 'awaiting_approval' : 'running',
+          );
+        }
         if (this.context?.planInterrupt) {
           const plan = msg.plan;
           if (!plan?.id) {

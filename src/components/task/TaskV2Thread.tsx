@@ -34,6 +34,7 @@ import {
   appendPermissionItems,
   injectBranchNav,
 } from '@/components/task/thread-items';
+import { VIRTUOSO_COMPONENTS } from '@/components/task/virtuosoComponents';
 import { createMessage } from '@/shared/db';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
 import { useAgentActions } from '@/shared/hooks/useAgentActions';
@@ -386,7 +387,7 @@ export function TaskV2Thread({
           injectBranchNav(items, branchState),
           allArtifacts,
         );
-    return appendPermissionItems(listed, permissionRequests);
+    return appendPermissionItems(listed, permissionRequests, subAgents);
   }, [
     messages,
     pendingPlan,
@@ -394,6 +395,7 @@ export function TaskV2Thread({
     branchState,
     allArtifacts,
     permissionRequests,
+    subAgents,
   ]);
 
   const queuedEditRef = useRef<string | null>(null);
@@ -613,12 +615,3 @@ function VirtuosoMessageList({
     </div>
   );
 }
-
-// Module-level Virtuoso components — inline objects break memoization
-const VIRTUOSO_COMPONENTS = {
-  Item: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div {...props} className="mx-auto max-w-4xl px-4">
-      {children}
-    </div>
-  ),
-};

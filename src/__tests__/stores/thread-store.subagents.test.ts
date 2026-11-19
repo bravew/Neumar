@@ -172,6 +172,43 @@ describe('thread-store sub-agent lifecycle', () => {
 
     expect(thread().subagents[0]?.status).toBe('error');
   });
+
+  it('marks a child suspended when its run ends on a decision', () => {
+    apply(
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+        name: 'Scan',
+      },
+      {
+        type: EventType.RUN_FINISHED,
+        outcome: {
+          type: 'interrupt',
+          interrupts: [{ id: 'permission:p1', reason: 'tool_permission' }],
+        },
+      },
+    );
+
+    expect(thread().subagents[0]).toMatchObject({ status: 'suspended' });
+    expect(thread().subagents[0]?.error).toBeUndefined();
+  });
+
+  it('records a suspension the child reported itself', () => {
+    apply(
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+        name: 'Scan',
+      },
+      {
+        type: EventType.SUBAGENT_FINISHED,
+        subagentRunId: 'task-a',
+        outcome: { type: 'suspended', interruptIds: ['permission:p1'] },
+      },
+    );
+
+    expect(thread().subagents[0]?.status).toBe('suspended');
+  });
 });
 
 describe('thread-store unnamed sub-agent', () => {
