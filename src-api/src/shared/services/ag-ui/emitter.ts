@@ -783,8 +783,11 @@ export class AGUIEmitter {
           if (!plan?.id) {
             // Without an id there is no durable record to approve, so an
             // interrupt would be unanswerable. Fail instead of emitting one.
+            // An earlier plan in this run may have opened a widget awaiting
+            // approval; the run fails, so that approval can never be given.
             this.terminated = true;
             yield* this.endPlanningActivity('failed');
+            yield* this.endPlanActivity('failed');
             yield* this.closeOpenBlocks(false);
             yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
               message:

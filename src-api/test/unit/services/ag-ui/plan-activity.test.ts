@@ -167,6 +167,24 @@ describe('the plan checklist as a standard AG-UI activity', () => {
     });
   });
 
+  it('settles an earlier plan when a later plan has no id', async () => {
+    const events = await collect(
+      [
+        { type: 'plan', plan: PLAN },
+        { type: 'plan', plan: { ...PLAN, id: '' } },
+      ],
+      { planInterrupt: true },
+    );
+
+    // The run fails, so the widget the first plan opened must not stay
+    // awaiting an approval that can no longer be given.
+    expect(planPhases(events)).toEqual(['awaiting_approval', 'failed']);
+    expect(events.at(-1)).toMatchObject({
+      type: EventType.RUN_ERROR,
+      code: 'INVALID_PLAN',
+    });
+  });
+
   it('settles the plan a paused run left open when the continuation ends', async () => {
     // A permission continuation runs on a new emitter, which does not re-emit
     // the plan; it starts from the id the paused run kept open.
