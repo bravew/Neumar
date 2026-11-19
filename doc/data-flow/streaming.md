@@ -194,7 +194,7 @@ next `POST /ag-ui/run`.
 | --- | --- | --- | --- |
 | Plan approval | `plan:<orchestration run id>` | `orchestration_runs` row in `pending` | `{ approved: boolean }`; `cancelled` rejects |
 | Tool permission | `permission:<request id>` | In-memory wait the adapter is blocked on | `{ approved: boolean, alwaysAllow?: boolean }` |
-| Agent question | `question:<agent_questions id>` | `agent_questions` row in `pending` | `{ answer: string }`; `cancelled` settles the row without a turn |
+| Agent question | `question:<agent_questions id>` | `agent_questions` row in `pending` | `{ answers: Record<question, answer> }` (optionally with `response`); `cancelled` settles the row without a turn |
 
 `GET /ag-ui/interrupts/:taskId` lists what the task still waits on, from the
 records that own each decision, so a reload or task switch rebuilds the cards.
@@ -209,6 +209,15 @@ legacy chat consumer. It settles the same `agent_questions` row, so whichever
 surface answers first wins and the other sees `409`. It is removed when the
 legacy chat path is deleted; until then both paths must keep the same
 pending-only rule.
+
+A V2 question can appear in two places: the inline `AskUserQuestion` card in
+the transcript and the panel built from `GET /ag-ui/interrupts/:taskId`. Both
+read one `useQuestionInterrupts` state (`QuestionInterruptsProvider`). The
+interrupt metadata carries the asking `toolUseId`, so the inline card answers
+the record through `question:<id>` when one exists, and the panel skips a
+question whose inline card is live. A question with no record keeps the plain
+message path. A card answered as a plain message leaves the record in the
+panel, so the row can still be settled.
 
 A run that pauses at a permission keeps the adapter alive but ends its streamed
 run: the root run is finalized `completed` with `completeness: 'unfinished'` and

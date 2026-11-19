@@ -27,6 +27,8 @@ export interface OpenQuestion {
   questions: AgentQuestion[];
   /** The sub-agent invocation that asked, when a child owns the question. */
   subagentRunId?: string;
+  /** The `AskUserQuestion` tool call that asked, when the transcript has one. */
+  toolUseId?: string;
 }
 
 /** The part of the AG-UI agent this hook needs to continue with an answer. */
@@ -60,6 +62,7 @@ function questionFromInterrupt(interrupt: Interrupt): OpenQuestion[] {
             kind?: string;
             questions?: unknown;
             subagentRunId?: unknown;
+            toolUseId?: unknown;
           };
         }
       | undefined
@@ -73,6 +76,9 @@ function questionFromInterrupt(interrupt: Interrupt): OpenQuestion[] {
           questions,
           ...(typeof decision.subagentRunId === 'string'
             ? { subagentRunId: decision.subagentRunId }
+            : {}),
+          ...(typeof decision.toolUseId === 'string'
+            ? { toolUseId: decision.toolUseId }
             : {}),
         },
       ]
@@ -237,7 +243,7 @@ export function useQuestionInterrupts(
       if (!text) return Promise.resolve();
       return resume(
         interruptId,
-        { status: 'resolved', payload: { answer: text } },
+        { status: 'resolved', payload: { answers } },
         text,
       );
     },

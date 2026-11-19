@@ -1,16 +1,11 @@
 import { useCallback } from 'react';
 
 import { InlineQuestionCard } from '@/components/task/InlineQuestionCard';
-import type { AgentQuestion } from '@/shared/hooks/agent-types';
-import { normalizeAgentQuestions } from '@/shared/questions/question-policy';
+import { formatQuestionAnswer } from '@/shared/hooks/useQuestionInterrupts';
 
+import { parseAskUserQuestion } from './ask-user-question';
+import { useQuestionInterruptsContext } from './QuestionInterruptsProvider';
 import type { AGUIMessage, AGUIToolCall } from './TaskV2MessageBubble.types';
-import { getToolArgs } from './TaskV2MessageBubble.types';
-
-/** Parse AskUserQuestion tool args into AgentQuestion[] */
-function parseQuestions(tc: AGUIToolCall): AgentQuestion[] {
-  return normalizeAgentQuestions(getToolArgs(tc));
-}
 
 export function AskUserQuestionCard({
   tc,
@@ -21,26 +16,38 @@ export function AskUserQuestionCard({
   allMessages: AGUIMessage[];
   onSendMessage?: (text: string) => void;
 }) {
-  const questions = parseQuestions(tc);
+  const questions = parseAskUserQuestion(tc);
 
   // Check if user already answered (a user message follows the assistant message containing this tool call)
   const toolCallMsgIdx = allMessages.findIndex(
     (m) => m.role === 'assistant' && m.toolCalls?.some((t) => t.id === tc.id),
   );
-  const nextUserMsg = allMessages
-    .slice(toolCallMsgIdx + 1)
-    .find((m) => m.role === 'user');
+  const nextUserMsg =
+    toolCallMsgIdx >= 0
+      ? allMessages.slice(toolCallMsgIdx + 1).find((m) => m.role === 'user')
+      : undefined;
   const answered = !!nextUserMsg;
+
+  // When the backend holds a record for this call, the card answers that
+  // record and resumes the run. Without one, it stays a plain message, the
+  // same as a transcript whose question was never recorded.
+  const state = useQuestionInterruptsContext();
+  const openQuestion = state?.openQuestions.find(
+    (question) => question.toolUseId === tc.id,
+  );
+  const interruptId = openQuestion?.interruptId;
+  const answer = state?.answer;
 
   const handleSubmit = useCallback(
     (answers: Record<string, string>) => {
+      if (interruptId && answer) {
+        void answer(interruptId, answers);
+        return;
+      }
       if (!onSendMessage) return;
-      const text = Object.entries(answers)
-        .map(([q, a]) => `${q} → ${a}`)
-        .join('\n');
-      onSendMessage(text);
+      onSendMessage(formatQuestionAnswer(answers));
     },
-    [onSendMessage],
+    [answer, interruptId, onSendMessage],
   );
 
   if (questions.length === 0) return null;

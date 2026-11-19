@@ -1,50 +1,36 @@
 import { QuestionFormCard } from '@/components/shared/chat-panel';
-import {
-  type QuestionAgent,
-  type QuestionInterruptContext,
-  useQuestionInterrupts,
-} from '@/shared/hooks/useQuestionInterrupts';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { useThreadStore } from '@/shared/stores/thread-store';
 
-interface QuestionInterruptPanelProps {
-  taskId: string | undefined;
-  isRunning: boolean;
-  agent: QuestionAgent;
-  context?: QuestionInterruptContext;
-}
+import { useQuestionInterruptsContext } from './QuestionInterruptsProvider';
 
 /**
  * Questions the agent asked in a turn that has ended. The answer continues the
  * run through the standard `resume` entry; `Cancel` ends the question without
  * an answer. Both are bound to the question's interrupt id, so a stale card
  * cannot answer a different question.
+ *
+ * Reads the shared question state, so a question whose inline card is live is
+ * not offered twice. It renders nothing outside `QuestionInterruptsProvider`.
  */
-export function QuestionInterruptPanel({
-  taskId,
-  isRunning,
-  agent,
-  context,
-}: QuestionInterruptPanelProps) {
+export function QuestionInterruptPanel() {
   const { t } = useLanguage();
+  const state = useQuestionInterruptsContext();
+  const taskId = state?.taskId;
   const subagents = useThreadStore((s) =>
     taskId ? s.threads[taskId]?.subagents : undefined,
   );
-  const { openQuestions, answering, answer, dismiss } = useQuestionInterrupts(
-    taskId,
-    isRunning,
-    agent,
-    context,
-  );
 
-  if (openQuestions.length === 0) return null;
+  if (!state) return null;
+  const { panelQuestions, answering, answer, dismiss } = state;
+  if (panelQuestions.length === 0) return null;
 
   // Bounded and scrollable: the panel sits in a fixed-height thread column, so
   // four questions must scroll rather than push the composer off-screen.
   return (
     <div className="mx-auto max-h-[45vh] max-w-4xl overflow-y-auto px-4">
-      {openQuestions.map((open) => {
+      {panelQuestions.map((open) => {
         const owner = open.subagentRunId
           ? (subagents?.find((agent) => agent.id === open.subagentRunId)
               ?.name ?? open.subagentRunId.slice(0, 8))

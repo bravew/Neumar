@@ -123,7 +123,11 @@ describe('listOpenInterrupts', () => {
       'toolu_child',
     );
     expect(question?.metadata).toMatchObject({
-      decision: { kind: 'question', subagentRunId: 'task-child' },
+      decision: {
+        kind: 'question',
+        subagentRunId: 'task-child',
+        toolUseId: 'toolu_child',
+      },
     });
     // The answer still binds to the question record, not the child.
     expect(question?.id).toBe('question:q1');

@@ -222,6 +222,12 @@ export interface QuestionDecisionMetadata {
    * answer still binds to the question record, never to the child.
    */
   subagentRunId?: string;
+  /**
+   * The `AskUserQuestion` tool call that asked, when the transcript has one.
+   * A client uses it to bind the inline card to this record, so the card
+   * answers the row instead of sending an unrelated message.
+   */
+  toolUseId?: string;
   expiresAt?: string;
 }
 
@@ -243,6 +249,7 @@ export function questionInterrupt(
     taskId: question.taskId,
     questions: question.questions,
     ...(subagentRunId ? { subagentRunId } : {}),
+    ...(question.toolUseId ? { toolUseId: question.toolUseId } : {}),
     ...(question.expiresAt ? { expiresAt: question.expiresAt } : {}),
   };
   return {

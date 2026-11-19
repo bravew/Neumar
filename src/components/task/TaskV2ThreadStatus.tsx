@@ -5,16 +5,9 @@ import {
   SubAgentPanel,
   type SubAgentState,
 } from '@/components/task/SubAgentPanel';
-import type {
-  QuestionAgent,
-  QuestionInterruptContext,
-} from '@/shared/hooks/useQuestionInterrupts';
 
 interface TaskV2ThreadStatusProps {
   taskId: string | undefined;
-  isRunning: boolean;
-  agent: QuestionAgent;
-  questionContext?: QuestionInterruptContext;
   subAgents: SubAgentState[];
   onCancelSubAgent: (id: string) => void;
   runError: string | null;
@@ -25,9 +18,6 @@ interface TaskV2ThreadStatusProps {
 /** Sub-agents, open questions, and errors: outside the virtualized list. */
 export function TaskV2ThreadStatus({
   taskId,
-  isRunning,
-  agent,
-  questionContext,
   subAgents,
   onCancelSubAgent,
   runError,
@@ -54,12 +44,7 @@ export function TaskV2ThreadStatus({
           )}
         </div>
       )}
-      <QuestionInterruptPanel
-        taskId={taskId}
-        isRunning={isRunning}
-        agent={agent}
-        context={questionContext}
-      />
+      <QuestionInterruptPanel />
     </>
   );
 }

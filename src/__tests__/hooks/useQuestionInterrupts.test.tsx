@@ -118,6 +118,29 @@ describe('useQuestionInterrupts', () => {
     );
   });
 
+  it('carries the tool call that asked through to the open question', async () => {
+    stubFetch([
+      {
+        ...interrupt,
+        metadata: {
+          decision: {
+            kind: 'question',
+            taskId: 'task-1',
+            questions: [question],
+            toolUseId: 'tool-1',
+          },
+        },
+      },
+    ]);
+    const { result } = mount(false);
+
+    await waitFor(() =>
+      expect(result.current.openQuestions).toMatchObject([
+        { interruptId: 'question:q-1', toolUseId: 'tool-1' },
+      ]),
+    );
+  });
+
   it('does not read open interrupts while a run is live', () => {
     const fetchMock = stubFetch([interrupt]);
     const { result } = mount(true);
@@ -144,7 +167,7 @@ describe('useQuestionInterrupts', () => {
         {
           interruptId: 'question:q-1',
           status: 'resolved',
-          payload: { answer: expected },
+          payload: { answers: { 'Which colour?': 'Blue' } },
         },
       ],
       forwardedProps: { taskId: 'task-1' },
@@ -278,7 +301,7 @@ describe('useQuestionInterrupts', () => {
         {
           interruptId: 'question:q-1',
           status: 'resolved',
-          payload: { answer: 'Which colour? → Blue' },
+          payload: { answers: { 'Which colour?': 'Blue' } },
         },
       ],
       forwardedProps: {
