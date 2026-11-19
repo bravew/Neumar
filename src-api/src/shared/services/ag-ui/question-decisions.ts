@@ -133,15 +133,34 @@ export function resolveQuestionResume(
  * point the continuation is accepted, so a run that is refused earlier leaves
  * the question open. Returns false when another request settled it first.
  */
+export type RecordAnswerResult =
+  | { ok: true }
+  | { ok: false; reason: 'expired' | 'settled'; message: string };
+
 export function answerQuestionOnce(
   questionId: string,
   answers: Record<string, string>,
-): boolean {
-  if (agentQuestionService.getQuestion(questionId)?.status !== 'pending') {
-    return false;
+  now: number = Date.now(),
+): RecordAnswerResult {
+  const row = agentQuestionService.getQuestion(questionId);
+  if (row?.status !== 'pending') {
+    return {
+      ok: false,
+      reason: 'settled',
+      message: 'This decision was already answered',
+    };
+  }
+  // Expiry was checked before the run context resolved; that work can outlast
+  // the question, so it is checked again where the write happens.
+  if (row.expires_at && Date.parse(row.expires_at) <= now) {
+    return {
+      ok: false,
+      reason: 'expired',
+      message: 'This question has expired',
+    };
   }
   agentQuestionService.answerQuestion(questionId, answers);
-  return true;
+  return { ok: true };
 }
 
 /** Cancels the question only while it is pending. False when already settled. */

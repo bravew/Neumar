@@ -32,6 +32,7 @@ import { getDatabase } from '@/shared/db/index';
 import {
   AgentRunConflictError,
   createFileSnapshot,
+  finishAgentRun,
   getAgentRun,
   getMessagesByBranch,
   getMessagesByTaskId,
@@ -1467,18 +1468,32 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
 
   // The answer is recorded only now that the run is accepted, so a refused
   // run leaves the question open. Check and write are one synchronous step.
-  if (
-    questionResume.kind === 'answer' &&
-    !answerQuestionOnce(questionResume.questionId, questionResume.answers)
-  ) {
-    return c.json(
-      {
-        error: 'This decision was already answered',
-        code: 'already_resolved',
-        interruptIds: [`question:${questionResume.questionId}`],
-      },
-      409,
+  if (questionResume.kind === 'answer') {
+    const recorded = answerQuestionOnce(
+      questionResume.questionId,
+      questionResume.answers,
     );
+    if (!recorded.ok) {
+      // This request created the reservation and no run will use it; leaving
+      // it `running` would hold the task until the next restart.
+      finishAgentRun({
+        id: reservation.run.id,
+        status: 'failed',
+        completeness: 'unfinished',
+        error: recorded.message,
+      });
+      return c.json(
+        {
+          error: recorded.message,
+          code:
+            recorded.reason === 'expired'
+              ? 'continuation_unavailable'
+              : 'already_resolved',
+          interruptIds: [`question:${questionResume.questionId}`],
+        },
+        409,
+      );
+    }
   }
 
   // Resolve workspace root early — needed for task INSERT and STATE_SNAPSHOT context

@@ -28,13 +28,30 @@ const agent = vi.hoisted(() => ({
   script: null as null | (() => AsyncGenerator<unknown>),
 }));
 
+/**
+ * Lets a test settle the question after the route has validated it and
+ * before the answer is recorded. The first read is validation; the second is
+ * the write.
+ */
+const race = vi.hoisted(() => ({
+  reads: 0,
+  beforeSecondRead: null as null | ((row: QuestionRow) => void),
+}));
+
 vi.mock('@/core/agent/questions', () => ({
   serializeAgentQuestion: (row: QuestionRow) => ({
     ...row,
     questions: JSON.parse(row.questions_json) as unknown[],
   }),
   agentQuestionService: {
-    getQuestion: (id: string) => questions.rows.get(id) ?? null,
+    getQuestion: (id: string) => {
+      const row = questions.rows.get(id) ?? null;
+      race.reads += 1;
+      if (race.reads === 2 && race.beforeSecondRead && row) {
+        race.beforeSecondRead(row);
+      }
+      return row;
+    },
     answerQuestion: (id: string, answer: unknown) => {
       const row = questions.rows.get(id);
       if (!row) return null;
@@ -93,6 +110,7 @@ vi.mock('@/shared/services/ag-ui/persistence', () => ({
 vi.mock('@/shared/db/operations', () => ({
   AgentRunConflictError: class AgentRunConflictError extends Error {},
   createFileSnapshot: vi.fn(),
+  finishAgentRun: vi.fn(),
   decideOrchestrationRun: vi.fn(),
   getAgentRun: vi.fn(),
   getFilesByTaskId: vi.fn().mockReturnValue([]),
@@ -108,7 +126,6 @@ vi.mock('@/shared/db/operations', () => ({
     disposition: 'created',
     run: { id: input.runId },
   })),
-  finishAgentRun: vi.fn(),
   updateOrchestrationRunPayload: vi.fn(),
   updateOrchestrationRunStatus: vi.fn(),
   updateTask: vi.fn(),
@@ -223,6 +240,8 @@ describe('AG-UI agent question resume', () => {
     agent.script = null;
     questions.rows.clear();
     db.run.mockClear();
+    race.reads = 0;
+    race.beforeSecondRead = null;
     vi.clearAllMocks();
   });
 
@@ -361,6 +380,7 @@ describe('AG-UI agent question resume', () => {
 
   it('refuses a question that was already answered', async () => {
     const { aguiRoutes } = await import('@/app/api/ag-ui');
+    const { finishAgentRun } = await import('@/shared/db/operations');
     pendingQuestion('task-q-done', { status: 'answered' });
 
     const res = await aguiRoutes.request(
@@ -369,6 +389,61 @@ describe('AG-UI agent question resume', () => {
 
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ code: 'already_resolved' });
+    // Refused before the run was reserved, so there is nothing to end.
+    expect(finishAgentRun).not.toHaveBeenCalled();
+  });
+
+  it('refuses a question answered while the run context resolves, and ends the reservation', async () => {
+    const { aguiRoutes } = await import('@/app/api/ag-ui');
+    const { finishAgentRun, reserveAgentRun } =
+      await import('@/shared/db/operations');
+    const { runAgent } = await import('@/shared/services/agent');
+    pendingQuestion('task-q-race');
+    race.beforeSecondRead = (row) => {
+      row.status = 'answered';
+    };
+
+    const res = await aguiRoutes.request(
+      answerRequest('task-q-race', 'run-race', { answer: 'Blue' }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: 'already_resolved' });
+    expect(runAgent).not.toHaveBeenCalled();
+    // The reservation this request created must not stay `running`.
+    const reservedId = vi.mocked(reserveAgentRun).mock.calls[0]?.[0]?.runId;
+    expect(reservedId).toBeDefined();
+    expect(finishAgentRun).toHaveBeenCalledWith(
+      expect.objectContaining({ id: reservedId, status: 'failed' }),
+    );
+  });
+
+  it('refuses a question that expires while the run context resolves, as unavailable', async () => {
+    const { aguiRoutes } = await import('@/app/api/ag-ui');
+    const { finishAgentRun, reserveAgentRun } =
+      await import('@/shared/db/operations');
+    const { runAgent } = await import('@/shared/services/agent');
+    pendingQuestion('task-q-race-expiry');
+    race.beforeSecondRead = (row) => {
+      row.expires_at = new Date(Date.now() - 1000).toISOString();
+    };
+
+    const res = await aguiRoutes.request(
+      answerRequest('task-q-race-expiry', 'run-race-expiry', {
+        answer: 'Blue',
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      code: 'continuation_unavailable',
+    });
+    expect(questions.rows.get('q-1')?.status).toBe('pending');
+    expect(runAgent).not.toHaveBeenCalled();
+    const reservedId = vi.mocked(reserveAgentRun).mock.calls[0]?.[0]?.runId;
+    expect(finishAgentRun).toHaveBeenCalledWith(
+      expect.objectContaining({ id: reservedId, status: 'failed' }),
+    );
   });
 
   it('refuses an expired question as unavailable', async () => {

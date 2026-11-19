@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   formatQuestionAnswer,
+  type QuestionInterruptContext,
   useQuestionInterrupts,
 } from '@/shared/hooks/useQuestionInterrupts';
 
@@ -54,11 +55,23 @@ function makeAgent(runAgent = vi.fn().mockResolvedValue({})) {
   };
 }
 
-function mount(isRunning: boolean, agent = makeAgent()) {
+function mount(
+  isRunning: boolean,
+  agent = makeAgent(),
+  options: {
+    taskId?: string;
+    context?: QuestionInterruptContext;
+  } = {},
+) {
   const view = renderHook(
-    (props: { isRunning: boolean }) =>
-      useQuestionInterrupts('task-1', props.isRunning, agent),
-    { initialProps: { isRunning } },
+    (props: { isRunning: boolean; taskId: string }) =>
+      useQuestionInterrupts(
+        props.taskId,
+        props.isRunning,
+        agent,
+        options.context,
+      ),
+    { initialProps: { isRunning, taskId: options.taskId ?? 'task-1' } },
   );
   return { ...view, agent };
 }
@@ -166,6 +179,128 @@ describe('useQuestionInterrupts', () => {
     );
     await waitFor(() => expect(result.current.openQuestions).toHaveLength(1));
     expect(result.current.answering).toBe(false);
+  });
+
+  it('keeps the answer when the record shows the question was settled', async () => {
+    const fetchMock = stubFetch([interrupt]);
+    const agent = makeAgent(vi.fn().mockRejectedValue(new Error('stream')));
+    const { result } = mount(false, agent);
+    await waitFor(() => expect(result.current.openQuestions).toHaveLength(1));
+    // The run was accepted; the question is no longer open.
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ interrupts: [] }), { status: 200 }),
+    );
+
+    await act(() =>
+      result.current.answer('question:q-1', { 'Which colour?': 'Blue' }),
+    );
+
+    expect(agent.setMessages).not.toHaveBeenCalled();
+    expect(result.current.openQuestions).toEqual([]);
+  });
+
+  it('keeps the answer and restores the card when the recovery read fails', async () => {
+    const fetchMock = stubFetch([interrupt]);
+    const agent = makeAgent(vi.fn().mockRejectedValue(new Error('stream')));
+    const { result } = mount(false, agent);
+    await waitFor(() => expect(result.current.openQuestions).toHaveLength(1));
+    fetchMock.mockRejectedValueOnce(new Error('offline'));
+
+    await act(() =>
+      result.current.answer('question:q-1', { 'Which colour?': 'Blue' }),
+    );
+
+    expect(agent.setMessages).not.toHaveBeenCalled();
+    // An inconclusive read cannot prove the answer was refused, so the card
+    // comes back and the user can retry.
+    expect(result.current.openQuestions).toHaveLength(1);
+  });
+
+  it('hides the cards and refuses answers once another run starts', async () => {
+    stubFetch([interrupt]);
+    const { result, rerender, agent } = mount(false);
+    await waitFor(() => expect(result.current.openQuestions).toHaveLength(1));
+
+    rerender({ isRunning: true, taskId: 'task-1' });
+    expect(result.current.openQuestions).toEqual([]);
+
+    await act(() =>
+      result.current.answer('question:q-1', { 'Which colour?': 'Blue' }),
+    );
+    expect(agent.addMessage).not.toHaveBeenCalled();
+    expect(agent.runAgent).not.toHaveBeenCalled();
+  });
+
+  it('seeds the agent from history and forwards the thread props', async () => {
+    stubFetch([interrupt]);
+    const seedAgent = vi.fn();
+    const forwardedProps = vi.fn(() => ({
+      modelConfig: { model: 'opus' },
+    }));
+    const { result, agent } = mount(false, makeAgent(), {
+      context: { seedAgent, forwardedProps },
+    });
+    await waitFor(() => expect(result.current.openQuestions).toHaveLength(1));
+
+    await act(() =>
+      result.current.answer('question:q-1', { 'Which colour?': 'Blue' }),
+    );
+
+    expect(seedAgent.mock.invocationCallOrder[0]).toBeLessThan(
+      agent.addMessage.mock.invocationCallOrder[0]!,
+    );
+    expect(agent.runAgent).toHaveBeenCalledWith({
+      resume: [
+        {
+          interruptId: 'question:q-1',
+          status: 'resolved',
+          payload: { answer: 'Which colour? → Blue' },
+        },
+      ],
+      forwardedProps: {
+        taskId: 'task-1',
+        modelConfig: { model: 'opus' },
+      },
+    });
+  });
+
+  it('ignores a recovery read that lands after the task changed', async () => {
+    let rejectRun: ((error: Error) => void) | undefined;
+    const runAgent = vi.fn(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectRun = reject;
+        }),
+    );
+    const agent = makeAgent(runAgent);
+    const fetchMock = vi.fn(
+      async (url: string) =>
+        new Response(
+          JSON.stringify({
+            interrupts: url.endsWith('/task-2') ? [interrupt] : [],
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { result, rerender } = mount(false, agent);
+
+    act(() => {
+      void result.current.answer('question:q-1', { 'Which colour?': 'Blue' });
+    });
+    rerender({ isRunning: false, taskId: 'task-2' });
+    await waitFor(() => expect(result.current.openQuestions).toHaveLength(1));
+
+    await act(async () => {
+      rejectRun?.(new Error('409'));
+    });
+
+    // Task 1's late read must not replace task 2's list.
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).endsWith('/task-1')),
+    ).toBe(true);
+    expect(result.current.openQuestions).toHaveLength(1);
   });
 });
 

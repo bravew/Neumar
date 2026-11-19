@@ -1,6 +1,7 @@
 import { QuestionFormCard } from '@/components/shared/chat-panel';
 import {
   type QuestionAgent,
+  type QuestionInterruptContext,
   useQuestionInterrupts,
 } from '@/shared/hooks/useQuestionInterrupts';
 import { cn } from '@/shared/lib/utils';
@@ -10,6 +11,7 @@ interface QuestionInterruptPanelProps {
   taskId: string | undefined;
   isRunning: boolean;
   agent: QuestionAgent;
+  context?: QuestionInterruptContext;
 }
 
 /**
@@ -22,18 +24,22 @@ export function QuestionInterruptPanel({
   taskId,
   isRunning,
   agent,
+  context,
 }: QuestionInterruptPanelProps) {
   const { t } = useLanguage();
   const { openQuestions, answering, answer, dismiss } = useQuestionInterrupts(
     taskId,
     isRunning,
     agent,
+    context,
   );
 
   if (openQuestions.length === 0) return null;
 
+  // Bounded and scrollable: the panel sits in a fixed-height thread column, so
+  // four questions must scroll rather than push the composer off-screen.
   return (
-    <div className="mx-auto max-w-4xl px-4">
+    <div className="mx-auto max-h-[45vh] max-w-4xl overflow-y-auto px-4">
       {openQuestions.map((open) => (
         <div key={open.interruptId} aria-busy={answering}>
           <QuestionFormCard

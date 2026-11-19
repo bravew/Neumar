@@ -527,7 +527,7 @@
     },
     "src/components/task/TaskV2Thread.tsx": {
       "react(preserve-manual-memoization)": 1,
-      "react(refs)": 9
+      "react(refs)": 8
     },
     "src/components/task/TaskV2ToolCallGroup.tsx": {
       "react(set-state-in-effect)": 1

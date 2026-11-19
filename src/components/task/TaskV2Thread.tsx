@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useAgent } from '@copilotkit/react-core/v2';
-import { ChevronDown } from 'lucide-react';
-import { Virtuoso } from 'react-virtuoso';
 
 import type { Artifact } from '@/components/artifacts/types';
 import { ChatInput } from '@/components/shared/ChatInput';
@@ -10,12 +8,7 @@ import {
   enqueueEditedCommand,
   flushEditedCommand,
 } from '@/components/task/edited-command-queue';
-import {
-  groupMessages,
-  renderGroupedItem,
-  type GroupedItem,
-  type GroupedItemRenderContext,
-} from '@/components/task/GroupedMessageList';
+import { groupMessages } from '@/components/task/GroupedMessageList';
 import { appendOutputArtifactsItem } from '@/components/task/outputArtifactItems';
 import { StreamSignalBanner } from '@/components/task/StreamSignalBanner';
 import { TaskThreadActions } from '@/components/task/task-thread-actions';
@@ -32,12 +25,11 @@ import {
   appendPermissionItems,
   injectBranchNav,
 } from '@/components/task/thread-items';
-import { VIRTUOSO_COMPONENTS } from '@/components/task/virtuosoComponents';
+import { VirtuosoMessageList } from '@/components/task/VirtuosoMessageList';
 import { createMessage } from '@/shared/db';
 import type { MessageAttachment } from '@/shared/hooks/useAgent';
 import { useAgentActions } from '@/shared/hooks/useAgentActions';
 import { useAgentSync } from '@/shared/hooks/useAgentSync';
-import { useAutoScroll } from '@/shared/hooks/useAutoScroll';
 import { useBranchActions } from '@/shared/hooks/useBranchActions';
 import { usePermissionRequests } from '@/shared/hooks/usePermissionRequests';
 import { usePlanInterrupt } from '@/shared/hooks/usePlanInterrupt';
@@ -120,6 +112,20 @@ export function TaskV2Thread({
 
   const promptPrefixRef = useRef(promptPrefix);
   promptPrefixRef.current = promptPrefix;
+
+  // Seed the agent with history (prose turns only) so the display doesn't flip
+  // from historyMessages to empty agentMessages on the first turn. Shared by
+  // the composer and a question answer, which also starts a turn.
+  const seedAgentFromHistory = useCallback(
+    (target: typeof agentRef.current) => {
+      if (target.messages.length === 0 && historyMessagesRef.current?.length) {
+        for (const msg of toAgentSeedMessages(historyMessagesRef.current)) {
+          target.addMessage(msg);
+        }
+      }
+    },
+    [],
+  );
 
   // ── Extracted hooks ──
   const { runError, runErrorRef, setRunError, clearRunError } = useRunError(
@@ -242,14 +248,7 @@ export function TaskV2Thread({
         }).catch(() => {});
       }
 
-      // Seed agent with history (prose turns only) so the display doesn't flip
-      // from historyMessages to empty agentMessages on the first reply.
-      if (a.messages.length === 0 && historyMessagesRef.current?.length) {
-        for (const msg of toAgentSeedMessages(historyMessagesRef.current)) {
-          a.addMessage(msg);
-        }
-      }
-
+      seedAgentFromHistory(a);
       a.addMessage({ id: msgId, role: 'user', content: prompt });
       // Widen the agent's sandbox to include each dropped file's parent
       // directory so the Read tool can open them without us having to copy
@@ -297,6 +296,7 @@ export function TaskV2Thread({
     },
     [
       resolvedAttachmentMapRef,
+      seedAgentFromHistory,
       t.task.agentRunFailed,
       tt,
       setRunError,
@@ -449,6 +449,18 @@ export function TaskV2Thread({
           taskId={taskId}
           isRunning={effectiveIsRunning}
           agent={agent}
+          questionContext={{
+            seedAgent: () => seedAgentFromHistory(agentRef.current),
+            forwardedProps: () => ({
+              ...(workDirRef.current ? { workDir: workDirRef.current } : {}),
+              ...(additionalWorkDirsRef.current?.length
+                ? { additionalWorkDirs: additionalWorkDirsRef.current }
+                : {}),
+              ...(modelConfigRef.current
+                ? { modelConfig: modelConfigRef.current }
+                : {}),
+            }),
+          }}
           subAgents={subAgents}
           onCancelSubAgent={handleCancelSubAgent}
           runError={runError}
@@ -478,127 +490,5 @@ export function TaskV2Thread({
         </div>
       </div>
     </TaskThreadActions>
-  );
-}
-
-// ── Virtuoso message list (extracted to keep TaskV2Thread under 350 lines) ───
-
-function VirtuosoMessageList({
-  groupedItems,
-  messages,
-  isRunning,
-  thinkingLabel,
-  attachmentMap,
-  allArtifacts,
-  onSendMessage,
-  onApprovePlan,
-  onRejectPlan,
-  onCancelTool,
-  onEditMessage,
-  onRegenerate,
-  onForkFromHere,
-  onBranchNavigate,
-  scrollToBottomLabel,
-}: {
-  groupedItems: GroupedItem[];
-  messages: AGUIMessage[];
-  isRunning: boolean;
-  thinkingLabel: string;
-  attachmentMap: Map<string, MessageAttachment[]>;
-  allArtifacts?: Artifact[];
-  onSendMessage: (text: string) => void;
-  onApprovePlan: () => void;
-  onRejectPlan: () => void;
-  onCancelTool?: (toolUseId: string) => void;
-  onEditMessage?: (messageId: string, newContent: string) => void;
-  onRegenerate?: (messageId: string) => void;
-  onForkFromHere?: (messageId: string) => void;
-  onBranchNavigate?: (
-    forkPointId: string | number,
-    direction: 'prev' | 'next',
-  ) => void;
-  scrollToBottomLabel: string;
-}) {
-  const {
-    virtuosoRef,
-    handleScrollerRef,
-    handleScroll,
-    handleAtBottomStateChange,
-    handleFollowOutput,
-    showScrollButton,
-    scrollToBottom,
-  } = useAutoScroll({ isRunning });
-
-  // Force scroll to bottom when user sends a message
-  const prevMessageCountRef = useRef(messages.length);
-  useEffect(() => {
-    const prev = prevMessageCountRef.current;
-    prevMessageCountRef.current = messages.length;
-    if (messages.length > prev) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg?.role === 'user') {
-        scrollToBottom('auto');
-      }
-    }
-  }, [messages, scrollToBottom]);
-
-  // Stable render context — read from ref to avoid stale closures in Virtuoso itemContent
-  const renderContext: GroupedItemRenderContext = {
-    thinkingLabel,
-    attachmentMap,
-    messages,
-    allArtifacts,
-    isRunning,
-    onSendMessage,
-    onApprovePlan,
-    onRejectPlan,
-    onCancelTool,
-    onEditMessage,
-    onRegenerate,
-    onForkFromHere,
-    onBranchNavigate,
-  };
-  const renderContextRef = useRef(renderContext);
-  renderContextRef.current = renderContext;
-
-  const itemContent = useCallback(
-    (_index: number, item: GroupedItem) =>
-      renderGroupedItem(item, renderContextRef.current),
-    [],
-  );
-
-  return (
-    <div className="relative min-w-0 flex-1">
-      <Virtuoso
-        ref={virtuosoRef}
-        data={groupedItems}
-        computeItemKey={(_index, item) => item.key}
-        defaultItemHeight={80}
-        increaseViewportBy={1200}
-        atBottomThreshold={100}
-        followOutput={handleFollowOutput}
-        atBottomStateChange={handleAtBottomStateChange}
-        scrollerRef={handleScrollerRef}
-        onScroll={handleScroll}
-        itemContent={itemContent}
-        className="h-full overflow-x-hidden pt-6 pb-16"
-        initialTopMostItemIndex={
-          groupedItems.length > 0 ? groupedItems.length - 1 : 0
-        }
-        components={VIRTUOSO_COMPONENTS}
-      />
-
-      {showScrollButton && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center">
-          <button
-            onClick={() => scrollToBottom()}
-            className="bg-background/80 border-border text-muted-foreground hover:text-foreground pointer-events-auto rounded-full border p-2 shadow-md backdrop-blur-sm transition-colors"
-            title={scrollToBottomLabel}
-          >
-            <ChevronDown className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
