@@ -1,5 +1,6 @@
 import {
   answerAgentQuestion,
+  cancelAgentQuestion,
   createAgentQuestion,
   getAgentQuestion,
   getPendingAgentQuestions,
@@ -38,6 +39,7 @@ export interface AgentQuestionStore {
     taskId?: string;
   }): AgentQuestionRow[];
   answer(id: string, answer: unknown): AgentQuestionRow | null;
+  cancel(id: string): boolean;
 }
 
 interface Waiter {
@@ -51,6 +53,7 @@ const defaultStore: AgentQuestionStore = {
   get: getAgentQuestion,
   getPending: getPendingAgentQuestions,
   answer: answerAgentQuestion,
+  cancel: cancelAgentQuestion,
 };
 
 function addTimeout(now: () => Date, timeoutMs?: number): string | null {
@@ -126,6 +129,18 @@ export class AgentQuestionService {
       waiter.resolve({ answer, row });
     }
     return row;
+  }
+
+  /** Ends a pending question without an answer. False when it was already settled. */
+  cancelQuestion(questionId: string): boolean {
+    const cancelled = this.store.cancel(questionId);
+    const waiter = this.waiters.get(questionId);
+    if (cancelled && waiter) {
+      this.waiters.delete(questionId);
+      if (waiter.timer) clearTimeout(waiter.timer);
+      waiter.reject(new Error(`Agent question was cancelled: ${questionId}`));
+    }
+    return cancelled;
   }
 
   waitForAnswer(

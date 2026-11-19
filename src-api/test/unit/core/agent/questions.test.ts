@@ -55,6 +55,12 @@ function createStore(): AgentQuestionStore {
       rows.set(id, answered);
       return answered;
     },
+    cancel(id: string) {
+      const row = rows.get(id);
+      if (row?.status !== 'pending') return false;
+      rows.set(id, { ...row, status: 'cancelled' });
+      return true;
+    },
   };
 }
 
@@ -97,5 +103,32 @@ describe('AgentQuestionService', () => {
       answer: { 'Pick one': 'A' },
       row: { status: 'answered' },
     });
+  });
+
+  it('cancels a pending question and rejects its waiter', async () => {
+    const service = new AgentQuestionService(createStore());
+    const row = service.createPendingQuestion({
+      sessionId: 'session-1',
+      questions: [{ question: 'Pick one' }],
+    });
+    const waiter = service.waitForAnswer(row.id, 1000);
+    const rejected = expect(waiter).rejects.toThrow('was cancelled');
+
+    expect(service.cancelQuestion(row.id)).toBe(true);
+
+    await rejected;
+    expect(service.getQuestion(row.id)?.status).toBe('cancelled');
+  });
+
+  it('does not cancel a question that was already answered', () => {
+    const service = new AgentQuestionService(createStore());
+    const row = service.createPendingQuestion({
+      sessionId: 'session-1',
+      questions: [{ question: 'Pick one' }],
+    });
+    service.answerQuestion(row.id, { 'Pick one': 'A' });
+
+    expect(service.cancelQuestion(row.id)).toBe(false);
+    expect(service.getQuestion(row.id)?.status).toBe('answered');
   });
 });

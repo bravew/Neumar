@@ -72,7 +72,12 @@ vi.mock('@/shared/services/ag-ui/persistence', () => ({
 
 vi.mock('@/shared/db/operations', () => ({
   AgentRunConflictError: class AgentRunConflictError extends Error {},
+  answerAgentQuestion: vi.fn(),
+  cancelAgentQuestion: vi.fn(),
+  createAgentQuestion: vi.fn(),
   createFileSnapshot: vi.fn(),
+  getAgentQuestion: vi.fn(),
+  getPendingAgentQuestions: vi.fn().mockReturnValue([]),
   decideOrchestrationRun: vi.fn(),
   getAgentRun: vi.fn(),
   getFilesByTaskId: vi.fn().mockReturnValue([]),
