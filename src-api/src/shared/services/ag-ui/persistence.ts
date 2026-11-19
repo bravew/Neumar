@@ -452,6 +452,8 @@ export class AGUIEventPersister {
   private pendingTextMessageId: string | null = null;
   private pendingReasoningText = '';
   private pendingReasoningMessageId: string | null = null;
+  /** Sub-agent invocation that owns the reasoning block in progress. */
+  private pendingReasoningOwner: string | undefined;
   /** Sub-agent invocation that owns the text block in progress. */
   private pendingTextOwner: string | undefined;
   /** Sub-agent invocation that owns each open tool call, by tool call id. */
@@ -712,6 +714,7 @@ export class AGUIEventPersister {
           const e = event as BaseEvent & { messageId: string };
           this.pendingReasoningMessageId = e.messageId;
           this.pendingReasoningText = '';
+          this.pendingReasoningOwner = eventOwner(event);
           break;
         }
 
@@ -728,10 +731,12 @@ export class AGUIEventPersister {
               content: this.pendingReasoningText,
               subtype: 'thinking',
               messageId: this.pendingReasoningMessageId,
+              subagentRunId: this.pendingReasoningOwner,
             });
           }
           this.pendingReasoningText = '';
           this.pendingReasoningMessageId = null;
+          this.pendingReasoningOwner = undefined;
           break;
         }
 
@@ -973,11 +978,18 @@ export class AGUIEventPersister {
           const e = event as BaseEvent & {
             subagentRunId: string;
             result?: string;
+            outcome?: { type?: string };
           };
-          this.endSubagent(e.subagentRunId, {
-            status: 'completed',
-            ...(e.result === undefined ? {} : { result: e.result }),
-          });
+          // A suspended segment ends awaiting a decision, not as success.
+          this.endSubagent(
+            e.subagentRunId,
+            e.outcome?.type === 'suspended'
+              ? { status: 'suspended' }
+              : {
+                  status: 'completed',
+                  ...(e.result === undefined ? {} : { result: e.result }),
+                },
+          );
           break;
         }
 
@@ -1092,12 +1104,14 @@ export class AGUIEventPersister {
         }
 
         case EventType.RUN_FINISHED: {
-          this.closeOpenSubagents();
+          const { outcome } = event as RunFinishedEvent;
+          this.closeOpenSubagents(
+            outcome?.type === 'interrupt' ? 'suspended' : 'error',
+          );
           const runUsage = runUsageFromTerminalEvent(event);
           if (this.terminalProcess) break;
           this.flushPending();
           const duration = Date.now() - this.startedAtMs;
-          const { outcome } = event as RunFinishedEvent;
           const cancelled = outcome?.type === 'cancelled';
           // A run that stops for a decision completed its phase but left the
           // declared work unfinished; it is neither a failure nor success.
@@ -1223,9 +1237,11 @@ export class AGUIEventPersister {
         type: 'text',
         content: this.pendingText,
         messageId: this.pendingTextMessageId,
+        subagentRunId: this.pendingTextOwner,
       });
       this.pendingText = '';
       this.pendingTextMessageId = null;
+      this.pendingTextOwner = undefined;
     }
     if (this.pendingReasoningText && this.pendingReasoningMessageId) {
       this.insertMessage({
@@ -1233,9 +1249,11 @@ export class AGUIEventPersister {
         content: this.pendingReasoningText,
         subtype: 'thinking',
         messageId: this.pendingReasoningMessageId,
+        subagentRunId: this.pendingReasoningOwner,
       });
       this.pendingReasoningText = '';
       this.pendingReasoningMessageId = null;
+      this.pendingReasoningOwner = undefined;
     }
   }
 
@@ -1286,18 +1304,24 @@ export class AGUIEventPersister {
   /**
    * The emitter closes every child before a run ends. This covers a run that
    * ends without it, such as a synthetic RUN_ERROR from the transport, so a
-   * finished run never leaves a card that reads as still running.
+   * finished run never leaves a card that reads as still running. A child left
+   * open when the run paused for a decision is suspended, not failed.
    */
-  private closeOpenSubagents(): void {
+  private closeOpenSubagents(status: 'error' | 'suspended' = 'error'): void {
     for (const [subagentRunId, record] of this.subagentRecords) {
       if (record.status !== 'running') continue;
-      this.endSubagent(subagentRunId, {
-        status: 'error',
-        error: {
-          message: 'Run ended before the sub-agent finished',
-          code: 'run_ended',
-        },
-      });
+      this.endSubagent(
+        subagentRunId,
+        status === 'suspended'
+          ? { status: 'suspended' }
+          : {
+              status: 'error',
+              error: {
+                message: 'Run ended before the sub-agent finished',
+                code: 'run_ended',
+              },
+            },
+      );
     }
   }
 

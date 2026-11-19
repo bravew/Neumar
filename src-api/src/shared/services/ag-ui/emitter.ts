@@ -37,7 +37,7 @@ import {
   normalizeStopReason,
   TURN_BUDGET_EVENT_NAME,
 } from '@/core/agent/turn-budget';
-import type { AgentMessage } from '@/core/agent/types';
+import type { AgentMessage, TaskPlan } from '@/core/agent/types';
 
 import { CustomEventName } from './event-schema';
 import { permissionInterrupt, planInterrupt } from './interrupts';
@@ -48,6 +48,9 @@ import { RunUsageAccumulator } from './run-usage';
 type SourceStep =
   | { kind: 'message'; result: IteratorResult<AgentMessage> }
   | { kind: 'paused'; interrupts: Interrupt[] };
+
+/** Where a plan stands; the plan widget's terminal state is part of its content. */
+type PlanActivityPhase = 'awaiting_approval' | 'running';
 
 /** Message types that mean the planning phase has finished. */
 const PLANNING_ENDED_BY = new Set<AgentMessage['type']>([
@@ -93,6 +96,12 @@ export interface AGUIRunContext {
   /** Agent provider and model the run's usage is attributed to. */
   provider?: string;
   model?: string;
+  /**
+   * A plan widget an earlier run opened and left unsettled. A permission
+   * continuation runs on a new emitter, so it starts from this id and patches
+   * the same widget when it ends.
+   */
+  planActivityId?: string;
 }
 
 /**
@@ -125,6 +134,11 @@ export class AGUIEmitter {
   private openSubagents = new Set<string>();
   /** Id of this run's planning status activity while it is open. */
   private planningActivityId: string | null = null;
+  /**
+   * The plan/checklist activity this run opened, named after the plan id so
+   * the planning run and its execution run update one widget.
+   */
+  private planActivityId: string | null = null;
 
   /** This run's own model calls; reported on the terminal event. */
   private readonly usage: RunUsageAccumulator;
@@ -138,6 +152,7 @@ export class AGUIEmitter {
       provider: context?.provider,
       model: context?.model,
     });
+    this.planActivityId = context?.planActivityId ?? null;
   }
 
   /** Usage and spend for the terminal event; both absent when unreported. */
@@ -153,6 +168,15 @@ export class AGUIEmitter {
   /** True when this run ended at a permission decision and can be continued. */
   isPaused(): boolean {
     return this.paused;
+  }
+
+  /**
+   * The plan widget this run opened or inherited and did not settle. A
+   * continuation emitter takes it over so the widget is patched exactly once
+   * when the work actually ends.
+   */
+  openPlanActivityId(): string | null {
+    return this.planActivityId;
   }
 
   async *transform(
@@ -210,7 +234,9 @@ export class AGUIEmitter {
         this.context?.signal?.aborted === true ||
         (err instanceof Error && err.name === 'AbortError');
       yield* this.endPlanningActivity(isAbort ? 'cancelled' : 'failed');
-      yield* this.closeOpenBlocks();
+      yield* this.endPlanActivity(isAbort ? 'cancelled' : 'failed');
+      // A thrown error is never a suspension, whatever decision was pending.
+      yield* this.closeOpenBlocks(false);
       if (isAbort) {
         // A user stop is not a failure: report the standard cancelled outcome
         // and let the task settle as stopped rather than error.
@@ -227,7 +253,14 @@ export class AGUIEmitter {
       // RUN_ERROR and must not also finish.
       if ((caughtError === undefined || this.cancelled) && !this.terminated) {
         yield* this.endPlanningActivity(this.cancelled ? 'cancelled' : 'done');
-        yield* this.closeOpenBlocks();
+        // A plan awaiting approval keeps its phase; the decision is the next
+        // run's starting point, not this run's completion.
+        if (this.outcome()?.type !== 'interrupt') {
+          yield* this.endPlanActivity(this.cancelled ? 'cancelled' : 'done');
+        }
+        // Only a run that completes at an interrupt suspends its open
+        // children; the terminal state is not set yet on the error paths.
+        yield* this.closeOpenBlocks(this.outcome()?.type === 'interrupt');
         yield this.event<RunFinishedEvent>(EventType.RUN_FINISHED, {
           outcome: this.outcome(),
           ...this.usageFields(),
@@ -302,7 +335,7 @@ export class AGUIEmitter {
     return undefined;
   }
 
-  private *closeOpenBlocks(): Generator<BaseEvent> {
+  private *closeOpenBlocks(suspended: boolean): Generator<BaseEvent> {
     yield* this.endText();
     for (const [toolCallId] of this.activeToolCalls) {
       yield this.event<ToolCallEndEvent>(EventType.TOOL_CALL_END, {
@@ -311,14 +344,29 @@ export class AGUIEmitter {
     }
     this.activeToolCalls.clear();
     // Close sub-agent invocations the SDK never reported finished, so RUN_FINISHED
-    // is not rejected while they are open. They end as errors: a missing
+    // is not rejected while they are open. A child whose segment ends at a
+    // decision is suspended, not failed: a later run may continue it once the
+    // interrupts are answered. Any other ending is an error, because a missing
     // notification is not evidence the delegated work completed.
+    const interruptIds = suspended
+      ? this.pendingInterrupts.map((interrupt) => interrupt.id)
+      : [];
     for (const subagentRunId of this.openSubagents) {
-      yield this.event<SubagentErrorEvent>(EventType.SUBAGENT_ERROR, {
-        subagentRunId,
-        message: 'Sub-agent did not report completion',
-        code: 'run_ended',
-      });
+      if (suspended) {
+        yield this.event<SubagentFinishedEvent>(EventType.SUBAGENT_FINISHED, {
+          subagentRunId,
+          outcome: {
+            type: 'suspended',
+            ...(interruptIds.length > 0 ? { interruptIds } : {}),
+          },
+        });
+      } else {
+        yield this.event<SubagentErrorEvent>(EventType.SUBAGENT_ERROR, {
+          subagentRunId,
+          message: 'Sub-agent did not report completion',
+          code: 'run_ended',
+        });
+      }
     }
     this.openSubagents.clear();
     // Close any still-active STEPs before RUN_FINISHED. The AG-UI verifier
@@ -374,6 +422,53 @@ export class AGUIEmitter {
       activityType: 'status',
       patch: [{ op: 'replace', path: '/phase', value: phase }],
     });
+  }
+
+  /**
+   * Opens the plan/checklist widget for a plan, or replaces its content when a
+   * later run (the execution run) reports the same plan. The message id is
+   * derived from the plan id, so both runs update one widget and a replay
+   * never shows two.
+   */
+  private *planActivity(
+    plan: TaskPlan,
+    phase: PlanActivityPhase,
+  ): Generator<BaseEvent> {
+    const nextId = `plan-${plan.id}`;
+    // A run that reports a second plan supersedes the first. Its interrupt is
+    // replaced below, so its widget would otherwise stay awaiting approval
+    // forever.
+    if (this.planActivityId !== null && this.planActivityId !== nextId) {
+      yield* this.endPlanActivity('cancelled');
+    }
+    this.planActivityId = nextId;
+    yield this.event<ActivitySnapshotEvent>(EventType.ACTIVITY_SNAPSHOT, {
+      messageId: this.planActivityId,
+      activityType: 'plan',
+      content: {
+        phase,
+        goal: plan.goal,
+        steps: plan.steps.map((step) => ({
+          id: step.id,
+          description: step.description,
+          status: step.status,
+        })),
+      },
+      replace: true,
+    });
+  }
+
+  /** Settles the plan widget. A no-op when this run opened none. */
+  private *endPlanActivity(
+    phase: 'done' | 'failed' | 'cancelled',
+  ): Generator<BaseEvent> {
+    if (!this.planActivityId) return;
+    yield this.event<ActivityDeltaEvent>(EventType.ACTIVITY_DELTA, {
+      messageId: this.planActivityId,
+      activityType: 'plan',
+      patch: [{ op: 'replace', path: '/phase', value: phase }],
+    });
+    this.planActivityId = null;
   }
 
   /** Closes the open text block, if any. */
@@ -468,12 +563,14 @@ export class AGUIEmitter {
       case 'thinking': {
         // Skip empty thinking blocks
         if (!msg.content) break;
+        yield* this.ensureSubagent(msg.subagentRunId);
         const reasoningId = crypto.randomUUID();
         yield this.event<ReasoningMessageStartEvent>(
           EventType.REASONING_MESSAGE_START,
           {
             messageId: reasoningId,
             role: 'reasoning',
+            ...ownerField(msg.subagentRunId),
           },
         );
         yield this.event<ReasoningMessageContentEvent>(
@@ -481,12 +578,14 @@ export class AGUIEmitter {
           {
             messageId: reasoningId,
             delta: msg.content,
+            ...ownerField(msg.subagentRunId),
           },
         );
         yield this.event<ReasoningMessageEndEvent>(
           EventType.REASONING_MESSAGE_END,
           {
             messageId: reasoningId,
+            ...ownerField(msg.subagentRunId),
           },
         );
         break;
@@ -598,6 +697,16 @@ export class AGUIEmitter {
         yield this.event<SubagentFinishedEvent>(EventType.SUBAGENT_FINISHED, {
           subagentRunId,
           ...(msg.output === undefined ? {} : { result: msg.output }),
+          ...(msg.subagentOutcome === 'suspended'
+            ? {
+                outcome: {
+                  type: 'suspended' as const,
+                  ...(msg.interruptIds?.length
+                    ? { interruptIds: msg.interruptIds }
+                    : {}),
+                },
+              }
+            : {}),
         });
         break;
       }
@@ -663,14 +772,23 @@ export class AGUIEmitter {
             ? { ...msg.plan, _runId: this.runId }
             : { _runId: this.runId },
         });
+        if (msg.plan?.id) {
+          yield* this.planActivity(
+            msg.plan,
+            this.context?.planInterrupt ? 'awaiting_approval' : 'running',
+          );
+        }
         if (this.context?.planInterrupt) {
           const plan = msg.plan;
           if (!plan?.id) {
             // Without an id there is no durable record to approve, so an
             // interrupt would be unanswerable. Fail instead of emitting one.
+            // An earlier plan in this run may have opened a widget awaiting
+            // approval; the run fails, so that approval can never be given.
             this.terminated = true;
             yield* this.endPlanningActivity('failed');
-            yield* this.closeOpenBlocks();
+            yield* this.endPlanActivity('failed');
+            yield* this.closeOpenBlocks(false);
             yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
               message:
                 'Planning produced a plan without an id; it cannot be approved',
@@ -681,6 +799,13 @@ export class AGUIEmitter {
           // One decision per planning run: a later plan replaces an earlier one.
           this.pendingInterrupts = [planInterrupt(this.threadId, plan)];
         }
+        break;
+      }
+
+      case 'plan_activity': {
+        // An execution run reports the plan it is carrying out, so the plan
+        // widget opens again after a reload or on a fresh client.
+        if (msg.plan?.id) yield* this.planActivity(msg.plan, 'running');
         break;
       }
 
@@ -778,7 +903,8 @@ export class AGUIEmitter {
         }
         this.terminated = true;
         yield* this.endPlanningActivity('failed');
-        yield* this.closeOpenBlocks();
+        yield* this.endPlanActivity('failed');
+        yield* this.closeOpenBlocks(false);
         yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
           message: msg.message ?? 'Unknown error',
           code: msg.subtype,

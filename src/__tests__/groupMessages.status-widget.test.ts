@@ -85,7 +85,7 @@ describe('groupMessages — status activity widgets', () => {
   it.each([
     [
       'an unsupported activity type',
-      { activityType: 'plan' },
+      { activityType: 'timeline' },
       { phase: 'planning' },
     ],
     ['a payload with no phase', {}, { message: 'x' }],

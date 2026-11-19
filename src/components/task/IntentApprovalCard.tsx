@@ -15,8 +15,11 @@ const RISK_STYLES = {
 
 export function IntentApprovalCard({
   permission,
+  ownerName,
 }: {
   permission: PermissionRequestState;
+  /** The sub-agent that asked, when the tool call came from a child. */
+  ownerName?: string;
 }) {
   const actions = useTaskThreadActions();
   const { t } = useLanguage();
@@ -106,6 +109,13 @@ export function IntentApprovalCard({
           </div>
         ) : null}
       </dl>
+      {permission.agent_id ? (
+        <p className="text-muted-foreground mb-2 text-xs">
+          {ownerName
+            ? t.task.permissionFromSubAgent.replace('{name}', ownerName)
+            : t.task.permissionFromUnknownSubAgent}
+        </p>
+      ) : null}
       {permission.mcp_server ? (
         <p className="text-muted-foreground mb-2 text-xs">
           {t.task.permissionMcpServer}: {permission.mcp_server.name}

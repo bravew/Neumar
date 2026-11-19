@@ -332,6 +332,38 @@ describe('Claude permission policy', () => {
       ).resolves.toMatchObject({ behavior: 'deny' });
     });
 
+    it('attributes a child agent’s prompt to that sub-agent', async () => {
+      const registry = new ToolPermissionRegistry();
+      const abortController = new AbortController();
+      const canUseTool = buildCanUseTool(
+        new DenialTracker(),
+        registry,
+        new Map(),
+        'task-1',
+        'session-1',
+        new LoopGuard(),
+      );
+
+      const decision = canUseTool(
+        'Bash',
+        { command: 'ls' },
+        callOptions({
+          signal: abortController.signal,
+          agentID: 'child-run',
+        }),
+      );
+
+      expect(publish).toHaveBeenCalledWith(
+        'task-1',
+        expect.objectContaining({
+          permission: expect.objectContaining({ agent_id: 'child-run' }),
+        }),
+      );
+
+      abortController.abort();
+      await expect(decision).resolves.toMatchObject({ behavior: 'deny' });
+    });
+
     it('forwards defaultToNo, suppressAlwaysAllowRule and the MCP server source', async () => {
       const registry = new ToolPermissionRegistry();
       registry.setClassification('mcp__github__delete_repo', 'destructive');

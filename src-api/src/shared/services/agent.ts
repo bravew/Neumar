@@ -515,6 +515,10 @@ export async function* runExecutionPhase(
     return;
   }
 
+  // Lets an AG-UI client open the plan/checklist widget for the work it is
+  // about to watch, including after a reload.
+  yield { type: 'plan_activity', plan };
+
   const { systemContext, resolvedContext } = await buildRunContext(
     originalPrompt,
     session.id,

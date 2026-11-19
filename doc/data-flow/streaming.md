@@ -183,6 +183,73 @@ Frontend (CopilotKit)           API Server                    Agent (Claude SDK)
 | `dbMessagesToFullAGUI()`     | Converts DB rows → CopilotKit-compatible messages; deduplicates, groups tool calls, marks tool lifecycle completion, omits thinking blocks                   |
 | `AttachmentPromotionService` | Copies/hard-links media-generation source attachments into `output/<runId>/inputs/` and creates task-file rows for input/output grouping                     |
 
+### Interrupts and resume
+
+A run that needs a decision ends with `RUN_FINISHED` whose outcome is
+`{ type: 'interrupt', interrupts: [...] }`. The client answers with
+`resume: [{ interruptId, status: 'resolved' | 'cancelled', payload }]` on the
+next `POST /ag-ui/run`.
+
+| Flow | Interrupt id | Durable record | Resume payload |
+| --- | --- | --- | --- |
+| Plan approval | `plan:<orchestration run id>` | `orchestration_runs` row in `pending` | `{ approved: boolean }`; `cancelled` rejects |
+| Tool permission | `permission:<request id>` | In-memory wait the adapter is blocked on | `{ approved: boolean, alwaysAllow?: boolean }` |
+| Agent question | `question:<agent_questions id>` | `agent_questions` row in `pending` | `{ answer: string }`; `cancelled` settles the row without a turn |
+
+`GET /ag-ui/interrupts/:taskId` lists what the task still waits on, from the
+records that own each decision, so a reload or task switch rebuilds the cards.
+Expired questions are left out; an expired or restarted permission has no
+in-memory wait and answers with `409 continuation_unavailable`. Unknown,
+already-resolved, wrong-thread, and schema-invalid entries are rejected before
+any entry in the batch is applied.
+
+A run that pauses at a permission keeps the adapter alive but ends its streamed
+run: the root run is finalized `completed` with `completeness: 'unfinished'` and
+`failureCause: 'awaiting_decision'`, and the task is `stopped`. It is not
+reported as a clean success; the continuation is a new run started when the last
+prompt settles. A question ends the run the same way. Stopping the task settles
+any open prompt as a denial and abandons the hold, so a later resume is
+unavailable rather than a continuation of a stopped run.
+
+### Sub-agents and activity
+
+Delegated invocations travel as `SUBAGENT_STARTED`, `SUBAGENT_FINISHED`, and
+`SUBAGENT_ERROR`, keyed by the adapter's per-invocation `subagentRunId`. Child
+text, tool calls, and reasoning events carry the same field, so two children
+with identical descriptions stay distinct and interleaved output is assigned by
+id. `parentSubagentRunId` and `parentToolCallId` preserve nesting; a separate
+top-level run is linked by `parentRunId`, not by pretending to be a child.
+Events without a reliable child id stay with the parent run.
+
+A child whose segment ends at a decision closes with
+`SUBAGENT_FINISHED outcome: { type: 'suspended', interruptIds }`. The
+persister and thread store keep that state instead of recording a success, and
+the panel offers no cancel action for it. A missing final notification is
+`SUBAGENT_ERROR code: 'run_ended'`, never a manufactured completion. A child's
+permission prompt carries `agent_id`, so the approval card names the sub-agent
+while the backend keeps the same wait and continuation binding.
+
+Progress widgets use `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA` with a stable
+`messageId` and an application `activityType` (`plan`, `status`). The emitter
+opens one plan widget per plan id, so the planning run's
+`awaiting_approval` card and the execution run's `running` card are the same
+widget; a phase patch settles it as `done`, `failed`, or `cancelled`. A
+snapshot with `replace: false` never merges into an existing widget, and a
+delta for a missing or non-activity message, a mismatched activity type, or a
+malformed patch is warned about and skipped. Child-owned activities keep their
+`subagentRunId` and stay out of the parent transcript.
+
+Activity messages are progress UI, not conversation. The AG-UI client filters
+`role: 'activity'` out of its run input, and the manual history seed
+(`toAgentSeedMessages`) admits only user and assistant prose, so neither path
+copies widgets into model history.
+
+**Known capability gap:** a runtime that emits a child's text before its
+`SUBAGENT_STARTED` gets a synthesized start named `subagent`; the protocol
+forbids a second start for the same id, so a later real start's label is not
+applied. The Claude adapter does not produce this ordering — it attributes
+child events only after the `task_started` notification establishes the id.
+
 ### Custom Events
 
 The `CUSTOM` event type carries neuma-specific extensions:
@@ -230,9 +297,10 @@ event enum:
 | `state_update`          | Emits a system `state` message with the updated path and value                          |
 
 `ChatPanelMessageView` renders the normalized `text`, `tool`, `question`,
-`action`, `surface`, `lifecycle`, and `state` variants. Assistant text and tool
-results try `GenUIRenderer` first, so the same allowlisted GenUI cards render in
-Task V2, Design chat, Video agent surfaces, and shared tool activity groups.
+`action`, `surface`, `lifecycle`, `state`, `activity`, and `subagent` variants.
+Assistant text and tool results try `GenUIRenderer` first, so the same
+allowlisted GenUI cards render in Task V2, Design chat, Video agent surfaces,
+and shared tool activity groups.
 
 ## Artifact Event Protocol (V2)
 

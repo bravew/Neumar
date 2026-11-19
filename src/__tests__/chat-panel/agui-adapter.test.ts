@@ -1,5 +1,5 @@
 import { EventType } from '@ag-ui/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createChatPanelAguiState,
@@ -233,11 +233,26 @@ describe('chat-panel AG-UI adapter', () => {
       },
       { now },
     );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+        name: 'Scan',
+      },
+      { now },
+    );
     const aborted = finalizeChatPanelAguiState(state, 'aborted');
 
     expect(aborted.messages[0]).toMatchObject({
       kind: 'tool',
       calls: [{ id: 'tool-1', stage: 'error', isError: true }],
+    });
+    // The emitter reports a stopped run's open child as run_ended; a local
+    // stop can end before that event arrives, so the card must not stay live.
+    expect(aborted.messages[1]).toMatchObject({
+      id: 'subagent:task-a',
+      subagent: { status: 'error' },
     });
     expect(isChatPanelAguiEventPayload({ type: EventType.RUN_ERROR })).toBe(
       true,
@@ -383,6 +398,240 @@ describe('chat-panel AG-UI adapter', () => {
             result: 'ok',
           },
         ],
+      },
+    ]);
+  });
+
+  it('opens an activity widget, patches it, and ignores what it cannot render', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let state = createChatPanelAguiState();
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'plan-plan-1',
+        activityType: 'plan',
+        content: { phase: 'running', goal: 'Ship it', steps: [] },
+        replace: true,
+      },
+      { now },
+    );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'plan-plan-1',
+        activityType: 'plan',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      },
+      { now },
+    );
+
+    expect(state.messages).toMatchObject([
+      {
+        id: 'plan-plan-1',
+        kind: 'activity',
+        activity: {
+          activityType: 'plan',
+          content: { phase: 'done', goal: 'Ship it', steps: [] },
+        },
+      },
+    ]);
+
+    const untouched = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'plan-plan-1',
+        activityType: 'plan',
+        content: { phase: 'running' },
+        replace: false,
+      },
+      { now },
+    );
+    expect(untouched.messages).toEqual(state.messages);
+    // `replace: false` is a supported no-op, not a skipped event.
+    expect(warn).not.toHaveBeenCalled();
+
+    const skipped = [
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'timeline-1',
+        activityType: 'timeline',
+        content: { items: [] },
+      },
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'bad-1',
+        activityType: 'plan',
+        content: 'not an object',
+      },
+      {
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'missing',
+        activityType: 'plan',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      },
+      {
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'plan-plan-1',
+        activityType: 'status',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      },
+      {
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'plan-plan-1',
+        activityType: 'plan',
+        patch: [{ op: 'replace', path: 'phase', value: 'done' }],
+      },
+    ];
+    for (const event of skipped) {
+      expect(reduceChatPanelAguiEvent(state, event, { now })).toBe(state);
+    }
+    expect(warn).toHaveBeenCalledTimes(skipped.length);
+    warn.mockRestore();
+  });
+
+  it('keeps a child-owned activity distinct from the parent one', () => {
+    let state = createChatPanelAguiState();
+    for (const event of [
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'status-parent',
+        activityType: 'status',
+        content: { phase: 'planning' },
+        subagentRunId: undefined,
+      },
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'status-child',
+        activityType: 'status',
+        content: { phase: 'planning' },
+        subagentRunId: 'task-a',
+      },
+    ]) {
+      state = reduceChatPanelAguiEvent(state, event, { now });
+    }
+
+    expect(state.messages.map((message) => message.id)).toEqual([
+      'status-parent',
+      'status-child',
+    ]);
+    const owners = state.messages.map((message) =>
+      message.kind === 'activity' ? message.activity.subagentRunId : 'other',
+    );
+    expect(owners).toEqual([undefined, 'task-a']);
+  });
+
+  it('rejects a snapshot that would change an existing widget type', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let state = createChatPanelAguiState();
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'widget-1',
+        activityType: 'plan',
+        content: { phase: 'running', goal: 'Ship it', steps: [] },
+      },
+      { now },
+    );
+
+    const next = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'widget-1',
+        activityType: 'status',
+        content: { phase: 'running' },
+      },
+      { now },
+    );
+
+    // The thread store rejects the same event, so both consumers agree.
+    expect(next).toBe(state);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('keeps a widget owner when a replacement omits it', () => {
+    let state = createChatPanelAguiState();
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'status-1',
+        activityType: 'status',
+        content: { phase: 'planning' },
+        subagentRunId: 'task-a',
+      },
+      { now },
+    );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'status-1',
+        activityType: 'status',
+        content: { phase: 'running' },
+      },
+      { now },
+    );
+
+    expect(state.messages).toMatchObject([
+      {
+        id: 'status-1',
+        activity: {
+          content: { phase: 'running' },
+          subagentRunId: 'task-a',
+        },
+      },
+    ]);
+  });
+
+  it('adds a card for each sub-agent and settles it from its outcome', () => {
+    let state = createChatPanelAguiState();
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+        name: 'Scan',
+      },
+      { now },
+    );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.SUBAGENT_FINISHED,
+        subagentRunId: 'task-a',
+        outcome: {
+          type: 'suspended',
+          interruptIds: ['permission:p1'],
+        },
+      },
+      { now },
+    );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.SUBAGENT_ERROR,
+        subagentRunId: 'task-b',
+        message: 'boom',
+      },
+      { now },
+    );
+
+    expect(state.messages).toMatchObject([
+      {
+        id: 'subagent:task-a',
+        kind: 'subagent',
+        subagent: { id: 'task-a', name: 'Scan', status: 'suspended' },
+      },
+      {
+        id: 'subagent:task-b',
+        kind: 'subagent',
+        subagent: { id: 'task-b', status: 'error' },
       },
     ]);
   });

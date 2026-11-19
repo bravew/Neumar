@@ -2,11 +2,17 @@ import { EventType, type BaseEvent } from '@ag-ui/core';
 import { describe, expect, it } from 'vitest';
 
 import type { AgentMessage } from '../../../../src/core/agent/types';
-import { AGUIEmitter } from '../../../../src/shared/services/ag-ui/emitter';
+import {
+  AGUIEmitter,
+  type AGUIRunContext,
+} from '../../../../src/shared/services/ag-ui/emitter';
 import { defined } from '../../../helpers/defined';
 
-async function collect(messages: AgentMessage[]): Promise<BaseEvent[]> {
-  const emitter = new AGUIEmitter('thread-1', 'run-1');
+async function collect(
+  messages: AgentMessage[],
+  context?: AGUIRunContext,
+): Promise<BaseEvent[]> {
+  const emitter = new AGUIEmitter('thread-1', 'run-1', context);
   async function* source() {
     yield* messages;
   }
@@ -148,6 +154,63 @@ describe('AG-UI sub-agent lifecycle and attribution', () => {
     expect(errorIndex).toBeLessThan(finishedIndex);
   });
 
+  it('suspends an open child when the run ends at a decision', async () => {
+    const events = await collect(
+      [
+        {
+          type: 'subagent_started',
+          subagentRunId: 'task-a',
+          subagentName: 'Scan',
+        },
+        {
+          type: 'plan',
+          plan: {
+            id: 'plan-1',
+            goal: 'Ship it',
+            steps: [],
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+          },
+        },
+      ],
+      { planInterrupt: true },
+    );
+
+    expect(ofType(events, EventType.SUBAGENT_ERROR)).toHaveLength(0);
+    expect(ofType(events, EventType.SUBAGENT_FINISHED)).toEqual([
+      expect.objectContaining({
+        subagentRunId: 'task-a',
+        outcome: { type: 'suspended', interruptIds: ['plan:plan-1'] },
+      }),
+    ]);
+    expect(events.at(-1)).toMatchObject({
+      type: EventType.RUN_FINISHED,
+      outcome: { type: 'interrupt' },
+    });
+  });
+
+  it('fails an open child when the run throws after it starts', async () => {
+    const emitter = new AGUIEmitter('thread-1', 'run-1');
+    const events: BaseEvent[] = [];
+    for await (const event of emitter.transform(
+      (async function* () {
+        yield {
+          type: 'subagent_started',
+          subagentRunId: 'task-a',
+          subagentName: 'Scan',
+        } as AgentMessage;
+        throw new Error('boom');
+      })(),
+    )) {
+      events.push(event);
+    }
+
+    expect(ofType(events, EventType.SUBAGENT_FINISHED)).toHaveLength(0);
+    expect(ofType(events, EventType.SUBAGENT_ERROR)).toEqual([
+      expect.objectContaining({ subagentRunId: 'task-a', code: 'run_ended' }),
+    ]);
+    expect(events.at(-1)).toMatchObject({ type: EventType.RUN_ERROR });
+  });
+
   it('closes a child text block before parent text resumes', async () => {
     const events = await collect([
       { type: 'text', content: 'child', subagentRunId: 'task-a' },
@@ -159,6 +222,28 @@ describe('AG-UI sub-agent lifecycle and attribution', () => {
     expect(starts.map((e) => e.subagentRunId)).toEqual(['task-a', undefined]);
     const ends = ofType(events, EventType.TEXT_MESSAGE_END);
     expect(ends[0]?.messageId).toBe(starts[0]?.messageId);
+  });
+
+  it("attributes a child's reasoning block to its invocation", async () => {
+    const events = await collect([
+      {
+        type: 'thinking',
+        content: 'considering the options',
+        subagentRunId: 'task-a',
+      },
+    ]);
+
+    const start = ofType(events, EventType.REASONING_MESSAGE_START)[0];
+    expect(start).toMatchObject({ subagentRunId: 'task-a' });
+    expect(
+      ofType(events, EventType.REASONING_MESSAGE_CONTENT)[0],
+    ).toMatchObject({ subagentRunId: 'task-a', messageId: start?.messageId });
+    expect(ofType(events, EventType.REASONING_MESSAGE_END)[0]).toMatchObject({
+      subagentRunId: 'task-a',
+      messageId: start?.messageId,
+    });
+    // A child's first event still opens its card.
+    expect(ofType(events, EventType.SUBAGENT_STARTED)).toHaveLength(1);
   });
 
   it('does not tag parent-run messages', async () => {

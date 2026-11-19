@@ -301,6 +301,43 @@ describe('thread-store AG-UI event coverage', () => {
     });
   });
 
+  it('keeps child ownership in a snapshot and drops unusable activities', () => {
+    const store = useThreadStore.getState();
+    store.applyAGUIEvent(taskId, {
+      type: EventType.MESSAGES_SNAPSHOT,
+      seq: 1,
+      messages: [
+        {
+          id: 'plan-child',
+          role: 'activity',
+          activityType: 'plan',
+          content: { phase: 'running', goal: 'Ship it', steps: [] },
+          subagentRunId: 'task-a',
+        },
+        {
+          id: 'unsupported',
+          role: 'activity',
+          activityType: 'timeline',
+          content: { items: [] },
+        },
+        {
+          id: 'malformed',
+          role: 'activity',
+          activityType: 'plan',
+          content: 'not an object',
+        },
+      ],
+    });
+
+    const messages = useThreadStore.getState().threads[taskId].messages;
+    expect(messages.map((message) => message.id)).toEqual(['plan-child']);
+    expect(messages[0]).toMatchObject({
+      role: 'activity',
+      activityType: 'plan',
+      subagentRunId: 'task-a',
+    });
+  });
+
   it('tracks tool-call lifecycle stages', () => {
     const store = useThreadStore.getState();
     store.applyAGUIEvent(taskId, {

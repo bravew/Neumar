@@ -53,6 +53,45 @@ describe('thread-store sub-agent lifecycle', () => {
     ]);
   });
 
+  it("attributes a child's reasoning block to its invocation", () => {
+    apply(
+      { type: EventType.RUN_STARTED },
+      {
+        type: EventType.REASONING_MESSAGE_START,
+        messageId: 'reason-child',
+        subagentRunId: 'task-a',
+      },
+      {
+        type: EventType.REASONING_MESSAGE_CONTENT,
+        messageId: 'reason-child',
+        delta: 'checking the tree',
+      },
+      { type: EventType.REASONING_MESSAGE_END, messageId: 'reason-child' },
+      {
+        type: EventType.REASONING_MESSAGE_START,
+        messageId: 'reason-parent',
+      },
+      {
+        type: EventType.REASONING_MESSAGE_CONTENT,
+        messageId: 'reason-parent',
+        delta: 'deciding what to do',
+      },
+    );
+
+    const reasoning = thread().messages.filter(
+      (message) => message.role === 'reasoning',
+    );
+    expect(reasoning).toMatchObject([
+      {
+        id: 'reason-child',
+        content: 'checking the tree',
+        subagentRunId: 'task-a',
+      },
+      { id: 'reason-parent', content: 'deciding what to do' },
+    ]);
+    expect(reasoning[1]?.subagentRunId).toBeUndefined();
+  });
+
   it('records an error with its code and keeps nesting', () => {
     apply(
       {
@@ -171,6 +210,43 @@ describe('thread-store sub-agent lifecycle', () => {
     );
 
     expect(thread().subagents[0]?.status).toBe('error');
+  });
+
+  it('marks a child suspended when its run ends on a decision', () => {
+    apply(
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+        name: 'Scan',
+      },
+      {
+        type: EventType.RUN_FINISHED,
+        outcome: {
+          type: 'interrupt',
+          interrupts: [{ id: 'permission:p1', reason: 'tool_permission' }],
+        },
+      },
+    );
+
+    expect(thread().subagents[0]).toMatchObject({ status: 'suspended' });
+    expect(thread().subagents[0]?.error).toBeUndefined();
+  });
+
+  it('records a suspension the child reported itself', () => {
+    apply(
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+        name: 'Scan',
+      },
+      {
+        type: EventType.SUBAGENT_FINISHED,
+        subagentRunId: 'task-a',
+        outcome: { type: 'suspended', interruptIds: ['permission:p1'] },
+      },
+    );
+
+    expect(thread().subagents[0]?.status).toBe('suspended');
   });
 });
 

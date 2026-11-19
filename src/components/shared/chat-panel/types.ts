@@ -163,6 +163,41 @@ export interface ChatPanelStateMessage<
   state: ChatStateUpdate;
 }
 
+/** One AG-UI activity widget, keyed by its `messageId`. */
+export interface ChatPanelActivity {
+  id: string;
+  /** Application activity type, e.g. 'plan' or 'status'. */
+  activityType: string;
+  content: Record<string, unknown>;
+  /** The sub-agent invocation that produced it; absent means the parent run. */
+  subagentRunId?: string;
+}
+
+export interface ChatPanelActivityMessage<
+  Extras extends ChatPanelMessageExtras = ChatPanelMessageExtras,
+> extends ChatPanelMessageBase<'activity', Extras> {
+  role: 'assistant';
+  activity: ChatPanelActivity;
+}
+
+export type ChatSubagentStatus =
+  | 'running'
+  | 'completed'
+  | 'suspended'
+  | 'error';
+
+export interface ChatPanelSubagentMessage<
+  Extras extends ChatPanelMessageExtras = ChatPanelMessageExtras,
+> extends ChatPanelMessageBase<'subagent', Extras> {
+  role: 'system';
+  subagent: {
+    id: string;
+    name?: string;
+    status: ChatSubagentStatus;
+    parentSubagentRunId?: string;
+  };
+}
+
 export type ChatPanelMessage<
   Extras extends ChatPanelMessageExtras = ChatPanelMessageExtras,
 > =
@@ -172,7 +207,9 @@ export type ChatPanelMessage<
   | ChatPanelActionMessage<Extras>
   | ChatPanelSurfaceMessage<Extras>
   | ChatPanelLifecycleMessage<Extras>
-  | ChatPanelStateMessage<Extras>;
+  | ChatPanelStateMessage<Extras>
+  | ChatPanelActivityMessage<Extras>
+  | ChatPanelSubagentMessage<Extras>;
 
 export function asNonEmptyArray<T>(items: T[]): NonEmptyArray<T> | null {
   return items.length > 0 ? (items as NonEmptyArray<T>) : null;

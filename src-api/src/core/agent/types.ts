@@ -72,6 +72,7 @@ export type AgentMessageType =
   | 'error'
   | 'done'
   | 'plan'
+  | 'plan_activity'
   | 'direct_answer'
   | 'thinking'
   | 'planning_status'
@@ -191,6 +192,10 @@ export interface AgentMessage {
   parentSubagentRunId?: string;
   /** The Task tool call in the parent that spawned this invocation. */
   parentToolCallId?: string;
+  /** For subagent_finished: suspended means the segment ended awaiting input. */
+  subagentOutcome?: 'success' | 'suspended';
+  /** Interrupts that suspend the sub-agent, when subagentOutcome is suspended. */
+  interruptIds?: string[];
   // Permission fields
   permission?: {
     id: string;
@@ -204,6 +209,8 @@ export interface AgentMessage {
     suppress_always_allow_rule?: boolean;
     /** MCP server serving the tool; `source: 'sdk'` is an in-process server. */
     mcp_server?: { name: string; source: string };
+    /** Sub-agent invocation that asked, when a child tool needs approval. */
+    agent_id?: string;
   };
   // AG-UI correlation fields
   /** Unique identifier for this run/execution */

@@ -275,6 +275,94 @@ describe('plugin flow context carryover', () => {
   });
 });
 
+describe('restored dock history', () => {
+  it('keeps well-formed activity and sub-agent rows and drops malformed ones', () => {
+    const projectId = 'restore-1';
+    const createdAt = '2026-01-01T00:00:00.000Z';
+    localStorage.setItem(
+      `video.agentDock.history.${projectId}`,
+      JSON.stringify({
+        version: 1,
+        messages: [
+          {
+            id: 'plan-plan-1',
+            kind: 'activity',
+            role: 'assistant',
+            createdAt,
+            activity: {
+              id: 'plan-plan-1',
+              activityType: 'plan',
+              content: { phase: 'done' },
+            },
+          },
+          {
+            id: 'subagent:task-a',
+            kind: 'subagent',
+            role: 'system',
+            createdAt,
+            subagent: { id: 'task-a', status: 'completed' },
+          },
+          {
+            id: 'bad-activity',
+            kind: 'activity',
+            role: 'assistant',
+            createdAt,
+            activity: { id: 'bad-activity', content: {} },
+          },
+          {
+            id: 'bad-subagent',
+            kind: 'subagent',
+            role: 'system',
+            createdAt,
+            subagent: { id: 'task-b', status: 'unknown' },
+          },
+          {
+            id: 'bad-subagent-name',
+            kind: 'subagent',
+            role: 'system',
+            createdAt,
+            subagent: {
+              id: 'task-c',
+              status: 'completed',
+              name: { bad: true },
+            },
+          },
+          {
+            id: 'bad-subagent-parent',
+            kind: 'subagent',
+            role: 'system',
+            createdAt,
+            subagent: {
+              id: 'task-d',
+              status: 'completed',
+              parentSubagentRunId: 7,
+            },
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ messages: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+
+    const { result } = renderHook(() => useAgentDock({ projectId }), {
+      wrapper: strictModeWrapper,
+    });
+
+    expect(result.current.messages.map((message) => message.id)).toEqual([
+      'plan-plan-1',
+      'subagent:task-a',
+    ]);
+  });
+});
+
 function strictModeWrapper({ children }: { children: ReactNode }) {
   return createElement(
     StrictMode,

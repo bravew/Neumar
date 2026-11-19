@@ -13,6 +13,11 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
 import {
+  applyActivityPatch,
+  jsonClone,
+  type JsonPatchOperation,
+} from '@/shared/lib/activity-patch';
+import {
   createCompleteToolCallState,
   createErrorToolCallState,
   createExecutingToolCallState,
@@ -58,7 +63,7 @@ export interface ThreadSubagent {
   description?: string;
   parentSubagentRunId?: string;
   parentToolCallId?: string;
-  status: 'running' | 'completed' | 'error';
+  status: 'running' | 'completed' | 'suspended' | 'error';
   result?: string;
   error?: { message: string; code?: string };
   startedAt?: number;
@@ -171,189 +176,6 @@ interface ThreadState {
   lastAppliedSeq: number;
 }
 
-/** Minimal AG-UI event shape — only the fields we need to reduce. */
-export interface JsonPatchOperation {
-  op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
-  path: string;
-  from?: string;
-  value?: unknown;
-}
-
-function decodeJsonPointer(path: string): string[] | undefined {
-  if (path === '') return [];
-  if (!path.startsWith('/')) return undefined;
-  try {
-    return path
-      .slice(1)
-      .split('/')
-      .map((part) => {
-        if (/~(?![01])/.test(part)) throw new Error('invalid pointer escape');
-        return part.replace(/~1/g, '/').replace(/~0/g, '~');
-      });
-  } catch {
-    return undefined;
-  }
-}
-
-function jsonClone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-/** RFC 6902 `test` equality: deep, and insensitive to object key order. */
-function jsonEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== 'object' || typeof b !== 'object' || !a || !b) return false;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    return (
-      Array.isArray(a) &&
-      Array.isArray(b) &&
-      a.length === b.length &&
-      a.every((item, i) => jsonEqual(item, b[i]))
-    );
-  }
-  const left = a as Record<string, unknown>;
-  const right = b as Record<string, unknown>;
-  const keys = Object.keys(left);
-  return (
-    keys.length === Object.keys(right).length &&
-    keys.every(
-      (key) =>
-        Object.prototype.hasOwnProperty.call(right, key) &&
-        jsonEqual(left[key], right[key]),
-    )
-  );
-}
-
-/** A canonical array index: no sign, no leading zero, no exponent, not empty. */
-const ARRAY_INDEX = /^(0|[1-9]\d*)$/;
-
-/** Apply a structurally checked RFC 6902 patch to a private JSON clone. */
-export function applyActivityPatch(
-  source: Record<string, unknown>,
-  rawPatch: unknown,
-): Record<string, unknown> | undefined {
-  if (!Array.isArray(rawPatch)) return undefined;
-  let document: unknown = jsonClone(source);
-  const locate = (root: unknown, parts: string[]) => {
-    let value = root;
-    for (const part of parts) {
-      if (Array.isArray(value)) {
-        if (!ARRAY_INDEX.test(part) || Number(part) >= value.length)
-          return undefined;
-        value = value[Number(part)];
-      } else if (
-        value &&
-        typeof value === 'object' &&
-        Object.prototype.hasOwnProperty.call(value, part)
-      ) {
-        value = (value as Record<string, unknown>)[part];
-      } else return undefined;
-    }
-    return value;
-  };
-  const write = (
-    root: unknown,
-    parts: string[],
-    op: 'add' | 'remove' | 'replace',
-    value?: unknown,
-  ): unknown => {
-    if (!parts.length) {
-      if (op === 'remove') throw new Error('cannot remove document root');
-      return jsonClone(value);
-    }
-    const parent = locate(root, parts.slice(0, -1));
-    const key = parts.at(-1)!;
-    if (parent && typeof parent === 'object') {
-      for (const part of parts) {
-        if (
-          part === '__proto__' ||
-          part === 'constructor' ||
-          part === 'prototype'
-        )
-          throw new Error('unsafe JSON pointer');
-      }
-      if (Array.isArray(parent)) {
-        const index =
-          key === '-' && op === 'add'
-            ? parent.length
-            : ARRAY_INDEX.test(key)
-              ? Number(key)
-              : -1;
-        if (
-          index < 0 ||
-          index > parent.length ||
-          (op !== 'add' && index >= parent.length)
-        )
-          throw new Error('invalid array index');
-        if (op === 'add') parent.splice(index, 0, jsonClone(value));
-        else if (op === 'remove') parent.splice(index, 1);
-        else parent[index] = jsonClone(value);
-      } else {
-        const record = parent as Record<string, unknown>;
-        if (op !== 'add' && !Object.prototype.hasOwnProperty.call(record, key))
-          throw new Error('path does not exist');
-        if (op === 'remove') delete record[key];
-        else record[key] = jsonClone(value);
-      }
-      return root;
-    }
-    throw new Error('parent path does not exist');
-  };
-  try {
-    for (const raw of rawPatch) {
-      if (!raw || typeof raw !== 'object') return undefined;
-      const operation = raw as JsonPatchOperation;
-      const path = decodeJsonPointer(operation.path);
-      if (!path || typeof operation.op !== 'string') return undefined;
-      switch (operation.op) {
-        case 'add':
-        case 'replace':
-          if (!('value' in operation)) return undefined;
-          document = write(document, path, operation.op, operation.value);
-          break;
-        case 'remove':
-          document = write(document, path, 'remove');
-          break;
-        case 'copy':
-        case 'move': {
-          const from =
-            operation.from === undefined
-              ? undefined
-              : decodeJsonPointer(operation.from);
-          if (!from) return undefined;
-          const value = locate(document, from);
-          if (value === undefined) return undefined;
-          if (operation.op === 'move') {
-            if (
-              path.length > from.length &&
-              from.every((part, i) => path[i] === part)
-            )
-              return undefined;
-            document = write(document, from, 'remove');
-          }
-          document = write(document, path, 'add', value);
-          break;
-        }
-        case 'test': {
-          if (
-            !('value' in operation) ||
-            !jsonEqual(locate(document, path), operation.value)
-          )
-            return undefined;
-          break;
-        }
-        default:
-          return undefined;
-      }
-    }
-    return document && typeof document === 'object' && !Array.isArray(document)
-      ? (document as Record<string, unknown>)
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export interface AGUIStreamEvent {
   type: string;
   seq?: number;
@@ -374,8 +196,17 @@ export interface AGUIStreamEvent {
   patch?: unknown;
   /** MESSAGES_SNAPSHOT */
   messages?: ThreadMessage[];
-  /** RUN_FINISHED: why the run ended; absent means success. */
-  outcome?: { type?: string };
+  /**
+   * RUN_FINISHED: why the run ended; absent means success. A suspended
+   * SUBAGENT_FINISHED carries the same shape and names the decisions it waits on.
+   */
+  outcome?: {
+    type?: string;
+    /** RUN_FINISHED with type 'interrupt': the decisions still open. */
+    interrupts?: unknown[];
+    /** SUBAGENT_FINISHED with type 'suspended'. */
+    interruptIds?: string[];
+  };
   timestamp?: number;
   /** Set on a sub-agent's own events, and on SUBAGENT_* lifecycle events. */
   subagentRunId?: string;
@@ -400,19 +231,24 @@ const RUN_ENDED_CODE = 'run_ended';
  * Ends a sub-agent that is still running. The server closes every child before
  * a run ends, so this only covers a run that ended without that (a dropped
  * stream, a crashed process). It is shown as ended early, never as completed.
+ * A run that ended awaiting a decision suspends its children instead: the work
+ * may continue once the decision is answered.
  */
 function closeRunningSubagents(
   subagents: ThreadSubagent[],
   endedAt: number,
+  status: 'error' | 'suspended' = 'error',
 ): boolean {
   let changed = false;
   for (const subagent of subagents) {
     if (subagent.status !== 'running') continue;
-    subagent.status = 'error';
-    subagent.error = {
-      message: 'Run ended before the sub-agent finished',
-      code: RUN_ENDED_CODE,
-    };
+    subagent.status = status;
+    if (status === 'error') {
+      subagent.error = {
+        message: 'Run ended before the sub-agent finished',
+        code: RUN_ENDED_CODE,
+      };
+    }
     subagent.endedAt = endedAt;
     changed = true;
   }
@@ -896,7 +732,9 @@ export const useThreadStore = create<ThreadStore>()(
               break;
             }
             acc.reasoningMessageId = id;
-            ensureMsg(id, 'reasoning');
+            const started = ensureMsg(id, 'reasoning');
+            if (event.subagentRunId)
+              started.subagentRunId = event.subagentRunId;
             break;
           }
 
@@ -909,6 +747,7 @@ export const useThreadStore = create<ThreadStore>()(
             }
             const msg = ensureMsg(id, 'reasoning');
             msg.content = (msg.content ?? '') + event.delta;
+            if (event.subagentRunId) msg.subagentRunId ??= event.subagentRunId;
             acc.reasoningMessageId ??= id;
             break;
           }
@@ -1061,7 +900,10 @@ export const useThreadStore = create<ThreadStore>()(
             }
             subagent.endedAt = event.timestamp ?? Date.now();
             if (event.type === EventType.SUBAGENT_FINISHED) {
-              subagent.status = 'completed';
+              // A suspended segment ended awaiting a decision: the invocation
+              // may continue in a later run, so it is not a completion.
+              subagent.status =
+                event.outcome?.type === 'suspended' ? 'suspended' : 'completed';
               if (typeof event.result === 'string')
                 subagent.result = event.result;
             } else {
@@ -1213,6 +1055,7 @@ export const useThreadStore = create<ThreadStore>()(
             const closedSubagents = closeRunningSubagents(
               thread.subagents,
               Date.now(),
+              event.outcome?.type === 'interrupt' ? 'suspended' : 'error',
             );
             mutated = closedTools || closedSubagents;
             break;

@@ -516,6 +516,8 @@ export function buildCanUseTool(
       command: inputStr,
       description: `Execute ${toolName}`,
       risk_level: riskLevel,
+      // A child tool call is asked by the sub-agent, not the parent turn.
+      ...(options.agentID ? { agent_id: options.agentID } : {}),
       ...buildPromptHints(options),
     };
     taskEventBus.publish(taskId, {

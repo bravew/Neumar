@@ -41,9 +41,13 @@ const activityEvents = (events: BaseEvent[]) =>
     patch?: Array<{ op: string; path: string; value: unknown }>;
   }>;
 
+/** Only the planning status widget; plan checklists are covered separately. */
+const statusActivities = (events: BaseEvent[]) =>
+  activityEvents(events).filter((event) => event.activityType === 'status');
+
 /** The final phase patch the emitter sent for the planning widget. */
 const finalPhase = (events: BaseEvent[]) =>
-  activityEvents(events)
+  statusActivities(events)
     .flatMap((event) => event.patch ?? [])
     .filter((operation) => operation.path === '/phase')
     .map((operation) => operation.value);
@@ -78,7 +82,7 @@ describe('planning progress as a standard AG-UI activity', () => {
       { type: 'plan', plan: { id: 'plan-1', goal: 'g', steps: [] } } as never,
     ]);
 
-    const activity = activityEvents(events);
+    const activity = statusActivities(events);
     expect(activity.map((event) => event.type)).toEqual([
       EventType.ACTIVITY_SNAPSHOT,
       EventType.ACTIVITY_DELTA,

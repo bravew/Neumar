@@ -9,7 +9,7 @@ import { useLanguage } from '@/shared/providers/language-provider';
 export interface SubAgentState {
   id: string;
   name: string;
-  status: 'running' | 'completed' | 'failed' | 'cancelled';
+  status: 'running' | 'completed' | 'suspended' | 'failed' | 'cancelled';
   startedAt: number;
   completedAt?: number;
   durationMs?: number;
@@ -28,6 +28,7 @@ export interface SubAgentState {
 const STATUS_COLORS: Record<SubAgentState['status'], string> = {
   running: 'bg-amber-500',
   completed: 'bg-emerald-500',
+  suspended: 'bg-sky-500',
   failed: 'bg-red-500',
   cancelled: 'bg-gray-400',
 };
@@ -68,62 +69,70 @@ function SubAgentRow({
       ? t.task.subAgentRunning
       : agent.status === 'completed'
         ? t.task.subAgentCompleted
-        : agent.status === 'failed'
-          ? t.task.subAgentFailed
-          : t.task.subAgentCancelled;
+        : agent.status === 'suspended'
+          ? t.task.subAgentSuspended
+          : agent.status === 'failed'
+            ? t.task.subAgentFailed
+            : t.task.subAgentCancelled;
+
+  const panelId = `subagent-detail-${agent.id}`;
 
   return (
     <div className="border-border/30 border-b last:border-0">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        style={{ paddingLeft: `${0.75 + depth * 1}rem` }}
-        className="hover:bg-muted/40 flex w-full cursor-pointer items-center gap-2 py-2 pr-3 text-xs transition-colors"
-      >
-        <ChevronRight
-          className={cn(
-            'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
-            expanded && 'rotate-90',
-          )}
-        />
-        <span
-          className={cn(
-            'size-1.5 shrink-0 rounded-full',
-            STATUS_COLORS[agent.status],
-          )}
-        />
-        <span className="text-foreground truncate text-left font-medium">
-          {agent.name || t.task.subAgentDefault}
-        </span>
-        <span className="text-muted-foreground ml-auto flex shrink-0 items-center gap-2">
-          {isRunning && (
-            <Loader2 className="size-3 animate-spin text-amber-500" />
-          )}
-          <span>{statusLabel}</span>
-          <span className="text-muted-foreground/60">
-            {formatDuration(duration)}
+      <div className="hover:bg-muted/40 flex w-full items-center gap-2 py-2 pr-3 text-xs transition-colors">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls={expanded ? panelId : undefined}
+          style={{ paddingLeft: `${0.75 + depth * 1}rem` }}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+        >
+          <ChevronRight
+            className={cn(
+              'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+              expanded && 'rotate-90',
+            )}
+          />
+          <span
+            className={cn(
+              'size-1.5 shrink-0 rounded-full',
+              STATUS_COLORS[agent.status],
+            )}
+          />
+          <span className="text-foreground truncate text-left font-medium">
+            {agent.name || t.task.subAgentDefault}
           </span>
-          {agent.totalTokens != null && (
+          <span className="text-muted-foreground ml-auto flex shrink-0 items-center gap-2">
+            {isRunning && (
+              <Loader2 className="size-3 animate-spin text-amber-500" />
+            )}
+            <span>{statusLabel}</span>
             <span className="text-muted-foreground/60">
-              {agent.totalTokens.toLocaleString()} {t.task.tokens}
+              {formatDuration(duration)}
             </span>
-          )}
-          {isRunning && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCancel(agent.id);
-              }}
-              className="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors hover:bg-red-50 dark:hover:bg-red-950"
-              title={t.task.cancel}
-              aria-label={t.task.cancel}
-            >
-              <X className="size-3" />
-            </button>
-          )}
-        </span>
-      </button>
+            {agent.totalTokens != null && (
+              <span className="text-muted-foreground/60">
+                {agent.totalTokens.toLocaleString()} {t.task.tokens}
+              </span>
+            )}
+          </span>
+        </button>
+        {isRunning && (
+          <button
+            type="button"
+            onClick={() => onCancel(agent.id)}
+            className="text-muted-foreground hover:text-destructive shrink-0 cursor-pointer rounded p-0.5 transition-colors hover:bg-red-50 dark:hover:bg-red-950"
+            title={t.task.cancel}
+            aria-label={t.task.cancel}
+          >
+            <X className="size-3" />
+          </button>
+        )}
+      </div>
       {expanded && (
         <div
+          id={panelId}
           style={{ paddingLeft: `${0.75 + depth * 1}rem` }}
           className="text-muted-foreground border-border/20 space-y-1.5 border-t py-2 pr-3 text-xs"
         >
