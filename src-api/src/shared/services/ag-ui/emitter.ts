@@ -538,12 +538,14 @@ export class AGUIEmitter {
       case 'thinking': {
         // Skip empty thinking blocks
         if (!msg.content) break;
+        yield* this.ensureSubagent(msg.subagentRunId);
         const reasoningId = crypto.randomUUID();
         yield this.event<ReasoningMessageStartEvent>(
           EventType.REASONING_MESSAGE_START,
           {
             messageId: reasoningId,
             role: 'reasoning',
+            ...ownerField(msg.subagentRunId),
           },
         );
         yield this.event<ReasoningMessageContentEvent>(
@@ -551,12 +553,14 @@ export class AGUIEmitter {
           {
             messageId: reasoningId,
             delta: msg.content,
+            ...ownerField(msg.subagentRunId),
           },
         );
         yield this.event<ReasoningMessageEndEvent>(
           EventType.REASONING_MESSAGE_END,
           {
             messageId: reasoningId,
+            ...ownerField(msg.subagentRunId),
           },
         );
         break;

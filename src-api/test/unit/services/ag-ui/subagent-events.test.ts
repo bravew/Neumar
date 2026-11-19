@@ -161,6 +161,28 @@ describe('AG-UI sub-agent lifecycle and attribution', () => {
     expect(ends[0]?.messageId).toBe(starts[0]?.messageId);
   });
 
+  it("attributes a child's reasoning block to its invocation", async () => {
+    const events = await collect([
+      {
+        type: 'thinking',
+        content: 'considering the options',
+        subagentRunId: 'task-a',
+      },
+    ]);
+
+    const start = ofType(events, EventType.REASONING_MESSAGE_START)[0];
+    expect(start).toMatchObject({ subagentRunId: 'task-a' });
+    expect(
+      ofType(events, EventType.REASONING_MESSAGE_CONTENT)[0],
+    ).toMatchObject({ subagentRunId: 'task-a', messageId: start?.messageId });
+    expect(ofType(events, EventType.REASONING_MESSAGE_END)[0]).toMatchObject({
+      subagentRunId: 'task-a',
+      messageId: start?.messageId,
+    });
+    // A child's first event still opens its card.
+    expect(ofType(events, EventType.SUBAGENT_STARTED)).toHaveLength(1);
+  });
+
   it('does not tag parent-run messages', async () => {
     const events = await collect([
       { type: 'text', content: 'hello' },
