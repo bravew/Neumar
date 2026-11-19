@@ -112,6 +112,45 @@ describe('thread-store AG-UI replay', () => {
 
     expect(threadSnapshot()).toBe(firstReplay);
   });
+
+  it('replays an activity snapshot and patch into one settled widget', () => {
+    const events: AGUIStreamEvent[] = [
+      { type: EventType.RUN_STARTED, seq: 0 },
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        seq: 1,
+        messageId: 'plan-1',
+        activityType: 'plan',
+        content: { phase: 'running', goal: 'Ship it', steps: [] },
+      },
+      {
+        type: EventType.ACTIVITY_DELTA,
+        seq: 2,
+        messageId: 'plan-1',
+        activityType: 'plan',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      },
+      { type: EventType.RUN_FINISHED, seq: 3 },
+    ];
+
+    for (const event of events) {
+      useThreadStore.getState().applyAGUIEvent(taskId, event);
+    }
+    const firstReplay = threadSnapshot();
+
+    for (const event of events) {
+      useThreadStore.getState().applyAGUIEvent(taskId, event);
+    }
+
+    expect(threadSnapshot()).toBe(firstReplay);
+    const messages = useThreadStore.getState().threads[taskId].messages;
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      id: 'plan-1',
+      role: 'activity',
+      content: { phase: 'done', goal: 'Ship it', steps: [] },
+    });
+  });
 });
 
 describe('thread-store message snapshots', () => {

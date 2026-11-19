@@ -1,5 +1,5 @@
 import { EventType } from '@ag-ui/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createChatPanelAguiState,
@@ -388,6 +388,7 @@ describe('chat-panel AG-UI adapter', () => {
   });
 
   it('opens an activity widget, patches it, and ignores what it cannot render', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let state = createChatPanelAguiState();
     state = reduceChatPanelAguiEvent(
       state,
@@ -434,8 +435,10 @@ describe('chat-panel AG-UI adapter', () => {
       { now },
     );
     expect(untouched.messages).toEqual(state.messages);
+    // `replace: false` is a supported no-op, not a skipped event.
+    expect(warn).not.toHaveBeenCalled();
 
-    for (const event of [
+    const skipped = [
       {
         type: EventType.ACTIVITY_SNAPSHOT,
         messageId: 'timeline-1',
@@ -443,14 +446,66 @@ describe('chat-panel AG-UI adapter', () => {
         content: { items: [] },
       },
       {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'bad-1',
+        activityType: 'plan',
+        content: 'not an object',
+      },
+      {
         type: EventType.ACTIVITY_DELTA,
         messageId: 'missing',
         activityType: 'plan',
         patch: [{ op: 'replace', path: '/phase', value: 'done' }],
       },
-    ]) {
+      {
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'plan-plan-1',
+        activityType: 'status',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      },
+      {
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'plan-plan-1',
+        activityType: 'plan',
+        patch: [{ op: 'replace', path: 'phase', value: 'done' }],
+      },
+    ];
+    for (const event of skipped) {
       expect(reduceChatPanelAguiEvent(state, event, { now })).toBe(state);
     }
+    expect(warn).toHaveBeenCalledTimes(skipped.length);
+    warn.mockRestore();
+  });
+
+  it('keeps a child-owned activity distinct from the parent one', () => {
+    let state = createChatPanelAguiState();
+    for (const event of [
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'status-parent',
+        activityType: 'status',
+        content: { phase: 'planning' },
+        subagentRunId: undefined,
+      },
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'status-child',
+        activityType: 'status',
+        content: { phase: 'planning' },
+        subagentRunId: 'task-a',
+      },
+    ]) {
+      state = reduceChatPanelAguiEvent(state, event, { now });
+    }
+
+    expect(state.messages.map((message) => message.id)).toEqual([
+      'status-parent',
+      'status-child',
+    ]);
+    const owners = state.messages.map((message) =>
+      message.kind === 'activity' ? message.activity.subagentRunId : 'other',
+    );
+    expect(owners).toEqual([undefined, 'task-a']);
   });
 
   it('adds a card for each sub-agent and settles it from its outcome', () => {

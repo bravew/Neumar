@@ -93,6 +93,21 @@ const AGUI_EVENT_TYPES = new Set<string>([
 /** Activity types this surface renders; anything else is skipped, not shown raw. */
 const SUPPORTED_ACTIVITY_TYPES = new Set<string>(['plan', 'status']);
 
+/**
+ * The activity spec asks a consumer to warn and skip an event it cannot apply,
+ * so a malformed stream is diagnosable instead of silently losing progress.
+ */
+function warnSkippedActivity(
+  eventType: string,
+  reason: string,
+  messageId: string | undefined,
+): void {
+  console.warn(
+    `[chat-panel] ${eventType} skipped: ${reason}`,
+    messageId === undefined ? undefined : { messageId },
+  );
+}
+
 const AGUI_CANONICAL_KINDS = new Set<string>([
   'agent.message',
   'tool_call',
@@ -274,19 +289,42 @@ export function reduceChatPanelAguiEvent(
       const id = getString(event, 'messageId');
       const activityType = getString(event, 'activityType');
       const content = event.content;
-      if (
-        !id ||
-        !activityType ||
-        !SUPPORTED_ACTIVITY_TYPES.has(activityType) ||
-        !isPlainObject(content)
-      ) {
+      if (!id || !activityType) {
+        warnSkippedActivity(
+          'ACTIVITY_SNAPSHOT',
+          'missing messageId or activityType',
+          id,
+        );
         return state;
       }
+      if (!SUPPORTED_ACTIVITY_TYPES.has(activityType)) {
+        warnSkippedActivity(
+          'ACTIVITY_SNAPSHOT',
+          `unsupported activity type '${activityType}'`,
+          id,
+        );
+        return state;
+      }
+      if (!isPlainObject(content)) {
+        warnSkippedActivity(
+          'ACTIVITY_SNAPSHOT',
+          'content is not an object',
+          id,
+        );
+        return state;
+      }
+      const owner = getString(event, 'subagentRunId');
       const existing = state.messages.find((message) => message.id === id);
       if (existing) {
         // `replace: false` leaves an existing activity untouched; it never
         // merges. A conversation message with the same id is not converted.
-        if (event.replace === false || existing.kind !== 'activity') {
+        if (event.replace === false) return state;
+        if (existing.kind !== 'activity') {
+          warnSkippedActivity(
+            'ACTIVITY_SNAPSHOT',
+            'message id already belongs to a conversation message',
+            id,
+          );
           return state;
         }
         return {
@@ -295,7 +333,12 @@ export function reduceChatPanelAguiEvent(
             message.id === id && message.kind === 'activity'
               ? {
                   ...message,
-                  activity: { ...message.activity, activityType, content },
+                  activity: {
+                    id,
+                    activityType,
+                    content,
+                    ...(owner ? { subagentRunId: owner } : {}),
+                  },
                 }
               : message,
           ),
@@ -310,7 +353,12 @@ export function reduceChatPanelAguiEvent(
             kind: 'activity',
             role: 'assistant',
             createdAt: now(),
-            activity: { id, activityType, content },
+            activity: {
+              id,
+              activityType,
+              content,
+              ...(owner ? { subagentRunId: owner } : {}),
+            },
           },
         ],
       };
@@ -318,22 +366,41 @@ export function reduceChatPanelAguiEvent(
     case EventType.ACTIVITY_DELTA: {
       const id = getString(event, 'messageId');
       const activityType = getString(event, 'activityType');
-      if (!id || !activityType) return state;
+      if (!id || !activityType) {
+        warnSkippedActivity(
+          'ACTIVITY_DELTA',
+          'missing messageId or activityType',
+          id,
+        );
+        return state;
+      }
       const existing = state.messages.find((message) => message.id === id);
       // A delta for a missing or non-activity message is skipped: there is no
       // widget to patch, and inventing one would show state nobody reported.
-      if (
-        !existing ||
-        existing.kind !== 'activity' ||
-        existing.activity.activityType !== activityType
-      ) {
+      if (!existing) {
+        warnSkippedActivity('ACTIVITY_DELTA', 'no message with that id', id);
+        return state;
+      }
+      if (existing.kind !== 'activity') {
+        warnSkippedActivity('ACTIVITY_DELTA', 'message is not an activity', id);
+        return state;
+      }
+      if (existing.activity.activityType !== activityType) {
+        warnSkippedActivity(
+          'ACTIVITY_DELTA',
+          `activity type '${activityType}' does not match the widget`,
+          id,
+        );
         return state;
       }
       const patched = applyActivityPatch(
         existing.activity.content,
         event.patch,
       );
-      if (!patched) return state;
+      if (!patched) {
+        warnSkippedActivity('ACTIVITY_DELTA', 'malformed patch', id);
+        return state;
+      }
       return {
         ...state,
         messages: state.messages.map((message) =>

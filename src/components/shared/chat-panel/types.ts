@@ -169,6 +169,8 @@ export interface ChatPanelActivity {
   /** Application activity type, e.g. 'plan' or 'status'. */
   activityType: string;
   content: Record<string, unknown>;
+  /** The sub-agent invocation that produced it; absent means the parent run. */
+  subagentRunId?: string;
 }
 
 export interface ChatPanelActivityMessage<
