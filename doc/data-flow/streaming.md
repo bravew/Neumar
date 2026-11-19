@@ -219,7 +219,10 @@ text, tool calls, and reasoning events carry the same field, so two children
 with identical descriptions stay distinct and interleaved output is assigned by
 id. `parentSubagentRunId` and `parentToolCallId` preserve nesting; a separate
 top-level run is linked by `parentRunId`, not by pretending to be a child.
-Events without a reliable child id stay with the parent run.
+Events without a reliable child id stay with the parent run. Only the Claude
+adapter maps SDK task notifications to invocations today; Codex, the
+OpenAI-compatible runtimes, and the HTTP agent emit no child events, so their
+output stays with the parent run and renders as before.
 
 A child whose segment ends at a decision closes with
 `SUBAGENT_FINISHED outcome: { type: 'suspended', interruptIds }`. The
@@ -227,7 +230,10 @@ persister and thread store keep that state instead of recording a success, and
 the panel offers no cancel action for it. A missing final notification is
 `SUBAGENT_ERROR code: 'run_ended'`, never a manufactured completion. A child's
 permission prompt carries `agent_id`, so the approval card names the sub-agent
-while the backend keeps the same wait and continuation binding.
+while the backend keeps the same wait and continuation binding. A question
+raised by a child carries the owning `subagentRunId` in its interrupt metadata,
+so the question card names the child while the answer still binds to
+`question:<id>`.
 
 Progress widgets use `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA` with a stable
 `messageId` and an application `activityType` (`plan`, `status`). The emitter

@@ -217,12 +217,18 @@ export interface QuestionDecisionMetadata {
   kind: 'question';
   taskId: string | null;
   questions: unknown[];
+  /**
+   * The sub-agent invocation that asked, when a child owns the question. The
+   * answer still binds to the question record, never to the child.
+   */
+  subagentRunId?: string;
   expiresAt?: string;
 }
 
 /** The interrupt for a stored agent question that has not been answered. */
 export function questionInterrupt(
   question: SerializedAgentQuestion,
+  subagentRunId?: string | null,
 ): Interrupt {
   const first = question.questions[0];
   const prompt =
@@ -236,6 +242,7 @@ export function questionInterrupt(
     kind: 'question',
     taskId: question.taskId,
     questions: question.questions,
+    ...(subagentRunId ? { subagentRunId } : {}),
     ...(question.expiresAt ? { expiresAt: question.expiresAt } : {}),
   };
   return {

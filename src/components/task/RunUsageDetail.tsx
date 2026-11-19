@@ -3,6 +3,8 @@ import type { TokenUsage } from '@ag-ui/core';
 import { useLanguage } from '@/shared/providers/language-provider';
 import type { RunTreeNode, RunStatus } from '@/shared/stores/run-tree-store';
 
+import { displayRunStatus } from './run-usage';
+
 function formatCount(value: number): string {
   return value.toLocaleString('en-US');
 }
@@ -12,11 +14,15 @@ function breakdown(
   t: ReturnType<typeof useLanguage>['t']['task'],
 ): string {
   const parts: string[] = [];
-  if (entry.inputTokens !== undefined || entry.outputTokens !== undefined) {
-    parts.push(
-      `${formatCount(entry.inputTokens ?? 0)}↑ ${formatCount(entry.outputTokens ?? 0)}↓`,
-    );
+  // A count the provider did not report stays absent; zero would claim it did.
+  const counts: string[] = [];
+  if (entry.inputTokens !== undefined) {
+    counts.push(`${formatCount(entry.inputTokens)}↑`);
   }
+  if (entry.outputTokens !== undefined) {
+    counts.push(`${formatCount(entry.outputTokens)}↓`);
+  }
+  if (counts.length > 0) parts.push(counts.join(' '));
   if (entry.cachedInputTokens !== undefined) {
     parts.push(
       t.runUsageCached.replace('{count}', formatCount(entry.cachedInputTokens)),
@@ -50,8 +56,9 @@ export function RunUsageDetail({
   paddingLeft: number;
 }) {
   const { t } = useLanguage();
-  const statusLabel: Record<RunStatus, string> = {
+  const statusLabel: Record<RunStatus | 'awaiting_input', string> = {
     running: t.task.runStatusRunning,
+    awaiting_input: t.task.runStatusAwaitingInput,
     completed: t.task.runStatusCompleted,
     failed: t.task.runStatusFailed,
     cancelled: t.task.runStatusCancelled,
@@ -62,7 +69,7 @@ export function RunUsageDetail({
       className="text-muted-foreground mt-0.5 space-y-0.5 text-xs"
       style={{ paddingLeft }}
     >
-      <div>{statusLabel[node.status]}</div>
+      <div>{statusLabel[displayRunStatus(node)]}</div>
       {entries.map((entry, index) => (
         <div key={`${entry.provider ?? ''}:${entry.model ?? ''}:${index}`}>
           {[entry.model ?? entry.provider, breakdown(entry, t.task)]

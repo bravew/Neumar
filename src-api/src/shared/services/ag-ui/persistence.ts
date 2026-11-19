@@ -978,13 +978,18 @@ export class AGUIEventPersister {
           const e = event as BaseEvent & {
             subagentRunId: string;
             result?: string;
-            outcome?: { type?: string };
+            outcome?: { type?: string; interruptIds?: string[] };
           };
           // A suspended segment ends awaiting a decision, not as success.
           this.endSubagent(
             e.subagentRunId,
             e.outcome?.type === 'suspended'
-              ? { status: 'suspended' }
+              ? {
+                  status: 'suspended',
+                  ...(e.outcome.interruptIds?.length
+                    ? { interruptIds: e.outcome.interruptIds }
+                    : {}),
+                }
               : {
                   status: 'completed',
                   ...(e.result === undefined ? {} : { result: e.result }),
@@ -1107,6 +1112,9 @@ export class AGUIEventPersister {
           const { outcome } = event as RunFinishedEvent;
           this.closeOpenSubagents(
             outcome?.type === 'interrupt' ? 'suspended' : 'error',
+            outcome?.type === 'interrupt'
+              ? outcome.interrupts?.map((interrupt) => interrupt.id)
+              : undefined,
           );
           const runUsage = runUsageFromTerminalEvent(event);
           if (this.terminalProcess) break;
@@ -1307,13 +1315,19 @@ export class AGUIEventPersister {
    * finished run never leaves a card that reads as still running. A child left
    * open when the run paused for a decision is suspended, not failed.
    */
-  private closeOpenSubagents(status: 'error' | 'suspended' = 'error'): void {
+  private closeOpenSubagents(
+    status: 'error' | 'suspended' = 'error',
+    interruptIds?: string[],
+  ): void {
     for (const [subagentRunId, record] of this.subagentRecords) {
       if (record.status !== 'running') continue;
       this.endSubagent(
         subagentRunId,
         status === 'suspended'
-          ? { status: 'suspended' }
+          ? {
+              status: 'suspended',
+              ...(interruptIds?.length ? { interruptIds } : {}),
+            }
           : {
               status: 'error',
               error: {
@@ -1328,7 +1342,10 @@ export class AGUIEventPersister {
   /** Rewrites a sub-agent's row with its terminal status. */
   private endSubagent(
     subagentRunId: string,
-    outcome: Pick<SubagentRecord, 'status' | 'result' | 'error'>,
+    outcome: Pick<
+      SubagentRecord,
+      'status' | 'result' | 'error' | 'interruptIds'
+    >,
   ): void {
     if (this.mode !== 'task') return;
     const current = this.subagentRecords.get(subagentRunId);

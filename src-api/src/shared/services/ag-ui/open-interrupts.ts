@@ -13,6 +13,8 @@ import {
 } from '@/core/agent/questions';
 import { listOpenHostPermissions } from '@/core/agent/tool-permission-registry';
 
+import { getSubagentRunIdForToolUse } from '@/shared/db/operations';
+
 import { permissionInterrupt, questionInterrupt } from './interrupts';
 import { listPlanInterrupts } from './plan-decisions';
 
@@ -30,11 +32,19 @@ export async function listOpenInterrupts(
     .map(serializeAgentQuestion)
     .filter(
       (question) => !question.expiresAt || Date.parse(question.expiresAt) > now,
+    )
+    .map((question) =>
+      questionInterrupt(
+        question,
+        question.toolUseId
+          ? getSubagentRunIdForToolUse(taskId, question.toolUseId)
+          : null,
+      ),
     );
 
   return [
     ...listPlanInterrupts(taskId),
-    ...questions.map(questionInterrupt),
+    ...questions,
     ...listOpenClaudePermissions(taskId).map(permissionInterrupt),
     ...listOpenHostPermissions(taskId).map(permissionInterrupt),
   ];

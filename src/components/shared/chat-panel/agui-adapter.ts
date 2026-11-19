@@ -84,6 +84,7 @@ const AGUI_EVENT_TYPES = new Set<string>([
   EventType.TOOL_CALL_RESULT,
   EventType.ACTIVITY_SNAPSHOT,
   EventType.ACTIVITY_DELTA,
+  EventType.MESSAGES_SNAPSHOT,
   EventType.SUBAGENT_STARTED,
   EventType.SUBAGENT_FINISHED,
   EventType.SUBAGENT_ERROR,
@@ -424,6 +425,60 @@ export function reduceChatPanelAguiEvent(
               }
             : message,
         ),
+      };
+    }
+    case EventType.MESSAGES_SNAPSHOT: {
+      // The snapshot is authoritative for activity widgets: a reconnect after
+      // a gap can otherwise leave a stale plan or status card on screen.
+      // Conversation messages keep the live stream's state, which is newer
+      // than a snapshot taken when the client subscribed.
+      const snapshot = Array.isArray(event.messages) ? event.messages : null;
+      if (!snapshot) return state;
+      const activities = new Map<string, ChatPanelMessage>();
+      for (const raw of snapshot) {
+        if (!raw || typeof raw !== 'object') continue;
+        const message = raw as Record<string, unknown>;
+        if (message.role !== 'activity') continue;
+        const id = getString(message, 'id');
+        const activityType = getString(message, 'activityType');
+        const content = message.content;
+        if (!id || !activityType) continue;
+        if (!SUPPORTED_ACTIVITY_TYPES.has(activityType)) {
+          warnSkippedActivity(
+            'MESSAGES_SNAPSHOT',
+            `unsupported activity type '${activityType}'`,
+            id,
+          );
+          continue;
+        }
+        if (!isPlainObject(content)) {
+          warnSkippedActivity(
+            'MESSAGES_SNAPSHOT',
+            'content is not an object',
+            id,
+          );
+          continue;
+        }
+        const owner = getString(message, 'subagentRunId');
+        activities.set(id, {
+          id,
+          kind: 'activity',
+          role: 'assistant',
+          createdAt: now(),
+          activity: {
+            id,
+            activityType,
+            content,
+            ...(owner ? { subagentRunId: owner } : {}),
+          },
+        });
+      }
+      return {
+        ...state,
+        messages: [
+          ...state.messages.filter((message) => message.kind !== 'activity'),
+          ...activities.values(),
+        ],
       };
     }
     case EventType.SUBAGENT_STARTED:

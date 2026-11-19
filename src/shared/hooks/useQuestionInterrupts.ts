@@ -25,6 +25,8 @@ const QUESTION_INTERRUPT_REASON = 'agent_question';
 export interface OpenQuestion {
   interruptId: string;
   questions: AgentQuestion[];
+  /** The sub-agent invocation that asked, when a child owns the question. */
+  subagentRunId?: string;
 }
 
 /** The part of the AG-UI agent this hook needs to continue with an answer. */
@@ -53,12 +55,28 @@ function questionFromInterrupt(interrupt: Interrupt): OpenQuestion[] {
   if (interrupt.reason !== QUESTION_INTERRUPT_REASON) return [];
   const decision = (
     interrupt.metadata as
-      | { decision?: { kind?: string; questions?: unknown } }
+      | {
+          decision?: {
+            kind?: string;
+            questions?: unknown;
+            subagentRunId?: unknown;
+          };
+        }
       | undefined
   )?.decision;
   if (decision?.kind !== 'question') return [];
   const questions = normalizeAgentQuestions({ questions: decision.questions });
-  return questions.length > 0 ? [{ interruptId: interrupt.id, questions }] : [];
+  return questions.length > 0
+    ? [
+        {
+          interruptId: interrupt.id,
+          questions,
+          ...(typeof decision.subagentRunId === 'string'
+            ? { subagentRunId: decision.subagentRunId }
+            : {}),
+        },
+      ]
+    : [];
 }
 
 async function fetchOpenQuestions(

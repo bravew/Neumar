@@ -6,6 +6,7 @@ import {
 } from '@/shared/hooks/useQuestionInterrupts';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
+import { useThreadStore } from '@/shared/stores/thread-store';
 
 interface QuestionInterruptPanelProps {
   taskId: string | undefined;
@@ -27,6 +28,9 @@ export function QuestionInterruptPanel({
   context,
 }: QuestionInterruptPanelProps) {
   const { t } = useLanguage();
+  const subagents = useThreadStore((s) =>
+    taskId ? s.threads[taskId]?.subagents : undefined,
+  );
   const { openQuestions, answering, answer, dismiss } = useQuestionInterrupts(
     taskId,
     isRunning,
@@ -40,28 +44,39 @@ export function QuestionInterruptPanel({
   // four questions must scroll rather than push the composer off-screen.
   return (
     <div className="mx-auto max-h-[45vh] max-w-4xl overflow-y-auto px-4">
-      {openQuestions.map((open) => (
-        <div key={open.interruptId} aria-busy={answering}>
-          <QuestionFormCard
-            questions={open.questions}
-            onSubmit={(answers) => void answer(open.interruptId, answers)}
-          />
-          <div className="flex justify-end pb-2">
-            <button
-              type="button"
-              disabled={answering}
-              onClick={() => void dismiss(open.interruptId)}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                'border-border text-muted-foreground hover:bg-muted border',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-              )}
-            >
-              {t.approvals.cancel}
-            </button>
+      {openQuestions.map((open) => {
+        const owner = open.subagentRunId
+          ? (subagents?.find((agent) => agent.id === open.subagentRunId)
+              ?.name ?? open.subagentRunId.slice(0, 8))
+          : undefined;
+        return (
+          <div key={open.interruptId} aria-busy={answering}>
+            {owner && (
+              <p className="text-muted-foreground px-1 pb-1 text-xs">
+                {t.task.subAgentAskedQuestion.replace('{name}', owner)}
+              </p>
+            )}
+            <QuestionFormCard
+              questions={open.questions}
+              onSubmit={(answers) => void answer(open.interruptId, answers)}
+            />
+            <div className="flex justify-end pb-2">
+              <button
+                type="button"
+                disabled={answering}
+                onClick={() => void dismiss(open.interruptId)}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                  'border-border text-muted-foreground hover:bg-muted border',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                )}
+              >
+                {t.approvals.cancel}
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

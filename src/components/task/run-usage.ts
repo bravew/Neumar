@@ -1,6 +1,20 @@
 import type { TokenUsage } from '@ag-ui/core';
 
-import type { RunTreeNode } from '@/shared/stores/run-tree-store';
+import type { RunStatus, RunTreeNode } from '@/shared/stores/run-tree-store';
+
+/**
+ * What the row should say. A run that ended at a decision is persisted as
+ * completed with `failure_cause: awaiting_decision`; presenting that as a
+ * successful completion would hide the prompt the user still owes.
+ */
+export function displayRunStatus(
+  node: RunTreeNode,
+): RunStatus | 'awaiting_input' {
+  return node.status === 'completed' &&
+    node.failureCause === 'awaiting_decision'
+    ? 'awaiting_input'
+    : node.status;
+}
 
 export interface RunUsageSummary {
   /** Undefined when the run did not report spend. */

@@ -95,6 +95,29 @@ describe('useQuestionInterrupts', () => {
     );
   });
 
+  it('carries the owning sub-agent through to the open question', async () => {
+    stubFetch([
+      {
+        ...interrupt,
+        metadata: {
+          decision: {
+            kind: 'question',
+            taskId: 'task-1',
+            questions: [question],
+            subagentRunId: 'task-child',
+          },
+        },
+      },
+    ]);
+    const { result } = mount(false);
+
+    await waitFor(() =>
+      expect(result.current.openQuestions).toMatchObject([
+        { interruptId: 'question:q-1', subagentRunId: 'task-child' },
+      ]),
+    );
+  });
+
   it('does not read open interrupts while a run is live', () => {
     const fetchMock = stubFetch([interrupt]);
     const { result } = mount(true);

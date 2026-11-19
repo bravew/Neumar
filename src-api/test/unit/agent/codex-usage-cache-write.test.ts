@@ -136,7 +136,7 @@ describe('CodexAgent cache-write usage mapping', () => {
     );
   });
 
-  it('omits cache_creation_input_tokens when the turn writes nothing to cache', async () => {
+  it('keeps an explicit zero cache-write count as zero', async () => {
     const thread = createThread([
       { type: 'thread.started', thread_id: 'codex-thread-no-cache-write' },
       {
@@ -159,10 +159,10 @@ describe('CodexAgent cache-write usage mapping', () => {
     }
 
     const resultMessage = messages.find((message) => message.type === 'result');
-    expect(resultMessage?.usage?.cache_creation_input_tokens).toBeUndefined();
+    expect(resultMessage?.usage?.cache_creation_input_tokens).toBe(0);
 
     expect(mocks.logUsage).toHaveBeenCalledWith(
-      expect.objectContaining({ cacheCreationTokens: undefined }),
+      expect.objectContaining({ cacheCreationTokens: 0 }),
     );
   });
 });

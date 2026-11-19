@@ -17,6 +17,8 @@ export const SubagentRecordSchema = z.object({
   parentSubagentRunId: z.string().optional(),
   parentToolCallId: z.string().optional(),
   status: z.enum(['running', 'completed', 'suspended', 'error']),
+  /** Decisions the child is waiting on when it ended suspended. */
+  interruptIds: z.array(z.string()).optional(),
   /** Epoch ms of the SUBAGENT_STARTED event. */
   startedAt: z.number().optional(),
   /** Epoch ms of the event that ended it. */

@@ -27,7 +27,7 @@ describe('SubAgentPanel', () => {
 
     expect(screen.getByText('Awaiting input')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Cancel' }),
+      screen.queryByRole('button', { name: 'Cancel Scan' }),
     ).not.toBeInTheDocument();
   });
 
@@ -37,7 +37,7 @@ describe('SubAgentPanel', () => {
       <SubAgentPanel subAgents={[agent()]} onCancel={onCancel} />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Scan' }));
     expect(onCancel).toHaveBeenCalledWith('task-a');
   });
 

@@ -64,6 +64,8 @@ export interface ThreadSubagent {
   parentSubagentRunId?: string;
   parentToolCallId?: string;
   status: 'running' | 'completed' | 'suspended' | 'error';
+  /** Decisions the child raised itself and is waiting on while suspended. */
+  interruptIds?: string[];
   result?: string;
   error?: { message: string; code?: string };
   startedAt?: number;
@@ -227,6 +229,9 @@ const RUN_STOPPED_MESSAGE = 'Run stopped by user';
 
 const RUN_ENDED_CODE = 'run_ended';
 
+/** Stop code the server records when the user cancels a run or a sub-agent. */
+const STOPPED_CODE = 'stopped';
+
 /**
  * Ends a sub-agent that is still running. The server closes every child before
  * a run ends, so this only covers a run that ended without that (a dropped
@@ -238,16 +243,17 @@ function closeRunningSubagents(
   subagents: ThreadSubagent[],
   endedAt: number,
   status: 'error' | 'suspended' = 'error',
+  error: { message: string; code?: string } = {
+    message: 'Run ended before the sub-agent finished',
+    code: RUN_ENDED_CODE,
+  },
 ): boolean {
   let changed = false;
   for (const subagent of subagents) {
     if (subagent.status !== 'running') continue;
     subagent.status = status;
     if (status === 'error') {
-      subagent.error = {
-        message: 'Run ended before the sub-agent finished',
-        code: RUN_ENDED_CODE,
-      };
+      subagent.error = { ...error };
     }
     subagent.endedAt = endedAt;
     changed = true;
@@ -366,6 +372,21 @@ function cloneMessages(messages: ThreadMessage[]): ThreadMessage[] {
       function: { ...toolCall.function },
     })),
   }));
+}
+
+/**
+ * The activity spec asks a consumer to warn and skip an event it cannot apply,
+ * so a malformed stream is diagnosable instead of silently losing progress.
+ */
+function warnSkippedActivity(
+  eventType: string,
+  reason: string,
+  messageId?: string,
+): void {
+  console.warn(
+    `[thread-store] ${eventType} skipped: ${reason}`,
+    messageId === undefined ? undefined : { messageId },
+  );
 }
 
 function buildMessagesIndex(messages: ThreadMessage[]): Record<string, number> {
@@ -904,6 +925,11 @@ export const useThreadStore = create<ThreadStore>()(
               // may continue in a later run, so it is not a completion.
               subagent.status =
                 event.outcome?.type === 'suspended' ? 'suspended' : 'completed';
+              if (event.outcome?.type === 'suspended') {
+                subagent.interruptIds = event.outcome.interruptIds;
+              } else {
+                delete subagent.interruptIds;
+              }
               if (typeof event.result === 'string')
                 subagent.result = event.result;
             } else {
@@ -920,13 +946,30 @@ export const useThreadStore = create<ThreadStore>()(
             const id = event.messageId;
             const activityType = event.activityType;
             const content = event.content;
+            if (!id) {
+              warnSkippedActivity('ACTIVITY_SNAPSHOT', 'missing messageId');
+              mutated = false;
+              break;
+            }
+            if (activityType !== 'plan' && activityType !== 'status') {
+              warnSkippedActivity(
+                'ACTIVITY_SNAPSHOT',
+                `unsupported activity type '${String(activityType)}'`,
+                id,
+              );
+              mutated = false;
+              break;
+            }
             if (
-              !id ||
-              (activityType !== 'plan' && activityType !== 'status') ||
               !content ||
               typeof content !== 'object' ||
               Array.isArray(content)
             ) {
+              warnSkippedActivity(
+                'ACTIVITY_SNAPSHOT',
+                'content is not an object',
+                id,
+              );
               mutated = false;
               break;
             }
@@ -935,11 +978,21 @@ export const useThreadStore = create<ThreadStore>()(
             // never means shallow merge. A colliding conversation message is
             // not converted into an activity.
             if (existing) {
+              if (event.replace === false) {
+                mutated = false;
+                break;
+              }
               if (
-                event.replace === false ||
                 existing.role !== 'activity' ||
                 existing.activityType !== activityType
               ) {
+                warnSkippedActivity(
+                  'ACTIVITY_SNAPSHOT',
+                  existing.role !== 'activity'
+                    ? 'message id already belongs to a conversation message'
+                    : `activity type changed from '${existing.activityType}'`,
+                  id,
+                );
                 mutated = false;
                 break;
               }
@@ -963,20 +1016,59 @@ export const useThreadStore = create<ThreadStore>()(
             const id = event.messageId;
             const activityType = event.activityType;
             const existing = id ? findMsg(id) : undefined;
-            if (
-              !id ||
-              (activityType !== 'plan' && activityType !== 'status') ||
-              !existing ||
-              existing.role !== 'activity' ||
-              existing.activityType !== activityType ||
-              !existing.content ||
-              typeof existing.content !== 'object'
-            ) {
+            if (!id) {
+              warnSkippedActivity('ACTIVITY_DELTA', 'missing messageId');
+              mutated = false;
+              break;
+            }
+            if (activityType !== 'plan' && activityType !== 'status') {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                `unsupported activity type '${String(activityType)}'`,
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (!existing) {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                'no message with that id',
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (existing.role !== 'activity') {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                'message is not an activity',
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (existing.activityType !== activityType) {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                `activity type '${activityType}' does not match the widget`,
+                id,
+              );
+              mutated = false;
+              break;
+            }
+            if (!existing.content || typeof existing.content !== 'object') {
+              warnSkippedActivity(
+                'ACTIVITY_DELTA',
+                'content is not an object',
+                id,
+              );
               mutated = false;
               break;
             }
             const patched = applyActivityPatch(existing.content, event.patch);
             if (!patched) {
+              warnSkippedActivity('ACTIVITY_DELTA', 'malformed patch', id);
               mutated = false;
               break;
             }
@@ -1049,13 +1141,16 @@ export const useThreadStore = create<ThreadStore>()(
             thread.isRunning = false;
             // A stopped run ends with RUN_FINISHED, not RUN_ERROR, but its
             // in-flight tool calls will never get a result either.
+            const cancelled = event.outcome?.type === 'cancelled';
             const closedTools =
-              event.outcome?.type === 'cancelled' &&
-              closeOpenToolCalls(msgs, RUN_STOPPED_MESSAGE);
+              cancelled && closeOpenToolCalls(msgs, RUN_STOPPED_MESSAGE);
             const closedSubagents = closeRunningSubagents(
               thread.subagents,
               Date.now(),
               event.outcome?.type === 'interrupt' ? 'suspended' : 'error',
+              cancelled
+                ? { message: RUN_STOPPED_MESSAGE, code: STOPPED_CODE }
+                : undefined,
             );
             mutated = closedTools || closedSubagents;
             break;

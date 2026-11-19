@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getPendingQuestions, listPlanInterrupts, listOpenClaudePermissions } =
-  vi.hoisted(() => ({
-    getPendingQuestions: vi.fn(),
-    listPlanInterrupts: vi.fn(),
-    listOpenClaudePermissions: vi.fn(),
-  }));
+const {
+  getPendingQuestions,
+  listPlanInterrupts,
+  listOpenClaudePermissions,
+  getSubagentRunIdForToolUse,
+} = vi.hoisted(() => ({
+  getPendingQuestions: vi.fn(),
+  listPlanInterrupts: vi.fn(),
+  listOpenClaudePermissions: vi.fn(),
+  getSubagentRunIdForToolUse: vi.fn(),
+}));
 
 vi.mock('@/core/agent/questions', () => ({
   agentQuestionService: { getPendingQuestions },
@@ -13,7 +18,7 @@ vi.mock('@/core/agent/questions', () => ({
     id: row.id,
     sessionId: 'session-1',
     taskId: row.task_id,
-    toolUseId: null,
+    toolUseId: row.tool_use_id ?? null,
     questions: [{ question: `Question ${String(row.id)}` }],
     status: 'pending',
     answer: null,
@@ -28,6 +33,11 @@ vi.mock('@/shared/services/ag-ui/plan-decisions', () => ({
 vi.mock('@/extensions/agent/claude/index', () => ({
   listOpenClaudePermissions,
 }));
+vi.mock('@/shared/db/operations', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/shared/db/operations')>();
+  return { ...actual, getSubagentRunIdForToolUse };
+});
 
 const { listOpenInterrupts } =
   await import('@/shared/services/ag-ui/open-interrupts');
@@ -45,6 +55,7 @@ describe('listOpenInterrupts', () => {
     getPendingQuestions.mockReset().mockReturnValue([]);
     listPlanInterrupts.mockReset().mockReturnValue([]);
     listOpenClaudePermissions.mockReset().mockReturnValue([]);
+    getSubagentRunIdForToolUse.mockReset().mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -92,6 +103,30 @@ describe('listOpenInterrupts', () => {
     expect(interrupts[2]?.id).toBe('permission:claude-req');
     expect(interrupts[3]?.id).toMatch(/^permission:/);
     expect(listOpenClaudePermissions).toHaveBeenCalledWith('task-1');
+  });
+
+  it('attributes a question to the child that asked it', async () => {
+    getPendingQuestions.mockReturnValue([
+      {
+        id: 'q1',
+        task_id: 'task-1',
+        tool_use_id: 'toolu_child',
+        expires_at: null,
+      },
+    ]);
+    getSubagentRunIdForToolUse.mockReturnValue('task-child');
+
+    const [question] = await listOpenInterrupts('task-1', NOW);
+
+    expect(getSubagentRunIdForToolUse).toHaveBeenCalledWith(
+      'task-1',
+      'toolu_child',
+    );
+    expect(question?.metadata).toMatchObject({
+      decision: { kind: 'question', subagentRunId: 'task-child' },
+    });
+    // The answer still binds to the question record, not the child.
+    expect(question?.id).toBe('question:q1');
   });
 
   it('drops a question whose expiry has passed', async () => {

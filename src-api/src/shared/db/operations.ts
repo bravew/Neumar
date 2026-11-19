@@ -430,6 +430,26 @@ export function getPendingAgentQuestionByTaskTool(
   return row ?? null;
 }
 
+/**
+ * The sub-agent invocation that produced a tool call, when one did. The AG-UI
+ * persister records the owner on the tool row; a question raised by a child
+ * can be attributed by the same `tool_use_id`.
+ */
+export function getSubagentRunIdForToolUse(
+  taskId: string,
+  toolUseId: string,
+): string | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(
+      `SELECT subagent_run_id FROM messages
+       WHERE task_id = ? AND tool_use_id = ? AND subagent_run_id IS NOT NULL
+       LIMIT 1`,
+    )
+    .get(taskId, toolUseId) as { subagent_run_id: string } | undefined;
+  return row?.subagent_run_id ?? null;
+}
+
 export function getPendingAgentQuestions(filter: {
   sessionId?: string;
   taskId?: string;

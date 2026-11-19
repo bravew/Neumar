@@ -78,6 +78,11 @@ export class RunUsageAccumulator {
   private spend: number | undefined;
   /** The producer's own `cost` as last reported: a session total for some. */
   private reportedCost: number | undefined;
+  /**
+   * A producer that reports `costDelta` also reports `cost` as a session
+   * total. One that reports only `cost` means it per call, so those are added.
+   */
+  private sawCostDelta = false;
 
   constructor(private readonly identity: RunUsageIdentity) {}
 
@@ -88,7 +93,9 @@ export class RunUsageAccumulator {
       model: msg.model ?? this.identity.model,
     });
     if (entry) this.calls.push(entry);
-    const cost = count(msg.costDelta ?? msg.cost);
+    const delta = count(msg.costDelta);
+    if (delta !== undefined) this.sawCostDelta = true;
+    const cost = delta ?? count(msg.cost);
     if (cost !== undefined) this.spend = (this.spend ?? 0) + cost;
     const reported = count(msg.cost);
     if (reported !== undefined) this.reportedCost = reported;
@@ -106,15 +113,20 @@ export class RunUsageAccumulator {
 
   /**
    * Run-so-far projection for the legacy `STATE_SNAPSHOT.usage` consumers.
-   * Its `cost` is the producer's reported total, not this run's delta: the task
-   * row overwrites its cost with it, and a resumed task's total includes
-   * earlier runs. The run's own spend is `costUsd`.
+   *
+   * When the producer reports `costDelta`, its `cost` is a session total (a
+   * resumed task's total includes earlier runs), and the task row wants that
+   * total. A producer that reports only a per-call `cost` has no total to
+   * offer, so the accumulated calls are used; taking the last call would
+   * understate the task. The run's own spend is always `costUsd`.
    */
   get projection():
     | { inputTokens?: number; outputTokens?: number; cost?: number }
     | undefined {
     const entries = this.tokenUsage;
-    const cost = this.reportedCost ?? this.spend;
+    const cost = this.sawCostDelta
+      ? (this.reportedCost ?? this.spend)
+      : this.spend;
     if (!entries && cost === undefined) return undefined;
     const sum = (pick: (entry: TokenUsage) => number | undefined) =>
       sumRunTokens(entries, pick);

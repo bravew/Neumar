@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { RunTreeView } from '@/components/task/RunTreeView';
@@ -146,6 +146,30 @@ describe('RunTreeView usage claims', () => {
     expect(screen.getByText('model-b · 4↑ 3↓')).toBeTruthy();
     // 130 + 4: the cached subset is not added on top of the input total.
     expect(rowFor(/claude run/).textContent).toContain('134↑');
+  });
+
+  it('leaves an unreported count out instead of showing zero', async () => {
+    seed([
+      node({
+        id: 'partial',
+        provider: 'codex',
+        usage: { usage: [{ outputTokens: 5 }] },
+      }),
+      node({
+        id: 'zero',
+        provider: 'cursor',
+        usage: { usage: [{ inputTokens: 0, outputTokens: 0 }] },
+      }),
+    ]);
+    renderWithProviders(<RunTreeView taskId="task-1" />);
+    const codexRow = rowFor(/codex run/).parentElement!;
+    fireEvent.click(rowFor(/codex run/));
+    await waitFor(() => expect(codexRow.textContent).toContain('5↓'));
+    expect(codexRow.textContent).not.toContain('0↑');
+
+    const cursorRow = rowFor(/cursor run/).parentElement!;
+    fireEvent.click(rowFor(/cursor run/));
+    await waitFor(() => expect(cursorRow.textContent).toContain('0↑ 0↓'));
   });
 
   it('falls back to stored totals for a run recorded before usage was kept', () => {

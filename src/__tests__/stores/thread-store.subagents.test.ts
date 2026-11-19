@@ -232,7 +232,7 @@ describe('thread-store sub-agent lifecycle', () => {
     expect(thread().subagents[0]?.error).toBeUndefined();
   });
 
-  it('records a suspension the child reported itself', () => {
+  it('records a suspension the child reported itself, with its interrupt ids', () => {
     apply(
       {
         type: EventType.SUBAGENT_STARTED,
@@ -246,7 +246,41 @@ describe('thread-store sub-agent lifecycle', () => {
       },
     );
 
-    expect(thread().subagents[0]?.status).toBe('suspended');
+    expect(thread().subagents[0]).toMatchObject({
+      status: 'suspended',
+      interruptIds: ['permission:p1'],
+    });
+  });
+
+  it('drops stale interrupt ids when a later segment succeeds', () => {
+    apply(
+      { type: EventType.SUBAGENT_STARTED, subagentRunId: 'task-a' },
+      {
+        type: EventType.SUBAGENT_FINISHED,
+        subagentRunId: 'task-a',
+        outcome: { type: 'suspended', interruptIds: ['question:q1'] },
+      },
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+      },
+      { type: EventType.SUBAGENT_FINISHED, subagentRunId: 'task-a' },
+    );
+
+    expect(thread().subagents[0]?.status).toBe('completed');
+    expect(thread().subagents[0]?.interruptIds).toBeUndefined();
+  });
+
+  it('closes a running child of a cancelled run as stopped, not failed', () => {
+    apply(
+      { type: EventType.SUBAGENT_STARTED, subagentRunId: 'task-a' },
+      { type: EventType.RUN_FINISHED, outcome: { type: 'cancelled' } },
+    );
+
+    expect(thread().subagents[0]).toMatchObject({
+      status: 'error',
+      error: { code: 'stopped' },
+    });
   });
 });
 

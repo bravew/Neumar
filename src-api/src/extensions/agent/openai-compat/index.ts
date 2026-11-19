@@ -623,176 +623,186 @@ export class OpenAICompatAgent extends BaseAgent {
     _options?: AgentOptions,
   ): AsyncGenerator<AgentMessage> {
     let aggregateUsage: AgentMessage['usage'];
-    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-      if (session.abortController.signal.aborted) break;
-
-      logger.debug(
-        `[${session.id}] Iteration ${iteration + 1}/${MAX_ITERATIONS}`,
-      );
-
-      // Call the model with streaming
-      const loopMaxTokens = this.getDefaultOutputMaxTokens(messages);
-      const stream = await client.chat.completions.create(
-        {
-          model: this.getModel(),
-          messages,
-          tools: getToolDefinitions(),
-          stream: true,
-          ...this.dialect.requestOptions({
-            reasoningEffort: this.getReasoningEffort(_options),
-            outputFormat: _options?.outputFormat,
-          }),
-          ...(loopMaxTokens ? { max_tokens: loopMaxTokens } : {}),
-        },
-        { signal: session.abortController.signal },
-      );
-
-      // Accumulate response
-      const turnState = createProviderTurnState();
-      let turnUsage: AgentMessage['usage'];
-      for await (const chunk of stream) {
+    try {
+      for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
         if (session.abortController.signal.aborted) break;
 
-        const choice = chunk.choices[0];
-        turnUsage = normalizeOpenAIUsage(chunk.usage) ?? turnUsage;
-        if (!choice) continue;
-
-        for (const message of this.dialect.consumeDelta(
-          choice.delta,
-          turnState,
-        )) {
-          yield message;
-        }
-      }
-
-      aggregateUsage = mergeUsage(aggregateUsage, turnUsage);
-
-      const assistantMessage = this.dialect.buildAssistantEnvelope(turnState);
-
-      // If no tool calls, the model is done. Preserve the K3 reasoning
-      // envelope once so a later continuation can replay it unchanged.
-      if (turnState.toolCalls.size === 0) {
-        if (turnState.content || turnState.reasoningContent) {
-          messages.push(assistantMessage);
-          this.persistProviderState(messages, _options, workDir);
-        }
-        if (aggregateUsage) {
-          yield {
-            type: 'result',
-            model: this.getModel(),
-            usage: aggregateUsage,
-          };
-        }
-        return;
-      }
-
-      const toolCallsArray = [...turnState.toolCalls.entries()]
-        .sort(([left], [right]) => left - right)
-        .map(([, call]) => call);
-      messages.push(assistantMessage);
-      this.persistProviderState(messages, _options, workDir);
-
-      // TODO(ask-user-question): OpenAI-compat uses real function calling,
-      // so the cleanest AskUserQuestion integration is to register it as a
-      // native tool in TOOL_DEFINITIONS (schema is in
-      // `@/core/agent/ask-user-question`) and have `executeTool` return a
-      // placeholder result while breaking the agentic loop — the next turn
-      // resumes with the user's answer in conversation history. The
-      // fenced-text bridge used by Codex/HTTP-agent/OpenCode works here too
-      // but loses parity with native OpenAI tool semantics.
-      // Execute each tool call
-      for (const tc of toolCallsArray) {
-        if (session.abortController.signal.aborted) break;
-
-        let args: Record<string, unknown>;
-        try {
-          args = JSON.parse(tc.function.arguments);
-        } catch {
-          args = {};
-        }
-
-        // Yield tool_use
-        yield {
-          type: 'tool_use',
-          id: tc.id,
-          name: tc.function.name,
-          input: args,
-        };
-
-        // Execute the tool
-        const result = await executeTool(
-          tc.function.name,
-          args,
-          workDir,
-          session.abortController.signal,
-          { apiKey: this.config.apiKey, baseUrl: this.config.baseUrl },
+        logger.debug(
+          `[${session.id}] Iteration ${iteration + 1}/${MAX_ITERATIONS}`,
         );
 
-        // Phase 7: defend tool output BEFORE it goes back to the display or
-        // re-enters provider messages. Defense at AG-UI is too late — by
-        // then the next model turn has already consumed the raw output.
-        const defended = defendToolOutput({
-          source: {
-            adapter: 'openai-compat',
-            toolName: tc.function.name,
-            toolUseId: tc.id,
+        // Call the model with streaming
+        const loopMaxTokens = this.getDefaultOutputMaxTokens(messages);
+        const stream = await client.chat.completions.create(
+          {
+            model: this.getModel(),
+            messages,
+            tools: getToolDefinitions(),
+            stream: true,
+            ...this.dialect.requestOptions({
+              reasoningEffort: this.getReasoningEffort(_options),
+              outputFormat: _options?.outputFormat,
+            }),
+            ...(loopMaxTokens ? { max_tokens: loopMaxTokens } : {}),
           },
-          content: result.output,
-          riskHint:
-            tc.function.name === 'fetch' ||
-            tc.function.name === 'http_request' ||
-            tc.function.name === 'web_search'
-              ? 'high'
-              : 'normal',
-        });
+          { signal: session.abortController.signal },
+        );
 
-        if (
-          defended.verdict === 'BLOCK' ||
-          defended.verdict === 'HITL_REQUIRED'
-        ) {
-          yield {
-            type: 'system',
-            subtype: 'security',
-            content: defended.displayContent,
-            isProgress: true,
-          };
+        // Accumulate response
+        const turnState = createProviderTurnState();
+        let turnUsage: AgentMessage['usage'];
+        for await (const chunk of stream) {
+          if (session.abortController.signal.aborted) break;
+
+          const choice = chunk.choices[0];
+          turnUsage = normalizeOpenAIUsage(chunk.usage) ?? turnUsage;
+          if (!choice) continue;
+
+          for (const message of this.dialect.consumeDelta(
+            choice.delta,
+            turnState,
+          )) {
+            yield message;
+          }
         }
 
-        const displayOutput =
-          defended.displayContent.length > 10000
-            ? defended.displayContent.slice(0, 10000) + '\n... (truncated)'
-            : defended.displayContent;
+        aggregateUsage = mergeUsage(aggregateUsage, turnUsage);
 
-        yield {
-          type: 'tool_result',
-          toolUseId: tc.id,
-          output: displayOutput,
-          isError: result.isError || defended.verdict === 'BLOCK',
-          security: {
-            verdict: defended.verdict,
-            source: 'openai-compat',
-            payloadHash: defended.audit.payloadHash,
-            redactedSnippet: defended.redactedSnippet,
-            scores: defended.scores as Record<string, number>,
-          },
-        };
+        const assistantMessage = this.dialect.buildAssistantEnvelope(turnState);
 
-        // Add defended tool result to messages so the model only ever sees
-        // the envelope or a placeholder, never the raw injection vector.
-        const modelOutput =
-          defended.modelContent.length > 30000
-            ? defended.modelContent.slice(0, 30000) + '\n... (truncated)'
-            : defended.modelContent;
-        const toolResultMessage: ChatCompletionMessageParam = {
-          role: 'tool',
-          tool_call_id: tc.id,
-          content: modelOutput,
-        };
-        messages.push(toolResultMessage);
+        // If no tool calls, the model is done. Preserve the K3 reasoning
+        // envelope once so a later continuation can replay it unchanged.
+        if (turnState.toolCalls.size === 0) {
+          if (turnState.content || turnState.reasoningContent) {
+            messages.push(assistantMessage);
+            this.persistProviderState(messages, _options, workDir);
+          }
+          if (aggregateUsage) {
+            yield {
+              type: 'result',
+              model: this.getModel(),
+              usage: aggregateUsage,
+            };
+          }
+          return;
+        }
+
+        const toolCallsArray = [...turnState.toolCalls.entries()]
+          .sort(([left], [right]) => left - right)
+          .map(([, call]) => call);
+        messages.push(assistantMessage);
         this.persistProviderState(messages, _options, workDir);
+
+        // TODO(ask-user-question): OpenAI-compat uses real function calling,
+        // so the cleanest AskUserQuestion integration is to register it as a
+        // native tool in TOOL_DEFINITIONS (schema is in
+        // `@/core/agent/ask-user-question`) and have `executeTool` return a
+        // placeholder result while breaking the agentic loop — the next turn
+        // resumes with the user's answer in conversation history. The
+        // fenced-text bridge used by Codex/HTTP-agent/OpenCode works here too
+        // but loses parity with native OpenAI tool semantics.
+        // Execute each tool call
+        for (const tc of toolCallsArray) {
+          if (session.abortController.signal.aborted) break;
+
+          let args: Record<string, unknown>;
+          try {
+            args = JSON.parse(tc.function.arguments);
+          } catch {
+            args = {};
+          }
+
+          // Yield tool_use
+          yield {
+            type: 'tool_use',
+            id: tc.id,
+            name: tc.function.name,
+            input: args,
+          };
+
+          // Execute the tool
+          const result = await executeTool(
+            tc.function.name,
+            args,
+            workDir,
+            session.abortController.signal,
+            { apiKey: this.config.apiKey, baseUrl: this.config.baseUrl },
+          );
+
+          // Phase 7: defend tool output BEFORE it goes back to the display or
+          // re-enters provider messages. Defense at AG-UI is too late — by
+          // then the next model turn has already consumed the raw output.
+          const defended = defendToolOutput({
+            source: {
+              adapter: 'openai-compat',
+              toolName: tc.function.name,
+              toolUseId: tc.id,
+            },
+            content: result.output,
+            riskHint:
+              tc.function.name === 'fetch' ||
+              tc.function.name === 'http_request' ||
+              tc.function.name === 'web_search'
+                ? 'high'
+                : 'normal',
+          });
+
+          if (
+            defended.verdict === 'BLOCK' ||
+            defended.verdict === 'HITL_REQUIRED'
+          ) {
+            yield {
+              type: 'system',
+              subtype: 'security',
+              content: defended.displayContent,
+              isProgress: true,
+            };
+          }
+
+          const displayOutput =
+            defended.displayContent.length > 10000
+              ? defended.displayContent.slice(0, 10000) + '\n... (truncated)'
+              : defended.displayContent;
+
+          yield {
+            type: 'tool_result',
+            toolUseId: tc.id,
+            output: displayOutput,
+            isError: result.isError || defended.verdict === 'BLOCK',
+            security: {
+              verdict: defended.verdict,
+              source: 'openai-compat',
+              payloadHash: defended.audit.payloadHash,
+              redactedSnippet: defended.redactedSnippet,
+              scores: defended.scores as Record<string, number>,
+            },
+          };
+
+          // Add defended tool result to messages so the model only ever sees
+          // the envelope or a placeholder, never the raw injection vector.
+          const modelOutput =
+            defended.modelContent.length > 30000
+              ? defended.modelContent.slice(0, 30000) + '\n... (truncated)'
+              : defended.modelContent;
+          const toolResultMessage: ChatCompletionMessageParam = {
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: modelOutput,
+          };
+          messages.push(toolResultMessage);
+          this.persistProviderState(messages, _options, workDir);
+        }
       }
+    } catch (error) {
+      // Usage from earlier iterations still belongs to this run: report it
+      // before the error becomes RUN_ERROR, which carries the totals.
+      if (aggregateUsage) {
+        yield { type: 'result', model: this.getModel(), usage: aggregateUsage };
+      }
+      throw error;
     }
-    if (aggregateUsage && !session.abortController.signal.aborted) {
+    // A cancelled run still reports what it spent before the stop.
+    if (aggregateUsage) {
       yield { type: 'result', model: this.getModel(), usage: aggregateUsage };
     }
   }

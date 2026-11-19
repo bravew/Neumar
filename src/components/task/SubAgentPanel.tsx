@@ -76,6 +76,10 @@ function SubAgentRow({
             : t.task.subAgentCancelled;
 
   const panelId = `subagent-detail-${agent.id}`;
+  const cancelLabel = t.task.subAgentCancel.replace(
+    '{name}',
+    agent.name || t.task.subAgentDefault,
+  );
 
   return (
     <div className="border-border/30 border-b last:border-0">
@@ -123,8 +127,8 @@ function SubAgentRow({
             type="button"
             onClick={() => onCancel(agent.id)}
             className="text-muted-foreground hover:text-destructive shrink-0 cursor-pointer rounded p-0.5 transition-colors hover:bg-red-50 dark:hover:bg-red-950"
-            title={t.task.cancel}
-            aria-label={t.task.cancel}
+            title={cancelLabel}
+            aria-label={cancelLabel}
           >
             <X className="size-3" />
           </button>

@@ -134,11 +134,15 @@ export class AGUIEmitter {
   private openSubagents = new Set<string>();
   /** Id of this run's planning status activity while it is open. */
   private planningActivityId: string | null = null;
+  /** Sub-agent that owns the open planning status activity. */
+  private planningActivityOwner: string | undefined = undefined;
   /**
    * The plan/checklist activity this run opened, named after the plan id so
    * the planning run and its execution run update one widget.
    */
   private planActivityId: string | null = null;
+  /** Sub-agent that owns the open plan activity. */
+  private planActivityOwner: string | undefined = undefined;
 
   /** This run's own model calls; reported on the terminal event. */
   private readonly usage: RunUsageAccumulator;
@@ -391,6 +395,7 @@ export class AGUIEmitter {
       yield this.event<ActivityDeltaEvent>(EventType.ACTIVITY_DELTA, {
         messageId: this.planningActivityId,
         activityType: 'status',
+        ...ownerField(this.planningActivityOwner),
         patch: [
           { op: 'replace', path: '/message', value: message },
           { op: 'replace', path: '/elapsedMs', value: elapsedMs },
@@ -399,11 +404,13 @@ export class AGUIEmitter {
       return;
     }
     this.planningActivityId = `planning-status-${this.runId}`;
+    this.planningActivityOwner = msg.subagentRunId;
     yield this.event<ActivitySnapshotEvent>(EventType.ACTIVITY_SNAPSHOT, {
       messageId: this.planningActivityId,
       activityType: 'status',
       content: { phase: 'planning', message, elapsedMs },
       replace: true,
+      ...ownerField(this.planningActivityOwner),
     });
   }
 
@@ -417,9 +424,12 @@ export class AGUIEmitter {
     if (!this.planningActivityId) return;
     const messageId = this.planningActivityId;
     this.planningActivityId = null;
+    const owner = this.planningActivityOwner;
+    this.planningActivityOwner = undefined;
     yield this.event<ActivityDeltaEvent>(EventType.ACTIVITY_DELTA, {
       messageId,
       activityType: 'status',
+      ...ownerField(owner),
       patch: [{ op: 'replace', path: '/phase', value: phase }],
     });
   }
@@ -433,6 +443,7 @@ export class AGUIEmitter {
   private *planActivity(
     plan: TaskPlan,
     phase: PlanActivityPhase,
+    owner?: string,
   ): Generator<BaseEvent> {
     const nextId = `plan-${plan.id}`;
     // A run that reports a second plan supersedes the first. Its interrupt is
@@ -442,6 +453,7 @@ export class AGUIEmitter {
       yield* this.endPlanActivity('cancelled');
     }
     this.planActivityId = nextId;
+    this.planActivityOwner = owner;
     yield this.event<ActivitySnapshotEvent>(EventType.ACTIVITY_SNAPSHOT, {
       messageId: this.planActivityId,
       activityType: 'plan',
@@ -455,6 +467,7 @@ export class AGUIEmitter {
         })),
       },
       replace: true,
+      ...ownerField(this.planActivityOwner),
     });
   }
 
@@ -463,9 +476,12 @@ export class AGUIEmitter {
     phase: 'done' | 'failed' | 'cancelled',
   ): Generator<BaseEvent> {
     if (!this.planActivityId) return;
+    const owner = this.planActivityOwner;
+    this.planActivityOwner = undefined;
     yield this.event<ActivityDeltaEvent>(EventType.ACTIVITY_DELTA, {
       messageId: this.planActivityId,
       activityType: 'plan',
+      ...ownerField(owner),
       patch: [{ op: 'replace', path: '/phase', value: phase }],
     });
     this.planActivityId = null;
@@ -776,6 +792,7 @@ export class AGUIEmitter {
           yield* this.planActivity(
             msg.plan,
             this.context?.planInterrupt ? 'awaiting_approval' : 'running',
+            msg.subagentRunId,
           );
         }
         if (this.context?.planInterrupt) {
@@ -793,6 +810,9 @@ export class AGUIEmitter {
               message:
                 'Planning produced a plan without an id; it cannot be approved',
               code: 'INVALID_PLAN',
+              // The planning call was recorded above; the failed run still
+              // reported that spend.
+              ...this.usageFields(),
             });
             break;
           }
@@ -805,7 +825,9 @@ export class AGUIEmitter {
       case 'plan_activity': {
         // An execution run reports the plan it is carrying out, so the plan
         // widget opens again after a reload or on a fresh client.
-        if (msg.plan?.id) yield* this.planActivity(msg.plan, 'running');
+        if (msg.plan?.id) {
+          yield* this.planActivity(msg.plan, 'running', msg.subagentRunId);
+        }
         break;
       }
 

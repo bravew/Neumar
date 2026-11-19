@@ -60,11 +60,18 @@ export function hasOpenPermissionWait(taskId: string): boolean {
   return false;
 }
 
-/** The open wait for one request id, if the adapter is still blocked on it. */
+/**
+ * The open wait for one request id, if the adapter is still blocked on it.
+ * An expired prompt is reported as absent: the adapter denies it unanswered,
+ * so a late answer must not approve it.
+ */
 export function findOpenPermissionWait(
   requestId: string,
 ): OpenPermissionPrompt | undefined {
-  return openByRequestId.get(requestId);
+  const open = openByRequestId.get(requestId);
+  if (!open) return undefined;
+  if (open.expiresAt !== null && open.expiresAt <= Date.now()) return undefined;
+  return open;
 }
 
 /**

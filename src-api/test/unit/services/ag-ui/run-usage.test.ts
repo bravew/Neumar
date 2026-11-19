@@ -156,6 +156,24 @@ describe('RunUsageAccumulator', () => {
     acc.record({ type: 'result', cost: 0 });
     expect(acc.costUsd).toBe(0.25);
   });
+
+  it('adds per-call costs for a producer that reports no delta', () => {
+    const acc = new RunUsageAccumulator({});
+    acc.record({ type: 'result', cost: 0.2 });
+    acc.record({ type: 'result', cost: 0.3 });
+    // There is no session total to prefer; the last call would understate it.
+    expect(acc.projection?.cost).toBeCloseTo(0.5);
+    expect(acc.costUsd).toBeCloseTo(0.5);
+  });
+
+  it('prefers the reported session total when the producer reports deltas', () => {
+    const acc = new RunUsageAccumulator({});
+    acc.record({ type: 'result', cost: 7, costDelta: 0.5 });
+    acc.record({ type: 'result', cost: 8, costDelta: 1 });
+    // The task row takes the session total; the run's own spend is the delta.
+    expect(acc.projection?.cost).toBe(8);
+    expect(acc.costUsd).toBeCloseTo(1.5);
+  });
 });
 
 describe('AG-UI terminal usage', () => {
@@ -219,6 +237,24 @@ describe('AG-UI terminal usage', () => {
     const end = terminal(await collect([{ type: 'error', message: 'boom' }]));
     expect(end).not.toHaveProperty('usage');
     expect(end.metadata?.costUsd).toBeUndefined();
+  });
+
+  it('keeps the planning spend on an INVALID_PLAN failure', async () => {
+    const end = terminal(
+      await collect(
+        [
+          {
+            type: 'plan',
+            plan: { id: '', goal: 'g', steps: [], createdAt: new Date(0) },
+            usage: { input_tokens: 5 },
+          },
+        ],
+        { planInterrupt: true },
+      ),
+    );
+    expect(end.type).toBe(EventType.RUN_ERROR);
+    expect(end).toMatchObject({ code: 'INVALID_PLAN' });
+    expect(end.usage?.[0]).toMatchObject({ inputTokens: 5 });
   });
 
   it('reports usage on a cancelled run', async () => {
