@@ -37,7 +37,7 @@ import {
   normalizeStopReason,
   TURN_BUDGET_EVENT_NAME,
 } from '@/core/agent/turn-budget';
-import type { AgentMessage } from '@/core/agent/types';
+import type { AgentMessage, TaskPlan } from '@/core/agent/types';
 
 import { CustomEventName } from './event-schema';
 import { permissionInterrupt, planInterrupt } from './interrupts';
@@ -48,6 +48,9 @@ import { RunUsageAccumulator } from './run-usage';
 type SourceStep =
   | { kind: 'message'; result: IteratorResult<AgentMessage> }
   | { kind: 'paused'; interrupts: Interrupt[] };
+
+/** Where a plan stands; the plan widget's terminal state is part of its content. */
+type PlanActivityPhase = 'awaiting_approval' | 'running';
 
 /** Message types that mean the planning phase has finished. */
 const PLANNING_ENDED_BY = new Set<AgentMessage['type']>([
@@ -125,6 +128,11 @@ export class AGUIEmitter {
   private openSubagents = new Set<string>();
   /** Id of this run's planning status activity while it is open. */
   private planningActivityId: string | null = null;
+  /**
+   * The plan/checklist activity this run opened, named after the plan id so
+   * the planning run and its execution run update one widget.
+   */
+  private planActivityId: string | null = null;
 
   /** This run's own model calls; reported on the terminal event. */
   private readonly usage: RunUsageAccumulator;
@@ -210,6 +218,7 @@ export class AGUIEmitter {
         this.context?.signal?.aborted === true ||
         (err instanceof Error && err.name === 'AbortError');
       yield* this.endPlanningActivity(isAbort ? 'cancelled' : 'failed');
+      yield* this.endPlanActivity(isAbort ? 'cancelled' : 'failed');
       yield* this.closeOpenBlocks();
       if (isAbort) {
         // A user stop is not a failure: report the standard cancelled outcome
@@ -227,6 +236,11 @@ export class AGUIEmitter {
       // RUN_ERROR and must not also finish.
       if ((caughtError === undefined || this.cancelled) && !this.terminated) {
         yield* this.endPlanningActivity(this.cancelled ? 'cancelled' : 'done');
+        // A plan awaiting approval keeps its phase; the decision is the next
+        // run's starting point, not this run's completion.
+        if (this.outcome()?.type !== 'interrupt') {
+          yield* this.endPlanActivity(this.cancelled ? 'cancelled' : 'done');
+        }
         yield* this.closeOpenBlocks();
         yield this.event<RunFinishedEvent>(EventType.RUN_FINISHED, {
           outcome: this.outcome(),
@@ -390,6 +404,46 @@ export class AGUIEmitter {
       activityType: 'status',
       patch: [{ op: 'replace', path: '/phase', value: phase }],
     });
+  }
+
+  /**
+   * Opens the plan/checklist widget for a plan, or replaces its content when a
+   * later run (the execution run) reports the same plan. The message id is
+   * derived from the plan id, so both runs update one widget and a replay
+   * never shows two.
+   */
+  private *planActivity(
+    plan: TaskPlan,
+    phase: PlanActivityPhase,
+  ): Generator<BaseEvent> {
+    this.planActivityId = `plan-${plan.id}`;
+    yield this.event<ActivitySnapshotEvent>(EventType.ACTIVITY_SNAPSHOT, {
+      messageId: this.planActivityId,
+      activityType: 'plan',
+      content: {
+        phase,
+        goal: plan.goal,
+        steps: plan.steps.map((step) => ({
+          id: step.id,
+          description: step.description,
+          status: step.status,
+        })),
+      },
+      replace: true,
+    });
+  }
+
+  /** Settles the plan widget. A no-op when this run opened none. */
+  private *endPlanActivity(
+    phase: 'done' | 'failed' | 'cancelled',
+  ): Generator<BaseEvent> {
+    if (!this.planActivityId) return;
+    yield this.event<ActivityDeltaEvent>(EventType.ACTIVITY_DELTA, {
+      messageId: this.planActivityId,
+      activityType: 'plan',
+      patch: [{ op: 'replace', path: '/phase', value: phase }],
+    });
+    this.planActivityId = null;
   }
 
   /** Closes the open text block, if any. */
@@ -614,6 +668,16 @@ export class AGUIEmitter {
         yield this.event<SubagentFinishedEvent>(EventType.SUBAGENT_FINISHED, {
           subagentRunId,
           ...(msg.output === undefined ? {} : { result: msg.output }),
+          ...(msg.subagentOutcome === 'suspended'
+            ? {
+                outcome: {
+                  type: 'suspended' as const,
+                  ...(msg.interruptIds?.length
+                    ? { interruptIds: msg.interruptIds }
+                    : {}),
+                },
+              }
+            : {}),
         });
         break;
       }
@@ -703,6 +767,13 @@ export class AGUIEmitter {
           // One decision per planning run: a later plan replaces an earlier one.
           this.pendingInterrupts = [planInterrupt(this.threadId, plan)];
         }
+        break;
+      }
+
+      case 'plan_activity': {
+        // An execution run reports the plan it is carrying out, so the plan
+        // widget opens again after a reload or on a fresh client.
+        if (msg.plan?.id) yield* this.planActivity(msg.plan, 'running');
         break;
       }
 
@@ -800,6 +871,7 @@ export class AGUIEmitter {
         }
         this.terminated = true;
         yield* this.endPlanningActivity('failed');
+        yield* this.endPlanActivity('failed');
         yield* this.closeOpenBlocks();
         yield this.event<RunErrorEvent>(EventType.RUN_ERROR, {
           message: msg.message ?? 'Unknown error',

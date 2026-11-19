@@ -72,6 +72,7 @@ export type AgentMessageType =
   | 'error'
   | 'done'
   | 'plan'
+  | 'plan_activity'
   | 'direct_answer'
   | 'thinking'
   | 'planning_status'

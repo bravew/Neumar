@@ -18,7 +18,8 @@ export interface AGUIMessage {
   role: string;
   /**
    * Text for conversation roles. An `activity` message carries an object here
-   * at runtime; read it with `readStatusActivity`, never as a string.
+   * at runtime; read it with `readStatusActivity` or `readPlanActivity`, never
+   * as a string.
    */
   content?: string;
   /** Set when `role` is `activity`, e.g. 'status'. */

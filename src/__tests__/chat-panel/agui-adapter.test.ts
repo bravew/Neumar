@@ -387,6 +387,119 @@ describe('chat-panel AG-UI adapter', () => {
     ]);
   });
 
+  it('opens an activity widget, patches it, and ignores what it cannot render', () => {
+    let state = createChatPanelAguiState();
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'plan-plan-1',
+        activityType: 'plan',
+        content: { phase: 'running', goal: 'Ship it', steps: [] },
+        replace: true,
+      },
+      { now },
+    );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'plan-plan-1',
+        activityType: 'plan',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      },
+      { now },
+    );
+
+    expect(state.messages).toMatchObject([
+      {
+        id: 'plan-plan-1',
+        kind: 'activity',
+        activity: {
+          activityType: 'plan',
+          content: { phase: 'done', goal: 'Ship it', steps: [] },
+        },
+      },
+    ]);
+
+    const untouched = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'plan-plan-1',
+        activityType: 'plan',
+        content: { phase: 'running' },
+        replace: false,
+      },
+      { now },
+    );
+    expect(untouched.messages).toEqual(state.messages);
+
+    for (const event of [
+      {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: 'timeline-1',
+        activityType: 'timeline',
+        content: { items: [] },
+      },
+      {
+        type: EventType.ACTIVITY_DELTA,
+        messageId: 'missing',
+        activityType: 'plan',
+        patch: [{ op: 'replace', path: '/phase', value: 'done' }],
+      },
+    ]) {
+      expect(reduceChatPanelAguiEvent(state, event, { now })).toBe(state);
+    }
+  });
+
+  it('adds a card for each sub-agent and settles it from its outcome', () => {
+    let state = createChatPanelAguiState();
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.SUBAGENT_STARTED,
+        subagentRunId: 'task-a',
+        name: 'Scan',
+      },
+      { now },
+    );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.SUBAGENT_FINISHED,
+        subagentRunId: 'task-a',
+        outcome: {
+          type: 'suspended',
+          interruptIds: ['permission:p1'],
+        },
+      },
+      { now },
+    );
+    state = reduceChatPanelAguiEvent(
+      state,
+      {
+        type: EventType.SUBAGENT_ERROR,
+        subagentRunId: 'task-b',
+        message: 'boom',
+      },
+      { now },
+    );
+
+    expect(state.messages).toMatchObject([
+      {
+        id: 'subagent:task-a',
+        kind: 'subagent',
+        subagent: { id: 'task-a', name: 'Scan', status: 'suspended' },
+      },
+      {
+        id: 'subagent:task-b',
+        kind: 'subagent',
+        subagent: { id: 'task-b', status: 'error' },
+      },
+    ]);
+  });
+
   it('normalizes canonical lifecycle and state update events', () => {
     let state = createChatPanelAguiState();
     state = reduceChatPanelAguiEvent(

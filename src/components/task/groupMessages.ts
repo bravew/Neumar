@@ -7,6 +7,10 @@
  */
 import type { Artifact } from '@/components/artifacts/types';
 import {
+  readPlanActivity,
+  type PlanActivity,
+} from '@/components/task/planActivity';
+import {
   readStatusActivity,
   type StatusActivity,
 } from '@/components/task/statusActivity';
@@ -61,6 +65,11 @@ export type GroupedItem =
       status: StatusActivity;
     }
   | {
+      type: 'plan-widget';
+      key: string;
+      plan: PlanActivity;
+    }
+  | {
       type: 'plan-approval';
       key: string;
       plan: TaskPlan;
@@ -86,6 +95,8 @@ export type GroupedItem =
         resolved?: boolean;
         decision?: 'allow' | 'deny' | 'always_allow';
       };
+      /** Display name of the sub-agent that asked, when one is known. */
+      ownerName?: string;
     };
 
 /**
@@ -173,7 +184,10 @@ export function groupMessages(
       const status = readStatusActivity(m);
       if (status?.phase === 'planning') {
         items.push({ type: 'status-widget', key: m.id, status });
+        continue;
       }
+      const plan = readPlanActivity(m);
+      if (plan) items.push({ type: 'plan-widget', key: m.id, plan });
     }
 
     // Peel the trailing answer off the back of the turn. Consecutive

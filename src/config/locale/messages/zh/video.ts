@@ -1351,6 +1351,8 @@ export default {
       },
     },
     agentDock: {
+      awaitingApproval: '等待批准',
+      suspended: '等待输入',
       turnBudget: {
         continue: '继续',
         continuePrompt: '从你停下的地方继续。',

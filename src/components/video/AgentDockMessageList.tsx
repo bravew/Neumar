@@ -147,6 +147,97 @@ export function AgentDockMessageList({
             />
           );
         }
+        if (message.kind === 'activity') {
+          const dock = t.video.editor.agentDock;
+          const { content } = message.activity;
+          const phase =
+            typeof content.phase === 'string' ? content.phase : undefined;
+          const phaseLabel =
+            phase === 'awaiting_approval'
+              ? dock.awaitingApproval
+              : phase === 'running'
+                ? dock.running
+                : phase === 'failed'
+                  ? dock.failed
+                  : phase === 'cancelled'
+                    ? dock.cancelled
+                    : dock.completed;
+          const goal =
+            typeof content.goal === 'string'
+              ? content.goal
+              : typeof content.message === 'string'
+                ? content.message
+                : '';
+          const steps = Array.isArray(content.steps) ? content.steps : [];
+          return (
+            <MessageBubble
+              key={message.id}
+              role="assistant"
+              className="max-w-full"
+            >
+              <div className="border-border/60 bg-muted/20 rounded-lg border p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-foreground min-w-0 truncate font-medium">
+                    {goal}
+                  </span>
+                  <span className="text-muted-foreground ml-auto shrink-0 text-xs">
+                    {phaseLabel}
+                  </span>
+                </div>
+                {steps.length > 0 ? (
+                  <ol className="text-muted-foreground mt-2 space-y-1 text-xs">
+                    {steps.map((step, index) => (
+                      <li
+                        key={
+                          step &&
+                          typeof step === 'object' &&
+                          typeof (step as { id?: unknown }).id === 'string'
+                            ? (step as { id: string }).id
+                            : index
+                        }
+                      >
+                        {step &&
+                        typeof step === 'object' &&
+                        typeof (step as { description?: unknown })
+                          .description === 'string'
+                          ? (step as { description: string }).description
+                          : ''}
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+              </div>
+            </MessageBubble>
+          );
+        }
+        if (message.kind === 'subagent') {
+          const dock = t.video.editor.agentDock;
+          const { name, id, status } = message.subagent;
+          const statusLabel =
+            status === 'running'
+              ? dock.running
+              : status === 'suspended'
+                ? dock.suspended
+                : status === 'error'
+                  ? dock.failed
+                  : dock.completed;
+          return (
+            <MessageBubble
+              key={message.id}
+              role="system"
+              className="max-w-full"
+            >
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-foreground min-w-0 truncate font-medium">
+                  {name || id.slice(0, 8)}
+                </span>
+                <span className="text-muted-foreground ml-auto shrink-0">
+                  {statusLabel}
+                </span>
+              </div>
+            </MessageBubble>
+          );
+        }
         return null;
       })}
     </>

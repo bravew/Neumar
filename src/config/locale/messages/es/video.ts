@@ -1403,6 +1403,8 @@ export default {
       },
     },
     agentDock: {
+      awaitingApproval: 'Esperando aprobación',
+      suspended: 'Esperando respuesta',
       turnBudget: {
         continue: 'Continuar',
         continuePrompt: 'Continúa desde donde te detuviste.',

@@ -5,9 +5,11 @@ import {
   finalizeChatPanelAguiState,
   isChatPanelAguiEventPayload,
   reduceChatPanelAguiEvent,
+  type ChatPanelActivity,
   type ChatPanelAguiAccumulator,
   type ChatPanelAguiEvent,
   type ChatPanelMessage,
+  type ChatPanelSubagentMessage,
   type ChatToolCall,
   type ChatToolCallStage,
 } from '@/components/shared/chat-panel';
@@ -157,6 +159,20 @@ export type AgentDockMessage =
       role: 'assistant';
       kind: 'tool';
       call: ToolCallRecord;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      role: 'assistant';
+      kind: 'activity';
+      activity: ChatPanelActivity;
+      createdAt: string;
+    }
+  | {
+      id: string;
+      role: 'system';
+      kind: 'subagent';
+      subagent: ChatPanelSubagentMessage['subagent'];
       createdAt: string;
     };
 
@@ -724,6 +740,28 @@ function agentDockMessagesToChatPanel(
         },
       ];
     }
+    if (message.kind === 'activity') {
+      return [
+        {
+          id: message.id,
+          kind: 'activity',
+          role: 'assistant',
+          activity: message.activity,
+          createdAt: message.createdAt,
+        },
+      ];
+    }
+    if (message.kind === 'subagent') {
+      return [
+        {
+          id: message.id,
+          kind: 'subagent',
+          role: 'system',
+          subagent: message.subagent,
+          createdAt: message.createdAt,
+        },
+      ];
+    }
     return [
       {
         id: message.id,
@@ -784,6 +822,28 @@ function chatPanelMessagesToAgentDock(
             },
           ]
         : [];
+    }
+    if (message.kind === 'activity') {
+      return [
+        {
+          id: message.id,
+          kind: 'activity',
+          role: 'assistant',
+          activity: message.activity,
+          createdAt: message.createdAt,
+        },
+      ];
+    }
+    if (message.kind === 'subagent') {
+      return [
+        {
+          id: message.id,
+          kind: 'subagent',
+          role: 'system',
+          subagent: message.subagent,
+          createdAt: message.createdAt,
+        },
+      ];
     }
     if (message.kind !== 'tool') return [];
     return message.calls.map((call) =>

@@ -10,6 +10,12 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { parseGenUIEnvelope } from '@/shared/types/gen-ui';
 
+import {
+  ActivityWidget,
+  type ChatPanelActivityLabels,
+  type ChatPanelSubagentLabels,
+  SubagentEvent,
+} from './ChatPanelActivityView';
 import { GenUIRenderer } from './GenUIRenderer';
 import { MessageBubble } from './MessageBubble';
 import { QuestionFormCard } from './QuestionFormCard';
@@ -48,6 +54,8 @@ export interface ChatPanelMessageViewLabels {
     updated: string;
     value: string;
   };
+  activity: ChatPanelActivityLabels;
+  subagent: ChatPanelSubagentLabels;
 }
 
 export interface ChatPanelMessageViewProps {
@@ -116,6 +124,18 @@ export function ChatPanelMessageView({
       return (
         <MessageBubble role="system" className="max-w-full">
           <StateUpdateEvent message={message} labels={labels.state} />
+        </MessageBubble>
+      );
+    case 'activity':
+      return (
+        <MessageBubble role="assistant" className="max-w-full">
+          <ActivityWidget message={message} labels={labels.activity} />
+        </MessageBubble>
+      );
+    case 'subagent':
+      return (
+        <MessageBubble role="system" className="max-w-full">
+          <SubagentEvent message={message} labels={labels.subagent} />
         </MessageBubble>
       );
     default:

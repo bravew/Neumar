@@ -1,5 +1,6 @@
 import { EventType } from '@ag-ui/core';
 
+import { applyActivityPatch } from '@/shared/lib/activity-patch';
 import { randomUUID } from '@/shared/utils/uuid';
 
 import {
@@ -7,6 +8,7 @@ import {
   type ChatPanelMessage,
   type ChatPanelRole,
   type ChatRunLifecycleStatus,
+  type ChatSubagentStatus,
   type ChatSurfaceKind,
   type ChatSurfacePersistTier,
   type ChatSurfaceRespondedBy,
@@ -80,8 +82,16 @@ const AGUI_EVENT_TYPES = new Set<string>([
   EventType.TOOL_CALL_CHUNK,
   EventType.TOOL_CALL_END,
   EventType.TOOL_CALL_RESULT,
+  EventType.ACTIVITY_SNAPSHOT,
+  EventType.ACTIVITY_DELTA,
+  EventType.SUBAGENT_STARTED,
+  EventType.SUBAGENT_FINISHED,
+  EventType.SUBAGENT_ERROR,
   'ERROR',
 ]);
+
+/** Activity types this surface renders; anything else is skipped, not shown raw. */
+const SUPPORTED_ACTIVITY_TYPES = new Set<string>(['plan', 'status']);
 
 const AGUI_CANONICAL_KINDS = new Set<string>([
   'agent.message',
@@ -260,6 +270,132 @@ export function reduceChatPanelAguiEvent(
       return reduceToolCallEnd(state, event);
     case EventType.TOOL_CALL_RESULT:
       return reduceToolCallResult(state, event, now);
+    case EventType.ACTIVITY_SNAPSHOT: {
+      const id = getString(event, 'messageId');
+      const activityType = getString(event, 'activityType');
+      const content = event.content;
+      if (
+        !id ||
+        !activityType ||
+        !SUPPORTED_ACTIVITY_TYPES.has(activityType) ||
+        !isPlainObject(content)
+      ) {
+        return state;
+      }
+      const existing = state.messages.find((message) => message.id === id);
+      if (existing) {
+        // `replace: false` leaves an existing activity untouched; it never
+        // merges. A conversation message with the same id is not converted.
+        if (event.replace === false || existing.kind !== 'activity') {
+          return state;
+        }
+        return {
+          ...state,
+          messages: state.messages.map((message) =>
+            message.id === id && message.kind === 'activity'
+              ? {
+                  ...message,
+                  activity: { ...message.activity, activityType, content },
+                }
+              : message,
+          ),
+        };
+      }
+      return {
+        ...state,
+        messages: [
+          ...state.messages,
+          {
+            id,
+            kind: 'activity',
+            role: 'assistant',
+            createdAt: now(),
+            activity: { id, activityType, content },
+          },
+        ],
+      };
+    }
+    case EventType.ACTIVITY_DELTA: {
+      const id = getString(event, 'messageId');
+      const activityType = getString(event, 'activityType');
+      if (!id || !activityType) return state;
+      const existing = state.messages.find((message) => message.id === id);
+      // A delta for a missing or non-activity message is skipped: there is no
+      // widget to patch, and inventing one would show state nobody reported.
+      if (
+        !existing ||
+        existing.kind !== 'activity' ||
+        existing.activity.activityType !== activityType
+      ) {
+        return state;
+      }
+      const patched = applyActivityPatch(
+        existing.activity.content,
+        event.patch,
+      );
+      if (!patched) return state;
+      return {
+        ...state,
+        messages: state.messages.map((message) =>
+          message.id === id && message.kind === 'activity'
+            ? {
+                ...message,
+                activity: { ...message.activity, content: patched },
+              }
+            : message,
+        ),
+      };
+    }
+    case EventType.SUBAGENT_STARTED:
+    case EventType.SUBAGENT_FINISHED:
+    case EventType.SUBAGENT_ERROR: {
+      const id = getString(event, 'subagentRunId');
+      if (!id) return state;
+      const messageId = `subagent:${id}`;
+      const status: ChatSubagentStatus =
+        type === EventType.SUBAGENT_ERROR
+          ? 'error'
+          : type === EventType.SUBAGENT_FINISHED
+            ? getOutcomeType(event) === 'suspended'
+              ? 'suspended'
+              : 'completed'
+            : 'running';
+      const existing = state.messages.find(
+        (message) => message.id === messageId,
+      );
+      if (existing && existing.kind === 'subagent') {
+        return {
+          ...state,
+          messages: state.messages.map((message) =>
+            message.id === messageId && message.kind === 'subagent'
+              ? { ...message, subagent: { ...message.subagent, status } }
+              : message,
+          ),
+        };
+      }
+      // A finish or error without a start still gets one card: the child ran,
+      // even if the client missed the event that opened it.
+      const name = getString(event, 'name') ?? getString(event, 'subagentName');
+      const parent = getString(event, 'parentSubagentRunId');
+      return {
+        ...state,
+        messages: [
+          ...state.messages,
+          {
+            id: messageId,
+            kind: 'subagent',
+            role: 'system',
+            createdAt: now(),
+            subagent: {
+              id,
+              status,
+              ...(name ? { name } : {}),
+              ...(parent ? { parentSubagentRunId: parent } : {}),
+            },
+          },
+        ],
+      };
+    }
     case EventType.RUN_ERROR:
     case 'ERROR': {
       const message =
@@ -1056,6 +1192,12 @@ function getNumber(
 ): number | undefined {
   const item = value[key];
   return typeof item === 'number' && Number.isFinite(item) ? item : undefined;
+}
+
+/** `RUN_FINISHED.outcome.type` / `SUBAGENT_FINISHED.outcome.type`. */
+function getOutcomeType(event: ChatPanelAguiEvent): string | undefined {
+  const outcome = event.outcome;
+  return isPlainObject(outcome) ? getString(outcome, 'type') : undefined;
 }
 
 function getSurfaceKind(value: string | undefined): ChatSurfaceKind {

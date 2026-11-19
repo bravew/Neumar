@@ -1398,6 +1398,8 @@ export default {
       },
     },
     agentDock: {
+      awaitingApproval: 'En attente d’approbation',
+      suspended: 'En attente de réponse',
       turnBudget: {
         continue: 'Continuer',
         continuePrompt: 'Reprends là où tu t’es arrêté.',
