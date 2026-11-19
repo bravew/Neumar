@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  findOpenPermissionWait,
   onPermissionWaitsSettled,
   openPermissionWait,
   resetPermissionWaitsForTest,
@@ -76,6 +77,25 @@ describe('permission waits', () => {
     settleA();
 
     expect(settled).not.toHaveBeenCalled();
+  });
+
+  it('reports an expired prompt as absent so a late answer cannot approve it', () => {
+    openPermissionWait({
+      taskId: 't1',
+      sessionId: 's',
+      prompt: { id: 'expired', tool: 'Bash', command: 'ls', description: 'd' },
+      expiresAt: Date.now() - 1,
+    } as never);
+    openPermissionWait({
+      taskId: 't1',
+      sessionId: 's',
+      prompt: { id: 'live', tool: 'Bash', command: 'ls', description: 'd' },
+      expiresAt: Date.now() + 60_000,
+    } as never);
+
+    expect(findOpenPermissionWait('expired')).toBeUndefined();
+    expect(findOpenPermissionWait('live')?.prompt.id).toBe('live');
+    expect(findOpenPermissionWait('missing')).toBeUndefined();
   });
 });
 
