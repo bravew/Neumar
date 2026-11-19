@@ -17,10 +17,7 @@ import {
   type GroupedItemRenderContext,
 } from '@/components/task/GroupedMessageList';
 import { appendOutputArtifactsItem } from '@/components/task/outputArtifactItems';
-import { RunErrorBubble } from '@/components/task/RunErrorBubble';
-import { RunTreeView } from '@/components/task/RunTreeView';
 import { StreamSignalBanner } from '@/components/task/StreamSignalBanner';
-import { SubAgentPanel } from '@/components/task/SubAgentPanel';
 import { TaskThreadActions } from '@/components/task/task-thread-actions';
 import {
   buildAgentPrompt,
@@ -30,6 +27,7 @@ import {
   resolveAttachmentsForSubmit,
 } from '@/components/task/taskV2-submit-helpers';
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble';
+import { TaskV2ThreadStatus } from '@/components/task/TaskV2ThreadStatus';
 import {
   appendPermissionItems,
   injectBranchNav,
@@ -446,28 +444,17 @@ export function TaskV2Thread({
           scrollToBottomLabel={t.common.scrollToBottom}
         />
 
-        {/* Permission dialogs, sub-agents, errors — outside virtualized list */}
-        {(subAgents.length > 0 || runError) && (
-          <div className="mx-auto max-w-4xl px-4">
-            {subAgents.length > 0 && (
-              <SubAgentPanel
-                subAgents={subAgents}
-                onCancel={handleCancelSubAgent}
-              />
-            )}
-
-            {/* Persisted run tree (post-stream) — additive to the live SubAgentPanel above. */}
-            {taskId && <RunTreeView taskId={taskId} />}
-
-            {runError && (
-              <RunErrorBubble
-                errorLabel={t.task.agentError ?? 'Error'}
-                message={runError}
-                onDismiss={clearRunError}
-              />
-            )}
-          </div>
-        )}
+        {/* Sub-agents, open questions, errors — outside virtualized list */}
+        <TaskV2ThreadStatus
+          taskId={taskId}
+          isRunning={effectiveIsRunning}
+          agent={agent}
+          subAgents={subAgents}
+          onCancelSubAgent={handleCancelSubAgent}
+          runError={runError}
+          errorLabel={t.task.agentError ?? 'Error'}
+          onDismissError={clearRunError}
+        />
 
         {effectiveIsRunning && (
           <div className="text-muted-foreground mx-auto flex max-w-4xl items-center gap-2 px-4 py-2 text-xs">
