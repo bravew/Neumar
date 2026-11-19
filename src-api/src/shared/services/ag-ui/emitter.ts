@@ -29,14 +29,25 @@ import {
 } from '@ag-ui/core';
 
 import {
+  hasOpenPermissionWait,
+  listOpenPermissionWaits,
+  subscribePermissionWaits,
+} from '@/core/agent/permission-waits';
+import {
   normalizeStopReason,
   TURN_BUDGET_EVENT_NAME,
 } from '@/core/agent/turn-budget';
 import type { AgentMessage } from '@/core/agent/types';
 
 import { CustomEventName } from './event-schema';
-import { planInterrupt } from './interrupts';
+import { permissionInterrupt, planInterrupt } from './interrupts';
+import { PausableSource } from './pausable-source';
 import { RunUsageAccumulator } from './run-usage';
+
+/** What the emitter found when it asked the source for its next message. */
+type SourceStep =
+  | { kind: 'message'; result: IteratorResult<AgentMessage> }
+  | { kind: 'paused'; interrupts: Interrupt[] };
 
 /** Message types that mean the planning phase has finished. */
 const PLANNING_ENDED_BY = new Set<AgentMessage['type']>([
@@ -74,6 +85,11 @@ export interface AGUIRunContext {
    * user stopped it, whatever error the adapter surfaced on the way out.
    */
   signal?: AbortSignal;
+  /**
+   * The task whose permission prompts this run may pause on. Absent for runs
+   * that have no task, which never pause.
+   */
+  taskId?: string;
   /** Agent provider and model the run's usage is attributed to. */
   provider?: string;
   model?: string;
@@ -101,6 +117,8 @@ export class AGUIEmitter {
   private pendingInterrupts: Interrupt[] = [];
   /** User aborted the run — reported as the standard cancelled outcome. */
   private cancelled = false;
+  /** Ended at an open permission decision; the source stays open for a continuation. */
+  private paused = false;
   /** Sub-agent that owns the open text block; undefined is the parent run. */
   private currentMessageOwner: string | undefined = undefined;
   /** Sub-agent invocations started and not yet ended. */
@@ -132,10 +150,19 @@ export class AGUIEmitter {
     };
   }
 
+  /** True when this run ended at a permission decision and can be continued. */
+  isPaused(): boolean {
+    return this.paused;
+  }
+
   async *transform(
-    source: AsyncGenerator<AgentMessage>,
+    source: AsyncGenerator<AgentMessage> | PausableSource<AgentMessage>,
     onMessage?: (message: AgentMessage) => void | Promise<void>,
   ): AsyncGenerator<BaseEvent> {
+    const cursor =
+      source instanceof PausableSource
+        ? source
+        : new PausableSource<AgentMessage>(source);
     let caughtError: unknown = undefined;
 
     yield this.event<RunStartedEvent>(EventType.RUN_STARTED, {});
@@ -158,11 +185,22 @@ export class AGUIEmitter {
     }
 
     try {
-      for await (const msg of source) {
+      for (;;) {
+        const step = await this.nextSourceStep(cursor);
+        if (step.kind === 'paused') {
+          this.paused = true;
+          this.pendingInterrupts = step.interrupts;
+          break;
+        }
+        if (step.result.done) break;
+        const msg = step.result.value;
         await onMessage?.(msg);
         yield* this.mapMessage(msg);
         // Stop processing further messages after an inline RUN_ERROR or stop
-        if (this.terminated || this.cancelled) break;
+        if (this.terminated || this.cancelled) {
+          cursor.close();
+          break;
+        }
       }
     } catch (err) {
       caughtError = err;
@@ -196,6 +234,63 @@ export class AGUIEmitter {
         });
       }
     }
+  }
+
+  /**
+   * The source's next message, or a pause when a tool permission for this
+   * run's task is open and no subagent is running. A subagent cannot be closed
+   * across a pause, so a run with one open answers its prompt in place.
+   *
+   * A message whose pull was in flight when the pause won is not consumed; the
+   * source keeps it for the continuation.
+   */
+  private nextSourceStep(
+    cursor: PausableSource<AgentMessage>,
+  ): Promise<SourceStep> {
+    const taskId = this.context?.taskId;
+    if (taskId === undefined) {
+      return cursor.pull().then((result) => {
+        cursor.settle();
+        return { kind: 'message', result };
+      });
+    }
+    const pauseNow = (): Interrupt[] | null =>
+      this.openSubagents.size === 0 && hasOpenPermissionWait(taskId)
+        ? listOpenPermissionWaits(taskId).map(permissionInterrupt)
+        : null;
+    const ready = pauseNow();
+    if (ready) return Promise.resolve({ kind: 'paused', interrupts: ready });
+    return new Promise<SourceStep>((resolve, reject) => {
+      let decided = false;
+      const stopWatching = subscribePermissionWaits(taskId, () => {
+        if (decided) return;
+        const interrupts = pauseNow();
+        if (!interrupts) return;
+        decided = true;
+        stopWatching();
+        // Tools the agent runs in parallel open their prompts back to back;
+        // reporting after the current turn keeps them in one interrupt batch.
+        setImmediate(() =>
+          resolve({ kind: 'paused', interrupts: pauseNow() ?? interrupts }),
+        );
+      });
+      cursor.pull().then(
+        (result) => {
+          if (decided) return;
+          decided = true;
+          stopWatching();
+          cursor.settle();
+          resolve({ kind: 'message', result });
+        },
+        (error: unknown) => {
+          if (decided) return;
+          decided = true;
+          stopWatching();
+          cursor.settle();
+          reject(error);
+        },
+      );
+    });
   }
 
   /** Why the run ended. Absent means success. */

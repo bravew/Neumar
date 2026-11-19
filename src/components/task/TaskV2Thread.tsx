@@ -364,7 +364,7 @@ export function TaskV2Thread({
 
   // Permission handling — only subscribes to SSE when agent is running
   const { permissionRequests, respond: handlePermissionRespond } =
-    usePermissionRequests(taskId, effectiveIsRunning);
+    usePermissionRequests(taskId, effectiveIsRunning, agent);
 
   // Sub-agent supervision — track lifecycle from SSE events
   const subAgents = useSubAgents(taskId, effectiveIsRunning);

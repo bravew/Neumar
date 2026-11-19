@@ -2,7 +2,7 @@ import { mkdir, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 
 import { EventType } from '@ag-ui/core';
-import type { BaseEvent } from '@ag-ui/core';
+import type { BaseEvent, Interrupt } from '@ag-ui/core';
 import { EventEncoder } from '@ag-ui/encoder';
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
@@ -14,6 +14,7 @@ import {
   isConversationalPrompt,
   isSingleActionPrompt,
 } from '@/core/agent/base';
+import { listOpenPermissionWaits } from '@/core/agent/permission-waits';
 import {
   resolveRunContext,
   RunContextEnvelopeInputSchema,
@@ -47,19 +48,34 @@ import { trustedLocalPolicy } from '@/shared/network-policy/schema';
 import { activeQueryStore } from '@/shared/services/active-query-store';
 import { AttachmentPromotionService } from '@/shared/services/ag-ui/attachment-promotion';
 import { startDetachedAGUIRun } from '@/shared/services/ag-ui/detached-run';
-import { AGUIEmitter } from '@/shared/services/ag-ui/emitter';
+import {
+  AGUIEmitter,
+  type AGUIRunContext,
+} from '@/shared/services/ag-ui/emitter';
 import {
   dbMessagesToFullAGUI,
   dbMessagesToSubagents,
 } from '@/shared/services/ag-ui/history';
 import {
   parseDecisionInterruptId,
+  permissionInterrupt,
   ResumeSchema,
 } from '@/shared/services/ag-ui/interrupts';
 import { replayAGUIEvents } from '@/shared/services/ag-ui/journal';
+import { listOpenInterrupts } from '@/shared/services/ag-ui/open-interrupts';
+import { PausableSource } from '@/shared/services/ag-ui/pausable-source';
+import {
+  applyPermissionAnswers,
+  validatePermissionEntries,
+} from '@/shared/services/ag-ui/permission-decisions';
+import {
+  expectContinuationRunId,
+  hasPermissionHold,
+  holdUntilPermissionsSettled,
+  releasePermissionHold,
+} from '@/shared/services/ag-ui/permission-hold';
 import { AGUIEventPersister } from '@/shared/services/ag-ui/persistence';
 import {
-  listPlanInterrupts,
   parsePlanRun,
   pendingPlanRun,
   planInterruptForRun,
@@ -452,6 +468,110 @@ function activeRunContextFor(
   };
 }
 
+/** Everything a run needs to start, and to start again after a pause. */
+interface AGUIRunLaunch {
+  taskId: string;
+  threadId: string;
+  runId: string;
+  controller: AbortController;
+  /** The agent's messages. A continuation run reads the same source. */
+  source: PausableSource<AgentMessage>;
+  emitterContext: Omit<AGUIRunContext, 'signal' | 'taskId'>;
+  makePersister: (runId: string) => AGUIEventPersister;
+  makePromoter: (runId: string) => AttachmentPromotionService;
+  quietClose: {
+    enabled: boolean;
+    quietMs: ReturnType<typeof forwardedQuietMs>;
+  };
+}
+
+/**
+ * Starts one detached run and returns its bus key.
+ *
+ * A run that ends at an open tool-permission prompt leaves its agent waiting.
+ * It keeps its controller and message source, and a hold starts the next run
+ * on that source once no prompt for the task is open. Any other ending
+ * releases the controller.
+ */
+function launchAGUIRun(spec: AGUIRunLaunch): string {
+  const { taskId, threadId, runId, controller } = spec;
+  const emitter = new AGUIEmitter(threadId, runId, {
+    ...spec.emitterContext,
+    signal: controller.signal,
+    taskId,
+  });
+  const busKey = `agui-${taskId}-${runId}`;
+  activeRunBusKeys.set(taskId, busKey);
+  const persister = spec.makePersister(runId);
+  activeRunContexts.set(taskId, activeRunContextFor(runId, persister));
+  const promoter = spec.makePromoter(runId);
+  const releaseController = (): void => {
+    if (activeRunControllers.get(taskId) === controller) {
+      activeRunControllers.delete(taskId);
+    }
+  };
+
+  startDetachedAGUIRun({
+    mode: 'task',
+    ownerKey: taskId,
+    runId,
+    threadId,
+    busKey,
+    controller,
+    persister,
+    reattach: activeRunContextFor(runId, persister),
+    events: withDesignLiveArtifactQuietClose(
+      withAttachmentPromotionEvents(
+        emitter.transform(spec.source),
+        promoter,
+        runId,
+      ),
+      {
+        enabled: spec.quietClose.enabled,
+        taskId,
+        runId,
+        threadId,
+        quietMs: spec.quietClose.quietMs,
+      },
+    ),
+    onTerminal: () => {
+      if (activeRunBusKeys.get(taskId) === busKey) {
+        activeRunBusKeys.delete(taskId);
+      }
+      if (activeRunContexts.get(taskId)?.runId === runId) {
+        activeRunContexts.delete(taskId);
+      }
+      if (!emitter.isPaused()) {
+        releaseController();
+        return;
+      }
+      if (controller.signal.aborted) {
+        spec.source.close();
+        releaseController();
+        return;
+      }
+      holdUntilPermissionsSettled({
+        taskId,
+        signal: controller.signal,
+        resume: (nextRunId) => {
+          launchAGUIRun({ ...spec, runId: nextRunId });
+        },
+        abandon: () => {
+          spec.source.close();
+          releaseController();
+        },
+      });
+    },
+  }).catch((err) => {
+    logger.error('AG-UI detached pipeline error', {
+      error: err,
+      threadId,
+      runId,
+    });
+  });
+  return busKey;
+}
+
 /** Matches `data:<mimeType>;base64,<data>` — used by extractImages and image field parsing. */
 const DATA_URL_RE = /^data:([^;]+);base64,(.+)$/;
 
@@ -485,15 +605,16 @@ async function* withPlanExecutionSteps(
 
 /**
  * A complete, empty run for a resume that decides not to execute anything
- * (plan rejected or cancelled). Returning bare JSON would leave the client's
- * pending interrupt open; a terminal run clears it.
+ * (plan rejected or cancelled), or that leaves other decisions open. Returning
+ * bare JSON would leave the client's pending interrupt open; a terminal run
+ * clears it, or replaces it with the interrupts still waiting.
  */
 function terminalRunStream(
   c: Context,
   input: {
     threadId: string;
     runId: string;
-    outcome: 'success' | 'cancelled';
+    outcome: 'success' | 'cancelled' | { interrupts: Interrupt[] };
   },
 ): Response {
   return streamSSE(c, async (stream) => {
@@ -515,7 +636,14 @@ function terminalRunStream(
         timestamp,
         ...(input.outcome === 'cancelled'
           ? { outcome: { type: 'cancelled' } }
-          : {}),
+          : typeof input.outcome === 'object'
+            ? {
+                outcome: {
+                  type: 'interrupt',
+                  interrupts: input.outcome.interrupts,
+                },
+              }
+            : {}),
       } as BaseEvent),
     );
   });
@@ -809,15 +937,119 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       );
     }
     if (planEntries.length === 0) {
-      return c.json(
-        {
-          error:
-            'This decision is waiting on a live run; answer it through its live endpoint',
-          code: 'continuation_requires_live_endpoint',
-          interruptIds: resumeEntries.map((entry) => entry.interruptId),
-        },
-        409,
+      const onlyPermissions = refs.every(
+        (item) => item.ref?.kind === 'permission',
       );
+      if (!onlyPermissions) {
+        return c.json(
+          {
+            error:
+              'This decision is waiting on a live run; answer it through its live endpoint',
+            code: 'continuation_requires_live_endpoint',
+            interruptIds: resumeEntries.map((entry) => entry.interruptId),
+          },
+          409,
+        );
+      }
+
+      const validation = validatePermissionEntries(
+        effectiveTaskId,
+        resumeEntries,
+      );
+      switch (validation.kind) {
+        case 'unavailable':
+          return c.json(
+            {
+              error:
+                'This permission is no longer waiting; it was answered, expired, or the app restarted',
+              code: 'continuation_unavailable',
+              interruptId: validation.interruptId,
+            },
+            409,
+          );
+        case 'wrong_thread':
+          return c.json(
+            {
+              error: 'This decision belongs to another task',
+              code: 'wrong_thread',
+              interruptId: validation.interruptId,
+            },
+            409,
+          );
+        case 'invalid_response':
+          return c.json(
+            {
+              error: validation.error,
+              code: 'invalid_response',
+              interruptId: validation.interruptId,
+            },
+            400,
+          );
+        case 'valid':
+          break;
+      }
+      // A prompt answered while its run is still live has no run to continue.
+      if (!hasPermissionHold(effectiveTaskId)) {
+        return c.json(
+          {
+            error:
+              'This decision is waiting on a live run; answer it through its live endpoint',
+            code: 'continuation_requires_live_endpoint',
+            interruptIds: resumeEntries.map((entry) => entry.interruptId),
+          },
+          409,
+        );
+      }
+
+      const answeredIds = new Set(
+        validation.answers.map((answer) => answer.requestId),
+      );
+      const stillOpen = listOpenPermissionWaits(effectiveTaskId).filter(
+        (wait) => !answeredIds.has(wait.prompt.id),
+      );
+      // The last answer settles the final prompt and starts the continuation
+      // inside this call, so it must already know which run id to use.
+      expectContinuationRunId(
+        effectiveTaskId,
+        stillOpen.length === 0 ? runId : undefined,
+      );
+      const lost = await applyPermissionAnswers(validation.answers);
+      if (lost.length > 0) {
+        return c.json(
+          {
+            error: 'This decision was already answered',
+            code: 'already_resolved',
+            interruptIds: lost,
+          },
+          409,
+        );
+      }
+
+      if (stillOpen.length > 0) {
+        // Some prompts remain: this request ends at them, as the first run did.
+        return terminalRunStream(c, {
+          threadId,
+          runId,
+          outcome: { interrupts: stillOpen.map(permissionInterrupt) },
+        });
+      }
+      const continuationBusKey = activeRunBusKeys.get(effectiveTaskId);
+      if (continuationBusKey !== `agui-${effectiveTaskId}-${runId}`) {
+        // Stopped while the answer was in flight: there is nothing to continue.
+        return terminalRunStream(c, { threadId, runId, outcome: 'cancelled' });
+      }
+      return streamSSE(c, async (stream) => {
+        await subscribeSSEToBus(
+          stream,
+          continuationBusKey,
+          c.req.header('Accept') ?? '',
+          c.req.raw.signal,
+        );
+        logger.info('AG-UI permission continuation SSE stream closed', {
+          threadId,
+          runId,
+        });
+      });
     }
 
     const outcome = resolvePlanDecision(effectiveTaskId, planEntries[0]!.entry);
@@ -882,33 +1114,6 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
 
     const wsRoot = effectiveWorkDir ?? getSetting('workDir') ?? undefined;
     const execSessionCwd = resolveSessionCwd(wsRoot, effectiveTaskId);
-    const execEmitter = new AGUIEmitter(threadId, runId, {
-      workspaceRoot: wsRoot,
-      taskTitle: planGoal,
-      signal: execSession.abortController.signal,
-      provider: validatedModelConfig?.agentType ?? 'claude',
-      model: validatedModelConfig?.model,
-    });
-
-    const busKey = `agui-${effectiveTaskId}-${runId}`;
-    activeRunBusKeys.set(effectiveTaskId, busKey);
-    // Pass sessionCwd so scanSessionOutputDir can backfill agent-generated
-    // files into the DB at RUN_FINISHED (matches non-interrupt branch).
-    const persister = new AGUIEventPersister(
-      effectiveTaskId,
-      runId,
-      wsRoot,
-      execSessionCwd,
-      validatedModelConfig?.agentType ?? 'claude',
-      runProvenance(validatedModelConfig),
-      'task',
-      branchId ?? 'main',
-    );
-    activeRunContexts.set(
-      effectiveTaskId,
-      activeRunContextFor(runId, persister),
-    );
-
     const planExecStream = runExecutionPhase(
       executePlanId,
       execSession,
@@ -969,54 +1174,41 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
 
     // Launch detached pipeline — runs independently of the SSE connection.
     // Events are published to taskEventBus + persisted regardless of client state.
-    const execPromoter = new AttachmentPromotionService({
+    const busKey = launchAGUIRun({
       taskId: effectiveTaskId,
-      runId,
-      sessionCwd: execSessionCwd,
-    });
-    startDetachedAGUIRun({
-      mode: 'task',
-      ownerKey: effectiveTaskId,
-      runId,
       threadId,
-      busKey,
+      runId,
       controller: execSession.abortController,
-      persister,
-      reattach: activeRunContextFor(runId, persister),
-      events: withDesignLiveArtifactQuietClose(
-        withAttachmentPromotionEvents(
-          execEmitter.transform(withPlanExecutionSteps(agentStream)),
-          execPromoter,
-          runId,
-        ),
-        {
-          enabled: liveArtifactQuietCloseEnabled,
-          taskId: effectiveTaskId,
-          runId,
-          threadId,
-          quietMs: liveArtifactQuietMs,
-        },
-      ),
-      onTerminal: () => {
-        if (
-          activeRunControllers.get(effectiveTaskId) ===
-          execSession.abortController
-        ) {
-          activeRunControllers.delete(effectiveTaskId);
-        }
-        if (activeRunBusKeys.get(effectiveTaskId) === busKey) {
-          activeRunBusKeys.delete(effectiveTaskId);
-        }
-        if (activeRunContexts.get(effectiveTaskId)?.runId === runId) {
-          activeRunContexts.delete(effectiveTaskId);
-        }
+      source: new PausableSource(withPlanExecutionSteps(agentStream)),
+      emitterContext: {
+        workspaceRoot: wsRoot,
+        taskTitle: planGoal,
+        provider: validatedModelConfig?.agentType ?? 'claude',
+        model: validatedModelConfig?.model,
       },
-    }).catch((err) => {
-      logger.error('AG-UI plan execution pipeline error', {
-        error: err,
-        threadId,
-        runId,
-      });
+      // Pass sessionCwd so scanSessionOutputDir can backfill agent-generated
+      // files into the DB at RUN_FINISHED (matches non-interrupt branch).
+      makePersister: (id) =>
+        new AGUIEventPersister(
+          effectiveTaskId,
+          id,
+          wsRoot,
+          execSessionCwd,
+          validatedModelConfig?.agentType ?? 'claude',
+          runProvenance(validatedModelConfig),
+          'task',
+          branchId ?? 'main',
+        ),
+      makePromoter: (id) =>
+        new AttachmentPromotionService({
+          taskId: effectiveTaskId,
+          runId: id,
+          sessionCwd: execSessionCwd,
+        }),
+      quietClose: {
+        enabled: liveArtifactQuietCloseEnabled,
+        quietMs: liveArtifactQuietMs,
+      },
     });
 
     // SSE handler subscribes to the bus as a passive consumer.
@@ -1296,16 +1488,6 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
   // Register the session's AbortController so /ag-ui/stop/:taskId can abort it.
   activeRunControllers.set(effectiveTaskId, session.abortController);
   const taskTitle = taskId ? (getTask(taskId)?.title ?? undefined) : undefined;
-  const emitter = new AGUIEmitter(threadId, runId, {
-    workspaceRoot,
-    taskTitle,
-    // Only a planning run ends with a decision to make.
-    planInterrupt: !skipPlanning,
-    signal: session.abortController.signal,
-    provider: validatedModelConfig?.agentType ?? 'claude',
-    model: validatedModelConfig?.model,
-  });
-
   const abortSignal = c.req.raw.signal;
 
   // Do NOT propagate client disconnect → session abort.
@@ -1399,67 +1581,41 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
   // Launch detached pipeline — runs independently of the SSE connection.
   // Events are published to taskEventBus + persisted regardless of client state.
   // Late-joiners reconnecting via /ag-ui/subscribe/:taskId will receive all events.
-  const busKey = `agui-${effectiveTaskId}-${runId}`;
-  activeRunBusKeys.set(effectiveTaskId, busKey);
-  const persister = new AGUIEventPersister(
-    effectiveTaskId,
-    runId,
-    workspaceRoot,
-    sessionCwd,
-    validatedModelConfig?.agentType ?? 'claude',
-    runProvenance(validatedModelConfig),
-    'task',
-    branchId ?? 'main',
-  );
-  activeRunContexts.set(effectiveTaskId, activeRunContextFor(runId, persister));
-  const attachmentPromoter = new AttachmentPromotionService({
+  const busKey = launchAGUIRun({
     taskId: effectiveTaskId,
-    runId,
-    sessionCwd,
-  });
-
-  startDetachedAGUIRun({
-    mode: 'task',
-    ownerKey: effectiveTaskId,
-    runId,
     threadId,
-    busKey,
+    runId,
     controller: session.abortController,
-    persister,
-    reattach: activeRunContextFor(runId, persister),
-    events: withDesignLiveArtifactQuietClose(
-      withAttachmentPromotionEvents(
-        emitter.transform(withPlanExecutionSteps(agentStream)),
-        attachmentPromoter,
-        runId,
-      ),
-      {
-        enabled: liveArtifactQuietCloseEnabled,
-        taskId: effectiveTaskId,
-        runId,
-        threadId,
-        quietMs: liveArtifactQuietMs,
-      },
-    ),
-    onTerminal: () => {
-      if (
-        activeRunControllers.get(effectiveTaskId) === session.abortController
-      ) {
-        activeRunControllers.delete(effectiveTaskId);
-      }
-      if (activeRunBusKeys.get(effectiveTaskId) === busKey) {
-        activeRunBusKeys.delete(effectiveTaskId);
-      }
-      if (activeRunContexts.get(effectiveTaskId)?.runId === runId) {
-        activeRunContexts.delete(effectiveTaskId);
-      }
+    source: new PausableSource(withPlanExecutionSteps(agentStream)),
+    emitterContext: {
+      workspaceRoot,
+      taskTitle,
+      // Only a planning run ends with a decision to make.
+      planInterrupt: !skipPlanning,
+      provider: validatedModelConfig?.agentType ?? 'claude',
+      model: validatedModelConfig?.model,
     },
-  }).catch((err) => {
-    logger.error('AG-UI detached pipeline error', {
-      error: err,
-      threadId,
-      runId,
-    });
+    makePersister: (id) =>
+      new AGUIEventPersister(
+        effectiveTaskId,
+        id,
+        workspaceRoot,
+        sessionCwd,
+        validatedModelConfig?.agentType ?? 'claude',
+        runProvenance(validatedModelConfig),
+        'task',
+        branchId ?? 'main',
+      ),
+    makePromoter: (id) =>
+      new AttachmentPromotionService({
+        taskId: effectiveTaskId,
+        runId: id,
+        sessionCwd,
+      }),
+    quietClose: {
+      enabled: liveArtifactQuietCloseEnabled,
+      quietMs: liveArtifactQuietMs,
+    },
   });
 
   // SSE handler subscribes to the bus as a passive consumer.
@@ -1519,6 +1675,9 @@ agui.post('/stop/:taskId', (c) => {
 
   const activeRun = findActiveAGUIRun('task', taskId);
   const controller = activeRunControllers.get(taskId);
+  // A run held at a permission prompt has no active run; release it first so
+  // the abort below settles the prompt without starting a continuation.
+  releasePermissionHold(taskId);
   if (activeRun) {
     cancelActiveAGUIRun('task', taskId, activeRun.runId);
     activeRunControllers.delete(taskId);
@@ -1612,11 +1771,11 @@ agui.get('/pending-plan/:taskId', (c) => {
  * cannot recover interrupts from messages, so it asks the backend that owns
  * the decision records.
  */
-agui.get('/interrupts/:taskId', (c) => {
+agui.get('/interrupts/:taskId', async (c) => {
   const rawTaskId = c.req.param('taskId');
   const parsed = taskIdParamSchema.safeParse(rawTaskId);
   if (!parsed.success) return c.json({ error: 'Invalid taskId' }, 400);
-  return c.json({ interrupts: listPlanInterrupts(parsed.data) });
+  return c.json({ interrupts: await listOpenInterrupts(parsed.data) });
 });
 
 /**

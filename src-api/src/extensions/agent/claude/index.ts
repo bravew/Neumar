@@ -230,6 +230,8 @@ import {
   allowTool,
   applyPermissionPolicy,
   buildCanUseTool,
+  listOpenPermissions,
+  PERMISSION_TTL_MS,
   type PendingPermission,
 } from './permissions';
 import { ContainerManager, executePTC } from './ptc';
@@ -1683,9 +1685,6 @@ export function buildSubAgentDefinitions(
  */
 const pendingPermissions = new Map<string, PendingPermission>();
 
-/** Max time (ms) a permission request can sit pending before auto-deny */
-const PERMISSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
 /** Periodically clean up stale pending permissions that outlived their TTL */
 setInterval(() => {
   const now = Date.now();
@@ -1700,6 +1699,11 @@ setInterval(() => {
     }
   }
 }, 60_000).unref(); // unref so timer doesn't prevent process exit
+
+/** Prompts this adapter is still waiting on for one task. */
+export function listOpenClaudePermissions(taskId: string) {
+  return listOpenPermissions(pendingPermissions, taskId, PERMISSION_TTL_MS);
+}
 
 export function resolvePermission(
   requestId: string,

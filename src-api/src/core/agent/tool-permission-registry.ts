@@ -1,9 +1,24 @@
 import { taskEventBus } from '@/shared/services/task-event-bus';
 import { createLogger } from '@/shared/utils/logger';
 
+import { openPermissionWait } from './permission-waits';
+import type { AgentMessage } from './types';
+
 const logger = createLogger('ToolPermissionRegistry');
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+
+/** What a user is asked to approve: the payload of a `permission_request`. */
+export type PermissionPrompt = NonNullable<AgentMessage['permission']>;
+
+/** A prompt an adapter is still waiting on, as seen from outside the adapter. */
+export interface OpenPermissionPrompt {
+  taskId: string;
+  sessionId: string;
+  prompt: PermissionPrompt;
+  /** Unix ms after which the adapter denies it unanswered; null if it never does. */
+  expiresAt: number | null;
+}
 
 export type ToolClassification =
   | 'read'
@@ -187,13 +202,29 @@ export class ToolPermissionRegistry {
 }
 
 interface PendingHostPermission {
+  taskId: string;
   sessionId: string;
   toolName: string;
+  prompt: PermissionPrompt;
   registry: ToolPermissionRegistry;
   resolve: (approved: boolean) => void;
 }
 
 const pendingHostPermissions = new Map<string, PendingHostPermission>();
+
+/** Host-approved prompts still waiting on an answer for one task. */
+export function listOpenHostPermissions(
+  taskId: string,
+): OpenPermissionPrompt[] {
+  return [...pendingHostPermissions.values()]
+    .filter((pending) => pending.taskId === taskId)
+    .map((pending) => ({
+      taskId: pending.taskId,
+      sessionId: pending.sessionId,
+      prompt: pending.prompt,
+      expiresAt: null,
+    }));
+}
 
 export function requestHostToolPermission(params: {
   taskId: string;
@@ -203,32 +234,49 @@ export function requestHostToolPermission(params: {
   registry: ToolPermissionRegistry;
   signal: AbortSignal;
 }): Promise<boolean> {
+  // An already-aborted run gets no prompt: the abort listener below would
+  // never fire for it, and the wait would stay open.
+  if (params.signal.aborted) return Promise.resolve(false);
   const requestId = crypto.randomUUID();
   const command =
     typeof params.input === 'string'
       ? params.input
       : JSON.stringify(params.input ?? {});
+  const prompt: PermissionPrompt = {
+    id: requestId,
+    tool: params.toolName,
+    command,
+    description: `Execute ${params.toolName}`,
+    risk_level: 'medium',
+  };
   taskEventBus.publish(params.taskId, {
     type: 'permission_request',
-    permission: {
-      id: requestId,
-      tool: params.toolName,
-      command,
-      description: `Execute ${params.toolName}`,
-      risk_level: 'medium',
-    },
+    permission: prompt,
   });
   return new Promise((resolve) => {
+    // Open until settled, so a run can pause on it; see permission-waits.ts.
+    const settleWait = openPermissionWait({
+      taskId: params.taskId,
+      sessionId: params.sessionId,
+      prompt,
+      expiresAt: null,
+    });
+    const finish = (approved: boolean) => {
+      settleWait();
+      resolve(approved);
+    };
     pendingHostPermissions.set(requestId, {
+      taskId: params.taskId,
       sessionId: params.sessionId,
       toolName: params.toolName,
+      prompt,
       registry: params.registry,
-      resolve,
+      resolve: finish,
     });
     params.signal.addEventListener(
       'abort',
       () => {
-        if (pendingHostPermissions.delete(requestId)) resolve(false);
+        if (pendingHostPermissions.delete(requestId)) finish(false);
       },
       { once: true },
     );
