@@ -13,6 +13,7 @@ interface QuestionRow {
   id: string;
   task_id: string | null;
   status: 'pending' | 'answered' | 'cancelled';
+  questions_json: string;
   answer_json: string | null;
   expires_at: string | null;
 }
@@ -28,7 +29,10 @@ const agent = vi.hoisted(() => ({
 }));
 
 vi.mock('@/core/agent/questions', () => ({
-  serializeAgentQuestion: vi.fn(),
+  serializeAgentQuestion: (row: QuestionRow) => ({
+    ...row,
+    questions: JSON.parse(row.questions_json) as unknown[],
+  }),
   agentQuestionService: {
     getQuestion: (id: string) => questions.rows.get(id) ?? null,
     answerQuestion: (id: string, answer: unknown) => {
@@ -200,6 +204,14 @@ function pendingQuestion(
     id: 'q-1',
     task_id: taskId,
     status: 'pending',
+    questions_json: JSON.stringify([
+      {
+        question: 'Which colour?',
+        header: 'Colour',
+        options: [{ label: 'Blue' }, { label: 'Green' }],
+        multiSelect: false,
+      },
+    ]),
     answer_json: null,
     expires_at: null,
     ...overrides,
@@ -229,9 +241,11 @@ describe('AG-UI agent question resume', () => {
 
     expect(res.status).toBe(200);
     expect(finished(events)?.outcome?.type ?? 'success').toBe('success');
+    // Stored in the Agent SDK's own answer shape, the same record the legacy
+    // answer endpoint writes: question text → answer.
     expect(questions.rows.get('q-1')).toMatchObject({
       status: 'answered',
-      answer_json: JSON.stringify({ answer: 'Blue' }),
+      answer_json: JSON.stringify({ 'Which colour?': 'Blue' }),
     });
     // The continuation's prompt is the answer, not the earlier question.
     expect(runAgent).toHaveBeenCalledWith('Blue', expect.anything());
@@ -244,6 +258,74 @@ describe('AG-UI agent question resume', () => {
       expect.any(String),
       'question_answer',
     );
+  });
+
+  it('stores the SDK answer record and its freeform note as the same record', async () => {
+    const { aguiRoutes } = await import('@/app/api/ag-ui');
+    const { runAgent } = await import('@/shared/services/agent');
+    agent.script = async function* () {
+      yield { type: 'text', content: 'Thanks' };
+    };
+    pendingQuestion('task-q-record');
+
+    const text = 'Which colour? → Blue, Green\nAny shade is fine';
+    const res = await aguiRoutes.request(
+      jsonReq('/run', {
+        threadId: 'task-q-record',
+        runId: 'run-record',
+        // An assistant turn in the history skips planning and runs the agent.
+        messages: [
+          { id: 'run-record-a', role: 'assistant', content: 'Pick one.' },
+          { id: 'run-record-u', role: 'user', content: text },
+        ],
+        forwardedProps: { taskId: 'task-q-record' },
+        resume: [
+          {
+            interruptId: 'question:q-1',
+            status: 'resolved',
+            payload: {
+              answers: { 'Which colour?': 'Blue, Green' },
+              response: 'Any shade is fine',
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(questions.rows.get('q-1')).toMatchObject({
+      status: 'answered',
+      answer_json: JSON.stringify({ 'Which colour?': 'Blue, Green' }),
+    });
+    expect(runAgent).toHaveBeenCalledWith(text, expect.anything());
+  });
+
+  it('refuses a record that answers a question the row did not ask', async () => {
+    const { aguiRoutes } = await import('@/app/api/ag-ui');
+    pendingQuestion('task-q-unknown-key');
+
+    const res = await aguiRoutes.request(
+      jsonReq('/run', {
+        threadId: 'task-q-unknown-key',
+        runId: 'run-unknown-key',
+        messages: [
+          { id: 'run-unknown-key-a', role: 'assistant', content: 'Pick one.' },
+          { id: 'run-unknown-key-u', role: 'user', content: 'Red' },
+        ],
+        forwardedProps: { taskId: 'task-q-unknown-key' },
+        resume: [
+          {
+            interruptId: 'question:q-1',
+            status: 'resolved',
+            payload: { answers: { 'Which shape?': 'Red' } },
+          },
+        ],
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: 'invalid_response' });
+    expect(questions.rows.get('q-1')?.status).toBe('pending');
   });
 
   it('refuses an answer that is not the final user message, and leaves the question open', async () => {

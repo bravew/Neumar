@@ -67,8 +67,20 @@ export const PlanDecisionSchema = z.strictObject({
 });
 export type PlanDecision = z.infer<typeof PlanDecisionSchema>;
 
+/**
+ * The answer shape is the Agent SDK's own AskUserQuestion output: answers
+ * keyed by the question text (multi-select comma-separated), plus optional
+ * freeform text. That is also what the legacy answer endpoint stores, so one
+ * record describes a question regardless of which surface answered it.
+ *
+ * `answer` is the single-line form the transcript sends, kept for a stored
+ * question with no text to key by.
+ */
+const AnswerTextSchema = z.string().trim().min(1).max(20_000);
 export const QuestionDecisionSchema = z.strictObject({
-  answer: z.string().trim().min(1).max(20_000),
+  answers: z.record(z.string().min(1).max(20_000), AnswerTextSchema).optional(),
+  response: AnswerTextSchema.optional(),
+  answer: AnswerTextSchema.optional(),
 });
 export type QuestionDecision = z.infer<typeof QuestionDecisionSchema>;
 

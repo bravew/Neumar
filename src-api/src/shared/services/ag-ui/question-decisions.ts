@@ -9,17 +9,24 @@
  * actually ran.
  */
 
-import { agentQuestionService } from '@/core/agent/questions';
-
 import {
-  parseDecisionInterruptId,
-  parseDecisionResponse,
-  type ResumeEntryInput,
-} from './interrupts';
+  agentQuestionService,
+  serializeAgentQuestion,
+} from '@/core/agent/questions';
+
+import { parseDecisionInterruptId, type ResumeEntryInput } from './interrupts';
+import { parseQuestionAnswer, questionTexts } from './question-answers';
 
 export type QuestionResume =
   | { kind: 'none' }
-  | { kind: 'answer'; questionId: string; answer: string }
+  | {
+      kind: 'answer';
+      questionId: string;
+      /** The record the row stores: question text → answer. */
+      answers: Record<string, string>;
+      /** The transcript text, derived from the same record. */
+      text: string;
+    }
   | { kind: 'cancel'; questionId: string }
   | {
       kind: 'rejected';
@@ -101,16 +108,24 @@ export function resolveQuestionResume(
     return { kind: 'cancel', questionId };
   }
 
-  const parsed = parseDecisionResponse('question', questionRef.entry.payload);
+  const parsed = parseQuestionAnswer(
+    questionRef.entry.payload,
+    questionTexts(serializeAgentQuestion(row).questions),
+  );
   if (!parsed.ok) return rejected(400, parsed.error, 'invalid_response');
-  if (input.lastUserText.trim() !== parsed.response.answer) {
+  if (input.lastUserText.trim() !== parsed.value.text) {
     return rejected(
       400,
       'The answer must be the final user message of this request',
       'answer_mismatch',
     );
   }
-  return { kind: 'answer', questionId, answer: parsed.response.answer };
+  return {
+    kind: 'answer',
+    questionId,
+    answers: parsed.value.answers,
+    text: parsed.value.text,
+  };
 }
 
 /**
@@ -120,12 +135,12 @@ export function resolveQuestionResume(
  */
 export function answerQuestionOnce(
   questionId: string,
-  answer: string,
+  answers: Record<string, string>,
 ): boolean {
   if (agentQuestionService.getQuestion(questionId)?.status !== 'pending') {
     return false;
   }
-  agentQuestionService.answerQuestion(questionId, { answer });
+  agentQuestionService.answerQuestion(questionId, answers);
   return true;
 }
 

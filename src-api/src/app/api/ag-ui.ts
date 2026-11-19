@@ -1469,7 +1469,7 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
   // run leaves the question open. Check and write are one synchronous step.
   if (
     questionResume.kind === 'answer' &&
-    !answerQuestionOnce(questionResume.questionId, questionResume.answer)
+    !answerQuestionOnce(questionResume.questionId, questionResume.answers)
   ) {
     return c.json(
       {
