@@ -32,6 +32,7 @@ import { getDatabase } from '@/shared/db/index';
 import {
   AgentRunConflictError,
   createFileSnapshot,
+  finishAgentRun,
   getAgentRun,
   getMessagesByBranch,
   getMessagesByTaskId,
@@ -81,6 +82,11 @@ import {
   planInterruptForRun,
   resolvePlanDecision,
 } from '@/shared/services/ag-ui/plan-decisions';
+import {
+  answerQuestionOnce,
+  cancelQuestionOnce,
+  resolveQuestionResume,
+} from '@/shared/services/ag-ui/question-decisions';
 import {
   canReconcilePendingDelivery,
   dbFileToAGUITaskFile,
@@ -900,7 +906,36 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
   // live one before the route sees it. Those answers keep their live endpoint,
   // and this route says so explicitly instead of dropping a pending reply.
   const resumeEntries = c.req.valid('json').resume;
-  if (resumeEntries && resumeEntries.length > 0) {
+  // A question answer is the next turn: it is validated here, recorded where
+  // the run is accepted, and then runs through the normal path below.
+  const questionResume = resolveQuestionResume({
+    taskId: effectiveTaskId,
+    entries: resumeEntries ?? [],
+    lastUserText: extractText(
+      messages.filter((m) => m.role === 'user').at(-1)?.content,
+    ),
+  });
+  if (questionResume.kind === 'rejected') {
+    return c.json(questionResume.body, questionResume.status);
+  }
+  if (questionResume.kind === 'cancel') {
+    if (!cancelQuestionOnce(questionResume.questionId)) {
+      return c.json(
+        {
+          error: 'This decision was already answered',
+          code: 'already_resolved',
+          interruptIds: resumeEntries?.map((entry) => entry.interruptId) ?? [],
+        },
+        409,
+      );
+    }
+    return terminalRunStream(c, { threadId, runId, outcome: 'cancelled' });
+  }
+  if (
+    questionResume.kind === 'none' &&
+    resumeEntries &&
+    resumeEntries.length > 0
+  ) {
     const refs = resumeEntries.map((entry) => ({
       entry,
       ref: parseDecisionInterruptId(entry.interruptId),
@@ -1431,6 +1466,36 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       ? branchPlan.branchSession
       : undefined;
 
+  // The answer is recorded only now that the run is accepted, so a refused
+  // run leaves the question open. Check and write are one synchronous step.
+  if (questionResume.kind === 'answer') {
+    const recorded = answerQuestionOnce(
+      questionResume.questionId,
+      questionResume.answers,
+    );
+    if (!recorded.ok) {
+      // This request created the reservation and no run will use it; leaving
+      // it `running` would hold the task until the next restart.
+      finishAgentRun({
+        id: reservation.run.id,
+        status: 'failed',
+        completeness: 'unfinished',
+        error: recorded.message,
+      });
+      return c.json(
+        {
+          error: recorded.message,
+          code:
+            recorded.reason === 'expired'
+              ? 'continuation_unavailable'
+              : 'already_resolved',
+          interruptIds: [`question:${questionResume.questionId}`],
+        },
+        409,
+      );
+    }
+  }
+
   // Resolve workspace root early — needed for task INSERT and STATE_SNAPSHOT context
   const workspaceRoot = effectiveWorkDir ?? getSetting('workDir') ?? undefined;
 
@@ -1439,9 +1504,10 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
 
     // Persist user messages so branching can reference them by message_id.
     // INSERT OR IGNORE avoids duplicates across follow-up runs (message_id has a unique index).
+    // An answer's turn is tagged so rewind and the legacy transcript treat it as an answer.
     const userMsgStmt = db.prepare(
-      `INSERT OR IGNORE INTO messages (task_id, type, content, message_id, branch_id, run_id, created_at)
-       VALUES (?, 'user', ?, ?, ?, ?, datetime('now'))`,
+      `INSERT OR IGNORE INTO messages (task_id, type, content, message_id, branch_id, run_id, created_at, subtype)
+       VALUES (?, 'user', ?, ?, ?, ?, datetime('now'), ?)`,
     );
     for (const msg of userMessages) {
       const content = extractText(msg.content);
@@ -1454,6 +1520,9 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
           persistedMessageId,
           branchId ?? 'main',
           runId,
+          msg === lastUserMsg && questionResume.kind === 'answer'
+            ? 'question_answer'
+            : null,
         );
       }
     }

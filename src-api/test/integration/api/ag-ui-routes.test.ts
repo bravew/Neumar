@@ -86,8 +86,13 @@ vi.mock('@/shared/services/ag-ui/persistence', () => ({
 
 vi.mock('@/shared/db/operations', () => ({
   AgentRunConflictError: class AgentRunConflictError extends Error {},
+  answerAgentQuestion: vi.fn(),
+  cancelAgentQuestion: vi.fn(),
+  createAgentQuestion: vi.fn(),
   createFileSnapshot: vi.fn(),
   decideOrchestrationRun: vi.fn(),
+  getAgentQuestion: vi.fn(),
+  getPendingAgentQuestions: vi.fn().mockReturnValue([]),
   getAgentRun: vi.fn(),
   getFilesByTaskId: vi.fn().mockReturnValue([]),
   getMessagesByTaskId: vi.fn().mockReturnValue([]),
@@ -487,7 +492,9 @@ describe('AG-UI Routes', () => {
       expect(await res.json()).toMatchObject({ code: 'multiple_plans' });
     });
 
-    it('routes a live decision back to its live endpoint', async () => {
+    // A question is answered by resuming the run (see
+    // ag-ui-question-resume.test.ts); it no longer has a live-endpoint 409.
+    it('reports a question with no stored record as an unknown interrupt', async () => {
       const { aguiRoutes } = await import('@/app/api/ag-ui');
 
       const res = await aguiRoutes.request(
@@ -500,10 +507,8 @@ describe('AG-UI Routes', () => {
         ]),
       );
 
-      expect(res.status).toBe(409);
-      expect(await res.json()).toMatchObject({
-        code: 'continuation_requires_live_endpoint',
-      });
+      expect(res.status).toBe(404);
+      expect(await res.json()).toMatchObject({ code: 'unknown_interrupt' });
     });
 
     it('reports a permission nothing is waiting on as unavailable', async () => {

@@ -476,6 +476,20 @@ export function answerAgentQuestion(
   return getAgentQuestion(id);
 }
 
+/** Cancels one question while it is still pending. False when it was already settled. */
+export function cancelAgentQuestion(id: string): boolean {
+  const db = getDatabase();
+  const result = db
+    .prepare(
+      `UPDATE agent_questions
+       SET status = 'cancelled',
+           updated_at = datetime('now')
+       WHERE id = ? AND status = 'pending'`,
+    )
+    .run(id);
+  return result.changes > 0;
+}
+
 export function cancelPendingAgentQuestionsForTask(taskId: string): number {
   const db = getDatabase();
   const result = db
