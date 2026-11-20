@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { RefreshCw } from 'lucide-react';
 
@@ -28,21 +28,31 @@ export function DesignModeDependenciesSettings() {
     [dependencies],
   );
 
+  // A read can outlive the tab, and the button starts reads outside the
+  // effect, so one flag covers both: nothing is set once the tab is gone.
+  const mountedRef = useRef(false);
+
   const refreshDependencies = useCallback(async () => {
     setDependencyLoading(true);
     setDependencyError('');
     try {
       const result = await getDesignDependencies();
-      setDependencies(result.dependencies);
+      if (mountedRef.current) setDependencies(result.dependencies);
     } catch (err) {
-      setDependencyError(err instanceof Error ? err.message : String(err));
+      if (mountedRef.current) {
+        setDependencyError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setDependencyLoading(false);
+      if (mountedRef.current) setDependencyLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     void refreshDependencies();
+    return () => {
+      mountedRef.current = false;
+    };
   }, [refreshDependencies]);
 
   return (
