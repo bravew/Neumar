@@ -3,14 +3,13 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAgent } from '@copilotkit/react-core/v2';
 
 import type { Artifact } from '@/components/artifacts/types';
-import { ChatInput } from '@/components/shared/ChatInput';
 import {
   enqueueEditedCommand,
   flushEditedCommand,
 } from '@/components/task/edited-command-queue';
 import { groupMessages } from '@/components/task/GroupedMessageList';
 import { appendOutputArtifactsItem } from '@/components/task/outputArtifactItems';
-import { StreamSignalBanner } from '@/components/task/StreamSignalBanner';
+import { QuestionInterruptsProvider } from '@/components/task/QuestionInterruptsProvider';
 import { TaskThreadActions } from '@/components/task/task-thread-actions';
 import {
   buildAgentPrompt,
@@ -19,6 +18,7 @@ import {
   notifyAttachmentFailures,
   resolveAttachmentsForSubmit,
 } from '@/components/task/taskV2-submit-helpers';
+import { TaskV2Composer } from '@/components/task/TaskV2Composer';
 import type { AGUIMessage } from '@/components/task/TaskV2MessageBubble';
 import { TaskV2ThreadStatus } from '@/components/task/TaskV2ThreadStatus';
 import {
@@ -426,30 +426,11 @@ export function TaskV2Thread({
       sendMessage={sendEditedCommand}
     >
       <div className="flex h-full min-w-0 flex-col overflow-hidden">
-        <VirtuosoMessageList
-          groupedItems={groupedItems}
-          messages={messages}
-          isRunning={effectiveIsRunning}
-          thinkingLabel={t.task.thinking}
-          attachmentMap={resolvedAttachmentMapRef.current}
-          allArtifacts={allArtifacts}
-          onSendMessage={handleSendMessage}
-          onApprovePlan={handleApprovePlan}
-          onRejectPlan={handleRejectPlan}
-          onCancelTool={effectiveIsRunning ? handleCancelTool : undefined}
-          onEditMessage={handleEditMessage}
-          onRegenerate={handleRegenerate}
-          onForkFromHere={handleForkFromHere}
-          onBranchNavigate={handleBranchNavigate}
-          scrollToBottomLabel={t.common.scrollToBottom}
-        />
-
-        {/* Sub-agents, open questions, errors — outside virtualized list */}
-        <TaskV2ThreadStatus
+        <QuestionInterruptsProvider
           taskId={taskId}
           isRunning={effectiveIsRunning}
           agent={agent}
-          questionContext={{
+          context={{
             seedAgent: () => seedAgentFromHistory(agentRef.current),
             forwardedProps: () => ({
               ...(workDirRef.current ? { workDir: workDirRef.current } : {}),
@@ -461,33 +442,48 @@ export function TaskV2Thread({
                 : {}),
             }),
           }}
-          subAgents={subAgents}
-          onCancelSubAgent={handleCancelSubAgent}
-          runError={runError}
-          errorLabel={t.task.agentError ?? 'Error'}
-          onDismissError={clearRunError}
-        />
-
-        {effectiveIsRunning && (
-          <div className="text-muted-foreground mx-auto flex max-w-4xl items-center gap-2 px-4 py-2 text-xs">
-            <span className="border-primary inline-block h-3 w-3 animate-spin rounded-full border-2 border-t-transparent" />
-            {!pendingPlan ? t.task.planning : t.task.runningEllipsis}
-          </div>
-        )}
-
-        <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-          <StreamSignalBanner key={taskId} agent={agent} taskId={taskId} />
-          <ChatInput
-            variant="reply"
+          messages={messages}
+        >
+          <VirtuosoMessageList
+            groupedItems={groupedItems}
+            messages={messages}
             isRunning={effectiveIsRunning}
-            onSubmit={handleSubmit}
-            onStop={handleStop}
-            placeholder={t.task.continueConversation}
-            autoFocus
+            thinkingLabel={t.task.thinking}
+            attachmentMap={resolvedAttachmentMapRef.current}
+            allArtifacts={allArtifacts}
+            onSendMessage={handleSendMessage}
+            onApprovePlan={handleApprovePlan}
+            onRejectPlan={handleRejectPlan}
+            onCancelTool={effectiveIsRunning ? handleCancelTool : undefined}
+            onEditMessage={handleEditMessage}
+            onRegenerate={handleRegenerate}
+            onForkFromHere={handleForkFromHere}
+            onBranchNavigate={handleBranchNavigate}
+            scrollToBottomLabel={t.common.scrollToBottom}
+          />
+
+          {/* Sub-agents, open questions, errors — outside virtualized list */}
+          <TaskV2ThreadStatus
+            taskId={taskId}
+            subAgents={subAgents}
+            onCancelSubAgent={handleCancelSubAgent}
+            runError={runError}
+            errorLabel={t.task.agentError ?? 'Error'}
+            onDismissError={clearRunError}
+          />
+
+          <TaskV2Composer
+            taskId={taskId}
+            agent={agent}
+            isRunning={effectiveIsRunning}
+            pendingPlan={pendingPlan}
+            labels={t.task}
             selectedModel={selectedModel}
             onModelChange={onModelChange}
+            onSubmit={handleSubmit}
+            onStop={handleStop}
           />
-        </div>
+        </QuestionInterruptsProvider>
       </div>
     </TaskThreadActions>
   );

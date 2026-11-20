@@ -27,6 +27,8 @@ export interface OpenQuestion {
   questions: AgentQuestion[];
   /** The sub-agent invocation that asked, when a child owns the question. */
   subagentRunId?: string;
+  /** The `AskUserQuestion` tool call that asked, when the transcript has one. */
+  toolUseId?: string;
 }
 
 /** The part of the AG-UI agent this hook needs to continue with an answer. */
@@ -60,6 +62,7 @@ function questionFromInterrupt(interrupt: Interrupt): OpenQuestion[] {
             kind?: string;
             questions?: unknown;
             subagentRunId?: unknown;
+            toolUseId?: unknown;
           };
         }
       | undefined
@@ -73,6 +76,9 @@ function questionFromInterrupt(interrupt: Interrupt): OpenQuestion[] {
           questions,
           ...(typeof decision.subagentRunId === 'string'
             ? { subagentRunId: decision.subagentRunId }
+            : {}),
+          ...(typeof decision.toolUseId === 'string'
+            ? { toolUseId: decision.toolUseId }
             : {}),
         },
       ]
@@ -98,6 +104,29 @@ export function formatQuestionAnswer(answers: Record<string, string>): string {
     .join('\n');
 }
 
+/**
+ * Drops answers that are empty once trimmed and trims the rest. The server
+ * trims each value before deriving the transcript text it compares, so the
+ * record and the message must be built from the same trimmed values.
+ */
+export function normalizeQuestionAnswers(
+  answers: Record<string, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(answers)
+      .map(([question, answer]) => [question, answer.trim()] as const)
+      .filter(([, answer]) => answer.length > 0),
+  );
+}
+
+/**
+ * Whether the open questions are known. `pending` while an idle task's
+ * questions are being read; `failed` when the last read failed, so `open` may
+ * be missing a question. No task or a live run is `loaded` with none open:
+ * a live run answers its own turns.
+ */
+export type QuestionLookup = 'pending' | 'loaded' | 'failed';
+
 export function useQuestionInterrupts(
   taskId: string | undefined,
   isRunning: boolean,
@@ -107,10 +136,27 @@ export function useQuestionInterrupts(
   const [owned, setOwned] = useState<{
     taskId: string | undefined;
     open: OpenQuestion[];
-  }>({ taskId, open: [] });
+    lookup: QuestionLookup;
+  }>({ taskId, open: [], lookup: 'pending' });
+  // A run can ask a new question, so what was read before it is stale once it
+  // ends. Adjusted during render so no idle render reports the old read.
+  if (isRunning && owned.lookup !== 'pending') {
+    setOwned((prev) => ({ ...prev, lookup: 'pending' }));
+  }
+  // The same holds for a task left and returned to: a read of another task
+  // may never land, so the old one is dropped as soon as the task changes.
+  if (owned.taskId !== taskId) {
+    setOwned({ taskId, open: [], lookup: 'pending' });
+  }
   // A run that started after these loaded answers its own turns; the cards
   // come back if the question is still open when it ends.
   const open = isRunning || owned.taskId !== taskId ? [] : owned.open;
+  const lookup: QuestionLookup =
+    !taskId || isRunning
+      ? 'loaded'
+      : owned.taskId !== taskId
+        ? 'pending'
+        : owned.lookup;
   const openRef = useRef(open);
   useEffect(() => {
     openRef.current = open;
@@ -144,10 +190,19 @@ export function useQuestionInterrupts(
     const ac = new AbortController();
     fetchOpenQuestions(taskId, ac.signal)
       .then((next) => {
-        if (!ac.signal.aborted) setOwned({ taskId, open: next });
+        if (!ac.signal.aborted) {
+          setOwned({ taskId, open: next, lookup: 'loaded' });
+        }
       })
       .catch(() => {
-        // A failed read does not mean nothing is waiting: keep what is shown.
+        // A failed read does not mean nothing is waiting: keep what is shown,
+        // and say the list may be incomplete.
+        if (ac.signal.aborted) return;
+        setOwned((prev) => ({
+          taskId,
+          open: prev.taskId === taskId ? prev.open : [],
+          lookup: 'failed',
+        }));
       });
     return () => ac.abort();
   }, [isRunning, taskId]);
@@ -178,6 +233,7 @@ export function useQuestionInterrupts(
         open: (prev.taskId === taskId ? prev.open : []).filter(
           (question) => question.interruptId !== interruptId,
         ),
+        lookup: prev.taskId === taskId ? prev.lookup : 'pending',
       }));
       try {
         await a.runAgent({
@@ -200,7 +256,7 @@ export function useQuestionInterrupts(
         }
         if (taskIdRef.current !== taskId) return;
         if (next) {
-          setOwned({ taskId, open: next });
+          setOwned({ taskId, open: next, lookup: 'loaded' });
           if (
             answerText !== undefined &&
             next.some((question) => question.interruptId === interruptId)
@@ -219,9 +275,9 @@ export function useQuestionInterrupts(
               (question) => question.interruptId === removed.interruptId,
             )
           ) {
-            return { taskId, open: current };
+            return { taskId, open: current, lookup: 'failed' };
           }
-          return { taskId, open: [...current, removed] };
+          return { taskId, open: [...current, removed], lookup: 'failed' };
         });
       } finally {
         answeringRef.current = false;
@@ -233,11 +289,14 @@ export function useQuestionInterrupts(
 
   const answer = useCallback(
     (interruptId: string, answers: Record<string, string>) => {
-      const text = formatQuestionAnswer(answers).trim();
+      // The record and the message come from the same trimmed values, or the
+      // server's comparison of the two fails.
+      const normalized = normalizeQuestionAnswers(answers);
+      const text = formatQuestionAnswer(normalized);
       if (!text) return Promise.resolve();
       return resume(
         interruptId,
-        { status: 'resolved', payload: { answer: text } },
+        { status: 'resolved', payload: { answers: normalized } },
         text,
       );
     },
@@ -249,5 +308,5 @@ export function useQuestionInterrupts(
     [resume],
   );
 
-  return { openQuestions: open, answering, answer, dismiss };
+  return { openQuestions: open, lookup, answering, answer, dismiss };
 }

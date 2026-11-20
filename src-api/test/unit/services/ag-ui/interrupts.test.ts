@@ -167,6 +167,7 @@ describe('permission and question interrupts', () => {
       decision: {
         kind: 'question',
         taskId: 'task-1',
+        toolUseId: 'tool-1',
         expiresAt: '2026-01-01T01:00:00Z',
       },
     });
@@ -187,5 +188,6 @@ describe('permission and question interrupts', () => {
     });
     expect(interrupt.message).toBe('The agent has a question');
     expect(interrupt.metadata?.decision).not.toHaveProperty('expiresAt');
+    expect(interrupt.metadata?.decision).not.toHaveProperty('toolUseId');
   });
 });
