@@ -187,6 +187,36 @@ describe('useQuestionInterrupts', () => {
     expect(result.current.openQuestions).toHaveLength(1);
   });
 
+  it('is pending again on returning to a task until its new read returns', async () => {
+    const fetchMock = stubFetch([]);
+    const { result, rerender } = mount(false);
+    await waitFor(() => expect(result.current.lookup).toBe('loaded'));
+
+    // Task 2's read never returns, so task 1's old read is still held.
+    fetchMock.mockImplementationOnce(() => new Promise<Response>(() => {}));
+    rerender({ isRunning: false, taskId: 'task-2' });
+    let release: (() => void) | undefined;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = () =>
+            resolve(
+              new Response(JSON.stringify({ interrupts: [interrupt] }), {
+                status: 200,
+              }),
+            );
+        }),
+    );
+    rerender({ isRunning: false, taskId: 'task-1' });
+
+    // Task 1 may have asked since; its old read is stale.
+    expect(result.current.lookup).toBe('pending');
+    expect(result.current.openQuestions).toEqual([]);
+    await act(async () => release?.());
+    expect(result.current.lookup).toBe('loaded');
+    expect(result.current.openQuestions).toHaveLength(1);
+  });
+
   it('trims each answer and drops empty ones before resuming', async () => {
     stubFetch([interrupt]);
     const { result, agent } = mount(false);

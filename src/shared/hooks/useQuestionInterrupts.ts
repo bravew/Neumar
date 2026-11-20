@@ -143,6 +143,11 @@ export function useQuestionInterrupts(
   if (isRunning && owned.lookup !== 'pending') {
     setOwned((prev) => ({ ...prev, lookup: 'pending' }));
   }
+  // The same holds for a task left and returned to: a read of another task
+  // may never land, so the old one is dropped as soon as the task changes.
+  if (owned.taskId !== taskId) {
+    setOwned({ taskId, open: [], lookup: 'pending' });
+  }
   // A run that started after these loaded answers its own turns; the cards
   // come back if the question is still open when it ends.
   const open = isRunning || owned.taskId !== taskId ? [] : owned.open;
