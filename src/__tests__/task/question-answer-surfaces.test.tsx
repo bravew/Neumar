@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { QuestionInterruptPanel } from '@/components/task/QuestionInterruptPanel';
@@ -85,7 +91,8 @@ function Counts() {
   const state = useQuestionInterruptsContext();
   return (
     <span data-testid="counts">
-      {state?.openQuestions.length}:{state?.panelQuestions.length}
+      {state?.openQuestions.length}:{state?.panelQuestions.length}:
+      {state?.lookup}
     </span>
   );
 }
@@ -141,7 +148,7 @@ describe('question answer surfaces', () => {
 
     // The record loaded, but the panel skips it: the inline card is live.
     await waitFor(() =>
-      expect(screen.getByTestId('counts').textContent).toBe('1:0'),
+      expect(screen.getByTestId('counts').textContent).toBe('1:0:loaded'),
     );
     expect(screen.getAllByText('Which colour?')).toHaveLength(1);
   });
@@ -156,7 +163,7 @@ describe('question answer surfaces', () => {
       onSendMessage,
     });
     await waitFor(() =>
-      expect(screen.getByTestId('counts').textContent).toBe('1:0'),
+      expect(screen.getByTestId('counts').textContent).toBe('1:0:loaded'),
     );
 
     await answerInInlineCard('Blue');
@@ -192,9 +199,70 @@ describe('question answer surfaces', () => {
       onSendMessage,
     });
     await waitFor(() =>
-      expect(screen.getByTestId('counts').textContent).toBe('0:0'),
+      expect(screen.getByTestId('counts').textContent).toBe('0:0:loaded'),
     );
 
+    await answerInInlineCard('Blue');
+
+    expect(onSendMessage).toHaveBeenCalledWith('Which colour? → Blue');
+    expect(agent.runAgent).not.toHaveBeenCalled();
+  });
+
+  it('holds the inline submit until the record lookup returns', async () => {
+    let release: (() => void) | undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            release = () =>
+              resolve(
+                new Response(JSON.stringify({ interrupts: [interrupt] }), {
+                  status: 200,
+                }),
+              );
+          }),
+      ),
+    );
+    const agent = makeAgent();
+    const onSendMessage = vi.fn();
+    renderSurfaces({ messages: threadMessages(), agent, onSendMessage });
+
+    fireEvent.click(await screen.findByRole('button', { name: /Blue/ }));
+    const submit = screen.getByRole('button', { name: /submit/i });
+    // Before the record is known, an answer could only be a plain message
+    // that leaves the record pending.
+    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expect(onSendMessage).not.toHaveBeenCalled();
+
+    await act(async () => release?.());
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(agent.runAgent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resume: [expect.objectContaining({ interruptId: 'question:q-1' })],
+        }),
+      ),
+    );
+    expect(onSendMessage).not.toHaveBeenCalled();
+  });
+
+  it('answers by plain message when the record lookup failed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('down', { status: 503 })),
+    );
+    const agent = makeAgent();
+    const onSendMessage = vi.fn();
+    renderSurfaces({ messages: threadMessages(), agent, onSendMessage });
+    await waitFor(() =>
+      expect(screen.getByTestId('counts').textContent).toBe('0:0:failed'),
+    );
+
+    // A failed read must not leave the user without a way to answer.
     await answerInInlineCard('Blue');
 
     expect(onSendMessage).toHaveBeenCalledWith('Which colour? → Blue');
@@ -211,7 +279,7 @@ describe('question answer surfaces', () => {
 
     // The inline card is a read-only answer; the record still needs settling.
     await waitFor(() =>
-      expect(screen.getByTestId('counts').textContent).toBe('1:1'),
+      expect(screen.getByTestId('counts').textContent).toBe('1:1:loaded'),
     );
     expect(screen.getAllByText('Which colour?')).toHaveLength(1);
   });

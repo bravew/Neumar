@@ -141,6 +141,81 @@ describe('useQuestionInterrupts', () => {
     );
   });
 
+  it('reports the lookup as pending until the read returns', async () => {
+    stubFetch([interrupt]);
+    const { result } = mount(false);
+
+    expect(result.current.lookup).toBe('pending');
+    await waitFor(() => expect(result.current.lookup).toBe('loaded'));
+  });
+
+  it('reports a failed lookup instead of an empty list', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('down', { status: 503 })),
+    );
+    const { result } = mount(false);
+
+    await waitFor(() => expect(result.current.lookup).toBe('failed'));
+    expect(result.current.openQuestions).toEqual([]);
+  });
+
+  it('reads again after a run ends and is pending until it returns', async () => {
+    const fetchMock = stubFetch([]);
+    const { result, rerender } = mount(false);
+    await waitFor(() => expect(result.current.lookup).toBe('loaded'));
+
+    rerender({ isRunning: true, taskId: 'task-1' });
+    // The run may ask a new question; what was read before it is stale.
+    let release: (() => void) | undefined;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = () =>
+            resolve(
+              new Response(JSON.stringify({ interrupts: [interrupt] }), {
+                status: 200,
+              }),
+            );
+        }),
+    );
+    rerender({ isRunning: false, taskId: 'task-1' });
+
+    expect(result.current.lookup).toBe('pending');
+    await act(async () => release?.());
+    expect(result.current.lookup).toBe('loaded');
+    expect(result.current.openQuestions).toHaveLength(1);
+  });
+
+  it('trims each answer and drops empty ones before resuming', async () => {
+    stubFetch([interrupt]);
+    const { result, agent } = mount(false);
+    await waitFor(() => expect(result.current.openQuestions).toHaveLength(1));
+
+    await act(() =>
+      result.current.answer('question:q-1', {
+        'Which colour?': '  Blue ',
+        'Which shape?': '   ',
+      }),
+    );
+
+    // The server trims the record before comparing it with the message.
+    expect(agent.addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'Which colour? → Blue' }),
+    );
+    expect(agent.runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resume: [
+          {
+            interruptId: 'question:q-1',
+            status: 'resolved',
+            payload: { answers: { 'Which colour?': 'Blue' } },
+          },
+        ],
+      }),
+    );
+  });
+
   it('does not read open interrupts while a run is live', () => {
     const fetchMock = stubFetch([interrupt]);
     const { result } = mount(true);

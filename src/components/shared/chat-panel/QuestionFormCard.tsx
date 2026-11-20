@@ -12,6 +12,8 @@ export interface QuestionFormCardProps {
   onSubmit: (answers: Record<string, string>) => void;
   answered?: boolean;
   answerText?: string;
+  /** Holds the submit button, e.g. until the caller knows where to send it. */
+  submitDisabled?: boolean;
 }
 
 export function QuestionFormCard({
@@ -19,6 +21,7 @@ export function QuestionFormCard({
   onSubmit,
   answered,
   answerText,
+  submitDisabled = false,
 }: QuestionFormCardProps) {
   const { t } = useLanguage();
   const [answers, setAnswers] = useState<Record<number, string[]>>({});
@@ -64,6 +67,7 @@ export function QuestionFormCard({
   const hasAnswers =
     Object.keys(answers).some((key) => answers[parseInt(key)]?.length > 0) ||
     Object.values(otherInputs).some((value) => value?.trim());
+  const canSubmit = hasAnswers && !submitDisabled;
 
   if (answered) {
     return (
@@ -104,10 +108,10 @@ export function QuestionFormCard({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!hasAnswers}
+          disabled={!canSubmit}
           className={cn(
             'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-            hasAnswers
+            canSubmit
               ? 'bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer'
               : 'bg-muted text-muted-foreground cursor-not-allowed',
           )}

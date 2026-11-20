@@ -1,7 +1,10 @@
 import { useCallback } from 'react';
 
 import { InlineQuestionCard } from '@/components/task/InlineQuestionCard';
-import { formatQuestionAnswer } from '@/shared/hooks/useQuestionInterrupts';
+import {
+  formatQuestionAnswer,
+  normalizeQuestionAnswers,
+} from '@/shared/hooks/useQuestionInterrupts';
 
 import { parseAskUserQuestion } from './ask-user-question';
 import { useQuestionInterruptsContext } from './QuestionInterruptsProvider';
@@ -31,12 +34,18 @@ export function AskUserQuestionCard({
   // When the backend holds a record for this call, the card answers that
   // record and resumes the run. Without one, it stays a plain message, the
   // same as a transcript whose question was never recorded.
+  //
+  // Submission waits while the lookup is pending: an answer sent before the
+  // record is known would leave it pending. A failed lookup does not block the
+  // user. The card sends a plain message, and the next successful read offers
+  // any record in the panel, since this card is then answered.
   const state = useQuestionInterruptsContext();
   const openQuestion = state?.openQuestions.find(
     (question) => question.toolUseId === tc.id,
   );
   const interruptId = openQuestion?.interruptId;
   const answer = state?.answer;
+  const awaitingLookup = !interruptId && state?.lookup === 'pending';
 
   const handleSubmit = useCallback(
     (answers: Record<string, string>) => {
@@ -44,10 +53,11 @@ export function AskUserQuestionCard({
         void answer(interruptId, answers);
         return;
       }
-      if (!onSendMessage) return;
-      onSendMessage(formatQuestionAnswer(answers));
+      if (awaitingLookup || !onSendMessage) return;
+      const text = formatQuestionAnswer(normalizeQuestionAnswers(answers));
+      if (text) onSendMessage(text);
     },
-    [answer, interruptId, onSendMessage],
+    [answer, awaitingLookup, interruptId, onSendMessage],
   );
 
   if (questions.length === 0) return null;
@@ -58,6 +68,7 @@ export function AskUserQuestionCard({
       onSubmit={handleSubmit}
       answered={answered}
       answerText={nextUserMsg?.content}
+      submitDisabled={awaitingLookup}
     />
   );
 }

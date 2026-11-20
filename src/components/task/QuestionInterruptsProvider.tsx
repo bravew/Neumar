@@ -12,6 +12,7 @@ import {
   type QuestionAgent,
   type QuestionInterruptContext,
   type OpenQuestion,
+  type QuestionLookup,
   useQuestionInterrupts,
 } from '@/shared/hooks/useQuestionInterrupts';
 
@@ -24,6 +25,8 @@ export interface QuestionInterruptsValue {
   openQuestions: OpenQuestion[];
   /** Open questions the panel renders: those with no live inline card. */
   panelQuestions: OpenQuestion[];
+  /** Whether `openQuestions` is known; see {@link QuestionLookup}. */
+  lookup: QuestionLookup;
   answering: boolean;
   answer: (
     interruptId: string,
@@ -52,12 +55,8 @@ export function QuestionInterruptsProvider({
   messages: readonly AGUIMessage[];
   children: ReactNode;
 }) {
-  const { openQuestions, answering, answer, dismiss } = useQuestionInterrupts(
-    taskId,
-    isRunning,
-    agent,
-    context,
-  );
+  const { openQuestions, lookup, answering, answer, dismiss } =
+    useQuestionInterrupts(taskId, isRunning, agent, context);
 
   // A card with a matching record is the surface for that question. The panel
   // keeps it only when the transcript has no live card: absent, or already
@@ -77,11 +76,12 @@ export function QuestionInterruptsProvider({
       taskId,
       openQuestions,
       panelQuestions,
+      lookup,
       answering,
       answer,
       dismiss,
     }),
-    [taskId, openQuestions, panelQuestions, answering, answer, dismiss],
+    [taskId, openQuestions, panelQuestions, lookup, answering, answer, dismiss],
   );
 
   return (
