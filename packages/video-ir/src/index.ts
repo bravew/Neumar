@@ -7,6 +7,7 @@ export * from './caption-glue.js';
 export * from './clip-effects.js';
 export * from './edit-builders.js';
 export * from './keyframes.js';
+export * from './media-download.js';
 export * from './overwrite.js';
 export * from './playback.js';
 export * from './ripple.js';
