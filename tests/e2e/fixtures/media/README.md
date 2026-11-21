@@ -6,7 +6,7 @@ audio, so Chromium can decode and seek it without proprietary codecs.
 
 It is original synthetic material, not copied from a third-party video:
 CC0-equivalent, same terms as
-[src-api/test/fixtures/video/reference/LICENSE.md](../../../src-api/test/fixtures/video/reference/LICENSE.md).
+[src-api/test/fixtures/video/reference/LICENSE.md](../../../../src-api/test/fixtures/video/reference/LICENSE.md).
 
 Regenerate from this directory:
 
