@@ -20,4 +20,13 @@ export default {
   reasonDownload: 'Le téléchargement a échoué.',
   playerUnavailable:
     'Impossible de lire cette vidéo ici. Le format n’est peut-être pas pris en charge, ou le fichier a été déplacé ou l’accès a changé.',
+  destination: {
+    question: 'Où enregistrer les vidéos ?',
+    chooseFolder: 'Choisir un autre dossier',
+    hint: 'Choisissez un dossier auquel vous avez autorisé cette tâche à écrire.',
+    browserHint:
+      "Le choix d'un dossier nécessite l'application de bureau. Choisissez un dossier auquel la tâche a déjà accès.",
+    pickFailed:
+      'Impossible de vérifier ce dossier. Choisissez un des dossiers ci-dessus.',
+  },
 };

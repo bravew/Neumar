@@ -20,4 +20,11 @@ export default {
   reasonDownload: '下载失败。',
   playerUnavailable:
     '无法在此播放该视频。格式可能不受支持，或文件已被移动、访问权限已变更。',
+  destination: {
+    question: '视频要保存到哪里？',
+    chooseFolder: '选择其他文件夹',
+    hint: '选择任何你已允许此任务写入的文件夹。',
+    browserHint: '选择文件夹需要桌面应用。请选择此任务已有权访问的文件夹。',
+    pickFailed: '无法检查该文件夹，请从上方选择一个文件夹。',
+  },
 };

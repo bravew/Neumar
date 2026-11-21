@@ -20,4 +20,13 @@ export default {
   reasonDownload: 'O download falhou.',
   playerUnavailable:
     'Não é possível reproduzir este vídeo aqui. O formato pode não ser compatível, ou o arquivo foi movido ou o acesso mudou.',
+  destination: {
+    question: 'Onde os vídeos devem ser salvos?',
+    chooseFolder: 'Escolher outra pasta',
+    hint: 'Escolha qualquer pasta que você permitiu que esta tarefa gravasse.',
+    browserHint:
+      'Escolher pastas requer o aplicativo para desktop. Escolha uma pasta à qual a tarefa já tem acesso.',
+    pickFailed:
+      'Não foi possível verificar essa pasta. Escolha uma das pastas acima.',
+  },
 };

@@ -20,4 +20,13 @@ export default {
   reasonDownload: 'La descarga falló.',
   playerUnavailable:
     'No se puede reproducir este vídeo aquí. Puede que el formato no sea compatible, o que el archivo se haya movido o haya cambiado el acceso.',
+  destination: {
+    question: '¿Dónde se deben guardar los videos?',
+    chooseFolder: 'Elegir otra carpeta',
+    hint: 'Elige cualquier carpeta que hayas permitido escribir a esta tarea.',
+    browserHint:
+      'Elegir carpetas requiere la aplicación de escritorio. Elige una carpeta a la que la tarea ya tenga acceso.',
+    pickFailed:
+      'No se pudo comprobar esa carpeta. Elige una de las carpetas de arriba.',
+  },
 };

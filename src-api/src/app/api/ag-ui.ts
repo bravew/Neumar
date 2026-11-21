@@ -115,6 +115,17 @@ import {
   readLiveArtifactQuietMs,
   withDesignLiveArtifactQuietClose,
 } from '@/shared/services/design-mode/artifact-quiet-close';
+import {
+  createTaskDownloadAttachment,
+  type DownloadAttachment,
+} from '@/shared/services/media-download/attachment';
+import { startDownloadBatch } from '@/shared/services/media-download/registry';
+import {
+  cancelDownloadDestinationRequest,
+  claimDownloadDestination,
+  DOWNLOAD_DESTINATION_QUESTION,
+} from '@/shared/services/media-download/requests';
+import { withDownloadBatch } from '@/shared/services/media-download/run-batch';
 import { withSessionContext } from '@/shared/services/session-context';
 import { taskEventBus } from '@/shared/services/task-event-bus';
 import { isTaskRewinding } from '@/shared/services/task-file-access';
@@ -929,6 +940,12 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
         409,
       );
     }
+    // A cancelled destination question can never be claimed, so the batch it
+    // would have authorized starts nothing.
+    cancelDownloadDestinationRequest(
+      effectiveTaskId,
+      questionResume.questionId,
+    );
     return terminalRunStream(c, { threadId, runId, outcome: 'cancelled' });
   }
   if (
@@ -1158,6 +1175,15 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
 
     const wsRoot = effectiveWorkDir ?? getSetting('workDir') ?? undefined;
     const execSessionCwd = resolveSessionCwd(wsRoot, effectiveTaskId);
+    const execDownloads = createTaskDownloadAttachment(
+      {
+        taskId: effectiveTaskId,
+        sessionId: execSession.id,
+        runId,
+        language: effectiveLanguage,
+      },
+      resolveAgentProvider(validatedModelConfig),
+    );
     const planExecStream = runExecutionPhase(
       executePlanId,
       execSession,
@@ -1183,6 +1209,8 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       undefined, // pluginId
       undefined, // pluginInputs
       desktopChannelContext, // Phase A connector-tier isolation — desktop = admin
+      undefined, // verbatimPrompt
+      execDownloads,
     );
     // Record the execution run's SDK session so a later branch can fork it.
     // Planning only runs with no assistant history, so on a branch this is
@@ -1468,7 +1496,44 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
 
   // The answer is recorded only now that the run is accepted, so a refused
   // run leaves the question open. Check and write are one synchronous step.
+  let claimedDownload: ReturnType<typeof claimDownloadDestination> | undefined;
   if (questionResume.kind === 'answer') {
+    // A download answer authorizes exactly one batch. The claim is taken
+    // before the answer is recorded, so a folder that is no longer permitted
+    // leaves the question open for another choice.
+    if (
+      Object.prototype.hasOwnProperty.call(
+        questionResume.answers,
+        DOWNLOAD_DESTINATION_QUESTION,
+      )
+    ) {
+      const claim = claimDownloadDestination(
+        effectiveTaskId,
+        questionResume.questionId,
+        questionResume.answers[DOWNLOAD_DESTINATION_QUESTION] ?? '',
+        runId,
+      );
+      if (!claim.ok) {
+        finishAgentRun({
+          id: reservation.run.id,
+          status: 'failed',
+          completeness: 'unfinished',
+          error: claim.message,
+        });
+        return c.json(
+          {
+            error: claim.message,
+            code:
+              claim.reason === 'started'
+                ? 'already_resolved'
+                : 'destination_denied',
+            interruptIds: [`question:${questionResume.questionId}`],
+          },
+          409,
+        );
+      }
+      claimedDownload = claim;
+    }
     const recorded = answerQuestionOnce(
       questionResume.questionId,
       questionResume.answers,
@@ -1568,6 +1633,21 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
   const taskTitle = taskId ? (getTask(taskId)?.title ?? undefined) : undefined;
   const abortSignal = c.req.raw.signal;
 
+  // The download tool is attached to the run that can ask the user a question:
+  // the direct turn and the execution phase after a plan. A planning run only
+  // plans, so it gets none.
+  const downloads: DownloadAttachment | undefined = skipPlanning
+    ? createTaskDownloadAttachment(
+        {
+          taskId: effectiveTaskId,
+          sessionId: session.id,
+          runId,
+          language: effectiveLanguage,
+        },
+        runProvider,
+      )
+    : undefined;
+
   // Do NOT propagate client disconnect → session abort.
   // The agent generator runs in a detached pipeline (runDetachedPipeline)
   // that unconditionally publishes to taskEventBus + AGUIEventPersister.
@@ -1614,6 +1694,7 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
           additionalUserDirs: additionalWorkDirs,
           autoApprove,
           channelContext: desktopChannelContext,
+          downloads,
         }),
         {
           taskId: effectiveTaskId,
@@ -1642,12 +1723,20 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       );
   // Resolve per-session cwd so in-process MCP tools don't fall back to root workDir.
   const sessionCwd = resolveSessionCwd(workspaceRoot, effectiveTaskId);
+  const batchStream = claimedDownload?.ok
+    ? withDownloadBatch(
+        rawStream,
+        claimedDownload.value.operation,
+        startDownloadBatch,
+        session.abortController.signal,
+      )
+    : rawStream;
   const contextualStream = sessionCwd
     ? withSessionContext(
         { workDir: sessionCwd, sessionId: session.id, taskId: effectiveTaskId },
-        rawStream,
+        batchStream,
       )
-    : rawStream;
+    : batchStream;
 
   // Wrap to sync the agent's actual session CWD into the task's work_dir
   const agentStream = withWorkDirSync(

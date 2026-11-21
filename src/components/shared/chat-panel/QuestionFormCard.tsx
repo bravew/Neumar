@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { Check, MessageCircleQuestion, Send } from 'lucide-react';
 
@@ -14,6 +15,11 @@ export interface QuestionFormCardProps {
   answerText?: string;
   /** Holds the submit button, e.g. until the caller knows where to send it. */
   submitDisabled?: boolean;
+  /**
+   * Replaces the free-text "Other" control, for questions whose answer is a
+   * value a plain text field cannot produce safely (a folder path).
+   */
+  otherSlot?: ReactNode;
 }
 
 export function QuestionFormCard({
@@ -22,6 +28,7 @@ export function QuestionFormCard({
   answered,
   answerText,
   submitDisabled = false,
+  otherSlot,
 }: QuestionFormCardProps) {
   const { t } = useLanguage();
   const [answers, setAnswers] = useState<Record<number, string[]>>({});
@@ -100,6 +107,7 @@ export function QuestionFormCard({
             handleOptionSelect(questionIndex, option, question.multiSelect)
           }
           onOtherInput={(value) => handleOtherInput(questionIndex, value)}
+          otherSlot={otherSlot}
           t={t}
         />
       ))}
@@ -130,6 +138,7 @@ function QuestionItem({
   otherInput,
   onSelectOption,
   onOtherInput,
+  otherSlot,
   t,
 }: {
   question: ChatQuestion;
@@ -137,6 +146,7 @@ function QuestionItem({
   otherInput: string;
   onSelectOption: (option: string) => void;
   onOtherInput: (value: string) => void;
+  otherSlot?: ReactNode;
   t: ReturnType<typeof useLanguage>['t'];
 }) {
   const [showOther, setShowOther] = useState(false);
@@ -190,41 +200,44 @@ function QuestionItem({
           );
         })}
 
-        <button
-          type="button"
-          onClick={() => setShowOther(!showOther)}
-          className={cn(
-            'flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-left transition-all',
-            showOther || otherInput
-              ? 'border-primary bg-primary/10 text-foreground'
-              : 'border-border/60 bg-background hover:border-primary/50 hover:bg-accent/50 text-foreground',
-          )}
-        >
-          <div
+        {otherSlot ? null : (
+          <button
+            type="button"
+            onClick={() => setShowOther(!showOther)}
             className={cn(
-              'mt-0.5 flex size-5 shrink-0 items-center justify-center border-2',
-              question.multiSelect ? 'rounded-md' : 'rounded-full',
+              'flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-left transition-all',
               showOther || otherInput
-                ? 'border-primary bg-primary'
-                : 'border-muted-foreground/40',
+                ? 'border-primary bg-primary/10 text-foreground'
+                : 'border-border/60 bg-background hover:border-primary/50 hover:bg-accent/50 text-foreground',
             )}
           >
-            {showOther || otherInput ? (
-              <Check className="text-primary-foreground size-3" />
-            ) : null}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">
-              {t.common.questionInput.other}
-            </p>
-            <p className="text-muted-foreground mt-0.5 text-xs">
-              {t.common.questionInput.customInput}
-            </p>
-          </div>
-        </button>
+            <div
+              className={cn(
+                'mt-0.5 flex size-5 shrink-0 items-center justify-center border-2',
+                question.multiSelect ? 'rounded-md' : 'rounded-full',
+                showOther || otherInput
+                  ? 'border-primary bg-primary'
+                  : 'border-muted-foreground/40',
+              )}
+            >
+              {showOther || otherInput ? (
+                <Check className="text-primary-foreground size-3" />
+              ) : null}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">
+                {t.common.questionInput.other}
+              </p>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                {t.common.questionInput.customInput}
+              </p>
+            </div>
+          </button>
+        )}
       </div>
 
-      {showOther ? (
+      {otherSlot}
+      {!otherSlot && showOther ? (
         <input
           type="text"
           value={otherInput}

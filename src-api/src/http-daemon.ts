@@ -17,6 +17,7 @@ import {
   dbRoutes,
   doctorRoutes,
   documentsRoutes,
+  downloadDestinationRoutes,
   feedbackRoutes,
   filesRoutes,
   gatewayRoutes,
@@ -242,6 +243,7 @@ app.route('/soul', soulRoutes);
 app.route('/search', searchRoutes);
 app.route('/secrets', secretsRoutes);
 app.route('/tasks', branchesRoutes);
+app.route('/downloads', downloadDestinationRoutes());
 app.route('/ag-ui', aguiRoutes);
 app.route('/doctor', doctorRoutes);
 app.route('/', copilotKitRoutes);
