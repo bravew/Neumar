@@ -46,6 +46,7 @@ import {
   createGoogleMcpServer,
 } from '@/shared/mcp/google-server';
 import { createLinearMcpServer } from '@/shared/mcp/linear-server';
+import { createDownloadMediaMcpServer } from '@/shared/mcp/media-download-server';
 import { createMediaMcpServer } from '@/shared/mcp/media-server';
 import { createMemoryMcpServer } from '@/shared/mcp/memory-server';
 import { createOneDriveMcpServer } from '@/shared/mcp/onedrive-server';
@@ -96,6 +97,11 @@ const FACTORIES: Record<string, () => McpSdkServerConfigWithInstance> = {
   'ffmpeg-skill-server.ts': () => createFfmpegSkillMcpServer(),
   'google-server.ts': () => createGoogleMcpServer(ALL_GOOGLE_SCOPES),
   'linear-server.ts': () => createLinearMcpServer(),
+  'media-download-server.ts': () =>
+    createDownloadMediaMcpServer(() => ({
+      batchId: 'batch-tools-list',
+      status: 'awaiting_destination',
+    })),
   'media-server.ts': () => createMediaMcpServer(),
   'memory-server.ts': () => createMemoryMcpServer({ provider: 'local' }),
   'onedrive-server.ts': () => createOneDriveMcpServer(),
