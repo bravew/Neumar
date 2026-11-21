@@ -121,3 +121,38 @@ export function applyDownloadUpdate(
     items: state.items.map((item, i) => (i === index ? update.item : item)),
   };
 }
+
+export function downloadActivityId(
+  activity: Pick<DownloadActivity, 'runId' | 'toolCallId' | 'batchId'>,
+): string {
+  return `${MEDIA_DOWNLOAD_ACTIVITY}:${JSON.stringify([activity.runId, activity.toolCallId, activity.batchId])}`;
+}
+
+/** Accept a wire snapshot only for this task/card. Merge by item, not timestamp:
+ * a replay or slow producer cannot undo a sibling's newer or terminal state. */
+export function reconcileDownloadSnapshot(
+  taskId: string,
+  messageId: string,
+  prior: unknown,
+  content: unknown,
+): DownloadActivity | undefined {
+  const next = downloadActivitySchema.safeParse(content);
+  if (
+    !next.success ||
+    next.data.taskId !== taskId ||
+    downloadActivityId(next.data) !== messageId
+  )
+    return;
+  if (prior === undefined) return next.data;
+  const existing = downloadActivitySchema.safeParse(prior);
+  if (
+    !existing.success ||
+    existing.data.taskId !== taskId ||
+    downloadActivityId(existing.data) !== messageId
+  )
+    return;
+  return next.data.items.reduce(
+    (state, item) => applyDownloadUpdate(state, { ...next.data, item }),
+    existing.data,
+  );
+}

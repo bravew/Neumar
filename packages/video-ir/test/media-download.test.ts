@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyDownloadUpdate,
+  downloadActivityId,
   downloadActivitySchema,
   downloadMediaInputSchema,
   downloadMediaOperationSchema,
   downloadUpdateSchema,
+  reconcileDownloadSnapshot,
   type DownloadItem,
 } from '../src/media-download.js';
 
@@ -95,5 +97,70 @@ describe('download_media wire contract', () => {
         destinationGrantId: 'a7a51dbe-bdf2-427d-b320-691d6872ef52',
       }).input,
     ).toEqual(input);
+  });
+});
+
+describe('reconcileDownloadSnapshot', () => {
+  const cardId = downloadActivityId(initial);
+  const live = events.reduce(
+    (state, item) => applyDownloadUpdate(state, update(item)),
+    initial,
+  );
+
+  it('accepts a first snapshot for this task and card', () => {
+    expect(
+      reconcileDownloadSnapshot('task', cardId, undefined, initial),
+    ).toEqual(initial);
+  });
+
+  it('rejects a snapshot for another task or another card', () => {
+    expect(
+      reconcileDownloadSnapshot('other', cardId, undefined, initial),
+    ).toBeUndefined();
+    expect(
+      reconcileDownloadSnapshot(
+        'task',
+        'media-download:wrong',
+        undefined,
+        initial,
+      ),
+    ).toBeUndefined();
+    expect(
+      reconcileDownloadSnapshot('task', cardId, undefined, { junk: true }),
+    ).toBeUndefined();
+  });
+
+  it('keeps a terminal sibling when a stale replay arrives', () => {
+    const stale = downloadActivitySchema.parse({
+      ...scope,
+      items: [
+        { ...events[0]!, sequence: 1 },
+        { itemId: 'b', sequence: 0, phase: 'waiting' },
+      ],
+    });
+    expect(reconcileDownloadSnapshot('task', cardId, live, stale)).toEqual(
+      live,
+    );
+  });
+
+  it('advances only the items a newer snapshot moved on', () => {
+    const next = downloadActivitySchema.parse({
+      ...scope,
+      items: [events[0]!, { itemId: 'b', sequence: 0, phase: 'waiting' }],
+    });
+    const merged = reconcileDownloadSnapshot('task', cardId, initial, next);
+    expect(merged?.items.map((item) => item.phase)).toEqual([
+      'transferring',
+      'waiting',
+    ]);
+  });
+
+  it('refuses to merge into an unparseable or foreign prior', () => {
+    expect(
+      reconcileDownloadSnapshot('task', cardId, { junk: true }, initial),
+    ).toBeUndefined();
+    expect(
+      reconcileDownloadSnapshot('other', cardId, live, initial),
+    ).toBeUndefined();
   });
 });
