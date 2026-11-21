@@ -29,6 +29,12 @@ export interface SupervisedRunInput {
   killGraceMs?: number;
   /** Called with normalized stderr progress lines. Never parsed as success. */
   onProgress?: (line: string) => void;
+  /**
+   * Called with normalized stdout lines as they arrive. Structured progress
+   * that a tool writes to stdout (yt-dlp `--progress-template`) is read here;
+   * the full stdout is still captured for the result.
+   */
+  onStdoutProgress?: (line: string) => void;
 }
 
 export interface SupervisedRunResult {
@@ -69,7 +75,7 @@ export function runSupervised(
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
-    const stdout = capture(maxOutputBytes);
+    const stdout = capture(maxOutputBytes, input.onStdoutProgress);
     const stderr = capture(maxOutputBytes, input.onProgress);
 
     let settled = false;

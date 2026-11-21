@@ -54,6 +54,9 @@ import { authJwtRoutes } from '@/app/api/auth-jwt';
 import { automationRoutes } from '@/app/api/automation';
 import { copilotKitRoutes } from '@/app/api/copilotkit';
 import { mcpBridgeRoutes } from '@/app/api/mcp-bridge';
+
+// Registers the real download runner with the resume route at startup.
+import '@/shared/services/media-download/downloader';
 import { remoteRoutes } from '@/app/api/remote';
 import { soulRoutes } from '@/app/api/soul';
 import { corsMiddleware, jwtMiddleware } from '@/app/middleware/index.js';
