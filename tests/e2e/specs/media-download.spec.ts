@@ -4,17 +4,21 @@ import {
   type DownloadActivity,
 } from '@neumar/video-ir';
 import type { Page } from '@playwright/test';
+import { z } from 'zod';
 
 import { test, expect } from '../fixtures/base';
 
 import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import {
   chmodSync,
   copyFileSync,
   existsSync,
   mkdtempSync,
   realpathSync,
+  rmdirSync,
   rmSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -58,11 +62,14 @@ while [ $# -gt 0 ]; do
     *) shift ;;
   esac
 done
+printf '%s\\n' started >> "$(dirname "$0")/downloader-started"
 case "$url" in
   *fail*) echo "ERROR: unable to download video data: HTTP Error 404" >&2; exit 1 ;;
-  *slow*) sleep 30 ;;
 esac
 printf '%s\\n' 'NDPROGRESS:{"stream":"137","bytes":4096,"total":8192,"estimate":null,"speed":1024,"eta":4}'
+case "$url" in
+  *slow*) sleep 30 ;;
+esac
 printf '%s\\n' 'NDFINISH'
 cp "$(dirname "$0")/clip.webm" "$stage/clip.webm"
 printf 'NDFILE:%s\\n' "$stage/clip.webm"
@@ -130,6 +137,76 @@ function runFixture(config: {
   });
 }
 
+const liveFixtureSchema = z.object({
+  origin: z.string().url(),
+  questionId: z.string(),
+  destination: z.string(),
+});
+
+async function startLiveFixture(config: {
+  taskId: string;
+  workDir: string;
+  binary: string;
+  urls: string[];
+}) {
+  const child = spawn(
+    process.execPath,
+    [
+      '--import',
+      'tsx',
+      path.join(root, 'src-api/test/fixtures/media-download/serve-batch.ts'),
+    ],
+    {
+      cwd: apiCwd,
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        TSX_TSCONFIG_PATH: path.join(apiCwd, 'tsconfig.json'),
+        MEDIA_DOWNLOAD_FIXTURE: JSON.stringify({
+          ...config,
+          sessionId: `session-${config.taskId}`,
+        }),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  let stdout = '';
+  let stderr = '';
+  const ready = await new Promise<z.infer<typeof liveFixtureSchema>>(
+    (resolve, reject) => {
+      child.on('error', reject);
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      child.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString();
+        const line = stdout
+          .split('\n')
+          .find((value) => value.startsWith('NDREADY:'));
+        if (line && stdout.includes(`${line}\n`)) {
+          const parsed = liveFixtureSchema.safeParse(
+            JSON.parse(line.slice('NDREADY:'.length)),
+          );
+          if (parsed.success) resolve(parsed.data);
+          else reject(parsed.error);
+        }
+      });
+      child.on('exit', (code) =>
+        reject(new Error(`live fixture exited ${code}: ${stderr || stdout}`)),
+      );
+    },
+  );
+  return {
+    ...ready,
+    async stop() {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      const exited = once(child, 'exit');
+      child.kill('SIGTERM');
+      await exited;
+    },
+  };
+}
+
 function questionInterrupt(taskId: string, questionId: string, output: string) {
   return {
     id: `question:${questionId}`,
@@ -195,6 +272,7 @@ async function mockBackend(
     history: () => unknown[];
     onRun: (body: unknown) => void;
     runBody: string;
+    liveOrigin?: string;
   },
 ) {
   await page.route(`${api}/**`, (route) => {
@@ -221,6 +299,9 @@ async function mockBackend(
 
   await page.route(`${api}/copilotkit/agent/*/run`, async (route) => {
     options.onRun(route.request().postDataJSON());
+    if (options.liveOrigin) {
+      return route.continue({ url: `${options.liveOrigin}/run` });
+    }
     await route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream' },
@@ -272,6 +353,17 @@ async function mockBackend(
       }),
     }),
   );
+
+  if (options.liveOrigin) {
+    const origin = options.liveOrigin;
+    for (const endpoint of ['history', 'interrupts', 'stop']) {
+      await page.route(`${api}/ag-ui/${endpoint}/${options.taskId}`, (route) =>
+        route.continue({
+          url: `${origin}/ag-ui/${endpoint}/${options.taskId}`,
+        }),
+      );
+    }
+  }
 
   await page.route(`${api}/runs/*/tree`, (route) =>
     route.fulfill({
@@ -452,6 +544,90 @@ test.describe('media download in Task V2', () => {
       await playAndSeek(page, 'clip.webm');
     } finally {
       rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  test('Task V2 Stop cancels a running download and persists cancellation', async ({
+    page,
+    request,
+  }) => {
+    const home = realpathSync(mkdtempSync(path.join(tmpdir(), 'neumar-stop-')));
+    let live: Awaited<ReturnType<typeof startLiveFixture>> | undefined;
+    try {
+      const taskId = `task-media-stop-${crypto.randomUUID()}`;
+      live = await startLiveFixture({
+        taskId,
+        workDir: home,
+        binary: fakeDownloader(home),
+        urls: ['https://example.org/slow'],
+      });
+      await mockBackend(page, {
+        taskId,
+        interrupt: questionInterrupt(taskId, live.questionId, live.destination),
+        history: () => [],
+        onRun: () => undefined,
+        runBody: '',
+        liveOrigin: live.origin,
+      });
+      await page.goto(`/task-v2/${taskId}`);
+      await expect(page.getByText(QUESTION)).toBeVisible();
+      expect(existsSync(path.join(home, 'downloader-started'))).toBe(false);
+      expect(existsSync(live.destination)).toBe(false);
+      await page.getByRole('button', { name: /Task folder/ }).click();
+      await page.getByRole('button', { name: 'Submit', exact: true }).click();
+
+      const card = page.getByRole('region', { name: 'Video downloads' });
+      await expect(card.getByRole('progressbar')).toBeVisible();
+      expect(existsSync(path.join(home, 'downloader-started'))).toBe(true);
+      await expect(card.locator('video')).toHaveCount(0);
+      const stopResponse = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/ag-ui/stop/${taskId}`) &&
+          response.request().method() === 'POST',
+      );
+      await page.getByRole('button', { name: 'Stop', exact: true }).click();
+      expect((await stopResponse).status()).toBe(200);
+
+      const origin = live.origin;
+      await expect
+        .poll(
+          async () =>
+            (await (await request.get(`${origin}/state`)).json()).activity
+              ?.items[0]?.phase,
+        )
+        .toBe('cancelled');
+      const state = await (await request.get(`${origin}/state`)).json();
+      expect(state).toMatchObject({
+        stopped: true,
+        files: [],
+        outputFiles: [],
+      });
+      expect(existsSync(path.join(live.destination, 'clip.webm'))).toBe(false);
+
+      // Stop aborts the client's SSE connection. The detached pipeline must
+      // still persist cancellation so the real history route restores it.
+      await page.reload();
+      await expect(
+        page
+          .getByRole('region', { name: 'Video downloads' })
+          .getByText(/cancelled/i),
+      ).toBeVisible();
+      await expect(page.locator('video')).toHaveCount(0);
+    } finally {
+      await live?.stop();
+      // Remove only known fixture files, then directories only if empty.
+      for (const name of [
+        'fake-yt-dlp',
+        'clip.webm',
+        'downloader-started',
+        'output/clip.webm',
+      ]) {
+        const file = path.join(home, name);
+        if (existsSync(file)) unlinkSync(file);
+      }
+      if (existsSync(path.join(home, 'output')))
+        rmdirSync(path.join(home, 'output'));
+      rmdirSync(home);
     }
   });
 

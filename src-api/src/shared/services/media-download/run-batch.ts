@@ -89,9 +89,9 @@ export async function* withDownloadBatch(
     yield* drain();
     if (settled) break;
     await new Promise<void>((resolve) => {
+      // Abort is consumed by the runner. Wait for its terminal emission or
+      // settlement so process-exit callbacks can run before draining again.
       wake = resolve;
-      if (signal.aborted) resolve();
-      else signal.addEventListener('abort', () => resolve(), { once: true });
     });
   }
   yield* drain();

@@ -277,6 +277,7 @@ export function ChatInputActions({
               )}
               <motion.button
                 type="button"
+                aria-label={t.common.stop}
                 onClick={onStop}
                 className={cn(
                   'flex items-center justify-center rounded-full transition-colors',

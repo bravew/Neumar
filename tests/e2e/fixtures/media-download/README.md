@@ -21,13 +21,22 @@ production runner through a direct fake-process runtime, and registers the
 resulting asset. The browser submits the same option label through the real
 question card. Playback uses the real API's task-scoped asset route.
 
-The model loop and AG-UI transport are mocked. The fixture finishes before the
-browser answers the question; captured progress and final history are replayed
-into the browser. Accordingly, this test checks the pieces together but does
-not prove that an actual HTTP resume starts a download only after browser
-approval, that progress streams live through the agent transport, or that the
-production process sandbox works. The cancellation case aborts the fixture's
-controller; it does not click the task's Stop control.
+The playback scenario replays captured AG-UI progress and final history after
+`run-batch.ts` finishes. That case does not prove live agent transport or the
+production process sandbox.
+
+The additional Stop scenario uses
+[`serve-batch.ts`](../../../../src-api/test/fixtures/media-download/serve-batch.ts)
+to replace the model source while retaining production question validation,
+grant claiming, the download stream wrapper, emitter, detached event pipeline,
+activity persistence, history and Stop routes. It asserts no downloader starts
+before the browser submits its answer, receives live progress, clicks the real
+Task V2 Stop button and verifies the real `/ag-ui/stop/:taskId` response. The
+cancelled snapshot survives reload, with no registered or published files.
+The fixture's HTTP start handler composes these services without running the
+production model adapter or CopilotKit proxy. Its downloader uses the direct
+fake-process runtime, so sandbox enforcement remains outside this browser test.
+The earlier direct-controller cancellation case remains as a separate check.
 
 ## Recorded checks
 
@@ -39,6 +48,12 @@ On the integrated implementation at `979a28bb`:
 - Focused migration and MCP tools-list guards: 50 tests passed after repair.
 - `pnpm test src/__tests__/download-destination.test.tsx`: 10 tests passed
   after the native smoke.
+
+Latest isolated Chromium run: all three scenarios passed, including the real
+Stop-button path. The Stop scenario exposed an event-loop starvation bug in the
+download stream's abort wait. Its focused child-process regression failed with
+`ETIMEDOUT` before the fix and passed afterward. The regression and nearby
+handler/destination suites passed together: three files / 15 tests.
 
 Earlier integrated browser run: two Chromium scenarios passed against an
 isolated API and frontend. The scenarios checked a saved file beside a failed
