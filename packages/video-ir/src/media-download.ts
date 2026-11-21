@@ -122,10 +122,18 @@ export function applyDownloadUpdate(
   };
 }
 
+/**
+ * The card a batch belongs to.
+ *
+ * The batch id is minted once, when the model asks to download, and the answer
+ * that starts the download is a later run. Keying the card by the run would
+ * give the first turn's waiting card and the download's progress card two
+ * identities; the batch and its tool call are what stay the same.
+ */
 export function downloadActivityId(
-  activity: Pick<DownloadActivity, 'runId' | 'toolCallId' | 'batchId'>,
+  activity: Pick<DownloadActivity, 'taskId' | 'toolCallId' | 'batchId'>,
 ): string {
-  return `${MEDIA_DOWNLOAD_ACTIVITY}:${JSON.stringify([activity.runId, activity.toolCallId, activity.batchId])}`;
+  return `${MEDIA_DOWNLOAD_ACTIVITY}:${JSON.stringify([activity.taskId, activity.toolCallId, activity.batchId])}`;
 }
 
 /** Accept a wire snapshot only for this task/card. Merge by item, not timestamp:
@@ -151,8 +159,12 @@ export function reconcileDownloadSnapshot(
     downloadActivityId(existing.data) !== messageId
   )
     return;
+  // The continuation that reports progress runs under a new run id; the batch
+  // and tool call are the identity that must match, so the merge carries the
+  // new run forward rather than rejecting it.
+  const base = { ...existing.data, runId: next.data.runId };
   return next.data.items.reduce(
     (state, item) => applyDownloadUpdate(state, { ...next.data, item }),
-    existing.data,
+    base,
   );
 }

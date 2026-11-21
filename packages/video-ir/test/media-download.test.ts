@@ -113,6 +113,20 @@ describe('reconcileDownloadSnapshot', () => {
     ).toEqual(initial);
   });
 
+  it('lands a resumed batch on the card that asked, under its new run', () => {
+    // The answer that starts the download arrives in a later run than the turn
+    // that asked for one. Same task, tool call and batch mean the same card.
+    const resumed = downloadActivitySchema.parse({
+      ...scope,
+      runId: 'run-after-answer',
+      items: [{ ...events[0]!, sequence: 1 }],
+    });
+    const merged = reconcileDownloadSnapshot('task', cardId, initial, resumed);
+    expect(downloadActivityId(merged!)).toBe(cardId);
+    expect(merged?.runId).toBe('run-after-answer');
+    expect(merged?.items[0]?.phase).toBe('transferring');
+  });
+
   it('rejects a snapshot for another task or another card', () => {
     expect(
       reconcileDownloadSnapshot('other', cardId, undefined, initial),
