@@ -9,6 +9,10 @@
  */
 
 import { EventType } from '@ag-ui/core';
+import {
+  MEDIA_DOWNLOAD_ACTIVITY,
+  reconcileDownloadSnapshot,
+} from '@neumar/video-ir';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
@@ -945,13 +949,25 @@ export const useThreadStore = create<ThreadStore>()(
           case EventType.ACTIVITY_SNAPSHOT: {
             const id = event.messageId;
             const activityType = event.activityType;
-            const content = event.content;
+            const content =
+              activityType === MEDIA_DOWNLOAD_ACTIVITY && id
+                ? reconcileDownloadSnapshot(
+                    taskId,
+                    id,
+                    findMsg(id)?.content,
+                    event.content,
+                  )
+                : event.content;
             if (!id) {
               warnSkippedActivity('ACTIVITY_SNAPSHOT', 'missing messageId');
               mutated = false;
               break;
             }
-            if (activityType !== 'plan' && activityType !== 'status') {
+            if (
+              activityType !== 'plan' &&
+              activityType !== 'status' &&
+              activityType !== MEDIA_DOWNLOAD_ACTIVITY
+            ) {
               warnSkippedActivity(
                 'ACTIVITY_SNAPSHOT',
                 `unsupported activity type '${String(activityType)}'`,
@@ -1021,7 +1037,11 @@ export const useThreadStore = create<ThreadStore>()(
               mutated = false;
               break;
             }
-            if (activityType !== 'plan' && activityType !== 'status') {
+            if (
+              activityType !== 'plan' &&
+              activityType !== 'status' &&
+              activityType !== MEDIA_DOWNLOAD_ACTIVITY
+            ) {
               warnSkippedActivity(
                 'ACTIVITY_DELTA',
                 `unsupported activity type '${String(activityType)}'`,
@@ -1066,7 +1086,16 @@ export const useThreadStore = create<ThreadStore>()(
               mutated = false;
               break;
             }
-            const patched = applyActivityPatch(existing.content, event.patch);
+            const candidate = applyActivityPatch(existing.content, event.patch);
+            const patched =
+              activityType === MEDIA_DOWNLOAD_ACTIVITY
+                ? reconcileDownloadSnapshot(
+                    taskId,
+                    id,
+                    existing.content,
+                    candidate,
+                  )
+                : candidate;
             if (!patched) {
               warnSkippedActivity('ACTIVITY_DELTA', 'malformed patch', id);
               mutated = false;
@@ -1090,9 +1119,19 @@ export const useThreadStore = create<ThreadStore>()(
               if (typeof id !== 'string') continue;
               if (role === 'activity') {
                 const activityType = raw.activityType;
-                const content = raw.content;
+                const content =
+                  activityType === MEDIA_DOWNLOAD_ACTIVITY
+                    ? reconcileDownloadSnapshot(
+                        taskId,
+                        id,
+                        undefined,
+                        raw.content,
+                      )
+                    : raw.content;
                 if (
-                  (activityType !== 'plan' && activityType !== 'status') ||
+                  (activityType !== 'plan' &&
+                    activityType !== 'status' &&
+                    activityType !== MEDIA_DOWNLOAD_ACTIVITY) ||
                   !content ||
                   typeof content !== 'object' ||
                   Array.isArray(content)

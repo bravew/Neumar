@@ -1,0 +1,23 @@
+export default {
+  title: 'Téléchargements de vidéos',
+  itemLabel: 'Vidéo {n}',
+  summary: '{saved} sur {total} enregistrées',
+  waiting: 'En attente de démarrage',
+  queued: 'En file d’attente',
+  transferring: 'Téléchargement',
+  postprocessing: 'Finalisation du fichier',
+  saved: 'Enregistrée',
+  failed: 'Échec',
+  cancelled: 'Annulée',
+  progressUnknown: '{done} téléchargés',
+  progressKnown: '{done} sur {total}',
+  speed: '{rate}/s',
+  eta: 'Il reste {time}',
+  reasonUnavailable: 'Cette vidéo est indisponible.',
+  reasonDenied: 'L’enregistrement dans ce dossier n’est pas autorisé.',
+  reasonLimit: 'Limite de téléchargement dépassée.',
+  reasonCollision: 'Un fichier portant ce nom existe déjà.',
+  reasonDownload: 'Le téléchargement a échoué.',
+  playerUnavailable:
+    'Impossible de lire cette vidéo ici. Le format n’est peut-être pas pris en charge, ou le fichier a été déplacé ou l’accès a changé.',
+};

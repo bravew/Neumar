@@ -1,0 +1,23 @@
+export default {
+  title: '视频下载',
+  itemLabel: '视频 {n}',
+  summary: '已保存 {saved}/{total}',
+  waiting: '等待开始',
+  queued: '排队中',
+  transferring: '下载中',
+  postprocessing: '正在完成文件',
+  saved: '已保存',
+  failed: '失败',
+  cancelled: '已取消',
+  progressUnknown: '已下载 {done}',
+  progressKnown: '{done} / {total}',
+  speed: '{rate}/秒',
+  eta: '剩余 {time}',
+  reasonUnavailable: '此视频不可用。',
+  reasonDenied: '不允许保存到此文件夹。',
+  reasonLimit: '超出下载限制。',
+  reasonCollision: '已存在同名文件。',
+  reasonDownload: '下载失败。',
+  playerUnavailable:
+    '无法在此播放该视频。格式可能不受支持，或文件已被移动、访问权限已变更。',
+};

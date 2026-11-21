@@ -80,6 +80,7 @@ import { migration as migration058 } from './migrations/058_agent_file_checkpoin
 import { migration as migration059 } from './migrations/059_agent_file_checkpoint_attempts';
 import { migration as migration060 } from './migrations/060_message_subagent_run_id';
 import { migration as migration061 } from './migrations/061_agent_run_usage';
+import { migration as migration062 } from './migrations/062_download_assets';
 import { runMigrations } from './migrations/runner';
 
 const logger = createLogger('Database');
@@ -150,6 +151,7 @@ export const DATABASE_MIGRATIONS = [
   migration059,
   migration060,
   migration061,
+  migration062,
 ];
 
 // Columns the hot request path hard-depends on, checked after migrations so a

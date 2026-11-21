@@ -5,6 +5,11 @@
  * Includes full fidelity: user, text, tool_use, tool_result, thinking, plan, error.
  */
 
+import {
+  MEDIA_DOWNLOAD_ACTIVITY,
+  reconcileDownloadSnapshot,
+} from '@neumar/video-ir';
+
 import type { Message } from '@/shared/db/types';
 
 import {
@@ -196,7 +201,19 @@ export function dbMessagesToFullAGUI(
           !content ||
           typeof content !== 'object' ||
           Array.isArray(content) ||
-          (msg.subtype !== 'plan' && msg.subtype !== 'status')
+          (msg.subtype !== 'plan' &&
+            msg.subtype !== 'status' &&
+            msg.subtype !== MEDIA_DOWNLOAD_ACTIVITY) ||
+          // A download card is addressed by its scoped id, so a row without a
+          // message id cannot be one and is not replayed.
+          (msg.subtype === MEDIA_DOWNLOAD_ACTIVITY &&
+            (!msg.message_id ||
+              !reconcileDownloadSnapshot(
+                msg.task_id,
+                msg.message_id,
+                undefined,
+                content,
+              )))
         ) {
           break;
         }

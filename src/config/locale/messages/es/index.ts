@@ -12,6 +12,7 @@ import design from './design';
 import home from './home';
 import ideas from './ideas';
 import library from './library';
+import mediaDownload from './mediaDownload';
 import modes from './modes';
 import nav from './nav';
 import onboarding from './onboarding';
@@ -50,6 +51,7 @@ export default {
   publish,
   settings,
   library,
+  mediaDownload,
   modes,
   setup,
   shortcuts,

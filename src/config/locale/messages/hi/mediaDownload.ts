@@ -1,0 +1,23 @@
+export default {
+  title: 'वीडियो डाउनलोड',
+  itemLabel: 'वीडियो {n}',
+  summary: '{total} में से {saved} सहेजे गए',
+  waiting: 'शुरू होने की प्रतीक्षा',
+  queued: 'कतार में',
+  transferring: 'डाउनलोड हो रहा है',
+  postprocessing: 'फ़ाइल पूरी की जा रही है',
+  saved: 'सहेजा गया',
+  failed: 'विफल',
+  cancelled: 'रद्द',
+  progressUnknown: '{done} डाउनलोड हुआ',
+  progressKnown: '{total} में से {done}',
+  speed: '{rate}/सेकंड',
+  eta: '{time} शेष',
+  reasonUnavailable: 'यह वीडियो उपलब्ध नहीं है।',
+  reasonDenied: 'इस फ़ोल्डर में सहेजने की अनुमति नहीं है।',
+  reasonLimit: 'डाउनलोड सीमा पार हो गई।',
+  reasonCollision: 'इस नाम की फ़ाइल पहले से मौजूद है।',
+  reasonDownload: 'डाउनलोड विफल रहा।',
+  playerUnavailable:
+    'यह वीडियो यहाँ नहीं चलाया जा सकता। फ़ॉर्मैट असमर्थित हो सकता है, या फ़ाइल हटाई गई या पहुँच बदल गई है।',
+};

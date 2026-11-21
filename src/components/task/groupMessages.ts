@@ -5,6 +5,13 @@
  * virtualized thread renders. Kept out of the component file so the algorithm
  * can be unit-tested and reasoned about on its own.
  */
+import {
+  MEDIA_DOWNLOAD_ACTIVITY,
+  DOWNLOAD_MEDIA_TOOL,
+  type DownloadActivity,
+  downloadActivitySchema,
+} from '@neumar/video-ir';
+
 import type { Artifact } from '@/components/artifacts/types';
 import {
   readPlanActivity,
@@ -19,7 +26,10 @@ import type {
   AGUIMessage,
   AGUIToolCall,
 } from '@/components/task/TaskV2MessageBubble.types';
-import { getToolName } from '@/components/task/TaskV2MessageBubble.types';
+import {
+  getToolName,
+  shortToolName,
+} from '@/components/task/TaskV2MessageBubble.types';
 import type { PermissionRequest, TaskPlan } from '@/shared/hooks/agent-types';
 import type { BranchMeta } from '@/shared/stores/branch-store';
 
@@ -48,6 +58,7 @@ function isPlanJson(content: string): boolean {
 // ── Grouped item types ───────────────────────────────────────────────────────
 
 export type GroupedItem =
+  | { type: 'download-widget'; key: string; activity: DownloadActivity }
   | { type: 'message'; key: string; msg: AGUIMessage }
   | {
       type: 'tool-group';
@@ -176,9 +187,22 @@ export function groupMessages(
     // never sit in the work list or stop the answer from being peeled off the
     // back. Only a live planning phase is shown; a settled one is history.
     const turn: AGUIMessage[] = [];
+    const downloadCalls = new Set<string>();
     for (const m of rawTurn) {
       if (m.role !== 'activity') {
         turn.push(m);
+        continue;
+      }
+      if (m.activityType === MEDIA_DOWNLOAD_ACTIVITY) {
+        const activity = downloadActivitySchema.safeParse(m.content);
+        if (activity.success) {
+          downloadCalls.add(activity.data.toolCallId);
+          items.push({
+            type: 'download-widget',
+            key: m.id,
+            activity: activity.data,
+          });
+        }
         continue;
       }
       const status = readStatusActivity(m);
@@ -228,6 +252,11 @@ export function groupMessages(
       }
 
       for (const tc of m.toolCalls ?? []) {
+        if (
+          downloadCalls.has(tc.id) &&
+          shortToolName(getToolName(tc)) === DOWNLOAD_MEDIA_TOOL
+        )
+          continue;
         // AskUserQuestion renders an interactive card — it can't be buried.
         if (getToolName(tc) === 'AskUserQuestion') {
           flush();
