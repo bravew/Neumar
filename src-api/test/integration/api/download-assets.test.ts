@@ -10,17 +10,23 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import type { DownloadMediaOperation } from '@neumar/video-ir';
+import { Hono } from 'hono';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { downloadAssetRoutes } from '@/app/api/download-assets';
+import { mountDownloadRoutes } from '@/app/api/downloads';
 
-import { closeDatabase } from '@/shared/db';
+import { closeDatabase, getDatabase } from '@/shared/db';
 import {
   createSession,
   createTask,
   getFilesByTaskId,
 } from '@/shared/db/operations';
 import { registerDownloadAsset } from '@/shared/services/media-download/assets';
+import {
+  bindDestination,
+  destinationPolicy,
+} from '@/shared/services/media-download/destination';
 
 const TASK_ID = 'task-download-assets';
 const BYTES = Buffer.from(Array.from({ length: 1000 }, (_, i) => i % 256));
@@ -208,5 +214,58 @@ describe('task download assets', () => {
     symlinkSync(outside, path.join(folder, 'link.tmp'));
     renameSync(path.join(folder, 'link.tmp'), target);
     expect((await app.request(url(asset.assetId))).status).toBe(404);
+  });
+
+  it('serves playback at the path the player uses, through the daemon mount', async () => {
+    // The card builds `/files/tasks/:taskId/downloads/:assetId`. Building the
+    // route in isolation once passed while the daemon never mounted it, so
+    // this test mounts the same composition the daemon uses and resolves the
+    // grant from the database, not from a stub.
+    const output = path.join(home, 'output');
+    mkdirSync(output);
+    writeFileSync(path.join(output, 'clip.mp4'), BYTES);
+    const grantId = crypto.randomUUID();
+    const bound = bindDestination(destinationPolicy(TASK_ID), output);
+    getDatabase()
+      .prepare(
+        `INSERT INTO download_destination_grants
+           (id, task_id, run_id, tool_call_id, batch_id, question_id,
+            directory, device, inode, options_json, input_json, created_at)
+         VALUES (?, ?, 'run-1', 'call-1', 'batch-1', NULL, ?, ?, ?, '[]', ?, ?)`,
+      )
+      .run(
+        grantId,
+        TASK_ID,
+        bound.directory,
+        bound.device,
+        bound.inode,
+        JSON.stringify({ urls: ['https://example.org/video'] }),
+        Date.now(),
+      );
+    const asset = await registerDownloadAsset(
+      { ...operation(), destinationGrantId: grantId },
+      'item-3',
+      output,
+      path.join(output, 'clip.mp4'),
+    );
+
+    const app = new Hono();
+    mountDownloadRoutes(app);
+
+    const range = await app.request(`/files${url(asset.assetId)}`, {
+      headers: { Range: 'bytes=10-19' },
+    });
+    expect(range.status).toBe(206);
+    expect(Buffer.from(await range.arrayBuffer())).toEqual(
+      BYTES.subarray(10, 20),
+    );
+
+    // The picker's pre-check is mounted beside it.
+    const denied = await app.request('/downloads/destination', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId: TASK_ID, path: path.join(home, 'no') }),
+    });
+    expect(denied.status).toBe(403);
   });
 });

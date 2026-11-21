@@ -17,7 +17,6 @@ import {
   dbRoutes,
   doctorRoutes,
   documentsRoutes,
-  downloadDestinationRoutes,
   feedbackRoutes,
   filesRoutes,
   gatewayRoutes,
@@ -29,6 +28,7 @@ import {
   mcpRuntimeRoutes,
   mcpServerRoutes,
   memoryRoutes,
+  mountDownloadRoutes,
   observabilityRoutes,
   petsRoutes,
   pluginsRoutes,
@@ -246,7 +246,8 @@ app.route('/soul', soulRoutes);
 app.route('/search', searchRoutes);
 app.route('/secrets', secretsRoutes);
 app.route('/tasks', branchesRoutes);
-app.route('/downloads', downloadDestinationRoutes());
+// Destination checks and task-scoped playback; both resolve a stored grant.
+mountDownloadRoutes(app);
 app.route('/ag-ui', aguiRoutes);
 app.route('/doctor', doctorRoutes);
 app.route('/', copilotKitRoutes);

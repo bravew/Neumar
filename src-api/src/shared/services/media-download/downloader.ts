@@ -42,9 +42,11 @@ function storedGrant(grantId: string): GrantRow | undefined {
  *
  * The grant must still be the folder the user chose: the policy is re-read and
  * the stored directory, device and inode must still describe one directory.
+ * Only the task and the grant identify it, so playback resolves the same grant
+ * without reconstructing the whole operation.
  */
 export async function resolveDownloadDestination(
-  operation: DownloadMediaOperation,
+  operation: Pick<DownloadMediaOperation, 'taskId' | 'destinationGrantId'>,
 ): Promise<string> {
   const stored = storedGrant(operation.destinationGrantId);
   if (!stored?.directory) throw new DestinationDenied();

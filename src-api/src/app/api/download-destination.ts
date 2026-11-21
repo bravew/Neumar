@@ -27,7 +27,8 @@ const bodySchema = z.strictObject({
 export function downloadDestinationRoutes(): Hono {
   const app = new Hono();
 
-  app.post('/downloads/destination', async (c) => {
+  // Mounted at `/downloads`; the client calls `/downloads/destination`.
+  app.post('/destination', async (c) => {
     const parsed = bodySchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) {
       return c.json({ error: 'Invalid request', code: 'invalid_request' }, 400);

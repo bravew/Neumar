@@ -42,3 +42,4 @@ export { observabilityRoutes } from './observability.js';
 export { pluginsRoutes } from './plugins.js';
 export { petsRoutes } from './pets.js';
 export { downloadDestinationRoutes } from './download-destination.js';
+export { mountDownloadRoutes } from './downloads.js';
