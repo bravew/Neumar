@@ -128,9 +128,16 @@ function isThreadMessage(value: unknown): value is ThreadMessage {
     value.role !== 'user' &&
     value.role !== 'assistant' &&
     value.role !== 'tool' &&
-    value.role !== 'reasoning'
+    value.role !== 'reasoning' &&
+    value.role !== 'activity'
   ) {
     return false;
+  }
+  // An activity message carries its widget payload as an object; every other
+  // role carries text. Rejecting the activity role dropped a reloaded thread's
+  // whole history whenever a plan or download card was in it.
+  if (value.role === 'activity') {
+    return typeof value.activityType === 'string' && isRecord(value.content);
   }
   if (value.content !== undefined && typeof value.content !== 'string') {
     return false;
