@@ -8,6 +8,7 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 
 import { FfmpegSkillError } from './errors';
 
@@ -29,6 +30,12 @@ export interface SupervisedRunInput {
   killGraceMs?: number;
   /** Called with normalized stderr progress lines. Never parsed as success. */
   onProgress?: (line: string) => void;
+  /**
+   * Called with normalized stdout lines as they arrive. Structured progress
+   * that a tool writes to stdout (yt-dlp `--progress-template`) is read here;
+   * the full stdout is still captured for the result.
+   */
+  onStdoutProgress?: (line: string) => void;
 }
 
 export interface SupervisedRunResult {
@@ -69,7 +76,7 @@ export function runSupervised(
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
-    const stdout = capture(maxOutputBytes);
+    const stdout = capture(maxOutputBytes, input.onStdoutProgress);
     const stderr = capture(maxOutputBytes, input.onProgress);
 
     let settled = false;
@@ -176,6 +183,9 @@ function capture(
   let bytes = 0;
   let exceeded = false;
   let pending = '';
+  // A character split across chunks is held until its last byte arrives, so
+  // the line callback never sees a replacement character.
+  const decoder = new StringDecoder('utf8');
   return {
     push(chunk: Buffer): boolean {
       const remaining = limit - bytes;
@@ -185,7 +195,7 @@ function capture(
         chunks.push(accepted);
         bytes += accepted.byteLength;
         if (onLine)
-          pending = emitLines(pending, accepted.toString('utf8'), onLine);
+          pending = emitLines(pending, decoder.write(accepted), onLine);
       }
       if (accepted.byteLength < chunk.byteLength) exceeded = true;
       return exceeded;

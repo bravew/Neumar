@@ -79,6 +79,17 @@ main" and move on.**
 
 ## Contracts and integration boundaries
 
+**After cancellation, wait for asynchronous cleanup instead of repeatedly waking
+on an already-aborted signal.**
+- Epic #351's `src-api/src/shared/services/media-download/run-batch.ts:88`
+  immediately resolved every wait after abort. Its microtask loop starved the
+  process-exit callback, so the download stream never settled.
+- `pnpm test:api test/unit/services/media-download-cancellation.test.ts`
+  reproduced the failure in a bounded child process (`ETIMEDOUT` after receiving
+  abort), then passed after waiting for the runner's emission or settlement.
+  Direct runner cancellation tests had missed the stream wrapper.
+- Seen 1x (2026-11-21).
+
 **Reproduce on the surface the caller uses: the HTTP route, the MCP handler, the
 bridge, the packaged build, the chosen runtime.**
 - #187, #175, #90 and #155 above are all one shape: the tested layer was not the

@@ -64,6 +64,25 @@ describe('skill process supervisor', () => {
     ).rejects.toMatchObject({ kind: 'output_limit' });
   });
 
+  it('keeps a multi-byte character intact when a chunk boundary splits it', async () => {
+    const lines: string[] = [];
+    // "é" is two bytes; the child writes them in separate flushes.
+    const child = `
+      process.stdout.write(Buffer.from([0x63, 0x61, 0x66, 0xc3]));
+      setTimeout(() => process.stdout.write(Buffer.from([0xa9, 0x0a])), 100);
+    `;
+    await runSupervised({
+      command: process.execPath,
+      args: ['-e', child],
+      cwd: process.cwd(),
+      env: process.env,
+      killGraceMs: 200,
+      onStdoutProgress: (line) => lines.push(line),
+    });
+
+    expect(lines).toEqual(['café']);
+  });
+
   it('stops a silent hang at the deadline', async () => {
     const started = Date.now();
     await expect(

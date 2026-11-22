@@ -28,6 +28,7 @@ import {
   mcpRuntimeRoutes,
   mcpServerRoutes,
   memoryRoutes,
+  mountDownloadRoutes,
   observabilityRoutes,
   petsRoutes,
   pluginsRoutes,
@@ -53,6 +54,9 @@ import { authJwtRoutes } from '@/app/api/auth-jwt';
 import { automationRoutes } from '@/app/api/automation';
 import { copilotKitRoutes } from '@/app/api/copilotkit';
 import { mcpBridgeRoutes } from '@/app/api/mcp-bridge';
+
+// Registers the real download runner with the resume route at startup.
+import '@/shared/services/media-download/downloader';
 import { remoteRoutes } from '@/app/api/remote';
 import { soulRoutes } from '@/app/api/soul';
 import { corsMiddleware, jwtMiddleware } from '@/app/middleware/index.js';
@@ -242,6 +246,8 @@ app.route('/soul', soulRoutes);
 app.route('/search', searchRoutes);
 app.route('/secrets', secretsRoutes);
 app.route('/tasks', branchesRoutes);
+// Destination checks and task-scoped playback; both resolve a stored grant.
+mountDownloadRoutes(app);
 app.route('/ag-ui', aguiRoutes);
 app.route('/doctor', doctorRoutes);
 app.route('/', copilotKitRoutes);

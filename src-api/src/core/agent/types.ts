@@ -1,19 +1,18 @@
+import type {
+  McpServerConfig,
+  SdkMcpToolDefinition,
+} from '@anthropic-ai/claude-agent-sdk';
 /**
  * Agent SDK Abstraction Layer - Type Definitions
  *
  * This module defines the common interfaces for different agent implementations.
  * Supports: Claude Agent SDK and custom implementations.
  */
-
 // ============================================================================
 // Message Types
 // ============================================================================
-
-import type {
-  McpServerConfig,
-  SdkMcpToolDefinition,
-} from '@anthropic-ai/claude-agent-sdk';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { DownloadActivity } from '@neumar/video-ir';
 
 import type { TurnBudgetOutcome } from './turn-budget';
 
@@ -73,6 +72,7 @@ export type AgentMessageType =
   | 'done'
   | 'plan'
   | 'plan_activity'
+  | 'media_download_activity'
   | 'direct_answer'
   | 'thinking'
   | 'planning_status'
@@ -173,6 +173,7 @@ export interface AgentMessage {
   isError?: boolean;
   // Plan fields
   plan?: TaskPlan;
+  downloadActivity?: DownloadActivity;
   // Error fields
   message?: string;
   // Planning progress fields

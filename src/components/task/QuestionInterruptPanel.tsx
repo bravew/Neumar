@@ -1,8 +1,10 @@
 import { QuestionFormCard } from '@/components/shared/chat-panel';
+import { DOWNLOAD_DESTINATION_QUESTION } from '@/shared/downloads/destination';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
 import { useThreadStore } from '@/shared/stores/thread-store';
 
+import { DownloadDestinationPicker } from './DownloadDestinationPicker';
 import { useQuestionInterruptsContext } from './QuestionInterruptsProvider';
 
 /**
@@ -45,6 +47,22 @@ export function QuestionInterruptPanel() {
             <QuestionFormCard
               questions={open.questions}
               onSubmit={(answers) => void answer(open.interruptId, answers)}
+              otherSlot={
+                open.questions.some(
+                  (question) =>
+                    question.question === DOWNLOAD_DESTINATION_QUESTION,
+                ) ? (
+                  <DownloadDestinationPicker
+                    taskId={taskId}
+                    disabled={answering}
+                    onChoose={(folder) =>
+                      void answer(open.interruptId, {
+                        [DOWNLOAD_DESTINATION_QUESTION]: folder,
+                      })
+                    }
+                  />
+                ) : undefined
+              }
             />
             <div className="flex justify-end pb-2">
               <button

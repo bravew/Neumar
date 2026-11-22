@@ -15,6 +15,10 @@ import * as path from 'node:path';
 
 import { EventType } from '@ag-ui/core';
 import type { BaseEvent, RunFinishedEvent } from '@ag-ui/core';
+import {
+  MEDIA_DOWNLOAD_ACTIVITY,
+  reconcileDownloadSnapshot,
+} from '@neumar/video-ir';
 import type Database from 'better-sqlite3';
 
 import { classifyRunFailure } from '@/core/agent/error-retry';
@@ -156,7 +160,11 @@ function getFileType(
 }
 
 /** Activity types the app renders; any other type is dropped, not stored. */
-const SUPPORTED_ACTIVITY_TYPES = new Set(['plan', 'status']);
+const SUPPORTED_ACTIVITY_TYPES = new Set([
+  'plan',
+  'status',
+  MEDIA_DOWNLOAD_ACTIVITY,
+]);
 
 interface ActivityRow {
   activityType: string;
@@ -626,8 +634,17 @@ export class AGUIEventPersister {
             Array.isArray(e.content)
           )
             break;
-          const content = e.content as Record<string, unknown>;
           const existing = readActivityRow(this.taskId, id);
+          const content =
+            activityType === MEDIA_DOWNLOAD_ACTIVITY
+              ? reconcileDownloadSnapshot(
+                  this.taskId,
+                  id,
+                  existing?.content,
+                  e.content,
+                )
+              : (e.content as Record<string, unknown>);
+          if (!content) break;
           if (existing) {
             // `replace: false` leaves an existing activity alone; it never
             // merges. A type change is not a replacement of the same widget.
@@ -660,7 +677,16 @@ export class AGUIEventPersister {
           // AG-UI spec; a failed patch leaves the stored content untouched.
           const existing = readActivityRow(this.taskId, id);
           if (!existing || existing.activityType !== e.activityType) break;
-          const content = patchActivityContent(existing.content, e.patch);
+          const patched = patchActivityContent(existing.content, e.patch);
+          const content =
+            existing.activityType === MEDIA_DOWNLOAD_ACTIVITY
+              ? reconcileDownloadSnapshot(
+                  this.taskId,
+                  id,
+                  existing.content,
+                  patched,
+                )
+              : patched;
           if (!content) break;
           updateActivityContent(this.taskId, id, content);
           break;

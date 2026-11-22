@@ -10,7 +10,22 @@ export function appendOutputArtifactsItem(
   items: GroupedItem[],
   artifacts: Artifact[] | undefined,
 ): GroupedItem[] {
-  const previewableArtifacts = getPreviewableOutputArtifacts(artifacts ?? []);
+  const renderedAssetIds = new Set(
+    items.flatMap((item) =>
+      item.type === 'download-widget'
+        ? item.activity.items.flatMap((video) =>
+            // An asset saved before `libraryFileId` existed used the library
+            // file id as its asset id.
+            video.phase === 'saved'
+              ? [video.asset.libraryFileId ?? video.asset.assetId]
+              : [],
+          )
+        : [],
+    ),
+  );
+  const previewableArtifacts = getPreviewableOutputArtifacts(
+    artifacts ?? [],
+  ).filter((artifact) => !renderedAssetIds.has(artifact.id));
   const outputArtifacts = selectReferencedDeliverables(
     items,
     previewableArtifacts,

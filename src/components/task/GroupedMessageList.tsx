@@ -7,6 +7,7 @@ import React from 'react';
 
 import type { Artifact } from '@/components/artifacts/types';
 import { BranchNavigator } from '@/components/task/BranchNavigator';
+import { DownloadActivityWidget } from '@/components/task/DownloadActivityWidget';
 import { ErrorMessage } from '@/components/task/ErrorMessage';
 import {
   groupMessages,
@@ -216,6 +217,8 @@ export function renderGroupedItem(
           onCancelTool={ctx.onCancelTool}
         />
       );
+    case 'download-widget':
+      return <DownloadActivityWidget key={item.key} activity={item.activity} />;
     case 'status-widget':
       return (
         <StatusWidget

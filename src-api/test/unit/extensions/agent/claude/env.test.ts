@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyClaudeMcpStartupWaitDefault,
   buildClaudeSystemPromptOption,
+  buildClaudeDisallowedTools,
   claudeStreamTextDedupeKey,
   composeClaudePromptWithResumeCache,
   normalizeInheritedAnthropicEnvForClaudeLogin,
@@ -247,6 +248,22 @@ describe('Claude env normalization', () => {
 });
 
 describe('Claude systemPrompt option', () => {
+  it('routes managed video saves through the picker even with the CLI skill installed', () => {
+    expect(
+      buildClaudeSystemPromptOption('test-model', true, true),
+    ).toMatchObject({
+      append: expect.stringContaining('download_media'),
+    });
+    const rules = buildClaudeDisallowedTools({
+      inProcessMcpServers: {
+        'media-download': { type: 'stdio', command: 'node' },
+      },
+      disallowedTools: ['Write'],
+    });
+    expect(rules).toEqual(expect.arrayContaining(['Write', 'Bash(yt-dlp *)']));
+    expect(buildClaudeDisallowedTools()).not.toContain('Bash(yt-dlp *)');
+  });
+
   it('renders the model-specific append per request instead of snapshotting it', () => {
     // Agent SDK 0.3.267 records the first request's system prompt by default,
     // so a resumed session would keep naming the previous turn's model.

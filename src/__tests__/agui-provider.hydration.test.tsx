@@ -37,7 +37,12 @@ function deferred<T>() {
 }
 
 function historyResponse(
-  messages: Array<{ id: string; role: 'assistant'; content: string }>,
+  messages: Array<{
+    id: string;
+    role: 'assistant' | 'user' | 'activity';
+    content: string | Record<string, unknown>;
+    activityType?: string;
+  }>,
 ) {
   return {
     files: [],
@@ -90,6 +95,58 @@ describe('AgUiProvider history hydration', () => {
     } finally {
       timeoutSpy.mockRestore();
     }
+  });
+
+  it('keeps a persisted activity card when a thread reloads', async () => {
+    // The history endpoint returns activity rows with an object payload. A
+    // parser that only accepts text roles throws the whole history away, so a
+    // reloaded task loses its download and plan cards along with every message.
+    const content = {
+      version: 1,
+      taskId: 'activity-task',
+      runId: 'run-1',
+      toolCallId: 'call-1',
+      batchId: 'batch-1',
+      items: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve(
+              historyResponse([
+                { id: 'user-1', role: 'user', content: 'download two videos' },
+                {
+                  id: 'media-download:["activity-task","call-1","batch-1"]',
+                  role: 'activity',
+                  activityType: 'media-download',
+                  content,
+                },
+              ]),
+            ),
+        } as Response),
+      ),
+    );
+
+    render(<AgUiProvider threadId="activity-task">thread</AgUiProvider>);
+
+    await waitFor(() => {
+      expect(
+        useThreadStore.getState().threads['activity-task']?.messages,
+      ).toHaveLength(2);
+    });
+    expect(
+      useThreadStore.getState().threads['activity-task']?.messages[1],
+    ).toMatchObject({
+      role: 'activity',
+      activityType: 'media-download',
+      content,
+    });
+    expect(
+      useThreadStore.getState().threads['activity-task']?.hydrationState,
+    ).toBe('hydrated');
   });
 
   it('ignores an older history response that finishes after a task switch', async () => {

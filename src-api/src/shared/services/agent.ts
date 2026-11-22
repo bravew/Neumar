@@ -44,6 +44,7 @@ import { DEFAULT_AGENT_PROVIDER } from '@/config/constants';
 import { updateTask } from '@/shared/db/operations';
 import { applyTaskPlugin } from '@/shared/plugins';
 import { prepareFfmpegSkillAttachment } from '@/shared/services/ffmpeg-skill/attach';
+import type { DownloadAttachment } from '@/shared/services/media-download/attachment';
 import {
   autoCapture,
   type MemoryScope,
@@ -425,6 +426,7 @@ export async function* runPlanningPhase(
    * `AgentOptions.verbatimPrompt`.
    */
   verbatimPrompt?: boolean,
+  executionToolHint?: string,
 ): AsyncGenerator<AgentMessage> {
   using _taskRun = acquireTaskRun(taskId);
   const agent = getAgent(modelConfig);
@@ -457,7 +459,9 @@ export async function* runPlanningPhase(
       cwd: workDir,
       taskId,
       additionalUserDirs,
-      systemContext: taskPluginContext.systemContext,
+      systemContext: [taskPluginContext.systemContext, executionToolHint]
+        .filter(Boolean)
+        .join('\n\n'),
       resolvedContext,
       thinkingConfig: effectiveThinking,
       channelContext,
@@ -504,6 +508,8 @@ export async function* runExecutionPhase(
   channelContext?: PlanOptions['channelContext'],
   /** Set by schedule callers — see runPlanningPhase. */
   verbatimPrompt?: boolean,
+  /** Managed download tool for this run; absent for non-interactive callers. */
+  downloads?: DownloadAttachment,
 ): AsyncGenerator<AgentMessage> {
   using _taskRun = acquireTaskRun(taskId);
   const agent = getAgent(modelConfig);
@@ -566,6 +572,15 @@ export async function* runExecutionPhase(
     return;
   }
 
+  const downloadServers = {
+    ...(ffmpegAttachment.inProcessMcpServers ?? {}),
+    ...(downloads?.inProcessMcpServers ?? {}),
+  };
+  const bridgeServers = [
+    ...(ffmpegAttachment.bridgeInProcessServers ?? []),
+    ...(downloads?.bridgeInProcessServers ?? []),
+  ];
+
   const stream = withToolResultLoopGuard(
     agent.execute({
       planId,
@@ -585,12 +600,14 @@ export async function* runExecutionPhase(
       additionalUserDirs,
       pinnedSkills: taskPluginContext.pinnedSkills,
       conversation,
-      systemContext: ffmpegAttachment.systemContext,
-      ...(ffmpegAttachment.inProcessMcpServers
-        ? { inProcessMcpServers: ffmpegAttachment.inProcessMcpServers }
+      systemContext: downloads?.systemContext
+        ? `${ffmpegAttachment.systemContext}\n\n${downloads.systemContext}`
+        : ffmpegAttachment.systemContext,
+      ...(Object.keys(downloadServers).length > 0
+        ? { inProcessMcpServers: downloadServers }
         : {}),
-      ...(ffmpegAttachment.bridgeInProcessServers
-        ? { bridgeInProcessServers: ffmpegAttachment.bridgeInProcessServers }
+      ...(bridgeServers.length > 0
+        ? { bridgeInProcessServers: bridgeServers }
         : {}),
       resolvedContext,
       autoApprove,
@@ -601,7 +618,11 @@ export async function* runExecutionPhase(
   );
 
   for await (const message of stream) {
-    yield message;
+    if (downloads) {
+      for await (const observed of downloads.observe(message)) yield observed;
+    } else {
+      yield message;
+    }
   }
 }
 
@@ -672,6 +693,32 @@ export interface RunAgentOptions {
   verbatimPrompt?: boolean;
   /** Conversation-branch SDK session to fork or resume (Claude only). */
   branchSession?: AgentOptions['branchSession'];
+  /**
+   * The managed download tool for this run. Its server is mounted with the
+   * run's other in-process servers and its observer sees every message, so a
+   * tool result can be correlated with the batch the tool recorded.
+   */
+  downloads?: DownloadAttachment;
+}
+
+/**
+ * One agent stream with the download tool attached.
+ *
+ * The server is mounted by the caller (`runAgent` / `runExecutionPhase`) and
+ * this wrapper only observes: it sees each tool result before the transcript
+ * does, records the batch and replaces the signed source URLs in history.
+ */
+export async function* observeDownloads(
+  source: AsyncIterable<AgentMessage>,
+  downloads: DownloadAttachment | undefined,
+): AsyncGenerator<AgentMessage> {
+  if (!downloads) {
+    yield* source;
+    return;
+  }
+  for await (const message of source) {
+    for await (const observed of downloads.observe(message)) yield observed;
+  }
 }
 
 /**
@@ -712,6 +759,7 @@ export async function* runAgent(
     maxTurns,
     verbatimPrompt,
     branchSession,
+    downloads,
   } = opts;
 
   using _taskRun = acquireTaskRun(taskId);
@@ -814,6 +862,18 @@ export async function* runAgent(
     return;
   }
 
+  const downloadServers = {
+    ...(ffmpegAttachment.inProcessMcpServers ?? {}),
+    ...(downloads?.inProcessMcpServers ?? {}),
+  };
+  const bridgeServers = [
+    ...(ffmpegAttachment.bridgeInProcessServers ?? []),
+    ...(downloads?.bridgeInProcessServers ?? []),
+  ];
+  const systemContextWithDownloads = downloads?.systemContext
+    ? `${ffmpegAttachment.systemContext}\n\n${downloads.systemContext}`
+    : ffmpegAttachment.systemContext;
+
   const runOptions = {
     sessionId: session.id,
     conversation,
@@ -829,12 +889,12 @@ export async function* runAgent(
     allowWorkspaceWrite,
     additionalUserDirs,
     pinnedSkills: taskPluginContext.pinnedSkills,
-    systemContext: ffmpegAttachment.systemContext,
-    ...(ffmpegAttachment.inProcessMcpServers
-      ? { inProcessMcpServers: ffmpegAttachment.inProcessMcpServers }
+    systemContext: systemContextWithDownloads,
+    ...(Object.keys(downloadServers).length > 0
+      ? { inProcessMcpServers: downloadServers }
       : {}),
-    ...(ffmpegAttachment.bridgeInProcessServers
-      ? { bridgeInProcessServers: ffmpegAttachment.bridgeInProcessServers }
+    ...(bridgeServers.length > 0
+      ? { bridgeInProcessServers: bridgeServers }
       : {}),
     resolvedContext,
     agentProfileId,
@@ -855,7 +915,13 @@ export async function* runAgent(
     () => withToolResultLoopGuard(agent.run(prompt, runOptions)),
     session.abortController.signal,
   )) {
-    yield message;
+    // The download observer sees the result before the transcript does, so it
+    // can record the request and keep the signed URLs out of history.
+    if (downloads) {
+      for await (const observed of downloads.observe(message)) yield observed;
+    } else {
+      yield message;
+    }
   }
 
   // Memory auto-capture — ALL agent types benefit; channel messages get per-user scoped memories.

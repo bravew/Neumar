@@ -39,6 +39,7 @@ import {
 } from '@/core/agent/turn-budget';
 import type { AgentMessage, TaskPlan } from '@/core/agent/types';
 
+import { downloadActivityEvent } from './download-activity';
 import { CustomEventName } from './event-schema';
 import { permissionInterrupt, planInterrupt } from './interrupts';
 import { PausableSource } from './pausable-source';
@@ -819,6 +820,22 @@ export class AGUIEmitter {
           // One decision per planning run: a later plan replaces an earlier one.
           this.pendingInterrupts = [planInterrupt(this.threadId, plan)];
         }
+        break;
+      }
+
+      case 'media_download_activity': {
+        const activity = msg.downloadActivity;
+        if (
+          !activity ||
+          activity.taskId !== (this.context?.taskId ?? this.threadId) ||
+          activity.runId !== this.runId
+        )
+          break;
+        const snapshot = downloadActivityEvent(activity);
+        yield this.event<ActivitySnapshotEvent>(EventType.ACTIVITY_SNAPSHOT, {
+          ...snapshot,
+          ...ownerField(msg.subagentRunId),
+        });
         break;
       }
 
