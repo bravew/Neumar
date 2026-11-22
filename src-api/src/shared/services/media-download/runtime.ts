@@ -23,6 +23,8 @@ export interface PreparedDownload {
   proxy: string;
   /** Byte cap the wrapper enforces on the file the downloader writes. */
   maxFileBytes: number;
+  /** Bytes the network delivered to this attempt so far. */
+  received(): number;
   close(): void | Promise<void>;
 }
 
@@ -42,6 +44,13 @@ const SYSTEM_PATH = [
   '/usr/sbin',
   '/sbin',
 ];
+
+/**
+ * The loopback port `socat` listens on inside the Linux sandbox. The sandbox
+ * has its own network namespace, so a fixed port cannot collide with the host;
+ * the proxy itself listens on a Unix socket and has no TCP port.
+ */
+const LINUX_BRIDGE_PORT = 18_080;
 
 /** The fixed command wrapper: cap the file size, then become the downloader. */
 function wrapper(limit: number): string {
@@ -70,8 +79,10 @@ function findExecutable(
 export function resolveYtDlp(): string {
   const found = findExecutable('yt-dlp');
   if (!found) {
+    // Discovery searches fixed folders, never the daemon's PATH, so the
+    // message names the folders that are actually searched.
     throw new Error(
-      'yt-dlp is not installed. Video downloads need it on PATH.',
+      `yt-dlp is not installed. Video downloads look for it in ${SYSTEM_PATH.join(', ')}.`,
     );
   }
   return realpathSync(found);
@@ -128,27 +139,31 @@ export const managedMediaRuntime: DownloadMediaRuntime = {
         prefix: ['-p', profile, '/bin/sh', '-c', script, 'media', ytdlp],
         proxy: proxy.url,
         maxFileBytes: limits.maxFileBytes,
+        received: proxy.received,
         close: proxy.close,
       };
     }
 
     if (process.platform === 'linux') {
       const bwrap = findExecutable('bwrap', ['/usr/bin', '/bin']);
-      const socat = findExecutable('socat', [
+      const found = findExecutable('socat', [
         '/usr/bin',
         '/bin',
         '/usr/local/bin',
       ]);
-      if (!bwrap || !socat) {
+      if (!bwrap || !found) {
         throw new Error(
           'Video downloads on Linux need bubblewrap (bwrap) and socat installed.',
         );
       }
+      // Run the socat discovery found, not whatever the daemon's PATH names.
+      const socat = realpathSync(found);
       const dir = await mkdtemp(join(await realpath(tmpdir()), 'media-proxy-'));
       try {
         const socket = join(dir, 'proxy.sock');
         const proxy = await openDownloadProxy({
           socketPath: socket,
+          sandboxPort: LINUX_BRIDGE_PORT,
           maxBytes: limits.maxFileBytes,
         });
         const roBind = ['/usr', '/bin', '/lib', '/lib64', '/etc/ssl'].flatMap(
@@ -164,6 +179,9 @@ export const managedMediaRuntime: DownloadMediaRuntime = {
             '--ro-bind-try',
             ytdlp,
             ytdlp,
+            '--ro-bind-try',
+            socat,
+            socat,
             '--proc',
             '/proc',
             '--dev',
@@ -180,12 +198,15 @@ export const managedMediaRuntime: DownloadMediaRuntime = {
             '/',
             '/bin/sh',
             '-c',
-            `socat TCP4-LISTEN:${proxy.port},bind=127.0.0.1,reuseaddr,fork UNIX-CONNECT:/proxy.sock & ${script}`,
+            // $1 is the discovered socat; the rest is the downloader argv.
+            `bridge="$1"; shift; "$bridge" TCP4-LISTEN:${LINUX_BRIDGE_PORT},bind=127.0.0.1,reuseaddr,fork UNIX-CONNECT:/proxy.sock & ${script}`,
             'media',
+            socat,
             ytdlp,
           ],
           proxy: proxy.url,
           maxFileBytes: limits.maxFileBytes,
+          received: proxy.received,
           close: async () => {
             proxy.close();
             await rm(dir, { recursive: true, force: true });
@@ -218,6 +239,7 @@ export function directRuntime(command: string): DownloadMediaRuntime {
         prefix: [],
         proxy: '',
         maxFileBytes: limits.maxFileBytes,
+        received: () => 0,
         close: () => undefined,
       };
     },

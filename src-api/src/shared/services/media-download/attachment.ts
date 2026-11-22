@@ -140,7 +140,8 @@ export function createTaskDownloadAttachment(
         : downloadReceiptId(message.output);
       const input = batchId ? pending.get(batchId) : undefined;
       if (!batchId || !input) {
-        pending.clear();
+        // Only a matched receipt consumes a request. Calls overlap, so an
+        // unmatched result must not discard another call's pending batch.
         yield {
           ...message,
           isError: true,

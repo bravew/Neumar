@@ -62,8 +62,18 @@ function sameToken(given: string | undefined, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/**
+ * Where the proxy listens. TCP mode takes an OS-assigned loopback port. Unix
+ * socket mode has no TCP port of its own: the downloader reaches it through a
+ * bridge on `sandboxPort` inside the sandbox, so that is the port in the URL.
+ */
+export type DownloadProxyOptions = { maxBytes?: number } & (
+  | { socketPath?: undefined; sandboxPort?: undefined }
+  | { socketPath: string; sandboxPort: number }
+);
+
 export async function openDownloadProxy(
-  options: { socketPath?: string; maxBytes?: number } = {},
+  options: DownloadProxyOptions = {},
 ): Promise<DownloadProxy> {
   const token = randomBytes(24).toString('hex');
   const expected = `Basic ${Buffer.from(`media:${token}`).toString('base64')}`;
@@ -205,9 +215,18 @@ export async function openDownloadProxy(
     if (options.socketPath) server.listen(options.socketPath, resolve);
     else server.listen(0, '127.0.0.1', resolve);
   });
-  const address = server.address();
-  const port = address && typeof address !== 'string' ? address.port : 0;
-  if (!port) throw new Error('The download proxy did not start.');
+  let port = 0;
+  if (options.socketPath) {
+    port = options.sandboxPort;
+  } else {
+    const address = server.address();
+    port = address && typeof address !== 'string' ? address.port : 0;
+  }
+  if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+    // The listener is already open; do not leave it behind.
+    close();
+    throw new Error('The download proxy did not start.');
+  }
   return {
     port,
     url: `http://media:${token}@127.0.0.1:${port}`,

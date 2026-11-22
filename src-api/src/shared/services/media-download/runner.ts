@@ -27,9 +27,12 @@ import { z } from 'zod';
 
 import { isFfmpegSkillError } from '@/shared/services/ffmpeg-skill/errors';
 import { runSupervised } from '@/shared/services/ffmpeg-skill/supervisor';
+import { createLogger } from '@/shared/utils/logger';
 
 import { DestinationDenied } from './destination';
 import { managedMediaRuntime, type DownloadMediaRuntime } from './runtime';
+
+const logger = createLogger('MediaDownloadRunner');
 
 /** Per-file and per-batch bounds; the proxy and the wrapper enforce them too. */
 export const MAX_FILE_BYTES = 2 * 1024 ** 3;
@@ -138,7 +141,9 @@ export function downloadArgv(input: {
     '--progress-delta',
     '0.3',
     '--progress-template',
-    `download:${PROGRESS_PREFIX}{"stream":%(info.format_id)j,"bytes":%(progress.downloaded_bytes)j,"total":%(progress.total_bytes)j,"estimate":%(progress.total_bytes_estimate)j,"speed":%(progress.speed)j,"eta":%(progress.eta)j}`,
+    // An absent field prints a bare `NA`, which is not JSON; `|null` makes the
+    // optional metrics parse as null so the byte count still arrives.
+    `download:${PROGRESS_PREFIX}{"stream":%(info.format_id)j,"bytes":%(progress.downloaded_bytes)j,"total":%(progress.total_bytes|null)j,"estimate":%(progress.total_bytes_estimate|null)j,"speed":%(progress.speed|null)j,"eta":%(progress.eta|null)j}`,
     '--progress-template',
     `postprocess:${FINISHED}`,
     '--print',
@@ -184,6 +189,32 @@ async function createStage(): Promise<string> {
   return mkdtemp(join(await realpath(tmpdir()), 'media-item-'));
 }
 
+/**
+ * Remove a private working folder without letting a failure change the item.
+ * A leftover temp folder is reported; it must not undo a saved file or stop
+ * the siblings that have not started.
+ */
+async function removeQuietly(path: string): Promise<void> {
+  try {
+    await rm(path, { recursive: true, force: true });
+  } catch (error) {
+    logger.warn('Could not remove a download working folder', {
+      path,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/** The path in an `after_move` line; `%(filepath)j` prints a JSON string. */
+function reportedPath(payload: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(payload);
+    return typeof parsed === 'string' ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function runDownloadMedia(
   raw: DownloadMediaOperation,
   options: DownloadMediaOptions,
@@ -217,6 +248,11 @@ export async function runDownloadMedia(
     };
 
     let stage: string | undefined;
+    // Bytes this attempt cost the batch, whatever its outcome: a collision or
+    // a cancellation still spent what the network delivered.
+    let charged = 0;
+    // A stop the runner caused itself; the caller's signal is a user stop.
+    let internalStop: FailureReason | undefined;
     try {
       signal.throwIfAborted();
       const grantedRoot = await options.resolveDestination(operation);
@@ -243,8 +279,8 @@ export async function runDownloadMedia(
       const streams = new Map<string, StreamState>();
       const stderrLines: string[] = [];
       let finished = false;
-      let overflow = false;
       let reported = false;
+      let reportedBytes = 0;
       const controller = new AbortController();
       let publishedFile: string | undefined;
 
@@ -257,10 +293,12 @@ export async function runDownloadMedia(
           return;
         }
         if (line.startsWith(FILE_PREFIX)) {
-          publishedFile = line.slice(FILE_PREFIX.length);
+          publishedFile = reportedPath(line.slice(FILE_PREFIX.length));
           return;
         }
-        if (!line.startsWith(PROGRESS_PREFIX) || finished || overflow) return;
+        if (!line.startsWith(PROGRESS_PREFIX) || finished || internalStop) {
+          return;
+        }
         let parsed: unknown;
         try {
           parsed = JSON.parse(line.slice(PROGRESS_PREFIX.length));
@@ -282,12 +320,12 @@ export async function runDownloadMedia(
           ...(speed != null ? { bytesPerSecond: speed } : {}),
           ...(eta != null ? { etaSeconds: eta } : {}),
         });
-        if (
-          streams.size > MAX_STREAMS ||
-          [...streams.values()].reduce((sum, item) => sum + item.bytes, 0) >
-            maxFileBytes
-        ) {
-          overflow = true;
+        reportedBytes = [...streams.values()].reduce(
+          (sum, item) => sum + item.bytes,
+          0,
+        );
+        if (streams.size > MAX_STREAMS || reportedBytes > maxFileBytes) {
+          internalStop = 'limit';
           controller.abort();
           return;
         }
@@ -327,9 +365,10 @@ export async function runDownloadMedia(
           },
         });
         if (result.exitCode !== 0) {
-          throw new ItemError(overflow ? 'limit' : classify(stderrLines));
+          throw new ItemError(internalStop ?? classify(stderrLines));
         }
       } finally {
+        charged = Math.max(charged, prepared.received(), reportedBytes);
         await prepared.close();
       }
 
@@ -361,6 +400,7 @@ export async function runDownloadMedia(
       ) {
         throw new ItemError('download');
       }
+      charged = Math.max(charged, source.size);
       if (source.size > maxFileBytes) throw new ItemError('limit');
 
       const checkGrant = async () => {
@@ -416,33 +456,53 @@ export async function runDownloadMedia(
           }
           throw error;
         }
-        remaining -= source.size;
         update({ phase: 'saved', asset });
       } finally {
         if (await sameIdentity(delivery, deliveryIdentity)) {
-          await rm(delivery, { recursive: true, force: true });
+          await removeQuietly(delivery);
         }
       }
     } catch (error) {
       if (options.signal.aborted) {
         update({ phase: 'cancelled' });
+      } else if (error instanceof ItemError) {
+        update({ phase: 'failed', reason: error.reason });
+      } else if (internalStop) {
+        // The runner stopped the child itself (a stream over its cap).
+        update({ phase: 'failed', reason: internalStop });
+      } else if (budget.aborted) {
+        // The batch deadline is a limit, not a user stop.
+        update({ phase: 'failed', reason: 'limit' });
       } else if (isFfmpegSkillError(error) && error.kind === 'aborted') {
         update({ phase: 'cancelled' });
       } else {
         update({
           phase: 'failed',
-          reason:
-            error instanceof ItemError
-              ? error.reason
-              : error instanceof DestinationDenied
-                ? 'denied'
-                : 'download',
+          reason: error instanceof DestinationDenied ? 'denied' : 'download',
         });
       }
     } finally {
-      if (stage) await rm(stage, { recursive: true, force: true });
+      remaining -= charged;
+      if (stage) await removeQuietly(stage);
     }
     if (options.signal.aborted) break;
+  }
+
+  // A user stop ends the batch; items that never started are settled as
+  // cancelled so the card and the persisted snapshot hold no pending work.
+  if (options.signal.aborted) {
+    for (const item of state.items) {
+      if (item.phase !== 'queued' && item.phase !== 'waiting') continue;
+      state = applyDownloadUpdate(state, {
+        ...scope,
+        item: {
+          itemId: item.itemId,
+          sequence: item.sequence + 1,
+          phase: 'cancelled',
+        },
+      });
+    }
+    options.emit(state);
   }
   return state;
 }
