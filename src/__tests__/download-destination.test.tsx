@@ -1,3 +1,4 @@
+import { DOWNLOAD_DESTINATION_QUESTION as SHARED_DOWNLOAD_DESTINATION_QUESTION } from '@neumar/video-ir';
 import { open } from '@tauri-apps/plugin-dialog';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -64,6 +65,10 @@ describe('download destination copy', () => {
     expect(DOWNLOAD_DESTINATION_QUESTION).toBe(
       'Where should the videos be saved?',
     );
+    // The client constant is the shared package's, not a second copy.
+    expect(DOWNLOAD_DESTINATION_QUESTION).toBe(
+      SHARED_DOWNLOAD_DESTINATION_QUESTION,
+    );
   });
 });
 
@@ -76,7 +81,9 @@ describe('DownloadDestinationPicker', () => {
     openDialog.mockResolvedValue('/Users/me/Videos');
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ directory: '/Users/me/Videos' }),
+      // The server answers with the canonical folder, which differs from the
+      // dialog's path: the answer must carry what the server approved.
+      json: async () => ({ directory: '/private/Users/me/Videos' }),
     });
     const onChoose = vi.fn();
 
@@ -88,7 +95,7 @@ describe('DownloadDestinationPicker', () => {
     );
 
     await waitFor(() =>
-      expect(onChoose).toHaveBeenCalledWith('/Users/me/Videos'),
+      expect(onChoose).toHaveBeenCalledWith('/private/Users/me/Videos'),
     );
     expect(openDialog).toHaveBeenCalledWith(
       expect.objectContaining({ directory: true, multiple: false }),

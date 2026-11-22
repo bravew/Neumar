@@ -72,7 +72,7 @@ case "$url" in
 esac
 printf '%s\\n' 'NDFINISH'
 cp "$(dirname "$0")/clip.webm" "$stage/clip.webm"
-printf 'NDFILE:%s\\n' "$stage/clip.webm"
+printf 'NDFILE:"%s"\\n' "$stage/clip.webm"
 `;
 
 interface FixtureResult {
@@ -454,7 +454,7 @@ test.describe('media download in Task V2', () => {
       mkdtempSync(path.join(tmpdir(), 'neumar-e2e-dl-')),
     );
     try {
-      const taskId = 'task-media-ok';
+      const taskId = `task-media-ok-${crypto.randomUUID()}`;
       const binary = fakeDownloader(home);
       const result = await runFixture({
         taskId,
@@ -636,7 +636,7 @@ test.describe('media download in Task V2', () => {
       mkdtempSync(path.join(tmpdir(), 'neumar-e2e-dl-')),
     );
     try {
-      const taskId = 'task-media-cancel';
+      const taskId = `task-media-cancel-${crypto.randomUUID()}`;
       const binary = fakeDownloader(home);
       const result = await runFixture({
         taskId,

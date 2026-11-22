@@ -556,12 +556,32 @@ export const useThreadStore = create<ThreadStore>()(
           return;
         }
 
-        if (messagesShallowEqual(thread.messages, messages)) {
+        // A mirror of the same length can still be behind on a download card:
+        // merge it item by item so a finished file is never rewound.
+        const incoming = messages.map((message) => {
+          if (
+            message.role !== 'activity' ||
+            message.activityType !== MEDIA_DOWNLOAD_ACTIVITY
+          )
+            return message;
+          const at = thread.messagesIndexById[message.id];
+          const prior = at === undefined ? undefined : thread.messages[at];
+          if (!prior) return message;
+          const merged = reconcileDownloadSnapshot(
+            taskId,
+            message.id,
+            prior.content,
+            message.content,
+          );
+          return { ...message, content: merged ?? prior.content };
+        });
+
+        if (messagesShallowEqual(thread.messages, incoming)) {
           if (isRunning !== undefined) thread.isRunning = isRunning;
           return;
         }
 
-        const clonedMessages = cloneMessages(messages);
+        const clonedMessages = cloneMessages(incoming);
         thread.messages = clonedMessages;
         thread.messagesIndexById = buildMessagesIndex(clonedMessages);
         if (isRunning !== undefined) thread.isRunning = isRunning;

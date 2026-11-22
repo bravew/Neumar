@@ -77,6 +77,21 @@ describe('media-download activity in the thread store', () => {
     expect(messages()[0]?.content).toEqual(activity(settled));
   });
 
+  it('does not let a same-length mirror rewind a finished download', () => {
+    apply(activity(settled));
+    const stale = {
+      id: cardId,
+      role: 'activity' as const,
+      activityType: MEDIA_DOWNLOAD_ACTIVITY,
+      content: activity(waiting),
+    };
+
+    useThreadStore.getState().setMessages(TASK, [stale] as never, true);
+
+    expect(messages()).toHaveLength(1);
+    expect(messages()[0]?.content).toEqual(activity(settled));
+  });
+
   it('ignores a card for another task or under another id', () => {
     apply({ ...activity(waiting), taskId: 'someone-else' });
     apply(activity(waiting), 'media-download:wrong');

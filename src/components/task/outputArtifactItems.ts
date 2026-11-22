@@ -14,7 +14,11 @@ export function appendOutputArtifactsItem(
     items.flatMap((item) =>
       item.type === 'download-widget'
         ? item.activity.items.flatMap((video) =>
-            video.phase === 'saved' ? [video.asset.assetId] : [],
+            // An asset saved before `libraryFileId` existed used the library
+            // file id as its asset id.
+            video.phase === 'saved'
+              ? [video.asset.libraryFileId ?? video.asset.assetId]
+              : [],
           )
         : [],
     ),
