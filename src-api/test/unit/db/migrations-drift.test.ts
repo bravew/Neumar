@@ -54,6 +54,7 @@ const alterCallers = [
   { version: 111, table: 'agent_file_checkpoints' },
   { version: 112, table: 'messages' },
   { version: 113, table: 'agent_runs' },
+  { version: 116, table: 'download_assets' },
 ];
 
 function schema(database: Database.Database) {

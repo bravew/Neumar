@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { agentQuestionService } from '@/core/agent/questions';
 
-import { closeDatabase } from '@/shared/db';
+import { closeDatabase, getDatabase } from '@/shared/db';
 import { createSession, createTask, setSetting } from '@/shared/db/operations';
 import {
   bindDestination,
@@ -28,6 +28,7 @@ import {
   cancelDownloadDestinationRequest,
   claimDownloadDestination,
   DOWNLOAD_DESTINATION_QUESTION,
+  releaseDownloadDestination,
   requestDownloadDestination,
 } from '@/shared/services/media-download/requests';
 import { withDownloadBatch } from '@/shared/services/media-download/run-batch';
@@ -170,6 +171,62 @@ describe('download destination question and resume', () => {
     expect(question.question).toBe(DOWNLOAD_DESTINATION_QUESTION);
     expect(question.options).toHaveLength(2);
     expect(question.options[0]?.label).toBe('Task folder');
+  });
+
+  it('never asks more than the card can show, however many folders are allowed', () => {
+    const folders = Array.from({ length: 5 }, () =>
+      realpathSync(
+        mkdtempSync(path.join(tmpdir(), 'neumar-destination-many-')),
+      ),
+    );
+    try {
+      getDatabase()
+        .prepare('UPDATE tasks SET additional_work_dirs = ? WHERE id = ?')
+        .run(JSON.stringify(folders), TASK_ID);
+      setSetting(
+        'allowedFolders',
+        JSON.stringify(
+          folders.map((folder) => ({
+            path: folder,
+            permissions: { read: true, write: true, delete: false },
+            alwaysAllow: true,
+          })),
+        ),
+      );
+      const request = requestDownloadDestination(scope(), { urls: [URL] });
+      const question = request.question.questions[0] as {
+        options: { label: string }[];
+      };
+      // Three folders plus the picker: the interrupt card drops a question
+      // with more than four options.
+      expect(question.options).toHaveLength(4);
+      expect(question.options.at(-1)?.label).toBe('Choose another folder…');
+    } finally {
+      for (const folder of folders)
+        rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it('lets the same answer start the batch after a claim was released', () => {
+    const request = requestDownloadDestination(scope(), { urls: [URL] });
+    const first = claimDownloadDestination(
+      TASK_ID,
+      request.questionId,
+      'Task folder',
+      'run-2',
+    );
+    if (!first.ok) throw new Error('expected a claim');
+
+    // The answer was refused after the claim (its question had expired), so
+    // nothing started; a repeat must not read as "already started".
+    releaseDownloadDestination(first.value.operation.destinationGrantId);
+    const again = claimDownloadDestination(
+      TASK_ID,
+      request.questionId,
+      'Task folder',
+      'run-3',
+    );
+    expect(again.ok).toBe(true);
   });
 
   it("stores the question under the task's persisted session, not the run's", () => {

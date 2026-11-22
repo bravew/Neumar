@@ -39,7 +39,7 @@ name="clip.mp4"
 printf '%s\\n' 'NDPROGRESS:{"stream":"137","bytes":1024,"total":4096,"estimate":null,"speed":512,"eta":6}'
 printf '%s\\n' 'NDFINISH'
 head -c 64 /dev/zero > "$stage/$name"
-printf 'NDFILE:%s\\n' "$stage/$name"
+printf 'NDFILE:"%s"\\n' "$stage/$name"
 `;
 
 let binary = '';

@@ -353,6 +353,25 @@ export function registerInProcessMcpServers(
   return toolPatterns;
 }
 
+/**
+ * Whether an approved plan runs through PTC batch mode. PTC builds its own tool
+ * set and does not mount in-process MCP servers, so a run that carries the
+ * managed download tool stays on the SDK path where that tool exists.
+ */
+export function shouldUsePtcExecution(input: {
+  ptcEnabled: boolean;
+  executionMode: string | undefined;
+  hasApiKey: boolean;
+  inProcessMcpServers?: Record<string, unknown>;
+}): boolean {
+  return (
+    input.ptcEnabled &&
+    input.executionMode === 'batch' &&
+    input.hasApiKey &&
+    !input.inProcessMcpServers?.[MEDIA_DOWNLOAD_SERVER_NAME]
+  );
+}
+
 export function claudeStreamTextDedupeKey(text: string): string {
   return createHash('sha256').update(text, 'utf-8').digest('hex');
 }
@@ -5006,7 +5025,12 @@ When the user asks to schedule, remind, monitor, check periodically, or set up a
       options.ptcEnabled ?? getSetting('ptcEnabled') === 'true';
     const env = this.buildEnvConfig();
     const hasApiKey = !!(env.ANTHROPIC_AUTH_TOKEN || env.ANTHROPIC_API_KEY);
-    const usePTC = ptcEnabled && plan.executionMode === 'batch' && hasApiKey;
+    const usePTC = shouldUsePtcExecution({
+      ptcEnabled,
+      executionMode: plan.executionMode,
+      hasApiKey,
+      inProcessMcpServers: options.inProcessMcpServers,
+    });
 
     if (ptcEnabled && plan.executionMode === 'batch' && !hasApiKey) {
       logger.warn(

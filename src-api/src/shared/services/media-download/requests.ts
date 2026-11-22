@@ -8,6 +8,7 @@
  */
 
 import {
+  DOWNLOAD_DESTINATION_QUESTION,
   downloadMediaInputSchema,
   type DownloadMediaInput,
   type DownloadMediaOperation,
@@ -30,9 +31,8 @@ import {
   type DestinationGrant,
 } from './destination';
 
-/** The question text, fixed so the stored record and the transcript agree. */
-export const DOWNLOAD_DESTINATION_QUESTION =
-  'Where should the videos be saved?';
+/** The question text, shared with the client so the card recognizes it. */
+export { DOWNLOAD_DESTINATION_QUESTION };
 export const DOWNLOAD_DESTINATION_ID = 'download-destination';
 /** The option that opens the folder picker; it is never a path itself. */
 export const DOWNLOAD_OTHER_FOLDER_OPTION = 'Choose another folder…';
@@ -89,10 +89,17 @@ export interface DownloadRequestScope {
   batchId: string;
 }
 
+/**
+ * The interrupt card renders two to four options and drops a question with
+ * more. One slot is the picker, so at most three folders are offered; any
+ * other permitted folder stays reachable through the picker.
+ */
+const MAX_OFFERED_FOLDERS = 3;
+
 function destinationQuestion(offered: OfferedFolder[]) {
-  // The card requires two to four options, and the task folder alone is not
-  // enough. The picker option is a control, not a destination: an answer that
-  // still names it is refused.
+  // The task folder alone is not enough for the card's two-option minimum.
+  // The picker option is a control, not a destination: an answer that still
+  // names it is refused.
   return {
     id: DOWNLOAD_DESTINATION_ID,
     question: DOWNLOAD_DESTINATION_QUESTION,
@@ -122,11 +129,13 @@ export function requestDownloadDestination(
 ): DestinationRequest {
   const input: DownloadMediaInput = downloadMediaInputSchema.parse(rawInput);
   const policy = destinationPolicy(scope.taskId);
-  const offered: OfferedFolder[] = destinationOptions(policy).map((option) => ({
-    label: folderLabel(option.path, option.kind, language),
-    path: option.path,
-    kind: option.kind,
-  }));
+  const offered: OfferedFolder[] = destinationOptions(policy)
+    .slice(0, MAX_OFFERED_FOLDERS)
+    .map((option) => ({
+      label: folderLabel(option.path, option.kind, language),
+      path: option.path,
+      kind: option.kind,
+    }));
   const questions = [destinationQuestion(offered)];
 
   // The question belongs to the task's saved session. The agent run's own
@@ -312,6 +321,21 @@ export function claimDownloadDestination(
       },
     },
   };
+}
+
+/**
+ * Undo a claim whose answer was then refused (for example, the question
+ * expired between the claim and the write). No batch started from it, so the
+ * grant returns to its unclaimed state instead of reading as "already started".
+ */
+export function releaseDownloadDestination(grantId: string): void {
+  getDatabase()
+    .prepare(
+      `UPDATE download_destination_grants
+         SET started = 0, directory = '', device = '', inode = ''
+       WHERE id = ? AND started = 1`,
+    )
+    .run(grantId);
 }
 
 /** The grant a continuation starts from, when the route already resolved it. */

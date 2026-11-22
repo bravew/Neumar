@@ -41,6 +41,10 @@ while [ $# -gt 0 ]; do
 done
 name="clip [abc].mp4"
 case "$url" in
+  *spend*) echo 'NDPROGRESS:{"stream":"137","bytes":1900000000,"total":null,"estimate":null,"speed":null,"eta":null}' ;;
+esac
+case "$url" in
+  *huge*) echo 'NDPROGRESS:{"stream":"137","bytes":3000000000,"total":null,"estimate":null,"speed":null,"eta":null}'; sleep 5; exit 0 ;;
   *fail*) echo "ERROR: unable to download video data: HTTP Error 404" >&2; exit 1 ;;
   *slow*) sleep 5; exit 0 ;;
   *big*) echo 'NDPROGRESS:{"stream":"137","bytes":4096,"total":8192,"estimate":null,"speed":1024,"eta":4}'; name="big.mp4" ;;
@@ -49,7 +53,7 @@ printf '%s\\n' 'NDPROGRESS:{"stream":"137","bytes":1024,"total":4096,"estimate":
 printf '%s\\n' 'NDPROGRESS:{"stream":"140","bytes":512,"total":1024,"estimate":null,"speed":256,"eta":2}'
 printf '%s\\n' 'NDFINISH'
 head -c 32 /dev/zero > "$stage/$name"
-printf 'NDFILE:%s\\n' "$stage/$name"
+printf 'NDFILE:"%s"\\n' "$stage/$name"
 `;
 
 let home = '';
@@ -170,6 +174,50 @@ describe('runDownloadMedia', () => {
     expect(existsSync(path.join(granted, 'clip [abc].mp4'))).toBe(false);
   });
 
+  it('settles items that never started as cancelled when the batch is stopped', async () => {
+    const { activities, run } = options();
+    const controller = new AbortController();
+    const pending = run(
+      operation(['https://example.org/slow-a', 'https://example.org/slow-b']),
+      controller.signal,
+    );
+    controller.abort();
+    const state = await pending;
+
+    expect(state.items.map((item) => item.phase)).toEqual([
+      'cancelled',
+      'cancelled',
+    ]);
+    // The last thing the card was told is the settled state, not a waiting row.
+    expect(activities.at(-1)?.items.map((item) => item.phase)).toEqual([
+      'cancelled',
+      'cancelled',
+    ]);
+  });
+
+  it('reports a stream over the file cap as a limit, not a cancellation', async () => {
+    const { run } = options();
+    const state = await run(operation(['https://example.org/huge']));
+
+    expect(state.items[0]).toMatchObject({ phase: 'failed', reason: 'limit' });
+  });
+
+  it('charges the batch for bytes a failed attempt already received', async () => {
+    const { registered, run } = options();
+    const state = await run(
+      operation([
+        'https://example.org/fail-spend-1',
+        'https://example.org/fail-spend-2',
+        'https://example.org/spend-3',
+      ]),
+    );
+
+    // Two failed attempts spent 3.8 GB of the 4 GiB batch, so the third has
+    // under 0.5 GB left and its 1.9 GB stream is over its cap.
+    expect(state.items[2]).toMatchObject({ phase: 'failed', reason: 'limit' });
+    expect(registered).toEqual([]);
+  });
+
   it('never overwrites a file that already has the download name', async () => {
     writeFileSync(path.join(granted, 'clip [abc].mp4'), 'existing');
     const { run } = options();
@@ -209,5 +257,15 @@ describe('runDownloadMedia', () => {
     expect(argv).toContain('--no-playlist');
     expect(argv).toContain('--no-overwrites');
     expect(argv.join(' ')).toContain('NDPROGRESS:');
+    // Optional metrics print a bare `NA` unless they default to null.
+    const template = argv[argv.indexOf('--progress-template') + 1] ?? '';
+    for (const field of [
+      'total_bytes',
+      'total_bytes_estimate',
+      'speed',
+      'eta',
+    ]) {
+      expect(template).toContain(`%(progress.${field}|null)j`);
+    }
   });
 });

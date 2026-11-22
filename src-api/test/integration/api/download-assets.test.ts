@@ -22,7 +22,11 @@ import {
   createTask,
   getFilesByTaskId,
 } from '@/shared/db/operations';
-import { registerDownloadAsset } from '@/shared/services/media-download/assets';
+import {
+  getDownloadAsset,
+  openDownloadFile,
+  registerDownloadAsset,
+} from '@/shared/services/media-download/assets';
 import {
   bindDestination,
   destinationPolicy,
@@ -97,7 +101,66 @@ describe('task download assets', () => {
     });
     const files = getFilesByTaskId(TASK_ID);
     expect(files).toHaveLength(1);
-    expect(first.assetId).toBe(String(files[0]!.id));
+    // The asset has its own id; the library file it was filed under rides along.
+    expect(first.libraryFileId).toBe(String(files[0]!.id));
+    expect(first.assetId).not.toBe(first.libraryFileId);
+  });
+
+  it('gives a re-download at a reused path its own asset id', async () => {
+    const first = await register();
+    // The library keys files by task and path, so the second save below gets
+    // the first save's library row back. Its asset must not reuse that id.
+    const second = await registerDownloadAsset(
+      { ...operation(), batchId: 'batch-2' },
+      'item-1',
+      folder,
+      path.join(folder, 'clip.mp4'),
+    );
+
+    expect(second.assetId).not.toBe(first.assetId);
+    expect(second.libraryFileId).toBe(first.libraryFileId);
+    expect(getFilesByTaskId(TASK_ID)).toHaveLength(1);
+  });
+
+  it('leaves no library row behind when the asset row cannot be written', async () => {
+    getDatabase()
+      .prepare(
+        `INSERT INTO download_assets
+           (asset_id, task_id, run_id, tool_call_id, batch_id, item_id, grant_id,
+            library_file_id, name, mime, size, dev, ino, created_at)
+         VALUES ('taken', ?, 'run-x', 'call-x', 'batch-x', 'item-x', 'grant-x',
+                 NULL, 'x.mp4', 'video/mp4', 1, '1', '1', 0)`,
+      )
+      .run(TASK_ID);
+    const uuid = vi
+      .spyOn(crypto, 'randomUUID')
+      .mockReturnValue('taken' as never);
+
+    await expect(register()).rejects.toThrow(/UNIQUE|constraint/i);
+    uuid.mockRestore();
+
+    expect(getFilesByTaskId(TASK_ID)).toHaveLength(0);
+  });
+
+  it('reads the file it opened, not whatever takes its name afterwards', async () => {
+    const asset = await register();
+    const record = getDownloadAsset(TASK_ID, asset.assetId)!;
+    const opened = await openDownloadFile(record, folder);
+    try {
+      writeFileSync(path.join(folder, 'new.tmp'), Buffer.alloc(1000, 7));
+      renameSync(path.join(folder, 'new.tmp'), path.join(folder, 'clip.mp4'));
+
+      const { bytesRead, buffer } = await opened.handle.read(
+        Buffer.alloc(1000),
+        0,
+        1000,
+        0,
+      );
+      expect(bytesRead).toBe(1000);
+      expect(buffer).toEqual(BYTES);
+    } finally {
+      await opened.handle.close();
+    }
   });
 
   it('refuses to register a file outside the granted folder', async () => {

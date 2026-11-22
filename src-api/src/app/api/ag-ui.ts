@@ -124,6 +124,7 @@ import {
   cancelDownloadDestinationRequest,
   claimDownloadDestination,
   DOWNLOAD_DESTINATION_QUESTION,
+  releaseDownloadDestination,
 } from '@/shared/services/media-download/requests';
 import { withDownloadBatch } from '@/shared/services/media-download/run-batch';
 import { withSessionContext } from '@/shared/services/session-context';
@@ -1538,6 +1539,13 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
       questionResume.answers,
     );
     if (!recorded.ok) {
+      // The claim was taken for a batch that will not start; a refused answer
+      // must not leave the grant reading as started.
+      if (claimedDownload?.ok) {
+        releaseDownloadDestination(
+          claimedDownload.value.operation.destinationGrantId,
+        );
+      }
       // This request created the reservation and no run will use it; leaving
       // it `running` would hold the task until the next restart.
       finishAgentRun({
