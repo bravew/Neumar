@@ -1,4 +1,4 @@
-import { createReadStream } from 'node:fs';
+import type { FileHandle } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 
 import type { DownloadMediaOperation } from '@neumar/video-ir';
@@ -6,7 +6,7 @@ import { Hono } from 'hono';
 
 import {
   getDownloadAsset,
-  resolveDownloadFile,
+  openDownloadFile,
 } from '@/shared/services/media-download/assets';
 import { createLogger } from '@/shared/utils/logger';
 
@@ -64,7 +64,9 @@ export function downloadAssetRoutes(
     );
     if (!record) return c.json({ error: 'Not found' }, 404);
 
-    let file: { path: string; size: number };
+    // The handle is the file that passed the identity check; every response
+    // reads it, never the path again. A stream closes it when it ends.
+    let file: { handle: FileHandle; size: number };
     try {
       const folder = await resolveDestination({
         taskId: record.taskId,
@@ -73,7 +75,7 @@ export function downloadAssetRoutes(
         batchId: record.batchId,
         destinationGrantId: record.grantId,
       });
-      file = await resolveDownloadFile(record, folder);
+      file = await openDownloadFile(record, folder);
     } catch (err) {
       logger.warn(
         `Download ${record.assetId} not served: ${err instanceof Error ? err.message : String(err)}`,
@@ -81,41 +83,50 @@ export function downloadAssetRoutes(
       return c.json({ error: 'Not found' }, 404);
     }
 
-    const headers: Record<string, string> = {
-      'Accept-Ranges': 'bytes',
-      'Content-Type': record.mime,
-      'Cache-Control': 'private, no-cache',
-    };
-    const rangeHeader = c.req.header('Range');
-    if (rangeHeader) {
-      const range = parseRange(rangeHeader, file.size);
-      if (range === 'unsatisfiable') {
-        return new Response('Range Not Satisfiable', {
-          status: 416,
-          headers: { 'Content-Range': `bytes */${file.size}` },
-        });
+    try {
+      const headers: Record<string, string> = {
+        'Accept-Ranges': 'bytes',
+        'Content-Type': record.mime,
+        'Cache-Control': 'private, no-cache',
+      };
+      const rangeHeader = c.req.header('Range');
+      if (rangeHeader) {
+        const range = parseRange(rangeHeader, file.size);
+        if (range === 'unsatisfiable') {
+          await file.handle.close();
+          return new Response('Range Not Satisfiable', {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${file.size}` },
+          });
+        }
+        return new Response(
+          Readable.toWeb(
+            file.handle.createReadStream({
+              start: range.start,
+              end: range.end,
+            }),
+          ) as ReadableStream,
+          {
+            status: 206,
+            headers: {
+              ...headers,
+              'Content-Range': `bytes ${range.start}-${range.end}/${file.size}`,
+              'Content-Length': String(range.end - range.start + 1),
+            },
+          },
+        );
       }
       return new Response(
-        Readable.toWeb(
-          createReadStream(file.path, { start: range.start, end: range.end }),
-        ) as ReadableStream,
+        Readable.toWeb(file.handle.createReadStream()) as ReadableStream,
         {
-          status: 206,
-          headers: {
-            ...headers,
-            'Content-Range': `bytes ${range.start}-${range.end}/${file.size}`,
-            'Content-Length': String(range.end - range.start + 1),
-          },
+          status: 200,
+          headers: { ...headers, 'Content-Length': String(file.size) },
         },
       );
+    } catch (err) {
+      await file.handle.close();
+      throw err;
     }
-    return new Response(
-      Readable.toWeb(createReadStream(file.path)) as ReadableStream,
-      {
-        status: 200,
-        headers: { ...headers, 'Content-Length': String(file.size) },
-      },
-    );
   });
 
   return app;

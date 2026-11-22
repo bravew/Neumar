@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 export const DOWNLOAD_MEDIA_TOOL = 'download_media';
 export const MEDIA_DOWNLOAD_ACTIVITY = 'media-download';
+/**
+ * The destination question's text. The server stores the answer under it and
+ * the client recognizes the question by it, so both import this one value.
+ */
+export const DOWNLOAD_DESTINATION_QUESTION =
+  'Where should the videos be saved?';
 const id = z.string().min(1).max(256);
 const count = z.number().int().nonnegative();
 const scope = { taskId: id, runId: id, toolCallId: id, batchId: id };
@@ -37,6 +43,12 @@ const stream = z.strictObject({
 });
 export const downloadAssetSchema = z.strictObject({
   assetId: id,
+  /**
+   * The task library file this asset names, so the Files panel and the card
+   * show one file. Absent on assets saved before it was recorded; their
+   * `assetId` is the library file id.
+   */
+  libraryFileId: id.optional(),
   name: z.string().min(1).max(255),
   mime: z.string().min(1).max(128),
   size: count,

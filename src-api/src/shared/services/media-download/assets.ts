@@ -1,3 +1,4 @@
+import { constants } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -16,6 +17,8 @@ export interface DownloadAssetRecord {
   batchId: string;
   itemId: string;
   grantId: string;
+  /** The task library file; absent on rows saved before it was recorded. */
+  libraryFileId?: string;
   name: string;
   mime: string;
   size: number;
@@ -31,6 +34,7 @@ interface Row {
   batch_id: string;
   item_id: string;
   grant_id: string;
+  library_file_id: string | null;
   name: string;
   mime: string;
   size: number;
@@ -47,6 +51,7 @@ function fromRow(row: Row): DownloadAssetRecord {
     batchId: row.batch_id,
     itemId: row.item_id,
     grantId: row.grant_id,
+    ...(row.library_file_id ? { libraryFileId: row.library_file_id } : {}),
     name: row.name,
     mime: row.mime,
     size: row.size,
@@ -58,6 +63,7 @@ function fromRow(row: Row): DownloadAssetRecord {
 function toAsset(record: DownloadAssetRecord): DownloadAsset {
   return {
     assetId: record.assetId,
+    ...(record.libraryFileId ? { libraryFileId: record.libraryFileId } : {}),
     name: record.name,
     mime: record.mime,
     size: record.size,
@@ -107,12 +113,55 @@ export async function resolveDownloadFile(
 }
 
 /**
+ * Open the file a record names for reading, checked through the open handle.
+ *
+ * A pathname check followed by a second open by pathname can read whatever
+ * replaced the file in between. Here the file is opened once, the final
+ * component may not be a symlink, and the type and identity are read from the
+ * handle, so the handle the caller streams is the registered file or nothing.
+ * The caller owns the handle and must close it (a read stream closes it).
+ */
+export async function openDownloadFile(
+  record: Pick<DownloadAssetRecord, 'name' | 'dev' | 'ino'>,
+  grantedRoot: string,
+): Promise<{ handle: fs.FileHandle; size: number }> {
+  if (path.basename(record.name) !== record.name) {
+    throw new Error('Download file is outside its destination');
+  }
+  const root = await fs.realpath(grantedRoot);
+  // O_NONBLOCK keeps a FIFO swapped in under the name from blocking the open;
+  // it does not change reads of a regular file. Downloads run only on macOS
+  // and Linux, where both flags exist.
+  const handle = await fs.open(
+    path.join(root, record.name),
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  );
+  try {
+    const stat = await handle.stat({ bigint: true });
+    if (
+      !stat.isFile() ||
+      String(stat.dev) !== record.dev ||
+      String(stat.ino) !== record.ino
+    ) {
+      throw new Error('Download file changed after it was saved');
+    }
+    return { handle, size: Number(stat.size) };
+  } catch (error) {
+    await handle.close();
+    throw error;
+  }
+}
+
+/**
  * Register one finished file, after it has been published without overwriting.
  *
- * Returns the authorized asset that the saved item carries. The asset ID is the
- * task's library file id, so the Files panel and the download card name one
- * file and the thread can show it once. Calling again for the same item returns
- * the same asset.
+ * Returns the authorized asset that the saved item carries. The asset id is its
+ * own UUID: the library deduplicates by task and path, so a later download at
+ * a path an earlier (since moved) download used gets the earlier library row,
+ * and reusing that row's id would collide. The library file id rides along so
+ * the Files panel and the download card still name one file. The library row
+ * and the asset row are written in one transaction. Calling again for the same
+ * item returns the same asset.
  */
 export async function registerDownloadAsset(
   operation: DownloadMediaOperation,
@@ -144,45 +193,52 @@ export async function registerDownloadAsset(
   );
   const mime =
     mimeFromExtension(path.extname(name)) ?? 'application/octet-stream';
-  const file = createFile({
-    task_id: operation.taskId,
-    name,
-    type: mime.startsWith('audio/') ? 'audio' : 'video',
-    path: resolved.path,
-  });
-  const record: DownloadAssetRecord = {
-    assetId: String(file.id),
-    taskId: operation.taskId,
-    runId: operation.runId,
-    toolCallId: operation.toolCallId,
-    batchId: operation.batchId,
-    itemId,
-    grantId: operation.destinationGrantId,
-    name,
-    mime,
-    size: resolved.size,
-    dev: String(stat.dev),
-    ino: String(stat.ino),
-  };
-  db.prepare(
-    `INSERT INTO download_assets
-       (asset_id, task_id, run_id, tool_call_id, batch_id, item_id, grant_id,
-        name, mime, size, dev, ino, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    record.assetId,
-    record.taskId,
-    record.runId,
-    record.toolCallId,
-    record.batchId,
-    record.itemId,
-    record.grantId,
-    record.name,
-    record.mime,
-    record.size,
-    record.dev,
-    record.ino,
-    Date.now(),
-  );
+  // A failed asset insert rolls back a library row this call created; a row
+  // that already existed for the path is left as it was.
+  const record = db.transaction((): DownloadAssetRecord => {
+    const file = createFile({
+      task_id: operation.taskId,
+      name,
+      type: mime.startsWith('audio/') ? 'audio' : 'video',
+      path: resolved.path,
+    });
+    const next: DownloadAssetRecord = {
+      assetId: crypto.randomUUID(),
+      taskId: operation.taskId,
+      runId: operation.runId,
+      toolCallId: operation.toolCallId,
+      batchId: operation.batchId,
+      itemId,
+      grantId: operation.destinationGrantId,
+      libraryFileId: String(file.id),
+      name,
+      mime,
+      size: resolved.size,
+      dev: String(stat.dev),
+      ino: String(stat.ino),
+    };
+    db.prepare(
+      `INSERT INTO download_assets
+         (asset_id, task_id, run_id, tool_call_id, batch_id, item_id, grant_id,
+          library_file_id, name, mime, size, dev, ino, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      next.assetId,
+      next.taskId,
+      next.runId,
+      next.toolCallId,
+      next.batchId,
+      next.itemId,
+      next.grantId,
+      next.libraryFileId,
+      next.name,
+      next.mime,
+      next.size,
+      next.dev,
+      next.ino,
+      Date.now(),
+    );
+    return next;
+  })();
   return toAsset(record);
 }
