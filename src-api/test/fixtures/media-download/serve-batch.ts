@@ -81,7 +81,6 @@ createTask({
 const asked = requestDownloadDestination(
   {
     taskId: input.taskId,
-    sessionId: input.sessionId,
     runId: 'run-ask',
     toolCallId: 'call-download',
     batchId: 'batch-download',

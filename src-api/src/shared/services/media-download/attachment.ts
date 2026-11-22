@@ -62,7 +62,6 @@ export function downloadReceiptId(output: unknown): string | undefined {
 
 export interface DownloadAttachmentScope {
   taskId: string;
-  sessionId: string;
   runId: string;
   language?: string;
 }
@@ -159,7 +158,6 @@ export function createTaskDownloadAttachment(
         request = requestDownloadDestination(
           {
             taskId: scope.taskId,
-            sessionId: scope.sessionId,
             runId: scope.runId,
             toolCallId: message.toolUseId,
             batchId,

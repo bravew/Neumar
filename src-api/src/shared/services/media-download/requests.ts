@@ -20,6 +20,7 @@ import {
 } from '@/core/agent/questions';
 
 import { getDatabase } from '@/shared/db/index';
+import { getTask } from '@/shared/db/operations';
 
 import {
   bindDestination,
@@ -83,7 +84,6 @@ interface OfferedFolder {
 
 export interface DownloadRequestScope {
   taskId: string;
-  sessionId: string;
   runId: string;
   toolCallId: string;
   batchId: string;
@@ -129,8 +129,15 @@ export function requestDownloadDestination(
   }));
   const questions = [destinationQuestion(offered)];
 
+  // The question belongs to the task's saved session. The agent run's own
+  // session lives in memory and has no `sessions` row, so it cannot own one.
+  const task = getTask(scope.taskId);
+  if (!task) {
+    throw new DestinationDenied('This task no longer exists.');
+  }
+
   const question = agentQuestionService.createPendingQuestion({
-    sessionId: scope.sessionId,
+    sessionId: task.session_id,
     taskId: scope.taskId,
     questions,
   });

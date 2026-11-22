@@ -14,6 +14,8 @@ import type {
 } from '@neumar/video-ir';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { agentQuestionService } from '@/core/agent/questions';
+
 import { closeDatabase } from '@/shared/db';
 import { createSession, createTask, setSetting } from '@/shared/db/operations';
 import {
@@ -37,9 +39,10 @@ const URL = 'https://example.org/watch?v=1';
 let home = '';
 let extra = '';
 
+// The run supplies no persisted session: the agent run's session lives in
+// memory and has no `sessions` row, so the question must use the task's own.
 const scope = () => ({
   taskId: TASK_ID,
-  sessionId: SESSION_ID,
   runId: 'run-1',
   toolCallId: 'call-1',
   batchId: 'b7e6f9d2-3c1a-4e5f-9a8b-0c1d2e3f4a5b',
@@ -167,6 +170,23 @@ describe('download destination question and resume', () => {
     expect(question.question).toBe(DOWNLOAD_DESTINATION_QUESTION);
     expect(question.options).toHaveLength(2);
     expect(question.options[0]?.label).toBe('Task folder');
+  });
+
+  it("stores the question under the task's persisted session, not the run's", () => {
+    const request = requestDownloadDestination(scope(), { urls: [URL] });
+    expect(agentQuestionService.getQuestion(request.questionId)).toMatchObject({
+      session_id: SESSION_ID,
+      task_id: TASK_ID,
+    });
+  });
+
+  it('refuses a batch for a task that does not exist', () => {
+    expect(() =>
+      requestDownloadDestination(
+        { ...scope(), taskId: 'task-not-saved' },
+        { urls: [URL] },
+      ),
+    ).toThrow(/no longer exists/i);
   });
 
   it('starts nothing when the question is cancelled', () => {

@@ -1178,7 +1178,6 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
     const execDownloads = createTaskDownloadAttachment(
       {
         taskId: effectiveTaskId,
-        sessionId: execSession.id,
         runId,
         language: effectiveLanguage,
       },
@@ -1640,7 +1639,6 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
     ? createTaskDownloadAttachment(
         {
           taskId: effectiveTaskId,
-          sessionId: session.id,
           runId,
           language: effectiveLanguage,
         },
