@@ -25,7 +25,10 @@ export default {
     chooseFolder: 'Escolher outra pasta',
     hint: 'Escolha qualquer pasta que você permitiu que esta tarefa gravasse.',
     browserHint:
-      'Escolher pastas requer o aplicativo para desktop. Escolha uma pasta à qual a tarefa já tem acesso.',
+      'Digite ou cole o caminho completo de uma pasta na qual esta tarefa pode gravar.',
+    pathLabel: 'Caminho da pasta',
+    pathPlaceholder: '/Users/voce/Videos',
+    useFolder: 'Usar esta pasta',
     pickFailed:
       'Não foi possível verificar essa pasta. Escolha uma das pastas acima.',
   },

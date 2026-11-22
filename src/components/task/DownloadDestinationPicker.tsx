@@ -1,16 +1,17 @@
 /**
  * The folder control for the "where should the videos go?" question.
  *
- * In the desktop app it opens the OS folder dialog and submits the chosen
- * folder. In a browser tab there is no folder dialog, so it says so and the
- * user picks one of the folders the task has already been allowed to write.
- * The server checks the folder again when the answer claims its grant.
+ * A path field accepts a typed or pasted folder in every runtime, because a
+ * browser tab has no folder dialog. The desktop app adds a button that opens
+ * the OS folder dialog. Either way the server checks the folder before the
+ * card submits it, and checks it again when the answer claims its grant.
  */
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
 import { FolderOpen } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { API_BASE_URL } from '@/config';
 import { cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/providers/language-provider';
@@ -66,18 +67,20 @@ export function DownloadDestinationPicker({
   const { t } = useLanguage();
   const copy = t.mediaDownload.destination;
   const [error, setError] = useState<string | null>(null);
-  const [picking, setPicking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [path, setPath] = useState('');
   const native = isTauriRuntime();
 
-  const choose = async () => {
-    if (!taskId || disabled || picking) return;
+  /** Check a folder with the server, then submit what it resolved. */
+  const submit = async (folder: () => Promise<string | undefined>) => {
+    if (!taskId || disabled || busy) return;
     setError(null);
-    setPicking(true);
+    setBusy(true);
     const controller = new AbortController();
     try {
-      const folder = await pickFolder();
-      if (!folder) return;
-      const checked = await checkFolder(taskId, folder, controller.signal);
+      const chosen = await folder();
+      if (!chosen) return;
+      const checked = await checkFolder(taskId, chosen, controller.signal);
       if (!checked.ok) {
         setError(checked.message);
         return;
@@ -86,33 +89,62 @@ export function DownloadDestinationPicker({
     } catch {
       setError(copy.pickFailed);
     } finally {
-      setPicking(false);
+      setBusy(false);
       controller.abort();
     }
   };
 
+  const typed = path.trim();
+  const useTyped = (event: FormEvent) => {
+    event.preventDefault();
+    if (typed) void submit(async () => typed);
+  };
+
   return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={() => void choose()}
-        disabled={disabled || picking || !native}
-        className={cn(
-          'flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all',
-          'border-border/60 bg-background text-foreground',
-          native && !disabled
-            ? 'hover:border-primary/50 hover:bg-accent/50 cursor-pointer'
-            : 'cursor-not-allowed opacity-60',
-        )}
-      >
-        <FolderOpen className="size-5 shrink-0" />
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium">{copy.chooseFolder}</span>
-          <span className="text-muted-foreground mt-0.5 block text-xs">
-            {native ? copy.hint : copy.browserHint}
+    <div className="space-y-2">
+      {native ? (
+        <button
+          type="button"
+          onClick={() => void submit(pickFolder)}
+          disabled={disabled || busy}
+          className={cn(
+            'flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all',
+            'border-border/60 bg-background text-foreground',
+            disabled || busy
+              ? 'cursor-not-allowed opacity-60'
+              : 'hover:border-primary/50 hover:bg-accent/50 cursor-pointer',
+          )}
+        >
+          <FolderOpen className="size-5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">
+              {copy.chooseFolder}
+            </span>
+            <span className="text-muted-foreground mt-0.5 block text-xs">
+              {copy.hint}
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+      ) : (
+        <p className="text-muted-foreground px-1 text-xs">{copy.browserHint}</p>
+      )}
+      <form onSubmit={useTyped} className="flex items-center gap-2">
+        <input
+          type="text"
+          value={path}
+          onChange={(event) => setPath(event.target.value)}
+          placeholder={copy.pathPlaceholder}
+          aria-label={copy.pathLabel}
+          disabled={disabled || busy}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          className="border-border/60 bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/30 min-w-0 flex-1 rounded-lg border px-3 py-2 font-mono text-xs focus:ring-1 focus:outline-none disabled:opacity-60"
+        />
+        <Button type="submit" size="sm" disabled={disabled || busy || !typed}>
+          {copy.useFolder}
+        </Button>
+      </form>
       {error ? (
         <p role="alert" className="text-destructive px-1 text-xs">
           {error}

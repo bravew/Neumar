@@ -25,7 +25,10 @@ export default {
     chooseFolder: 'Choose another folder',
     hint: 'Pick any folder you have allowed this task to write.',
     browserHint:
-      'Folder picking needs the desktop app. Choose a folder the task already has access to.',
+      'Type or paste the full path of a folder this task is allowed to write.',
+    pathLabel: 'Folder path',
+    pathPlaceholder: '/Users/you/Videos',
+    useFolder: 'Use this folder',
     pickFailed:
       'That folder could not be checked. Choose one of the folders above.',
   },

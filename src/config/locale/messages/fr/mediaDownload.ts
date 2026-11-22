@@ -25,7 +25,10 @@ export default {
     chooseFolder: 'Choisir un autre dossier',
     hint: 'Choisissez un dossier auquel vous avez autorisé cette tâche à écrire.',
     browserHint:
-      "Le choix d'un dossier nécessite l'application de bureau. Choisissez un dossier auquel la tâche a déjà accès.",
+      "Saisissez ou collez le chemin complet d'un dossier dans lequel cette tâche peut écrire.",
+    pathLabel: 'Chemin du dossier',
+    pathPlaceholder: '/Users/vous/Videos',
+    useFolder: 'Utiliser ce dossier',
     pickFailed:
       'Impossible de vérifier ce dossier. Choisissez un des dossiers ci-dessus.',
   },

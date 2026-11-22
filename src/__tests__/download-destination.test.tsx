@@ -51,6 +51,9 @@ describe('download destination copy', () => {
       expect(messages.destination.question).toBeTruthy();
       expect(messages.destination.chooseFolder).toBeTruthy();
       expect(messages.destination.browserHint).toBeTruthy();
+      expect(messages.destination.pathLabel).toBeTruthy();
+      expect(messages.destination.pathPlaceholder).toBeTruthy();
+      expect(messages.destination.useFolder).toBeTruthy();
       expect(messages.destination.pickFailed).toBeTruthy();
     },
   );
@@ -118,14 +121,70 @@ describe('DownloadDestinationPicker', () => {
     expect(onChoose).not.toHaveBeenCalled();
   });
 
-  it('disables the dialog in a browser tab and explains why', () => {
+  it('lets a browser tab type a folder path and submits the checked folder', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ directory: '/Users/me/Videos/hk' }),
+    });
+    const onChoose = vi.fn();
+
+    renderWithProviders(
+      <DownloadDestinationPicker taskId="task-1" onChoose={onChoose} />,
+    );
+    // No folder dialog exists in a browser, so there is no dead button.
+    expect(
+      screen.queryByRole('button', { name: /choose another folder/i }),
+    ).toBeNull();
+    const input = screen.getByRole('textbox', { name: /folder path/i });
+    const submit = screen.getByRole('button', { name: /use this folder/i });
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: '  /Users/me/Videos/hk  ' } });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(onChoose).toHaveBeenCalledWith('/Users/me/Videos/hk'),
+    );
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(/\/downloads\/destination$/);
+    expect(JSON.parse(init.body as string)).toEqual({
+      taskId: 'task-1',
+      path: '/Users/me/Videos/hk',
+    });
+    expect(openDialog).not.toHaveBeenCalled();
+  });
+
+  it('submits a typed path with Enter and reports a refused folder', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: 'Saving to this folder is not allowed.' }),
+    });
+    const onChoose = vi.fn();
+
+    renderWithProviders(
+      <DownloadDestinationPicker taskId="task-1" onChoose={onChoose} />,
+    );
+    const input = screen.getByRole('textbox', { name: /folder path/i });
+    fireEvent.change(input, { target: { value: '/etc' } });
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not allowed/i);
+    expect(onChoose).not.toHaveBeenCalled();
+  });
+
+  it('keeps the typed path beside the dialog button in the desktop app', () => {
+    (
+      window as unknown as { __TAURI_INTERNALS__?: unknown }
+    ).__TAURI_INTERNALS__ = {};
     renderWithProviders(
       <DownloadDestinationPicker taskId="task-1" onChoose={vi.fn()} />,
     );
-    const button = screen.getByRole('button', {
-      name: /choose another folder/i,
-    });
-    expect(button).toBeDisabled();
-    expect(button).toHaveTextContent(/desktop app/i);
+    expect(
+      screen.getByRole('button', { name: /choose another folder/i }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('textbox', { name: /folder path/i }),
+    ).toBeInTheDocument();
   });
 });

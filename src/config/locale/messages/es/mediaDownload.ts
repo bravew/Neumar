@@ -25,7 +25,10 @@ export default {
     chooseFolder: 'Elegir otra carpeta',
     hint: 'Elige cualquier carpeta que hayas permitido escribir a esta tarea.',
     browserHint:
-      'Elegir carpetas requiere la aplicación de escritorio. Elige una carpeta a la que la tarea ya tenga acceso.',
+      'Escribe o pega la ruta completa de una carpeta en la que esta tarea pueda escribir.',
+    pathLabel: 'Ruta de la carpeta',
+    pathPlaceholder: '/Users/tu/Videos',
+    useFolder: 'Usar esta carpeta',
     pickFailed:
       'No se pudo comprobar esa carpeta. Elige una de las carpetas de arriba.',
   },

@@ -24,7 +24,10 @@ export default {
     question: '视频要保存到哪里？',
     chooseFolder: '选择其他文件夹',
     hint: '选择任何你已允许此任务写入的文件夹。',
-    browserHint: '选择文件夹需要桌面应用。请选择此任务已有权访问的文件夹。',
+    browserHint: '输入或粘贴此任务有权写入的文件夹的完整路径。',
+    pathLabel: '文件夹路径',
+    pathPlaceholder: '/Users/你/Videos',
+    useFolder: '使用此文件夹',
     pickFailed: '无法检查该文件夹，请从上方选择一个文件夹。',
   },
 };
