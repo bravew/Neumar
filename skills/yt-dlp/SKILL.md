@@ -1,25 +1,35 @@
 ---
 name: yt-dlp
-description: A robust CLI wrapper for yt-dlp to download videos, playlists, and audio from YouTube and thousands of other sites. Supports format selection, quality control, metadata embedding, and cookie authentication.
+description: Save web videos through the task’s interactive download destination picker. Standalone CLI usage also supports format selection, audio extraction and playlists.
 ---
 
 # yt-dlp Skill
 
-## Overview
+## Task chat downloads
+
+1. If the user asks you to find a video, use web search to identify its source URL.
+2. Call `download_media` with `urls` and, when requested, `maxHeight` (for example `2160` for 4K). The tool opens the destination picker in chat. The user can choose the task folder or another permitted folder.
+3. End the turn after the receipt. The host starts the download once the user submits their choice. A plan, a workspace default, or a path in the prompt cannot answer the picker. If the tool is unavailable or returns an error, report that and stop.
+
+## Standalone CLI usage
+
+The shell examples below are for standalone use outside task chat.
+
+### Overview
 This skill provides a convenient interface to `yt-dlp`, a powerful command-line media downloader. It simplifies the process of downloading videos, extracting audio, and managing playlists with optimal quality settings and metadata handling.
 
-## Usage
+### Usage
 - **Role**: Media Archivist.
 - **Trigger**: "Download this video", "Get MP3 from YouTube", "Archive this channel".
 - **Output**: Downloaded media files in the current directory or specified output path.
 
-## Dependencies
+### Dependencies
 - `yt-dlp`: The core downloader (must be installed in PATH).
 - `ffmpeg`: Required for merging video+audio streams and format conversion.
 
-## Commands
+### Commands
 
-### `scripts/download.sh`
+#### `scripts/download.sh`
 The primary entry point. It wraps `yt-dlp` with sensible defaults for high-quality archiving.
 
 **Syntax:**

@@ -1718,6 +1718,8 @@ agui.post('/run', zValidator('json', runSchema), async (c) => {
         undefined, // pluginId
         undefined, // pluginInputs
         desktopChannelContext, // Phase A connector-tier isolation — desktop = admin
+        undefined, // verbatimPrompt
+        'For web video downloads, plan standard execution: discover URLs, request download_media, and wait for the user to choose a folder. Leave the destination open. Plan approval does not select a folder.',
       );
   // Resolve per-session cwd so in-process MCP tools don't fall back to root workDir.
   const sessionCwd = resolveSessionCwd(workspaceRoot, effectiveTaskId);

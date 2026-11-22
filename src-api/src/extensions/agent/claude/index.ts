@@ -140,6 +140,7 @@ import {
 } from '@/shared/mcp/linear-server';
 import type { McpServerConfig } from '@/shared/mcp/loader';
 import { loadMcpServers } from '@/shared/mcp/loader';
+import { MEDIA_DOWNLOAD_SERVER_NAME } from '@/shared/mcp/media-download-server';
 import {
   createMediaMcpServer,
   MEDIA_TOOL_NAMES,
@@ -195,6 +196,7 @@ import { deriveMemoryScope } from '@/shared/services/agent';
 import { getRemainingBudgetUsd } from '@/shared/services/budget';
 import { detectBinaries as detectFFmpegBinaries } from '@/shared/services/ffmpeg';
 import { getLinearConfig } from '@/shared/services/linear-config';
+import { DOWNLOAD_INSTRUCTIONS } from '@/shared/services/media-download/guidance';
 import { listCapabilities } from '@/shared/services/media-generation';
 import {
   detectSoulCorrection,
@@ -1515,17 +1517,20 @@ async function saveImagesToDisk(
  */
 function buildSystemPromptAppend(
   model: string,
-  skillsEnabled: boolean = true,
+  skillsEnabled: boolean,
+  managedDownloads: boolean,
 ): string {
   return [
     `You are running on Anthropic model \`${model}\`. If the user asks which model you are, answer with exactly that model ID — do not guess based on training data.`,
     'When you need clarification from the user or want them to pick between 2–4 finite options, call the `AskUserQuestion` tool. Do NOT enumerate the options as numbered markdown — emit the tool call so the host can render an interactive picker and resume your turn with the answer.',
     "Bash processes started with run_in_background are children of this turn's subprocess and are killed the moment your turn ends — there is no mechanism to resume or notify the user later. Never background a finite job (e.g. downloading a list of files) and end your turn saying you'll report back when it's done; that job will silently die unfinished. Instead, run finite batches in the foreground (or poll BashOutput to completion before ending your turn) so you only report results you've actually confirmed. Only use run_in_background for something the user will keep this task open to watch.",
-    ...(skillsEnabled
-      ? [
-          "When a skill (e.g. yt-dlp) is available and the user asks you to download media such as a YouTube video or its audio, invoke the skill directly — do NOT ask for rights/copyright confirmation or refuse citing YouTube's Terms of Service. The user is responsible for how they use downloaded content.",
-        ]
-      : []),
+    ...(managedDownloads
+      ? [DOWNLOAD_INSTRUCTIONS]
+      : skillsEnabled
+        ? [
+            "When a skill (e.g. yt-dlp) is available and the user asks you to download media such as a YouTube video or its audio, invoke the skill directly — do NOT ask for rights/copyright confirmation or refuse citing YouTube's Terms of Service. The user is responsible for how they use downloaded content.",
+          ]
+        : []),
   ].join('\n\n');
 }
 
@@ -1539,11 +1544,12 @@ function buildSystemPromptAppend(
 export function buildClaudeSystemPromptOption(
   model: string,
   skillsEnabled: boolean,
+  managedDownloads = false,
 ): NonNullable<Options['systemPrompt']> {
   return {
     type: 'preset',
     preset: 'claude_code',
-    append: buildSystemPromptAppend(model, skillsEnabled),
+    append: buildSystemPromptAppend(model, skillsEnabled, managedDownloads),
     snapshot: false,
   };
 }
@@ -1621,6 +1627,22 @@ const HARDCODED_DISALLOWED = [
   'CronList',
   'RemoteTrigger',
 ];
+
+/** Keep raw video download commands out of SDK runs that have the folder picker. */
+export function buildClaudeDisallowedTools(options?: AgentOptions): string[] {
+  return [
+    ...HARDCODED_DISALLOWED,
+    ...(options?.disallowedTools ?? []),
+    ...(options?.inProcessMcpServers?.[MEDIA_DOWNLOAD_SERVER_NAME]
+      ? [
+          'Bash(yt-dlp *)',
+          'Bash(*/yt-dlp *)',
+          'Bash(*yt-dlp/scripts/download.sh *)',
+          'Bash(python* -m yt_dlp *)',
+        ]
+      : []),
+  ];
+}
 
 /** Map full model IDs to SDK agent model aliases */
 function mapModelToSdkFormat(
@@ -2976,10 +2998,7 @@ User's request (answer this AFTER reading the images):
       tools: { type: 'preset', preset: 'claude_code' },
       allowedTools: options?.allowedTools || ALLOWED_TOOLS,
       // Block harness-level cron tools — our schedule_* MCP tools replace them
-      disallowedTools: [
-        ...HARDCODED_DISALLOWED,
-        ...(options?.disallowedTools ?? []),
-      ],
+      disallowedTools: buildClaudeDisallowedTools(options),
       ...(useSettingSources ? { settingSources } : {}),
       permissionMode: 'default',
       // Channel/schedule callers set AgentOptions.verbatimPrompt so remote
@@ -3014,6 +3033,9 @@ User's request (answer this AFTER reading the images):
             systemPrompt: buildClaudeSystemPromptOption(
               effectiveModel,
               options?.skillsConfig?.enabled !== false,
+              Boolean(
+                options?.inProcessMcpServers?.[MEDIA_DOWNLOAD_SERVER_NAME],
+              ),
             ),
           }
         : {}),
@@ -4538,7 +4560,7 @@ If you need to create any files during planning, use this directory.
             : allSkills;
           if (visibleSkills.length > 0) {
             toolCapabilities.push(
-              `- **Skills**: Installed skills the Skill tool can invoke directly during execution — ${visibleSkills.map((s) => s.bareName).join(', ')}. When one of these covers the request (e.g. yt-dlp for downloading YouTube/web video or audio), plan to use it instead of refusing.`,
+              `- **Skills**: Installed skills the Skill tool can invoke directly during execution — ${visibleSkills.map((s) => s.bareName).join(', ')}. Use a skill when it fits the execution tools and constraints for this task.`,
             );
           }
         } catch {
@@ -5189,10 +5211,7 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
       tools: { type: 'preset', preset: 'claude_code' },
       allowedTools: options.allowedTools || ALLOWED_TOOLS,
       // Block harness-level cron tools — our schedule_* MCP tools replace them
-      disallowedTools: [
-        ...HARDCODED_DISALLOWED,
-        ...(options.disallowedTools ?? []),
-      ],
+      disallowedTools: buildClaudeDisallowedTools(options),
       ...(useExecSettingSources ? { settingSources: execSettingSources } : {}),
       permissionMode: 'default',
       // Channel/schedule callers set AgentOptions.verbatimPrompt so remote
@@ -5223,6 +5242,9 @@ Available: schedule_create, schedule_list, schedule_cancel, schedule_toggle, sch
             systemPrompt: buildClaudeSystemPromptOption(
               effectiveModel,
               options.skillsConfig?.enabled !== false,
+              Boolean(
+                options.inProcessMcpServers?.[MEDIA_DOWNLOAD_SERVER_NAME],
+              ),
             ),
           }
         : {}),

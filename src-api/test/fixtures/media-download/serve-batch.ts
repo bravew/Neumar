@@ -7,6 +7,8 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { serve } from '@hono/node-server';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { DownloadActivity } from '@neumar/video-ir';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -16,6 +18,8 @@ import { z } from 'zod';
 import { aguiRoutes } from '@/app/api/ag-ui';
 
 import type { AgentMessage } from '@/core/agent/types';
+
+import { serializeClaudeToolResultContent } from '@/extensions/agent/claude';
 
 import { closeDatabase } from '@/shared/db';
 import {
@@ -32,11 +36,11 @@ import {
 } from '@/shared/services/ag-ui/question-decisions';
 import { subscribeSSEToBus } from '@/shared/services/ag-ui/transport';
 import { registerDownloadAsset } from '@/shared/services/media-download/assets';
+import { createTaskDownloadAttachment } from '@/shared/services/media-download/attachment';
 import { resolveDownloadDestination } from '@/shared/services/media-download/downloader';
 import {
   claimDownloadDestination,
   DOWNLOAD_DESTINATION_QUESTION,
-  requestDownloadDestination,
 } from '@/shared/services/media-download/requests';
 import { withDownloadBatch } from '@/shared/services/media-download/run-batch';
 import { runDownloadMedia } from '@/shared/services/media-download/runner';
@@ -78,16 +82,51 @@ createTask({
   prompt: 'download a video',
   work_dir: input.workDir,
 });
-const asked = requestDownloadDestination(
-  {
-    taskId: input.taskId,
-    runId: 'run-ask',
-    toolCallId: 'call-download',
-    batchId: 'batch-download',
-  },
-  { urls: input.urls },
-  'en',
+// Drive the same MCP call and tool-result observer as a Task V2 turn. The
+// browser must get its interrupt from the question this call actually created.
+const downloads = createTaskDownloadAttachment(
+  { taskId: input.taskId, runId: 'run-ask' },
+  'claude',
 );
+const downloadServer = downloads.inProcessMcpServers?.['media-download'];
+if (downloadServer?.type !== 'sdk')
+  throw new Error('Missing managed download MCP server');
+const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair();
+await downloadServer.instance.connect(serverTransport);
+const client = new Client({ name: 'browser-fixture', version: '1' });
+await client.connect(clientTransport);
+async function askDestination() {
+  const id = 'call-download';
+  const args = { urls: input.urls, maxHeight: 2160 };
+  await downloads
+    .observe({
+      type: 'tool_use',
+      id,
+      name: 'mcp__media-download__download_media',
+      input: args,
+    })
+    .next();
+  const result = await client.callTool({
+    name: 'download_media',
+    arguments: args,
+  });
+  const receipt = await downloads
+    .observe({
+      type: 'tool_result',
+      toolUseId: id,
+      output: serializeClaudeToolResultContent(result.content),
+      isError: result.isError === true,
+    })
+    .next();
+  if (receipt.done) throw new Error('Missing download receipt');
+  return z
+    .object({
+      questionId: z.string(),
+      status: z.literal('awaiting_destination'),
+    })
+    .parse(JSON.parse(receipt.value.output ?? 'null'));
+}
+const asked = await askDestination().finally(() => client.close());
 
 let activity: DownloadActivity | undefined;
 let controller: AbortController | undefined;

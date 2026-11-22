@@ -32,6 +32,7 @@ import {
   type FfmpegSkillTransport,
 } from '@/shared/services/ffmpeg-skill/handoff';
 
+import { DOWNLOAD_INSTRUCTIONS } from './guidance';
 import {
   requestDownloadDestination,
   type DestinationRequest,
@@ -72,16 +73,11 @@ export interface DownloadAttachment {
   inProcessMcpServers?: Record<string, McpServerConfig>;
   /** Subprocess loopback-bridge entry, when the provider uses the bridge. */
   bridgeInProcessServers?: BridgeInProcessServer[];
-  /** Appended to the run's system context; '' when downloads are unavailable. */
+  /** Appended to the run's system context. Covers unavailable providers too. */
   systemContext: string;
   /** Correlates tool results with their receipts and records the request. */
   observe(message: AgentMessage): AsyncGenerator<AgentMessage>;
 }
-
-const DOWNLOAD_INSTRUCTIONS =
-  'To save web videos for the user, call the managed `download_media` tool with the ' +
-  'URLs. It returns a receipt and the user chooses a folder next: after the receipt, ' +
-  'end this turn. Do not choose a path, retry the call, or claim a download finished.';
 
 /**
  * A new attachment per agent run. Requests are held in memory only until their
@@ -95,7 +91,8 @@ export function createTaskDownloadAttachment(
   if (transport === 'unsupported') {
     return {
       transport,
-      systemContext: '',
+      systemContext:
+        'For web video download requests, explain that this provider cannot open the destination picker. Do not start a shell download.',
       observe: passthrough,
     };
   }

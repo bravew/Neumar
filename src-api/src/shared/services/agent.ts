@@ -426,6 +426,7 @@ export async function* runPlanningPhase(
    * `AgentOptions.verbatimPrompt`.
    */
   verbatimPrompt?: boolean,
+  executionToolHint?: string,
 ): AsyncGenerator<AgentMessage> {
   using _taskRun = acquireTaskRun(taskId);
   const agent = getAgent(modelConfig);
@@ -458,7 +459,9 @@ export async function* runPlanningPhase(
       cwd: workDir,
       taskId,
       additionalUserDirs,
-      systemContext: taskPluginContext.systemContext,
+      systemContext: [taskPluginContext.systemContext, executionToolHint]
+        .filter(Boolean)
+        .join('\n\n'),
       resolvedContext,
       thinkingConfig: effectiveThinking,
       channelContext,
