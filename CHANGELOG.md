@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 
 
+
+## 26.11.22 — 2026-11-23
+
+### Added
+- **task**: add managed video downloads with inline playback (#368)
+- **ag-ui**: adopt AG-UI 1.0 interrupts, sub-agents, usage, widgets (#348)
+- **deps**: upgrade CopilotKit 1.88 and AG-UI 1.0 (#314) (#332)
+- **task**: rewind files to before an Activity turn (#330)
+- **video**: interactive transcript layer (epic #177) (#187)
+- **ffmpeg**: replace FFmpeg skill across task, chat, design, video (#175)
+- **ux**: simple-by-default shell, settings, and first-run (#155)
+- **mcp**: per-server timeouts and interrupt semantics (#96)
+- **chat**: back conversation branches with forked SDK sessions (#93)
+- **channels**: send channel and scheduled prompts verbatim (#92)
+- **agent**: surface new Claude SDK stream signals (#91)
+- **agent-runtimes**: Codex GPT-6 models, persistent effort, cache-write usage (#89)
+- **codex**: forward user images as local_image input (#88)
+- **codex**: honor outputFormat via TurnOptions.outputSchema (#87)
+- **ui**: React 19.3 <ViewTransition> for route and panel transitions (#84)
+- **codex**: per-tool output limits for bridged MCP servers (#82)
+- **codex**: stream item.started/item.updated and render todo_list (#81)
+
+### Fixed
+- **ag-ui**: converge the inline question card with the question record (#350)
+- **task**: keep a per-attempt file checkpoint for retried turns (#333)
+- **ffmpeg**: read SRT cues as ffmpeg does; keep symbols; wrap Korean (#329)
+- **video**: draw a split transcript word as one animated caption word (#328)
+- **deps**: clear in-major production audit advisories (#313)
+- **api**: remove duplicate test import; pin patched undici (#105)
+- **models**: show Claude model names in picker (#104)
+- **api**: clear the remaining API test typecheck errors (#103)
+- **desktop**: ship tray-icon 0.25 and repair test types (#102)
+- **agent**: close headless, cost, and branch gaps (#101)
+- **agent**: deny headless permission asks and un-shadow canUseTool (#90)
+- **deps**: upgrade claude-agent-sdk to 0.3.283 with Zod-safe MCP schemas (#80)
+
+### Performance
+- **agent**: measure and cut Claude first-turn latency (#95)
 ## 26.11.17 — 2026-11-16
 
 ### Added

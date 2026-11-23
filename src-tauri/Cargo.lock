@@ -3132,7 +3132,7 @@ dependencies = [
 
 [[package]]
 name = "neumar"
-version = "26.11.17"
+version = "26.11.22"
 dependencies = [
  "block2",
  "libc",
