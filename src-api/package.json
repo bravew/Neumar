@@ -1,6 +1,6 @@
 {
   "name": "neumar-api",
-  "version": "26.11.17",
+  "version": "26.11.22",
   "type": "module",
   "scripts": {
     "predev": "pnpm --filter @neumar/video-ir build",
