@@ -1,17 +1,35 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import {
+  AGGREGATE_CHECK,
+  decideReviewVerdict,
+  formatReviewEvidence,
+  MAX_REWORK_CYCLES,
+  REQUIRED_JOBS,
+  RUST_JOB,
+  verifyPrGate,
+  type CheckRunInput,
+} from '../../scripts/verify-pr-gate.mjs';
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 /**
- * Regression coverage for issue #196: the quality and test jobs used to run only
- * on `release/*` heads, so ordinary PRs (and PRs into `epic/**`) showed green
- * check names without running anything. These tests pin the workflow text and
- * exercise the aggregate gate's decision logic the way GitHub runs it.
+ * Regression coverage for issue #196 and #363: the quality and test jobs used to
+ * run only on `release/*` heads, so ordinary PRs (and PRs into `epic/**`) showed
+ * green check names without running anything. These tests pin the workflow text,
+ * exercise the aggregate gate's decision logic the way GitHub runs it, and cover
+ * the revision-bound verifier that rejects a green older head, a draft-only skip,
+ * cancelled CI, and a pushed follow-up.
  */
 const workflowPath = path.resolve(process.cwd(), '.github/workflows/ci.yml');
 const workflow = readFileSync(workflowPath, 'utf-8');
+
+const packageJson = JSON.parse(
+  readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8'),
+) as { scripts: Record<string, string> };
 
 function extractJobBlock(jobId: string): string {
   const lines = workflow.split('\n');
@@ -114,6 +132,52 @@ describe('ci.yml triggers', () => {
       expect(use).toMatch(/^uses: [^@\s]+@[0-9a-f]{40}( # .+)?$/);
     }
   });
+
+  it('cancels only superseded pull request runs', () => {
+    expect(workflow).toContain(
+      "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+    );
+    expect(workflow).toContain(
+      "group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}",
+    );
+  });
+});
+
+describe('quality job parity with pnpm validate', () => {
+  // The 11 checks `ci.yml` skipped while `pnpm validate` ran them locally.
+  const previouslyMissing = [
+    'pnpm check:locale-parity',
+    'pnpm check:critique-i18n',
+    'pnpm --filter neumar-api format:check',
+    'pnpm check:design-system-flags',
+    'pnpm check:design-media-catalog',
+    'pnpm check:uuid-routing',
+    'pnpm check:ag-ui-version',
+    'pnpm check:plugin-registry',
+    'pnpm check:hyperframes-skill',
+    'pnpm check:ffmpeg-skill',
+    'pnpm check:hyperframes-upgrade',
+  ];
+
+  it('runs every check that pnpm validate runs', () => {
+    const quality = extractJobBlock('quality');
+    const validateCommands = packageJson.scripts.validate
+      .split(' && ')
+      .map((command) => command.trim())
+      .filter(Boolean);
+
+    expect(validateCommands.length).toBeGreaterThan(0);
+    for (const command of validateCommands) {
+      expect(quality, `quality job is missing: ${command}`).toContain(command);
+    }
+  });
+
+  it('runs the 11 checks the workflow used to skip', () => {
+    const quality = extractJobBlock('quality');
+    for (const command of previouslyMissing) {
+      expect(quality, `quality job is missing: ${command}`).toContain(command);
+    }
+  });
 });
 
 describe('CI Gate aggregate job', () => {
@@ -199,5 +263,345 @@ describe('CI Gate aggregate job', () => {
     expect(
       runGate({ ...passingResults, BROWSER_E2E_RESULT: 'failure' }).status,
     ).not.toBe(0);
+  });
+});
+
+// ─── Revision-bound verifier (#363) ──────────────────────────────────────────
+
+const HEAD = 'a'.repeat(40);
+const OLD_HEAD = 'b'.repeat(40);
+const BASE = 'c'.repeat(40);
+const MERGE = 'd'.repeat(40);
+
+function checkRun(
+  name: string,
+  overrides: Partial<CheckRunInput> = {},
+): CheckRunInput {
+  return {
+    name,
+    head_sha: HEAD,
+    status: 'completed',
+    conclusion: 'success',
+    app: { id: 15368 },
+    ...overrides,
+  };
+}
+
+function pullRequest(overrides: Record<string, unknown> = {}) {
+  return {
+    state: 'OPEN',
+    isDraft: false,
+    headRefOid: HEAD,
+    baseRefOid: BASE,
+    mergeCommit: { oid: MERGE },
+    ...overrides,
+  };
+}
+
+function successfulChecks(
+  overrides: Partial<CheckRunInput> = {},
+): CheckRunInput[] {
+  return [
+    ...REQUIRED_JOBS.map((job) => checkRun(job, overrides)),
+    checkRun(RUST_JOB, overrides),
+    checkRun(AGGREGATE_CHECK, overrides),
+  ];
+}
+
+function verify(
+  overrides: {
+    pr?: Record<string, unknown>;
+    checks?: CheckRunInput[];
+    changedPaths?: string[];
+    expectedHead?: string;
+    rustRequired?: boolean;
+  } = {},
+) {
+  return verifyPrGate({
+    pr: pullRequest(overrides.pr),
+    checks: overrides.checks ?? successfulChecks(),
+    changedPaths: overrides.changedPaths ?? [],
+    ...(overrides.expectedHead ? { expectedHead: overrides.expectedHead } : {}),
+    ...(overrides.rustRequired === undefined
+      ? {}
+      : { rustRequired: overrides.rustRequired }),
+  });
+}
+
+describe('verifyPrGate revision binding', () => {
+  it('verifies a successful run on the exact current head', () => {
+    const result = verify();
+    expect(result.ok).toBe(true);
+    expect(result.verdict).toBe('verified');
+    expect(result.head).toBe(HEAD);
+    expect(result.reasons).toEqual([]);
+  });
+
+  it('rejects a draft even when CI Gate exits 0', () => {
+    const result = verify({ pr: { isDraft: true } });
+    expect(result.ok).toBe(false);
+    expect(result.reasons.map((reason) => reason.code)).toContain('draft');
+  });
+
+  it('rejects a green run produced on an older head', () => {
+    const result = verify({ checks: successfulChecks({ head_sha: OLD_HEAD }) });
+    expect(result.ok).toBe(false);
+    expect(result.reasons.map((reason) => reason.code)).toContain('stale-head');
+  });
+
+  it('rejects a pushed follow-up after evidence was captured', () => {
+    const result = verify({ expectedHead: OLD_HEAD });
+    expect(result.ok).toBe(false);
+    expect(result.reasons.map((reason) => reason.code)).toContain('head-moved');
+  });
+
+  it('rejects cancelled CI', () => {
+    const result = verify({
+      checks: successfulChecks({ conclusion: 'cancelled' }),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.reasons.map((reason) => reason.code)).toContain('cancelled');
+  });
+
+  it('rejects a missing required job', () => {
+    const checks = successfulChecks().filter((check) => check.name !== 'Test');
+    const result = verify({ checks });
+    expect(result.ok).toBe(false);
+    expect(result.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-check', job: 'Test' }),
+      ]),
+    );
+  });
+
+  it('requires Rust Checks only when src-tauri/ changed', () => {
+    const withoutRust = successfulChecks().filter(
+      (check) => check.name !== RUST_JOB,
+    );
+
+    const unchanged = verify({
+      checks: withoutRust,
+      changedPaths: ['src/app.tsx'],
+    });
+    expect(unchanged.ok).toBe(true);
+    expect(unchanged.rustRequired).toBe(false);
+
+    const changed = verify({
+      checks: withoutRust,
+      changedPaths: ['src-tauri/Cargo.toml'],
+    });
+    expect(changed.ok).toBe(false);
+    expect(changed.rustRequired).toBe(true);
+    expect(changed.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-check', job: RUST_JOB }),
+      ]),
+    );
+  });
+
+  it('accepts a skipped Rust check when src-tauri/ did not change', () => {
+    const checks = successfulChecks().map((check) =>
+      check.name === RUST_JOB ? { ...check, conclusion: 'skipped' } : check,
+    );
+    expect(verify({ checks, changedPaths: ['docs/readme.md'] }).ok).toBe(true);
+  });
+
+  it('rejects an unknown Rust requirement instead of assuming it passed', () => {
+    const result = verifyPrGate({
+      pr: pullRequest(),
+      checks: successfulChecks(),
+    });
+    expect(result.ok).toBe(false);
+    expect(result.reasons.map((reason) => reason.code)).toContain(
+      'rust-requirement-unknown',
+    );
+  });
+
+  it('rejects a same-named check from a different app', () => {
+    const checks = successfulChecks({ app: { id: 999 } });
+    const result = verify({ checks });
+    expect(result.ok).toBe(false);
+    expect(
+      result.reasons.some((reason) => reason.code === 'missing-check'),
+    ).toBe(true);
+  });
+
+  it('uses the newest rerun instead of an older success', () => {
+    const checks = [
+      ...successfulChecks(),
+      checkRun('Test', { status: 'in_progress', conclusion: null }),
+    ];
+    const result = verify({ checks });
+    expect(result.ok).toBe(false);
+    expect(result.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'not-completed', job: 'Test' }),
+      ]),
+    );
+  });
+});
+
+describe('decideReviewVerdict bounded rework', () => {
+  it('hands a clean, CI-verified head to a human', () => {
+    expect(decideReviewVerdict({ ciVerified: true })).toMatchObject({
+      verdict: 'ready-for-human',
+      halt: false,
+    });
+  });
+
+  it('never approves a head whose CI is not verified', () => {
+    expect(decideReviewVerdict({ ciVerified: false })).toMatchObject({
+      verdict: 'request-changes',
+    });
+  });
+
+  it('requests changes while blocking findings remain', () => {
+    expect(
+      decideReviewVerdict({ ciVerified: true, blockingFindings: 2 }),
+    ).toMatchObject({ verdict: 'request-changes' });
+  });
+
+  it('halts at the rework limit and requires a human decision', () => {
+    expect(
+      decideReviewVerdict({
+        ciVerified: true,
+        reworkCycles: MAX_REWORK_CYCLES,
+      }),
+    ).toMatchObject({ verdict: 'needs-decision', halt: true });
+  });
+
+  it('still allows a final cycle below the limit', () => {
+    expect(
+      decideReviewVerdict({
+        ciVerified: true,
+        reworkCycles: MAX_REWORK_CYCLES - 1,
+      }),
+    ).toMatchObject({ verdict: 'ready-for-human' });
+  });
+});
+
+describe('formatReviewEvidence', () => {
+  it('stamps the exact head, base, and CI Gate evidence', () => {
+    const evidence = formatReviewEvidence(verify());
+    expect(evidence).toContain(`Head: \`${HEAD}\``);
+    expect(evidence).toContain(`Base: \`${BASE}\``);
+    expect(evidence).toContain(`Merge commit: \`${MERGE}\``);
+    expect(evidence).toContain('CI Gate: `success`');
+    expect(evidence).toContain('CI verified on exact head: `yes`');
+  });
+
+  it('records why a revision is not verified', () => {
+    const evidence = formatReviewEvidence(
+      verify({ checks: successfulChecks({ head_sha: OLD_HEAD }) }),
+    );
+    expect(evidence).toContain('CI verified on exact head: `no`');
+    expect(evidence).toContain('not the current head');
+  });
+
+  it('lists every excluded path instead of silently passing an empty diff', () => {
+    const changedPaths = ['README.md', 'pnpm-lock.yaml'];
+    const evidence = formatReviewEvidence(verify(), {
+      allExcluded: true,
+      changedPaths,
+    });
+    expect(evidence).toContain('No reviewable code changes');
+    for (const filePath of changedPaths) {
+      expect(evidence).toContain(`\`${filePath}\``);
+    }
+  });
+});
+
+describe('verify-pr-gate CLI', () => {
+  const cli = path.resolve(process.cwd(), 'scripts/verify-pr-gate.mjs');
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(os.tmpdir(), 'verify-pr-gate-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function fixtures(
+    pr: Record<string, unknown>,
+    checks: CheckRunInput[],
+    changedPaths: string[] = [],
+  ) {
+    const prFile = path.join(dir, 'pr.json');
+    const checksFile = path.join(dir, 'checks.json');
+    const changedFile = path.join(dir, 'changed-paths.txt');
+    writeFileSync(prFile, JSON.stringify(pr));
+    writeFileSync(
+      checksFile,
+      JSON.stringify({ total_count: checks.length, check_runs: checks }),
+    );
+    writeFileSync(changedFile, changedPaths.join('\n'));
+    return { prFile, checksFile, changedFile };
+  }
+
+  function run(args: string[]): { status: number; stdout: string } {
+    try {
+      const stdout = execFileSync(process.execPath, [cli, ...args], {
+        encoding: 'utf-8',
+      });
+      return { status: 0, stdout };
+    } catch (error) {
+      const failure = error as { status?: number; stdout?: string };
+      return { status: failure.status ?? 1, stdout: failure.stdout ?? '' };
+    }
+  }
+
+  it('emits revision evidence for a verified head', () => {
+    const files = fixtures(pullRequest(), successfulChecks());
+    const result = run([
+      'evidence',
+      '--pr',
+      files.prFile,
+      '--checks',
+      files.checksFile,
+      '--changed',
+      files.changedFile,
+      '--expected-head',
+      HEAD,
+      '--all-excluded',
+      'false',
+    ]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(`Head: \`${HEAD}\``);
+    expect(result.stdout).toContain('CI verified on exact head: `yes`');
+  });
+
+  it('exits nonzero when verify sees a draft', () => {
+    const files = fixtures(pullRequest({ isDraft: true }), successfulChecks());
+    const result = run([
+      'verify',
+      '--pr',
+      files.prFile,
+      '--checks',
+      files.checksFile,
+      '--changed',
+      files.changedFile,
+    ]);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain('"code": "draft"');
+  });
+
+  it('exits nonzero when verify sees a green older head', () => {
+    const files = fixtures(
+      pullRequest(),
+      successfulChecks({ head_sha: OLD_HEAD }),
+    );
+    const result = run([
+      'verify',
+      '--pr',
+      files.prFile,
+      '--checks',
+      files.checksFile,
+      '--changed',
+      files.changedFile,
+    ]);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain('"code": "stale-head"');
   });
 });

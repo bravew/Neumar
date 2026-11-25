@@ -6,13 +6,18 @@ name: CI
 #   epic/**), including dependency-bot PRs; pushes to main and epic/** so the integrated
 #   head is validated; and manual workflow_dispatch. Draft PRs skip the heavy jobs until
 #   they are marked ready for review.
-# - Jobs: quality (lint/types/format), test (frontend+API), build verification, plus the
-#   checks `pnpm validate` does not cover: API lint, API test-file typecheck, the shared
-#   video IR suite, and Rust checks on a change that touches src-tauri/. `CI Gate` is the
-#   single aggregate job that branch protection should require. It passes only when every
-#   required job succeeded. A skipped or cancelled required job is a failure. The only
-#   accepted skips are a draft PR (GitHub cannot merge drafts), Browser E2E when it was
-#   not requested via workflow_dispatch, and Rust checks when src-tauri/ did not change.
+# - Jobs: quality (the full `pnpm validate` surface), test (frontend+API), build
+#   verification, plus the checks `pnpm validate` does not cover: API lint, API
+#   test-file typecheck, the shared video IR suite, and Rust checks on a change that
+#   touches src-tauri/. `CI Gate` is the single aggregate job that branch protection
+#   should require. It passes only when every required job succeeded. A skipped or
+#   cancelled required job is a failure. The only accepted skips are a draft PR
+#   (GitHub cannot merge drafts), Browser E2E when it was not requested via
+#   workflow_dispatch, and Rust checks when src-tauri/ did not change.
+# - Parity with `pnpm validate`: the quality job runs every command in the
+#   `validate` script, including the parity, registry, and API format checks that
+#   used to run only locally. `src/__tests__/ci-workflow-gate.test.ts` compares the
+#   two so a command added to `validate` cannot silently be skipped here.
 # - Caching: pnpm store cached via actions/setup-node built-in cache support.
 #
 # CUSTOMIZATION TIPS
@@ -79,6 +84,25 @@ jobs:
 
       - name: Warning baseline
         run: pnpm check:warning-baseline
+
+      # The rest of `pnpm validate` that used to run only on a developer machine.
+      # Keep this list in step with the `validate` script; the workflow gate test
+      # compares the two.
+      - name: Parity and registry checks
+        run: |
+          pnpm check:critique-i18n
+          pnpm check:locale-parity
+          pnpm check:design-system-flags
+          pnpm check:design-media-catalog
+          pnpm check:uuid-routing
+          pnpm check:ag-ui-version
+          pnpm check:plugin-registry
+          pnpm check:hyperframes-skill
+          pnpm check:ffmpeg-skill
+          pnpm check:hyperframes-upgrade
+
+      - name: API format check
+        run: pnpm --filter neumar-api format:check
 
       - name: Type check (frontend + API)
         run: pnpm typecheck:all
