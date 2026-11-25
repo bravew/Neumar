@@ -663,6 +663,35 @@ describe('verification report', () => {
     );
   });
 
+  it('rejects a duplicated check name and a command that does not match', () => {
+    const duplicated = validateVerificationReport(
+      validReport({
+        checks: [
+          { name: 'pnpm validate', status: 'passed', command: 'pnpm validate' },
+          { name: 'pnpm validate', status: 'failed', command: 'pnpm validate' },
+        ],
+      }),
+      expected,
+    );
+    expect(duplicated.ok).toBe(false);
+    expect(duplicated.violations.map((entry) => entry.rule)).toContain(
+      'check-duplicate',
+    );
+
+    for (const command of ['echo ok', undefined]) {
+      const mismatched = validateVerificationReport(
+        validReport({
+          checks: [{ name: 'pnpm validate', status: 'passed', command }],
+        }),
+        expected,
+      );
+      expect(mismatched.ok, String(command)).toBe(false);
+      expect(mismatched.violations.map((entry) => entry.rule)).toContain(
+        'check-command-mismatch',
+      );
+    }
+  });
+
   it('requires the reported file set to match the patch', () => {
     const result = validateVerificationReport(
       validReport({ changedFiles: ['src/other.ts'] }),
@@ -766,6 +795,7 @@ describe('verification report', () => {
     expect(body).toContain('v22.20.0 / 10.15.0');
     expect(findClosingIssues(body)).toEqual([ISSUE]);
     expect(findClosingIssues('Closes #362 and fixes #358')).toEqual([362, 358]);
+    expect(findClosingIssues('Closes: #362\nFixes: #358')).toEqual([362, 358]);
   });
 });
 
