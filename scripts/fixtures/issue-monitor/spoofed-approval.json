@@ -1,0 +1,110 @@
+{
+  "name": "spoofed-approval",
+  "description": "Approval only counts as the latest approval-label event by a trusted actor. A non-collaborator's label, a relabel by an outsider, a missing history, and comment text asking for approval all produce no claim.",
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "outsiderLabel30": {
+      "number": 30,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "mallory",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    },
+    "commentOnly31": {
+      "number": 31,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug"],
+      "linkedOpenPrs": 0,
+      "labelEvents": []
+    },
+    "relabeledByOutsider32": {
+      "number": 32,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        },
+        {
+          "event": "unlabeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:10:00.000Z"
+        },
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "mallory",
+          "createdAt": "2026-11-24T09:20:00.000Z"
+        }
+      ]
+    },
+    "noHistory33": {
+      "number": 33,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": null
+    },
+    "deletedActor34": {
+      "number": 34,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": null,
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "cron",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "issues": [
+          "outsiderLabel30",
+          "commentOnly31",
+          "relabeledByOutsider32",
+          "noHistory33",
+          "deletedActor34"
+        ]
+      },
+      "expect": {
+        "outcome": "ok",
+        "claims": [],
+        "dispatched": [],
+        "decisions": {
+          "30": "approval-untrusted",
+          "31": "not-approved",
+          "32": "approval-untrusted",
+          "33": "approval-unverifiable",
+          "34": "approval-unverifiable"
+        }
+      }
+    }
+  ]
+}

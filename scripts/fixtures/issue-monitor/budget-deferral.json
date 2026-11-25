@@ -1,0 +1,90 @@
+{
+  "name": "budget-deferral",
+  "description": "With a one-claim daily cap, the second eligible issue is deferred and stays on the follow-up list, so it is claimed the next day although GitHub shows no update to it.",
+  "config": { "maxClaimsPerDay": 1 },
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "bug60": {
+      "number": 60,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    },
+    "bug61": {
+      "number": 61,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:05:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "cron",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T09:59:55.000Z",
+        "issues": ["bug60", "bug61"]
+      },
+      "expect": {
+        "claims": [60],
+        "dispatched": [60],
+        "decisions": { "60": "eligible", "61": "daily-budget-exhausted" },
+        "followUps": [60, 61]
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-2",
+      "now": "2026-11-24T14:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T13:59:55.000Z",
+        "issues": ["bug61"]
+      },
+      "expect": {
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "61": "daily-budget-exhausted" },
+        "followUps": [60, 61]
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-3",
+      "now": "2026-11-25T10:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-25T09:59:55.000Z",
+        "issues": ["bug61"]
+      },
+      "expect": {
+        "claims": [61],
+        "dispatched": [61],
+        "decisions": { "61": "eligible" }
+      }
+    }
+  ]
+}
