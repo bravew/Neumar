@@ -2,10 +2,42 @@ name: Claude - Diff-Aware PR Reviewer
 
 # ABOUT THIS WORKFLOW
 # - Purpose: Generate a thorough, diff-aware code review for PRs with inline comments and summary.
-# - Trigger: Manual — workflow_dispatch, commenting "@review" on a PR, or adding the "review" label.
+# - Trigger: Manual — workflow_dispatch, commenting "@review" on a PR, adding the "review" label,
+#   or a trusted repository_dispatch of type "ai-review" from the automated publisher (#362).
 #   (Automatic pull_request trigger on every open/sync is disabled by default — see the `on:` block.)
 # - Outputs: A single summary comment (updated in-place) + optional inline comments + optional report artifact.
 # - Docs: https://github.com/anthropics/claude-code-action
+#
+# TRIGGERS AND LABELS
+# - The "review" and "skip AI review" labels must already exist in the repository. A
+#   workflow cannot create labels, and a missing trigger label fails silently: no event
+#   is delivered, so no run appears. Create both labels before relying on them.
+# - Automated publisher PRs (#362) use repository_dispatch with event_type "ai-review"
+#   and client_payload {"pr_number": <n>}. That is the explicit trusted trigger and does
+#   not depend on a label existing. The skip label is still honored by the Resolve skip
+#   label step, because job-level `if` cannot read labels on a dispatch event.
+#
+# REVISION-BOUND EVIDENCE
+# - Every review is bound to the exact head it reviewed. The "Collect revision and CI
+#   evidence" step records headRefOid, baseRefOid, the check runs for that head, and the
+#   actual `CI Gate` conclusion and URL. The prompt requires that block verbatim in
+#   review.md, and the completion guard rejects a posted review that does not stamp the
+#   captured head or that reports `ready-for-human` while CI is unverified.
+# - The guard re-reads the PR head before accepting the review. If the head moved while
+#   the review ran, the old review is invalid and a fresh run is required.
+#
+# VERDICT AND BOUNDED REWORK
+# - The review ends with exactly one verdict: `ready-for-human`, `request-changes`, or
+#   `needs-decision`. `ready-for-human` only means the static review found no blocking
+#   findings; a human (`bravew`) still makes the merge decision. It is never an approval.
+# - Automated rework is bounded at 3 request-changes cycles (`MAX_REWORK_CYCLES` in
+#   `scripts/verify-pr-gate.mjs`). Once reached, the next verdict must be
+#   `needs-decision`; the workflow does not label or mutate the PR itself.
+#
+# EXCLUDED PATHS
+# - `REVIEW_EXCLUDE_PATHS` removes docs, markdown, and lockfiles from the diff. When every
+#   changed path is excluded, the scoped diff is empty. That is not a pass: the evidence
+#   block lists every excluded path and requires a human review of them.
 #
 # REQUIRED SECRETS
 # - CLAUDE_CODE_OAUTH_TOKEN: Claude Code OAuth token for authentication.
@@ -16,6 +48,7 @@ name: Claude - Diff-Aware PR Reviewer
 # - issues: read - Read linked issues for context
 # - id-token: write - Required by the action runtime
 # - actions: read - Read CI results to provide context-aware reviews
+# - checks: read - Read the check runs for the exact head and stamp CI evidence
 #
 # CUSTOMIZATION TIPS
 # - Adjust --allowedTools to restrict/enable commands. Keep the scope tight.
@@ -66,8 +99,9 @@ name: Claude - Diff-Aware PR Reviewer
 # - The run log carries a burst of "fatal: could not open <path> ... No such file or directory",
 #   often hundreds of lines. They are not from this workflow and not a failure. The action's own
 #   fetchGitHubData (src/github/data/fetcher.ts, during prepareTagMode, before Claude starts) runs
-#   `git hash-object` over every changed file. On an issue_comment event actions/checkout gives
-#   main's tree, so files the PR *adds* are not on disk and cannot be hashed. The action catches
+#   `git hash-object` over every changed file. Checkout is pinned to the base revision (main on
+#   issue_comment/workflow_dispatch/repository_dispatch), so files the PR *adds* are not on disk
+#   and cannot be hashed. The action catches
 #   each one, logs "warn: Failed to compute SHA", and continues. "fatal:" is git's prefix for every
 #   error, not a job status.
 # - Those SHAs only feed inline-comment anchoring. Silencing them would mean checking out the PR
@@ -80,13 +114,17 @@ on:
   # Automatic pull_request trigger on every open/sync is disabled by default.
   # Uncomment the two lines below to restore it. Until then, trigger a review
   # by: workflow_dispatch (Actions tab or `gh workflow run`), commenting
-  # "@review" on the PR, or adding the "review" label.
+  # "@review" on the PR, adding the "review" label, or dispatching "ai-review".
   # pull_request:
   #   types: [opened, synchronize, reopened, ready_for_review, unlabeled]
   pull_request:
     types: [labeled]
   issue_comment:
     types: [created]
+  # Explicit trusted trigger for the automated publisher (#362). The dispatcher
+  # supplies client_payload.pr_number. This workflow never executes PR code.
+  repository_dispatch:
+    types: [ai-review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -136,18 +174,22 @@ permissions:
   issues: read
   id-token: write
   actions: read
+  checks: read
 
 jobs:
   review:
     runs-on: ubuntu-latest
-    # Runs on: workflow_dispatch, adding the "review" label, or a
-    # collaborator commenting "@review" on the PR. Skips automated
-    # dependency-update bots and PRs carrying the "skip AI review" label.
+    # Runs on: workflow_dispatch, adding the "review" label, a collaborator
+    # commenting "@review" on the PR, or a trusted "ai-review" dispatch from the
+    # automated publisher. Skips automated dependency-update bots. The label
+    # triggers check the "skip AI review" label here; dispatch events check it in
+    # the Resolve skip label step because job-level `if` cannot read PR labels.
     if: |
       !contains(github.actor, 'dependabot') &&
       !contains(github.actor, 'renovate') &&
       (
         github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'repository_dispatch' ||
         (
           github.event_name == 'pull_request' &&
           github.event.action == 'labeled' &&
@@ -171,10 +213,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          # Never check out the PR head: this job holds CLAUDE_CODE_OAUTH_TOKEN and
+          # pull-requests: write, and the verifier script must come from trusted code.
+          # On pull_request events this is the base SHA; on dispatch and comment
+          # events github.sha is the default branch.
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
           # Depth 100 gives `git merge-base` enough history to resolve the fork point
           # against the PR head fetched below. The "Prepare scoped PR diff" step deepens
           # further if that isn't enough for a long-lived branch.
           fetch-depth: 100
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
 
       - name: Set PR number
         id: pr
@@ -184,6 +236,7 @@ jobs:
           INPUT_GENERATE_REPORT: ${{ inputs.generate_report }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          DISPATCH_PR_NUMBER: ${{ github.event.client_payload.pr_number }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "number=$INPUT_PR_NUMBER" >> $GITHUB_OUTPUT
@@ -191,12 +244,40 @@ jobs:
           elif [ "$EVENT_NAME" = "issue_comment" ]; then
             echo "number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
             echo "generate_report=false" >> $GITHUB_OUTPUT
+          elif [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            echo "number=$DISPATCH_PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "generate_report=false" >> $GITHUB_OUTPUT
           else
             echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
             echo "generate_report=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Resolve skip label
+        id: skip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if ! printf '%s' "$PR_NUMBER" | grep -qE '^[0-9]+$'; then
+            echo "::error::No numeric PR number was resolved for event $GITHUB_EVENT_NAME."
+            exit 1
+          fi
+
+          # The label triggers already exclude "skip AI review" in the job `if`.
+          # Dispatch events cannot read labels there, so honor the opt-out here.
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '.labels[].name')
+          if printf '%s\n' "$LABELS" | grep -qxF 'skip AI review'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::PR #$PR_NUMBER carries the 'skip AI review' label; review skipped."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Minimize previous Claude review comments
+        if: steps.skip.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
@@ -252,6 +333,7 @@ jobs:
 
       - name: Prepare scoped PR diff
         id: diff
+        if: steps.skip.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
@@ -286,6 +368,11 @@ jobs:
             exit 1
           fi
 
+          # Unfiltered list, so an empty scoped diff can still name the paths that
+          # were excluded instead of silently reviewing nothing.
+          git diff --merge-base "refs/remotes/origin/${BASE_REF}" refs/remotes/pr/head \
+            --name-only > changed-paths.txt
+
           # shellcheck disable=SC2086 # EXCLUDES is a deliberate list of pathspecs
           git diff --merge-base "refs/remotes/origin/${BASE_REF}" refs/remotes/pr/head \
             --stat=200 -- . $EXCLUDES > pr-files.txt
@@ -295,18 +382,90 @@ jobs:
 
           PATCH_LINES=$(wc -l < pr-diff.patch | tr -d ' ')
           FILE_COUNT=$(grep -c '^diff --git ' pr-diff.patch || true)
+          TOTAL_FILE_COUNT=$(wc -l < changed-paths.txt | tr -d ' ')
           echo "patch_lines=$PATCH_LINES" >> "$GITHUB_OUTPUT"
           echo "file_count=$FILE_COUNT" >> "$GITHUB_OUTPUT"
-          echo "Scoped diff: $FILE_COUNT files, $PATCH_LINES patch lines"
+          echo "total_file_count=$TOTAL_FILE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "Scoped diff: $FILE_COUNT files, $PATCH_LINES patch lines (of $TOTAL_FILE_COUNT changed paths)"
 
-          if [ "$PATCH_LINES" -eq 0 ]; then
-            echo "::warning::Scoped diff is empty — every changed path matched REVIEW_EXCLUDE_PATHS."
-          elif [ "$PATCH_LINES" -gt 12000 ]; then
+          if [ "$PATCH_LINES" -eq 0 ] && [ "$TOTAL_FILE_COUNT" -gt 0 ]; then
+            # Every changed path matched REVIEW_EXCLUDE_PATHS. This is not a pass:
+            # the evidence block lists the paths and requires a human review.
+            echo "all_excluded=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Scoped diff is empty because all $TOTAL_FILE_COUNT changed path(s) matched REVIEW_EXCLUDE_PATHS."
+          else
+            echo "all_excluded=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "$PATCH_LINES" -gt 12000 ]; then
             echo "::warning::Scoped diff is $PATCH_LINES lines across $FILE_COUNT files. Expect a partial review — split the PR, widen REVIEW_EXCLUDE_PATHS, or rerun with claude_model=claude-opus-5."
           fi
 
+      - name: Collect revision and CI evidence
+        id: evidence
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # The verifier is trusted code from the checked-out base revision. Never
+          # execute a script from the PR head in this job: it holds the OAuth token
+          # and pull-requests: write.
+          if [ ! -f scripts/verify-pr-gate.mjs ]; then
+            echo "::error::scripts/verify-pr-gate.mjs is missing from the checked-out base revision. Merge the verifier before relying on revision-bound evidence."
+            exit 1
+          fi
+
+          gh pr view "$PR_NUMBER" --repo "$REPO" \
+            --json number,url,state,isDraft,headRefOid,baseRefOid,mergeCommit,mergeStateStatus,labels \
+            > pr-metadata.json
+          HEAD_SHA=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+          echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+          # Check runs for the exact head, not for whatever head happened to be
+          # current when an earlier review ran.
+          gh api "repos/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" > check-runs.json
+
+          ALL_EXCLUDED='${{ steps.diff.outputs.all_excluded }}'
+
+          # Prior request-changes cycles bound automated rework. This run's comment
+          # does not exist yet, so it is not counted.
+          REWORK_CYCLES=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.user.login == "claude[bot]") | .body' \
+            | { grep -oF 'Verdict: `request-changes`' || true; } | wc -l | tr -d ' ')
+          echo "rework_cycles=$REWORK_CYCLES" >> "$GITHUB_OUTPUT"
+          if [ "$REWORK_CYCLES" -ge 3 ]; then
+            echo "rework_limit_reached=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rework_limit_reached=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          node scripts/verify-pr-gate.mjs evidence \
+            --pr pr-metadata.json \
+            --checks check-runs.json \
+            --changed changed-paths.txt \
+            --expected-head "$HEAD_SHA" \
+            --all-excluded "$ALL_EXCLUDED" \
+            --rework-cycles "$REWORK_CYCLES" \
+            > review-evidence.md
+
+          node scripts/verify-pr-gate.mjs verify \
+            --pr pr-metadata.json \
+            --checks check-runs.json \
+            --changed changed-paths.txt \
+            --expected-head "$HEAD_SHA" \
+            > pr-gate.json || true
+
+          CI_VERIFIED=$(node -p 'JSON.parse(require("fs").readFileSync("pr-gate.json","utf8")).ok ? "yes" : "no"')
+          echo "ci_verified=$CI_VERIFIED" >> "$GITHUB_OUTPUT"
+          echo "CI verified on $HEAD_SHA: $CI_VERIFIED"
+
       - name: Claude Code Review
         id: claude
+        if: steps.skip.outputs.skip != 'true'
         uses: anthropics/claude-code-action@5ccc3a35a6367cdb8e6fbd0728287467540ecfe2 # v1 (v1.0.219)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -322,13 +481,34 @@ jobs:
             ENABLE_INLINE_COMMENTS: ${{ env.ENABLE_INLINE_COMMENTS }}
             DIFF FILE COUNT: ${{ steps.diff.outputs.file_count }}
             DIFF PATCH LINES: ${{ steps.diff.outputs.patch_lines }}
+            TOTAL CHANGED PATHS: ${{ steps.diff.outputs.total_file_count }}
+            ALL CHANGED PATHS EXCLUDED: ${{ steps.diff.outputs.all_excluded }}
+            REVIEWED HEAD SHA: ${{ steps.evidence.outputs.head }}
+            CI VERIFIED ON EXACT HEAD: ${{ steps.evidence.outputs.ci_verified }}
+            AUTOMATED REWORK CYCLES SO FAR: ${{ steps.evidence.outputs.rework_cycles }}
+            REWORK LIMIT REACHED: ${{ steps.evidence.outputs.rework_limit_reached }}
 
             You are a senior engineer reviewing application — a desktop AI agent app built with three layers:
-            - **Frontend** (`src/`): React 19 + TypeScript 5.8 + Vite 7 + Tailwind CSS 4 + Radix UI
+            - **Frontend** (`src/`): React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4 + Radix UI
             - **Backend API** (`src-api/`): Node.js + Hono 4 + Claude Agent SDK + Zod 4
             - **Desktop Shell** (`src-tauri/`): Tauri 2 + Rust + SQLite
 
             The app executes natural language tasks via AI agents with a two-phase flow (planning → execution).
+
+            ## Revision-bound evidence (READ BEFORE THE DIFF)
+
+            `review-evidence.md` was generated by the workflow, not by you. Read it and copy its
+            `## Revision Evidence` block verbatim into `review.md`. It records the exact reviewed
+            head, base, focused check results, the actual `CI Gate` conclusion and URL, and the
+            unverified gaps. Do not paraphrase or recompute those values.
+
+            - If `ALL CHANGED PATHS EXCLUDED` is `true`, the scoped diff is empty because every
+              changed path matched `REVIEW_EXCLUDE_PATHS`. Add a `## No reviewable code changes`
+              section that lists every path from `changed-paths.txt` and states that a human must
+              review them. Do not claim the code was reviewed, and do not call it a pass.
+            - If `CI VERIFIED ON EXACT HEAD` is not `yes`, the verdict must be `request-changes`.
+            - If `REWORK LIMIT REACHED` is `true`, the verdict must be `needs-decision`; do not ask
+              for another automated cycle.
 
             ## How to read the diff (READ THIS FIRST)
 
@@ -342,7 +522,8 @@ jobs:
 
             If `pr-diff.patch` is too large to read in one call, read it in chunks with the Read
             tool's offset/limit parameters, working through the files you prioritized from
-            `pr-files.txt`. Use Read/Glob/Grep on the checked-out tree for surrounding context.
+            `pr-files.txt`. Use Read/Glob/Grep on the checked-out tree for surrounding context only
+            when that tree is the PR head; on comment and dispatch triggers it is the base revision.
 
             ### Line numbers: a position in the patch is NOT a source line
 
@@ -357,8 +538,9 @@ jobs:
             ```
 
             Count added (`+`) and context (` `) lines from that start, ignoring removed (`-`) lines.
-            When a hunk is long or you are unsure, `Read` the file from the checked-out tree and
-            confirm the number there — the working tree is the PR's own code.
+            When a hunk is long or you are unsure, derive the number from the hunk header. Only
+            `Read` the checked-out tree if it is the PR head; on comment and dispatch triggers it is
+            the base revision, not the PR's code.
 
             If you still cannot pin a line, cite the symbol instead (`applyReviewAction()` in
             `review.ts`). A correct file-and-symbol beats a confident wrong number.
@@ -404,8 +586,8 @@ jobs:
             - Module-level constants (regex, config objects, stable props) declared inline in render — breaks memoization
 
             **State Management**
-            - This project uses SQLite (Tauri) + IndexedDB (browser fallback) — NOT Redux/Zustand
-            - All data flows through `src/shared/db/` → backend API → database
+            - The API daemon owns SQLite; there is no browser IndexedDB fallback — NOT Redux/Zustand
+            - All data flows through `src/shared/db/database.ts` → backend `/db` API → SQLite
             - Frontend state lives in React hooks (`useState`, `useRef`, `useMemo`)
             - Flag accidental state mutations in updater functions — React StrictMode double-invokes updaters, mutations cause duplicate effects
             - Reading state captured at creation time inside async/streaming callbacks instead of the `setState(prev => ...)` updater form
@@ -434,7 +616,7 @@ jobs:
             - Flag any `console.*` call in `src-api/` files
 
             **Workspace root (CRITICAL)**
-            - `src-api/` must never use `process.cwd()` — it resolves wrong inside the Tauri sidecar. Use `getSetting('workDir') ?? process.cwd()`
+            - `src-api/` must never use `process.cwd()` — it resolves wrong inside the Tauri sidecar. Use the session/project resolver, or `getSetting('workDir')` from `@/shared/db/operations`, then the subsystem's path validation. Do not introduce a blanket `getSetting('workDir') ?? process.cwd()` fallback.
 
             **API Security**
             - Hono route handlers must validate input with Zod via `zValidator()` inline in the handler chain — NOT via `app.use()` (loses TypeScript type inference on `c.req.valid()`)
@@ -528,6 +710,8 @@ jobs:
             When the prioritized list is covered:
 
             1. Finalize `review.md` so it contains:
+               - The `## Revision Evidence` block copied verbatim from `review-evidence.md`,
+                 including the exact `Head:`, `Base:`, `Merge commit:`, and `CI Gate:` lines.
                - Assessment: ✅ Approve / ⚠️ Request Changes / 💬 Comment
                - Issues: bulleted list grouped by severity (Critical → Warning → Info) with file:line references
                - **${{ env.REVIEW_REQUIRED_SECTION }}** (always include verbatim, even if every line says "No issues"):
@@ -536,6 +720,18 @@ jobs:
                  - 🔒 Security: Tauri capabilities, credential exposure, injection risks (or "No issues")
                  - 🌐 i18n: Missing translations in any locale (or "All locales updated")
                - **Coverage**: which files you reviewed and which you did not get to
+               - If `ALL CHANGED PATHS EXCLUDED` is `true`, a `## No reviewable code changes`
+                 section listing every path from `changed-paths.txt`.
+               - Exactly one final verdict line, in this exact form (backticks included):
+                 ```
+                 Verdict: `ready-for-human`
+                 ```
+                 Use the value `ready-for-human` only when CI is verified on the exact head and
+                 no blocking findings remain. A human (`bravew`) still makes the merge decision;
+                 this is not an approval and must not say the PR is approved or ready to merge.
+                 Use `request-changes` when CI is not verified on the exact head or blocking
+                 findings remain. Use `needs-decision` when `REWORK LIMIT REACHED` is `true`;
+                 do not ask for another automated cycle.
                - The literal marker `<!-- claude-review-complete -->` as review.md's final line.
                  It marks the file as finished. The comment tool strips HTML comments, so it
                  will not appear in the posted comment — that is expected, do not work around it.
@@ -606,16 +802,21 @@ jobs:
             - **ALWAYS include a `${{ env.REVIEW_REQUIRED_SECTION }}` section, spelled exactly that way**, in the
               posted comment — even if only to say "No issues". It is how the workflow tells a
               finished review from an abandoned progress checklist.
+            - **ALWAYS copy the `## Revision Evidence` block verbatim**, including the exact
+              `Head:`, `Base:`, `Merge commit:`, and `CI Gate:` lines. A review without the captured head is
+              rejected by the completion guard.
+            - **ALWAYS end with exactly one `Verdict:` line.** `ready-for-human` is a handoff
+              to a human merge decision, never an approval and never a merge.
 
           claude_args: |
             --model ${{ env.CLAUDE_MODEL }}
             --max-turns ${{ env.REVIEW_MAX_TURNS }}
             ${{ env.ENABLE_EXTENDED_THINKING == 'true' && '--thinking=enabled' || '' }}
             --allowedTools Read,Glob,Grep,mcp__github_comment__update_claude_comment,Bash(gh pr view:*),Bash(gh pr checks:*),Bash(cat CLAUDE.md),Write(review.md),Edit(review.md),Write(reports/*),Bash(mkdir -p reports)${{ env.ENABLE_INLINE_COMMENTS == 'true' && ',mcp__github_inline_comment__create_inline_comment' || '' }}
-            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. SINGLE AGENT: subagents and the Task tool are unavailable — never plan parallel passes, work sequentially. DIFF: read pr-files.txt then pr-diff.patch from disk; never run 'gh pr diff' (HTTP 406 on large PRs). LINE NUMBERS: a position in pr-diff.patch is not a source line — derive real lines from the enclosing '@@ -old,+new @@' hunk header or by reading the file, and cite the symbol name when unsure. COMPLETION: draft review.md early and keep it current as you go, then post it via mcp__github_comment__update_claude_comment, ending review.md (not the comment) with '<!-- claude-review-complete -->'. Do not ration turns or stop early to reserve room — you cannot observe your turn count and the runtime enforces the cap for you; review the prioritized list fully. A partial review beats no review. DUPLICATES: check existing comments with 'gh pr view' before posting. LOGGING: in src-api/ code, console.* is forbidden — must use createLogger(). WORKSPACE: src-api/ must not use process.cwd() — use getSetting('workDir'). TYPES: import type must be used for type-only imports. I18N: new strings must exist in all 6 locale files (en, zh, es, fr, hi, pt). TAURI: flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references."
+            --append-system-prompt "You are a senior engineer reviewing application (React 19 + Hono + Tauri 2 + Claude Agent SDK). Flag bugs, security issues, performance problems, and convention violations. Be direct and concise - no compliments, no filler. SINGLE AGENT: subagents and the Task tool are unavailable — never plan parallel passes, work sequentially. DIFF: read pr-files.txt then pr-diff.patch from disk; never run 'gh pr diff' (HTTP 406 on large PRs). LINE NUMBERS: a position in pr-diff.patch is not a source line — derive real lines from the enclosing '@@ -old,+new @@' hunk header; only read the checked-out tree when it is the PR head (comment and dispatch triggers check out the base), and cite the symbol name when unsure. EVIDENCE: read review-evidence.md and copy its '## Revision Evidence' block verbatim into review.md, including the exact Head, Base, Merge commit, and CI Gate lines. VERDICT: end with exactly one line, Verdict: `ready-for-human`, Verdict: `request-changes`, or Verdict: `needs-decision`. Use ready-for-human only when CI is verified on the exact head and there are no blocking findings; it is a handoff to a human merge decision, never an approval or merge. If CI VERIFIED ON EXACT HEAD is not yes, use request-changes. If REWORK LIMIT REACHED is true, use needs-decision and do not request another automated cycle. If ALL CHANGED PATHS EXCLUDED is true, add '## No reviewable code changes' listing every path from changed-paths.txt. COMPLETION: draft review.md early and keep it current as you go, then post it via mcp__github_comment__update_claude_comment, ending review.md (not the comment) with '<!-- claude-review-complete -->'. Do not ration turns or stop early to reserve room — you cannot observe your turn count and the runtime enforces the cap for you; review the prioritized list fully. A partial review beats no review. DUPLICATES: check existing comments with 'gh pr view' before posting. LOGGING: in src-api/ code, console.* is forbidden — must use createLogger(). WORKSPACE: src-api/ must not use process.cwd() — use the session/project resolver or getSetting('workDir') with the subsystem's path validation, not a blanket getSetting('workDir') ?? process.cwd() fallback. TYPES: import type must be used for type-only imports. I18N: new strings must exist in all 6 locale files (en, zh, es, fr, hi, pt). TAURI: flag overly broad capabilities or unvalidated IPC inputs. INLINE COMMENTS: only post inline comments if ENABLE_INLINE_COMMENTS is 'true', otherwise include all findings in the summary comment with file:line references."
 
       - name: Verify the review was posted
-        if: ${{ !cancelled() && steps.diff.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.skip.outputs.skip != 'true' && steps.diff.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
@@ -623,14 +824,43 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           CLAUDE_CONCLUSION: ${{ steps.claude.outputs.conclusion }}
           REQUIRED_SECTION: ${{ env.REVIEW_REQUIRED_SECTION }}
+          REVIEW_HEAD: ${{ steps.evidence.outputs.head }}
+          CI_VERIFIED: ${{ steps.evidence.outputs.ci_verified }}
+          REWORK_LIMIT_REACHED: ${{ steps.evidence.outputs.rework_limit_reached }}
+          ALL_EXCLUDED: ${{ steps.diff.outputs.all_excluded }}
         run: |
           set -euo pipefail
+
+          if [ -z "${REVIEW_HEAD:-}" ]; then
+            echo "::error::No reviewed head was captured; the review cannot be bound to a revision."
+            exit 1
+          fi
+
+          # A review is evidence for one revision. If a follow-up push landed while
+          # this run was working, the review is stale no matter how good it is.
+          CURRENT_HEAD=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+          if [ "$CURRENT_HEAD" != "$REVIEW_HEAD" ]; then
+            {
+              echo "<!-- claude-review-guard -->"
+              echo "> ⚠️ PR head moved from \`$REVIEW_HEAD\` to \`$CURRENT_HEAD\` after this review started."
+              echo "> The review is bound to the older revision and is not valid evidence for the current head."
+              echo "> Re-run the review on the new head."
+              echo
+              echo "- Job log: $RUN_URL"
+            } > stale-review.md
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file stale-review.md
+            exit 1
+          fi
+
+          printf -v HEAD_STAMP 'Head: `%s`' "$REVIEW_HEAD"
 
           # Completion needs two independent facts, because neither alone is sufficient:
           #
           #   1. Claude finished writing  — review.md ends with the completion marker.
           #   2. A finished review reached the PR — this run's claude[bot] comment carries the
           #      required section heading.
+          #   3. The review is bound to this revision — the comment stamps the captured head and
+          #      CI Gate line, carries a valid verdict, and the PR head has not moved.
           #
           # Neither fact is checked on the other's artifact, because each is only observable
           # where it survives:
@@ -680,10 +910,44 @@ jobs:
               fi
               # `--` because a heading could begin with a dash; `-i` because markdown
               # heading case is not worth failing a good review over.
-              if printf '%s' "$body" | grep -qiF -- "$REQUIRED_SECTION"; then
-                REVIEW_POSTED=yes
-                break
+              if ! printf '%s' "$body" | grep -qiF -- "$REQUIRED_SECTION"; then
+                continue
               fi
+              # The review must be bound to the captured revision, not to whatever
+              # head happens to be current when the comment is read.
+              if ! printf '%s' "$body" | grep -qF -- "$HEAD_STAMP"; then
+                echo "::warning::Review comment does not stamp the reviewed head $REVIEW_HEAD."
+                continue
+              fi
+              if ! printf '%s' "$body" | grep -qF -- 'CI Gate:'; then
+                echo "::warning::Review comment does not stamp the CI Gate evidence."
+                continue
+              fi
+
+              VERDICT=$(printf '%s' "$body" \
+                | grep -oE 'Verdict: `(ready-for-human|request-changes|needs-decision)`' \
+                | tail -n 1 \
+                | sed -E 's/.*`([^`]+)`/\1/')
+              if [ -z "$VERDICT" ]; then
+                echo "::warning::Review comment has no structured Verdict line."
+                continue
+              fi
+              if [ "${CI_VERIFIED:-no}" != "yes" ] && [ "$VERDICT" = "ready-for-human" ]; then
+                echo "::warning::Review claims ready-for-human but CI is not verified on $REVIEW_HEAD."
+                continue
+              fi
+              if [ "${REWORK_LIMIT_REACHED:-false}" = "true" ] && [ "$VERDICT" != "needs-decision" ]; then
+                echo "::warning::Automated rework limit reached; verdict must be needs-decision, got $VERDICT."
+                continue
+              fi
+              if [ "${ALL_EXCLUDED:-false}" = "true" ] \
+                 && ! printf '%s' "$body" | grep -qF -- 'No reviewable code changes'; then
+                echo "::warning::Scoped diff was empty; the review must state 'No reviewable code changes' and list the excluded paths."
+                continue
+              fi
+
+              REVIEW_POSTED=yes
+              break
             done < claude-comments.txt
           fi
 
@@ -721,7 +985,7 @@ jobs:
           exit 1
 
       - name: Upload reports artifact
-        if: ${{ !cancelled() && steps.pr.outputs.generate_report == 'true' && hashFiles('reports/**') != '' }}
+        if: ${{ !cancelled() && steps.skip.outputs.skip != 'true' && steps.pr.outputs.generate_report == 'true' && hashFiles('reports/**') != '' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: claude-reports-pr-${{ steps.pr.outputs.number }}
@@ -729,13 +993,18 @@ jobs:
           retention-days: 30
 
       - name: Upload review diagnostics
-        if: ${{ !cancelled() && steps.diff.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.skip.outputs.skip != 'true' && steps.diff.outcome == 'success' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: claude-review-diagnostics-pr-${{ steps.pr.outputs.number }}
           path: |
+            changed-paths.txt
             pr-files.txt
             pr-diff.patch
+            pr-metadata.json
+            check-runs.json
+            pr-gate.json
+            review-evidence.md
             review.md
           if-no-files-found: ignore
           retention-days: 7
