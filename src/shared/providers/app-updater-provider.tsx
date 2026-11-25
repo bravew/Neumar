@@ -46,6 +46,16 @@ function isTauri(): boolean {
   return '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
 }
 
+/**
+ * Internal daily previews (#366) are built with VITE_NEUMAR_PREVIEW_BUILD=true by
+ * `scripts/build.sh` (NEUMAR_PREVIEW_BUILD=true). They must never poll, compare
+ * against, or install from the production stable feed, so every updater entry point
+ * below returns early. `build.sh` also empties the Tauri updater endpoints.
+ */
+function isPreviewBuild(): boolean {
+  return import.meta.env.VITE_NEUMAR_PREVIEW_BUILD === 'true';
+}
+
 /** Compare two semver-like version strings (e.g. "26.4.4"). Returns true if remote > local. */
 function isNewerVersion(remote: string, local: string): boolean {
   const r = remote.replace(/^v/, '').split('.').map(Number);
@@ -137,8 +147,8 @@ function useAppUpdaterImpl(): AppUpdaterValue {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const checkForUpdate = useCallback(async () => {
-    // Version checking only makes sense inside the Tauri desktop app
-    if (!isTauri()) return;
+    // Version checking only makes sense inside the Tauri desktop app, and never in a preview
+    if (!isTauri() || isPreviewBuild()) return;
     if (checkInProgressRef.current) return;
     checkInProgressRef.current = true;
 
@@ -214,6 +224,7 @@ function useAppUpdaterImpl(): AppUpdaterValue {
   }, []);
 
   const downloadAndInstall = useCallback(async () => {
+    if (isPreviewBuild()) return;
     const update = updateRef.current as {
       downloadAndInstall: (
         cb: (event: {
@@ -298,7 +309,7 @@ function useAppUpdaterImpl(): AppUpdaterValue {
 
   // Auto-check on mount and at interval — only in Tauri desktop app
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isTauri() || isPreviewBuild()) return;
 
     mountedRef.current = true;
     const initialTimeout = setTimeout(checkForUpdate, INITIAL_DELAY_MS);
