@@ -371,6 +371,13 @@ jobs:
             exit 1
           fi
 
+          # Record the exact commit the diff is computed from. refs/pull/N/head moves
+          # when the PR is pushed, so this SHA, not a later API read, is what the
+          # review is bound to. The evidence step aborts if PR metadata disagrees.
+          DIFF_HEAD=$(git rev-parse --verify "refs/remotes/pr/head^{commit}")
+          echo "head_sha=$DIFF_HEAD" >> "$GITHUB_OUTPUT"
+          echo "Diff computed from PR head $DIFF_HEAD"
+
           # Unfiltered list, so an empty scoped diff can still name the paths that
           # were excluded instead of silently reviewing nothing.
           git diff --merge-base "refs/remotes/origin/${BASE_REF}" refs/remotes/pr/head \
@@ -411,6 +418,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           REPO: ${{ github.repository }}
+          DIFF_HEAD_SHA: ${{ steps.diff.outputs.head_sha }}
         run: |
           set -euo pipefail
 
@@ -425,7 +433,17 @@ jobs:
           gh pr view "$PR_NUMBER" --repo "$REPO" \
             --json number,url,state,isDraft,headRefOid,baseRefOid,mergeCommit,mergeStateStatus,labels \
             > pr-metadata.json
-          HEAD_SHA=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+          # One metadata read supplies the head, so the evidence and the comparison
+          # below cannot disagree with each other.
+          HEAD_SHA=$(jq -r '.headRefOid' pr-metadata.json)
+
+          # The review is bound to the commit the diff was fetched from. If the PR
+          # moved between the diff fetch and this read, the diff and the CI evidence
+          # would describe two different heads, so abort and require a fresh run.
+          if [ -z "$DIFF_HEAD_SHA" ] || [ "$HEAD_SHA" != "$DIFF_HEAD_SHA" ]; then
+            echo "::error::PR #$PR_NUMBER head moved while the review was prepared: the diff was fetched from '${DIFF_HEAD_SHA:-unknown}' but PR metadata reports '$HEAD_SHA'. Re-run the review."
+            exit 1
+          fi
           echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
           # Check runs for the exact head, not for whatever head happened to be
