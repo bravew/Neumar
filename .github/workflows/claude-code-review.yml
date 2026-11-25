@@ -2,8 +2,7 @@ name: Claude - Diff-Aware PR Reviewer
 
 # ABOUT THIS WORKFLOW
 # - Purpose: Generate a thorough, diff-aware code review for PRs with inline comments and summary.
-# - Trigger: Manual — workflow_dispatch, commenting "@review" on a PR, adding the "review" label,
-#   or a trusted repository_dispatch of type "ai-review" from the automated publisher (#362).
+# - Trigger: Manual — workflow_dispatch, commenting "@review" on a PR, or adding the "review" label.
 #   (Automatic pull_request trigger on every open/sync is disabled by default — see the `on:` block.)
 # - Outputs: A single summary comment (updated in-place) + optional inline comments + optional report artifact.
 # - Docs: https://github.com/anthropics/claude-code-action
@@ -12,10 +11,23 @@ name: Claude - Diff-Aware PR Reviewer
 # - The "review" and "skip AI review" labels must already exist in the repository. A
 #   workflow cannot create labels, and a missing trigger label fails silently: no event
 #   is delivered, so no run appears. Create both labels before relying on them.
-# - Automated publisher PRs (#362) use repository_dispatch with event_type "ai-review"
-#   and client_payload {"pr_number": <n>}. That is the explicit trusted trigger and does
-#   not depend on a label existing. The skip label is still honored by the Resolve skip
-#   label step, because job-level `if` cannot read labels on a dispatch event.
+# - The "skip AI review" label is honored on workflow_dispatch by the Resolve skip label
+#   step, because job-level `if` cannot read PR labels on that event.
+#
+# REPOSITORY_DISPATCH IS NOT SUPPORTED YET
+# - The automated publisher (#362) cannot request a review with a repository_dispatch
+#   "ai-review" event, so the trigger was removed. At the pinned claude-code-action SHA,
+#   `validateTrackProgressEvent` (src/modes/detector.ts) throws for every event except
+#   pull_request, issues, issue_comment, pull_request_review_comment and
+#   pull_request_review, so `track_progress: true` fails the step on repository_dispatch
+#   before Claude starts. The same check rejects workflow_dispatch; that path is not
+#   changed here.
+# - Supporting a dispatch needs a review comment bound explicitly to the PR number: the
+#   minimize step, the rework count and the completion guard all key on the claude[bot]
+#   tracking comment that `track_progress` creates, and a dispatch has no such comment.
+# - `allowed_bots` on the Claude Code Review step must be set to the publisher App's
+#   username once that App is installed, or the action rejects the bot actor. That is a
+#   permission grant, so it is deliberately not set here and needs explicit approval.
 #
 # REVISION-BOUND EVIDENCE
 # - Every review is bound to the exact head it reviewed. The "Collect revision and CI
@@ -100,7 +112,7 @@ name: Claude - Diff-Aware PR Reviewer
 #   often hundreds of lines. They are not from this workflow and not a failure. The action's own
 #   fetchGitHubData (src/github/data/fetcher.ts, during prepareTagMode, before Claude starts) runs
 #   `git hash-object` over every changed file. Checkout is pinned to the base revision (main on
-#   issue_comment/workflow_dispatch/repository_dispatch), so files the PR *adds* are not on disk
+#   issue_comment/workflow_dispatch), so files the PR *adds* are not on disk
 #   and cannot be hashed. The action catches
 #   each one, logs "warn: Failed to compute SHA", and continues. "fatal:" is git's prefix for every
 #   error, not a job status.
@@ -114,17 +126,13 @@ on:
   # Automatic pull_request trigger on every open/sync is disabled by default.
   # Uncomment the two lines below to restore it. Until then, trigger a review
   # by: workflow_dispatch (Actions tab or `gh workflow run`), commenting
-  # "@review" on the PR, adding the "review" label, or dispatching "ai-review".
+  # "@review" on the PR, or adding the "review" label.
   # pull_request:
   #   types: [opened, synchronize, reopened, ready_for_review, unlabeled]
   pull_request:
     types: [labeled]
   issue_comment:
     types: [created]
-  # Explicit trusted trigger for the automated publisher (#362). The dispatcher
-  # supplies client_payload.pr_number. This workflow never executes PR code.
-  repository_dispatch:
-    types: [ai-review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -179,17 +187,16 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-    # Runs on: workflow_dispatch, adding the "review" label, a collaborator
-    # commenting "@review" on the PR, or a trusted "ai-review" dispatch from the
-    # automated publisher. Skips automated dependency-update bots. The label
-    # triggers check the "skip AI review" label here; dispatch events check it in
-    # the Resolve skip label step because job-level `if` cannot read PR labels.
+    # Runs on: workflow_dispatch, adding the "review" label, or a collaborator
+    # commenting "@review" on the PR. Skips automated dependency-update bots. The
+    # label triggers check the "skip AI review" label here; workflow_dispatch
+    # checks it in the Resolve skip label step because job-level `if` cannot read
+    # PR labels.
     if: |
       !contains(github.actor, 'dependabot') &&
       !contains(github.actor, 'renovate') &&
       (
         github.event_name == 'workflow_dispatch' ||
-        github.event_name == 'repository_dispatch' ||
         (
           github.event_name == 'pull_request' &&
           github.event.action == 'labeled' &&
@@ -236,16 +243,12 @@ jobs:
           INPUT_GENERATE_REPORT: ${{ inputs.generate_report }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          DISPATCH_PR_NUMBER: ${{ github.event.client_payload.pr_number }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "number=$INPUT_PR_NUMBER" >> $GITHUB_OUTPUT
             echo "generate_report=$INPUT_GENERATE_REPORT" >> $GITHUB_OUTPUT
           elif [ "$EVENT_NAME" = "issue_comment" ]; then
             echo "number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
-            echo "generate_report=false" >> $GITHUB_OUTPUT
-          elif [ "$EVENT_NAME" = "repository_dispatch" ]; then
-            echo "number=$DISPATCH_PR_NUMBER" >> $GITHUB_OUTPUT
             echo "generate_report=false" >> $GITHUB_OUTPUT
           else
             echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
@@ -267,7 +270,7 @@ jobs:
           fi
 
           # The label triggers already exclude "skip AI review" in the job `if`.
-          # Dispatch events cannot read labels there, so honor the opt-out here.
+          # workflow_dispatch cannot read labels there, so honor the opt-out here.
           LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '.labels[].name')
           if printf '%s\n' "$LABELS" | grep -qxF 'skip AI review'; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -368,6 +371,13 @@ jobs:
             exit 1
           fi
 
+          # Record the exact commit the diff is computed from. refs/pull/N/head moves
+          # when the PR is pushed, so this SHA, not a later API read, is what the
+          # review is bound to. The evidence step aborts if PR metadata disagrees.
+          DIFF_HEAD=$(git rev-parse --verify "refs/remotes/pr/head^{commit}")
+          echo "head_sha=$DIFF_HEAD" >> "$GITHUB_OUTPUT"
+          echo "Diff computed from PR head $DIFF_HEAD"
+
           # Unfiltered list, so an empty scoped diff can still name the paths that
           # were excluded instead of silently reviewing nothing.
           git diff --merge-base "refs/remotes/origin/${BASE_REF}" refs/remotes/pr/head \
@@ -408,6 +418,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           REPO: ${{ github.repository }}
+          DIFF_HEAD_SHA: ${{ steps.diff.outputs.head_sha }}
         run: |
           set -euo pipefail
 
@@ -422,7 +433,17 @@ jobs:
           gh pr view "$PR_NUMBER" --repo "$REPO" \
             --json number,url,state,isDraft,headRefOid,baseRefOid,mergeCommit,mergeStateStatus,labels \
             > pr-metadata.json
-          HEAD_SHA=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq '.headRefOid')
+          # One metadata read supplies the head, so the evidence and the comparison
+          # below cannot disagree with each other.
+          HEAD_SHA=$(jq -r '.headRefOid' pr-metadata.json)
+
+          # The review is bound to the commit the diff was fetched from. If the PR
+          # moved between the diff fetch and this read, the diff and the CI evidence
+          # would describe two different heads, so abort and require a fresh run.
+          if [ -z "$DIFF_HEAD_SHA" ] || [ "$HEAD_SHA" != "$DIFF_HEAD_SHA" ]; then
+            echo "::error::PR #$PR_NUMBER head moved while the review was prepared: the diff was fetched from '${DIFF_HEAD_SHA:-unknown}' but PR metadata reports '$HEAD_SHA'. Re-run the review."
+            exit 1
+          fi
           echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
           # Check runs for the exact head, not for whatever head happened to be
@@ -471,6 +492,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # NOTE: `allowed_bots` is intentionally unset. It must name the publisher App's
+          # username once that App is installed, and setting it is a permission grant that
+          # needs explicit approval. See "REPOSITORY_DISPATCH IS NOT SUPPORTED YET" above.
           track_progress: true
           prompt: |
             REPO: ${{ github.repository }}

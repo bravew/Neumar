@@ -8,6 +8,7 @@ import {
   assertPublisherIdentity,
   assertSafePush,
   assertTargetBase,
+  assertWorkerEnvironment,
   buildPullRequestBody,
   createAppJwt,
   createInstallationTokenFromEnv,
@@ -33,7 +34,13 @@ import {
 
 // @vitest-environment node
 import { generateKeyPairSync } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -53,8 +60,12 @@ const HEAD = 'b'.repeat(40);
 const REMOTE = 'c'.repeat(40);
 const BOT = 'neumar-publisher[bot]';
 const TARGET_BASE = 'epic/358-cloud-bug-monitor';
+const REPO = 'bravew/Neumar';
 
-const SANDBOX_ROOT = mkdtempSync(path.join(os.tmpdir(), 'neumar-362-'));
+// The worker compares physical paths, and macOS `tmpdir()` is a symlink.
+const SANDBOX_ROOT = realpathSync(
+  mkdtempSync(path.join(os.tmpdir(), 'neumar-362-')),
+);
 const APP_DATA_DIR = path.join(SANDBOX_ROOT, 'app-data');
 
 afterAll(() => {
@@ -178,6 +189,9 @@ function createGithubFake(
       const pullRequest: PullRequestInfo = {
         number,
         headRefName: input.head,
+        headRepository: REPO,
+        title: input.title,
+        baseRefName: input.base,
         state: 'open',
         body: input.body,
         url: `https://example.test/pull/${number}`,
@@ -188,9 +202,18 @@ function createGithubFake(
     },
   );
   const updatePullRequest = vi.fn(
-    async (input: { number: number; title: string; body: string }) => {
+    async (input: {
+      number: number;
+      title: string;
+      body: string;
+      base: string;
+    }) => {
       const pullRequest = prs.find((entry) => entry.number === input.number);
-      if (pullRequest) pullRequest.body = input.body;
+      if (pullRequest) {
+        pullRequest.body = input.body;
+        pullRequest.title = input.title;
+        pullRequest.baseRefName = input.base;
+      }
       return pullRequest ?? { number: input.number };
     },
   );
@@ -219,10 +242,11 @@ function validOptions(overrides: Partial<PublishOptions> = {}): PublishOptions {
     issue: ISSUE,
     claim: { runId: 'run-1', epoch: 7 },
     branch: BRANCH,
+    repository: REPO,
     baseSha: BASE,
     localHead: HEAD,
     remoteHead: null,
-    commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+    commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
     botLogin: BOT,
     isAncestor: () => true,
     now: '2026-11-24T12:00:00.000Z',
@@ -663,6 +687,35 @@ describe('verification report', () => {
     );
   });
 
+  it('rejects a duplicated check name and a command that does not match', () => {
+    const duplicated = validateVerificationReport(
+      validReport({
+        checks: [
+          { name: 'pnpm validate', status: 'passed', command: 'pnpm validate' },
+          { name: 'pnpm validate', status: 'failed', command: 'pnpm validate' },
+        ],
+      }),
+      expected,
+    );
+    expect(duplicated.ok).toBe(false);
+    expect(duplicated.violations.map((entry) => entry.rule)).toContain(
+      'check-duplicate',
+    );
+
+    for (const command of ['echo ok', undefined]) {
+      const mismatched = validateVerificationReport(
+        validReport({
+          checks: [{ name: 'pnpm validate', status: 'passed', command }],
+        }),
+        expected,
+      );
+      expect(mismatched.ok, String(command)).toBe(false);
+      expect(mismatched.violations.map((entry) => entry.rule)).toContain(
+        'check-command-mismatch',
+      );
+    }
+  });
+
   it('requires the reported file set to match the patch', () => {
     const result = validateVerificationReport(
       validReport({ changedFiles: ['src/other.ts'] }),
@@ -766,6 +819,7 @@ describe('verification report', () => {
     expect(body).toContain('v22.20.0 / 10.15.0');
     expect(findClosingIssues(body)).toEqual([ISSUE]);
     expect(findClosingIssues('Closes #362 and fixes #358')).toEqual([362, 358]);
+    expect(findClosingIssues('Closes: #362\nFixes: #358')).toEqual([362, 358]);
   });
 });
 
@@ -775,6 +829,13 @@ describe('unprivileged worker', () => {
       PATH: '/usr/bin',
       LANG: 'en_US.UTF-8',
       NEUMAR_MODEL_KEY: 'model-only',
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'core.sshCommand',
+      GIT_CONFIG_VALUE_0: 'curl http://example.test',
+      GIT_SSH_COMMAND: 'ssh -i /key',
+      NODE_OPTIONS: '--require /tmp/x.js',
+      AZURE_CLIENT_SECRET: 'secret',
+      OPENAI_API_KEY: 'secret',
       HOME: os.homedir(),
       GH_TOKEN: 'secret',
       GITHUB_TOKEN: 'secret',
@@ -802,6 +863,13 @@ describe('unprivileged worker', () => {
       'TAURI_SIGNING_PRIVATE_KEY',
       'APPLE_ID',
       'SSH_AUTH_SOCK',
+      'GIT_CONFIG_COUNT',
+      'GIT_CONFIG_KEY_0',
+      'GIT_CONFIG_VALUE_0',
+      'GIT_SSH_COMMAND',
+      'NODE_OPTIONS',
+      'AZURE_CLIENT_SECRET',
+      'OPENAI_API_KEY',
     ]) {
       expect(env[denied], denied).toBeUndefined();
     }
@@ -810,8 +878,33 @@ describe('unprivileged worker', () => {
     expect(env.HOME).not.toBe(os.homedir());
     expect(env.XDG_CONFIG_HOME).toBe(path.join(SANDBOX_ROOT, 'xdg', 'config'));
     expect(isDeniedEnvName('GH_TOKEN')).toBe(true);
+    expect(isDeniedEnvName('GIT_CONFIG_COUNT')).toBe(true);
+    expect(isDeniedEnvName('SOME_UNLISTED_SECRET')).toBe(true);
     expect(isDeniedEnvName('PATH')).toBe(false);
     expect(isDeniedEnvName('NEUMAR_MODEL_KEY')).toBe(false);
+  });
+
+  it('refuses a worker environment that carries an unapproved variable', () => {
+    const prepared = prepareUnprivilegedWorker({
+      issue: ISSUE,
+      claim: { runId: 'run-1', epoch: 7 },
+      branch: BRANCH,
+      baseSha: BASE,
+      sandboxDir: SANDBOX_ROOT,
+      baseEnv: { PATH: '/usr/bin', GIT_CONFIG_COUNT: '1' },
+    });
+    expect(prepared.ok).toBe(true);
+    expect(prepared.context?.env.GIT_CONFIG_COUNT).toBeUndefined();
+
+    const tampered = assertWorkerEnvironment({
+      ...prepared.context?.env,
+      GIT_CONFIG_COUNT: '1',
+    });
+    expect(tampered.ok).toBe(false);
+    expect(tampered.violations).toContainEqual({
+      rule: 'worker-env-not-allowed',
+      name: 'GIT_CONFIG_COUNT',
+    });
   });
 
   it('refuses a sandbox inside the host home or outside the temp root', () => {
@@ -829,6 +922,40 @@ describe('unprivileged worker', () => {
         path.join(SANDBOX_ROOT, 'repo'),
       ),
     ).toMatchObject({ ok: false, reason: 'sandbox-inside-repo' });
+  });
+
+  it('resolves symlinks before judging the sandbox location', () => {
+    const outside = path.join(SANDBOX_ROOT, 'outside');
+    const repo = path.join(SANDBOX_ROOT, 'repo-checkout');
+    mkdirSync(outside, { recursive: true });
+    mkdirSync(repo, { recursive: true });
+    const intoHome = path.join(SANDBOX_ROOT, 'link-to-home');
+    const intoRepo = path.join(SANDBOX_ROOT, 'link-to-repo');
+    const outOfTemp = path.join(SANDBOX_ROOT, 'link-to-root');
+    symlinkSync(os.homedir(), intoHome);
+    symlinkSync(repo, intoRepo);
+    symlinkSync(path.parse(SANDBOX_ROOT).root, outOfTemp);
+
+    expect(assertIsolatedSandbox(path.join(intoHome, 'x'))).toMatchObject({
+      ok: false,
+      reason: 'sandbox-inside-home',
+    });
+    expect(
+      assertIsolatedSandbox(path.join(intoRepo, 'x'), os.tmpdir(), repo),
+    ).toMatchObject({ ok: false, reason: 'sandbox-inside-repo' });
+    expect(
+      assertIsolatedSandbox(path.join(outOfTemp, 'x'), SANDBOX_ROOT),
+    ).toMatchObject({ ok: false, reason: 'sandbox-outside-temp' });
+
+    const prepared = prepareUnprivilegedWorker({
+      issue: ISSUE,
+      claim: { runId: 'run-1', epoch: 7 },
+      branch: BRANCH,
+      baseSha: BASE,
+      sandboxDir: path.join(intoHome, 'x'),
+    });
+    expect(prepared.ok).toBe(false);
+    expect(prepared.context).toBeNull();
   });
 
   it('prepares only a read-only worker with a clean environment', () => {
@@ -925,7 +1052,7 @@ describe('safe push', () => {
       baseSha: BASE,
       localHead: HEAD,
       remoteHead: REMOTE,
-      commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+      commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       botLogin: BOT,
       isAncestor: () => true,
     });
@@ -953,11 +1080,66 @@ describe('safe push', () => {
       baseSha: BASE,
       localHead: HEAD,
       remoteHead: REMOTE,
-      commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+      commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       botLogin: BOT,
-      isAncestor: () => false,
+      isAncestor: (ancestor: string) => ancestor === BASE,
     });
     expect(result).toMatchObject({ ok: false, reason: 'non-fast-forward' });
+  });
+
+  it('proves the base is an ancestor on every push, including a new branch', () => {
+    const input = {
+      baseSha: BASE,
+      localHead: HEAD,
+      remoteHead: null,
+      commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
+      botLogin: BOT,
+    };
+    expect(assertSafePush(input)).toMatchObject({
+      ok: false,
+      reason: 'ancestry-check-missing',
+    });
+    expect(assertSafePush({ ...input, isAncestor: () => false })).toMatchObject(
+      { ok: false, reason: 'base-not-ancestor' },
+    );
+    expect(assertSafePush({ ...input, isAncestor: () => true })).toMatchObject({
+      ok: true,
+      needsPush: true,
+    });
+  });
+
+  it('requires the complete linear commit range from the base to the head', () => {
+    const MIDDLE = 'd'.repeat(40);
+    const base = {
+      baseSha: BASE,
+      localHead: HEAD,
+      remoteHead: null,
+      botLogin: BOT,
+      isAncestor: () => true,
+    };
+    expect(
+      assertSafePush({
+        ...base,
+        commitsAhead: [
+          { sha: MIDDLE, authorLogin: BOT, parentSha: BASE },
+          { sha: HEAD, authorLogin: BOT, parentSha: MIDDLE },
+        ],
+      }),
+    ).toMatchObject({ ok: true });
+    // The middle commit is missing from the list.
+    expect(
+      assertSafePush({
+        ...base,
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: MIDDLE }],
+      }),
+    ).toMatchObject({ ok: false, reason: 'commit-range-incomplete' });
+    // No parent evidence at all.
+    expect(
+      assertSafePush({
+        ...base,
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+      }),
+    ).toMatchObject({ ok: false, reason: 'commit-range-incomplete' });
   });
 
   it('requires commit evidence that ends at the local head', () => {
@@ -1023,6 +1205,7 @@ describe('publisher', () => {
       {
         number: 77,
         headRefName: BRANCH,
+        headRepository: REPO,
         state: 'open',
         body: 'Closes #362',
         url: 'https://example.test/pull/77',
@@ -1080,10 +1263,91 @@ describe('publisher', () => {
     );
 
     expect(first.action).toBe('created');
-    expect(second.action).toBe('updated');
+    expect(second.action).toBe('unchanged');
     expect(github.createPullRequest).toHaveBeenCalledTimes(1);
-    expect(github.updatePullRequest).toHaveBeenCalledTimes(1);
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
     expect(github.prs).toHaveLength(1);
+  });
+
+  it('updates the PR only for the field that differs', async () => {
+    const created = createGithubFake();
+    await publishBugFix(
+      validOptions({ github: created.github, git: createGitFake().git }),
+    );
+    const [existing] = created.prs;
+    expect(existing).toBeDefined();
+
+    for (const drift of [
+      { title: 'something else' },
+      { body: 'Closes #362\n\nedited by a human' },
+      { baseRefName: 'main' },
+    ]) {
+      const github = createGithubFake([{ ...existing!, ...drift }]);
+      const result = await publishBugFix(
+        validOptions({
+          github: github.github,
+          git: createGitFake().git,
+          remoteHead: HEAD,
+        }),
+      );
+      expect(result, JSON.stringify(drift)).toMatchObject({
+        published: true,
+        action: 'updated',
+      });
+      expect(github.updatePullRequest).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('re-reads the issue and then the claim immediately before every write', async () => {
+    const log: string[] = [];
+    const github = createGithubFake();
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({
+        github: {
+          listOpenPullRequests: async (input) => {
+            log.push('list');
+            return github.github.listOpenPullRequests(input);
+          },
+          createPullRequest: async (input) => {
+            log.push('create');
+            return github.github.createPullRequest(input);
+          },
+          updatePullRequest: async (input) => {
+            log.push('update');
+            return github.github.updatePullRequest(input);
+          },
+        },
+        git: {
+          push: async () => {
+            log.push('push');
+            await git.push();
+          },
+        },
+        readFreshIssue: async () => {
+          log.push('issue');
+          return approvedIssue();
+        },
+        readState: async () => {
+          log.push('claim');
+          return { disabled: false, claims: {} };
+        },
+        readBranchState: async () => {
+          log.push('branch');
+          return {
+            remoteHead: log.includes('push') ? HEAD : null,
+            commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
+          };
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({ published: true, action: 'created' });
+    for (const write of ['push', 'create']) {
+      const at = log.indexOf(write);
+      expect(at, write).toBeGreaterThan(1);
+      expect(log.slice(at - 2, at), write).toEqual(['issue', 'claim']);
+    }
   });
 
   it('aborts cleanly when the bug could not be reproduced', async () => {
@@ -1136,7 +1400,7 @@ describe('publisher', () => {
       .fn()
       .mockResolvedValueOnce({
         remoteHead: null,
-        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       })
       .mockResolvedValueOnce({
         remoteHead: null,
@@ -1165,15 +1429,15 @@ describe('publisher', () => {
       .fn()
       .mockResolvedValueOnce({
         remoteHead: null,
-        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       })
       .mockResolvedValueOnce({
         remoteHead: null,
-        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       })
       .mockResolvedValueOnce({
         remoteHead: REMOTE,
-        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       });
     const result = await publishBugFix(
       validOptions({
@@ -1199,7 +1463,7 @@ describe('publisher', () => {
         github: github.github,
         git: git.git,
         remoteHead: REMOTE,
-        isAncestor: () => false,
+        isAncestor: (ancestor: string) => ancestor === BASE,
       }),
     );
 
@@ -1207,6 +1471,58 @@ describe('publisher', () => {
       published: false,
       reason: 'non-fast-forward',
     });
+    expect(git.push).not.toHaveBeenCalled();
+  });
+
+  it('refuses to trust the report when the caller supplies no changed files', async () => {
+    const github = createGithubFake();
+    const git = createGitFake();
+    for (const changedFiles of [undefined, []]) {
+      const result = await publishBugFix(
+        validOptions({
+          github: github.github,
+          git: git.git,
+          changedFiles: changedFiles as PublishOptions['changedFiles'],
+        }),
+      );
+      expect(result).toMatchObject({
+        published: false,
+        reason: 'changed-files-missing',
+      });
+    }
+    expect(git.push).not.toHaveBeenCalled();
+    expect(github.createPullRequest).not.toHaveBeenCalled();
+  });
+
+  it('refuses a patch whose trusted file list is denied even if the report hides it', async () => {
+    const github = createGithubFake();
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({
+        github: github.github,
+        git: git.git,
+        changedFiles: ['.github/workflows/ci.yml'],
+        report: validReport({
+          changedFiles: ['scripts/bug-publisher/publisher.mjs'],
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      published: false,
+      reason: 'policy-violation',
+    });
+    expect(git.push).not.toHaveBeenCalled();
+  });
+
+  it('refuses a push on a new branch when the base ancestry is unproven', async () => {
+    const github = createGithubFake();
+    const git = createGitFake();
+    for (const isAncestor of [undefined, () => false]) {
+      const result = await publishBugFix(
+        validOptions({ github: github.github, git: git.git, isAncestor }),
+      );
+      expect(result.published).toBe(false);
+    }
     expect(git.push).not.toHaveBeenCalled();
   });
 
@@ -1401,10 +1717,82 @@ describe('publisher', () => {
     expect(git.push).not.toHaveBeenCalled();
   });
 
+  it('does not treat a fork PR that reuses the branch name as ours', async () => {
+    const github = createGithubFake([
+      {
+        number: 5,
+        headRefName: BRANCH,
+        headRepository: 'someone-else/Neumar',
+        state: 'open',
+        body: 'Closes #362',
+      },
+    ]);
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({ github: github.github, git: git.git }),
+    );
+
+    expect(result).toMatchObject({
+      published: false,
+      reason: 'duplicate-pr-exists',
+      numbers: [5],
+    });
+    expect(git.push).not.toHaveBeenCalled();
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+  });
+
+  it('never updates a PR whose head repository is unknown', async () => {
+    const github = createGithubFake([
+      {
+        number: 6,
+        headRefName: BRANCH,
+        state: 'open',
+        body: 'unrelated',
+      },
+    ]);
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({ github: github.github, git: git.git }),
+    );
+
+    expect(result).toMatchObject({ published: true, action: 'created' });
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+    expect(github.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to publish without the repository the branch lives in', async () => {
+    const github = createGithubFake();
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({
+        github: github.github,
+        git: git.git,
+        repository: undefined as unknown as string,
+      }),
+    );
+    expect(result).toMatchObject({
+      published: false,
+      reason: 'repository-missing',
+    });
+    expect(git.push).not.toHaveBeenCalled();
+  });
+
   it('refuses more than one open PR on the owned branch', async () => {
     const github = createGithubFake([
-      { number: 1, headRefName: BRANCH, state: 'open', body: '' },
-      { number: 2, headRefName: BRANCH, state: 'open', body: '' },
+      {
+        number: 1,
+        headRefName: BRANCH,
+        headRepository: REPO,
+        state: 'open',
+        body: '',
+      },
+      {
+        number: 2,
+        headRefName: BRANCH,
+        headRepository: REPO,
+        state: 'open',
+        body: '',
+      },
     ]);
     const git = createGitFake();
     const result = await publishBugFix(
@@ -1611,6 +1999,7 @@ describe('GitHub App installation token helper', () => {
     };
     const token = await createInstallationTokenFromEnv({
       installationId: 99,
+      repository: 'bravew/Neumar',
       env,
       fetchImpl,
       now: 1_700_000_000,
@@ -1631,6 +2020,9 @@ describe('GitHub App installation token helper', () => {
       'https://api.github.com/app/installations/99/access_tokens',
     );
     expect(calls[0]?.init?.method).toBe('POST');
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      repositories: ['Neumar'],
+    });
     expect(calls[0]?.init?.headers).toMatchObject({
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
@@ -1670,10 +2062,26 @@ describe('GitHub App installation token helper', () => {
     await expect(
       createInstallationTokenFromEnv({
         installationId: 99,
+        repository: 'Neumar',
         env,
         fetchImpl,
       }),
     ).rejects.toThrow(/least-privilege/);
+  });
+
+  it('refuses to request a token that is not scoped to one repository', async () => {
+    const fetchImpl = vi.fn<FetchLike>();
+    for (const repository of [undefined, '', 'a/b/c', '..', 'bad name']) {
+      await expect(
+        createInstallationTokenFromEnv({
+          installationId: 99,
+          repository: repository as string,
+          env,
+          fetchImpl,
+        }),
+      ).rejects.toThrow(/repository/);
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('does not log or return a token on a failed exchange', async () => {
@@ -1685,6 +2093,7 @@ describe('GitHub App installation token helper', () => {
     await expect(
       createInstallationTokenFromEnv({
         installationId: 99,
+        repository: 'Neumar',
         env,
         fetchImpl,
       }),

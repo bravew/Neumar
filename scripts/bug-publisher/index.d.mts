@@ -35,7 +35,11 @@ export interface IdentityCheck {
 }
 
 export interface PatchPolicyInput {
-  changedFiles?: Array<string | { path: string; previousPath?: string }>;
+  /**
+   * Files changed by `baseSha..localHead`, computed by the trusted caller. The
+   * worker's reported list is compared against it and never replaces it.
+   */
+  changedFiles: Array<string | { path: string; previousPath?: string }>;
   authorizedPaths?: string[];
   componentSizeBase?: unknown;
   componentSizeHead?: unknown;
@@ -261,6 +265,8 @@ export interface TrustedActor {
 export interface CommitInfo {
   sha: string;
   authorLogin: string | null;
+  /** The commit's single parent; the range must chain from the pinned base. */
+  parentSha?: string;
 }
 
 export interface PublisherIdentity {
@@ -280,6 +286,10 @@ export interface PublisherGit {
 export interface PullRequestInfo {
   number: number;
   headRefName: string;
+  /** `owner/name` of the repository the head branch lives in. */
+  headRepository?: string;
+  title?: string;
+  baseRefName?: string;
   state: string;
   body?: string;
   url?: string;
@@ -309,6 +319,8 @@ export interface PublishOptions {
   issue: number;
   claim: { runId: string; epoch: number };
   branch: string;
+  /** `owner/name` of the repository the branch is pushed to. */
+  repository: string;
   baseSha: string;
   localHead: string;
   remoteHead?: string | null;
@@ -317,7 +329,11 @@ export interface PublishOptions {
   isAncestor?: (ancestor: string, descendant: string) => boolean;
   now?: string | (() => string);
   report: VerificationReport;
-  changedFiles?: Array<string | { path: string; previousPath?: string }>;
+  /**
+   * Files changed by `baseSha..localHead`, computed by the trusted caller. The
+   * worker's reported list is compared against it and never replaces it.
+   */
+  changedFiles: Array<string | { path: string; previousPath?: string }>;
   authorizedPaths?: string[];
   componentSizeBase?: unknown;
   componentSizeHead?: unknown;
@@ -344,7 +360,7 @@ export interface PublishResult {
   published: boolean;
   reason?: string;
   pushed?: boolean;
-  action?: 'created' | 'updated' | 'recovered';
+  action?: 'created' | 'updated' | 'recovered' | 'unchanged';
   branch?: string;
   baseSha?: string;
   headSha?: string;
@@ -424,12 +440,16 @@ export function exchangeInstallationToken(input: {
   appId: string;
   privateKey: string;
   installationId: number | string;
+  /** Repository name (or `owner/name`) the token is scoped to. */
+  repository: string;
   fetchImpl?: FetchLike;
   now?: number;
   apiBase?: string;
 }): Promise<InstallationToken>;
 export function createInstallationTokenFromEnv(input: {
   installationId: number | string;
+  /** Repository name (or `owner/name`) the token is scoped to. */
+  repository: string;
   env?: {
     PUBLISHER_APP_ID?: string;
     PUBLISHER_APP_PRIVATE_KEY?: string;
