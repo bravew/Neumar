@@ -22,6 +22,7 @@ const T1 = '2026-11-24T11:00:00Z';
 function comment(body, overrides = {}) {
   return {
     id: overrides.id ?? 1,
+    authorLogin: 'bravew',
     authorAssociation: 'OWNER',
     authorType: 'User',
     createdAt: T0,
@@ -37,7 +38,7 @@ const approve = (d = digest, slices = 'S1', epic = 'epic/900-saved-filters') =>
 function input(overrides = {}) {
   return {
     readComplete: true,
-    issue: { state: 'open', labels: ['enhancement'] },
+    issue: { state: 'open', labels: ['enhancement'], authorLogin: 'reporter' },
     briefText: brief,
     comments: [comment(approve())],
     slice: 'S1',
@@ -106,6 +107,34 @@ test('slice rules: shared files must be scheduled, dependencies must be earlier'
   assert.equal(validateBrief(noShared).errors[0].code, 'slice-shared');
 });
 
+test('a slice must declare Depends on, and none is an explicit empty list', () => {
+  const missing = brief.replace('- Depends on: none\n', '');
+  assert.equal(validateBrief(missing).errors[0].code, 'slice-depends-missing');
+  assert.equal(validateBrief(brief).ok, true);
+});
+
+test('noncanonical paths are normalized before shared-file classification', () => {
+  const dotSlash = brief.replace(
+    'src-api/src/app/api/filters.ts,',
+    './package.json, src-api/src/app/api/filters.ts,',
+  );
+  assert.equal(validateBrief(dotSlash).errors[0].code, 'slice-shared-owned');
+});
+
+test('placeholder-only bullets do not satisfy a required section', () => {
+  const tbd = brief.replace(
+    'A user can save a task search as a named filter and reopen it from the sidebar.',
+    '- TBD',
+  );
+  const result = validateBrief(tbd);
+  assert.equal(result.ok, false);
+  assert.equal(result.errors[0].code, 'missing-section');
+  assert.equal(
+    evaluateFeatureClaim(input({ briefText: tbd })).state,
+    'needs-decision',
+  );
+});
+
 test('a collaborator approval at the exact digest authorizes only its slices', () => {
   const result = evaluateFeatureClaim(input());
   assert.equal(result.eligible, true);
@@ -115,12 +144,13 @@ test('a collaborator approval at the exact digest authorizes only its slices', (
   assert.match(other.reasons[0], /not authorized/);
 });
 
-test('approval from a non-collaborator, a bot, or an edited comment is rejected', () => {
+test('approval from a non-collaborator, a bot, an edited comment, or an unknown identity is rejected', () => {
   for (const override of [
     { authorAssociation: 'NONE' },
     { authorAssociation: 'CONTRIBUTOR' },
     { authorType: 'Bot' },
     { updatedAt: T1 },
+    { authorLogin: undefined },
   ]) {
     const result = evaluateFeatureClaim(
       input({ comments: [comment(approve(), override)] }),
@@ -130,17 +160,65 @@ test('approval from a non-collaborator, a bot, or an edited comment is rejected'
   }
 });
 
-test('an approval example in a code fence or quote is not a decision', () => {
-  const fenced = comment(`\`\`\`\n${approve()}\n\`\`\``);
-  const quoted = comment(
-    approve()
-      .split('\n')
-      .map((line) => `> ${line}`)
-      .join('\n'),
-    { id: 2 },
+test('the issue author cannot approve their own request, a different human can', () => {
+  const self = evaluateFeatureClaim(
+    input({
+      issue: {
+        state: 'open',
+        labels: ['enhancement'],
+        authorLogin: 'bravew',
+      },
+    }),
   );
-  const result = evaluateFeatureClaim(input({ comments: [fenced, quoted] }));
+  assert.equal(self.eligible, false);
+  assert.match(self.rejected[0].reason, /issue authors cannot approve/);
+
+  const other = evaluateFeatureClaim(
+    input({ comments: [comment(approve(), { authorLogin: 'someone-else' })] }),
+  );
+  assert.equal(other.eligible, true);
+});
+
+test('a missing issue author is an incomplete read, not an empty one', () => {
+  const result = evaluateFeatureClaim(
+    input({ issue: { state: 'open', labels: ['enhancement'] } }),
+  );
+  assert.equal(result.state, 'unknown');
   assert.equal(result.eligible, false);
+});
+
+test('an approval example in any fence or a quote is not a decision', () => {
+  const cases = [
+    `\`\`\`\n${approve()}\n\`\`\``,
+    `~~~\n${approve()}\n~~~`,
+    `\`\`\`\`\n${approve()}\n\`\`\``,
+    `\`\`\`\`\n${approve()}\n\`\`\`\n${approve()}\n\`\`\`\``,
+    `~~~\n${approve()}\n\`\`\`\n~~~`,
+  ];
+  cases.forEach((body, index) => {
+    const fenced = comment(body, { id: index + 1 });
+    const quoted = comment(
+      approve()
+        .split('\n')
+        .map((line) => `> ${line}`)
+        .join('\n'),
+      { id: index + 100 },
+    );
+    const result = evaluateFeatureClaim(input({ comments: [fenced, quoted] }));
+    assert.equal(result.eligible, false, body);
+  });
+});
+
+test('equal-timestamp decisions order by numeric comment id', () => {
+  const approval = comment(approve(), { id: 9 });
+  const withdrawal = comment(`Brief-Approval-Withdrawn: sha256=${digest}`, {
+    id: 10,
+  });
+  const result = evaluateFeatureClaim(
+    input({ comments: [withdrawal, approval] }),
+  );
+  assert.equal(result.eligible, false);
+  assert.match(result.reasons[0], /withdrawn/);
 });
 
 test('editing the brief after approval invalidates it', () => {
@@ -191,9 +269,17 @@ test('the approval must name the brief epic and declared slices', () => {
 
 test('hold, needs-decision, closed issue, and partial reads never claim', () => {
   for (const override of [
-    { issue: { state: 'open', labels: ['agent:hold'] } },
-    { issue: { state: 'open', labels: ['needs-decision'] } },
-    { issue: { state: 'closed', labels: [] } },
+    {
+      issue: { state: 'open', labels: ['agent:hold'], authorLogin: 'reporter' },
+    },
+    {
+      issue: {
+        state: 'open',
+        labels: ['needs-decision'],
+        authorLogin: 'reporter',
+      },
+    },
+    { issue: { state: 'closed', labels: [], authorLogin: 'reporter' } },
   ]) {
     assert.equal(evaluateFeatureClaim(input(override)).eligible, false);
   }
@@ -209,7 +295,11 @@ test('hold, needs-decision, closed issue, and partial reads never claim', () => 
 test('a label is never approval', () => {
   const labelled = input({
     comments: [],
-    issue: { state: 'open', labels: ['enhancement', 'agent:bug-approved'] },
+    issue: {
+      state: 'open',
+      labels: ['enhancement', 'agent:bug-approved'],
+      authorLogin: 'reporter',
+    },
   });
   assert.equal(evaluateFeatureClaim(labelled).eligible, false);
 });

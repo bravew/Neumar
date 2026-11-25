@@ -14,7 +14,7 @@
 // approval. Labels are never approval, because editing an issue does not clear
 // them.
 
-import { digestBrief, validateBrief } from './brief.mjs';
+import { digestBrief, trackFence, validateBrief } from './brief.mjs';
 
 export const TRUSTED_ASSOCIATIONS = new Set([
   'OWNER',
@@ -29,21 +29,26 @@ const APPROVAL =
 const WITHDRAWN = /^Brief-Approval-Withdrawn:\s+sha256=([0-9a-f]{64})\s*$/;
 
 // Marker lines inside fenced code or block quotes are examples or quotations,
-// not decisions.
+// not decisions. Fences follow CommonMark: `~~~` counts, and a shorter or
+// differently fenced line does not close an open fence.
 function markerLines(body) {
   const lines = [];
-  let inFence = false;
+  let fence = null;
   for (const line of String(body).split(/\r?\n/)) {
-    if (/^\s*```/.test(line)) {
-      inFence = !inFence;
-      continue;
-    }
-    if (!inFence) lines.push(line);
+    const tracked = trackFence(line, fence);
+    fence = tracked.fence;
+    if (!tracked.isFenceLine && !fence) lines.push(line);
   }
   return lines;
 }
 
-function untrustedReason(comment) {
+function untrustedReason(comment, issueAuthor) {
+  if (!comment.authorLogin) {
+    return 'comment author identity is missing';
+  }
+  if (comment.authorLogin.toLowerCase() === String(issueAuthor).toLowerCase()) {
+    return 'issue authors cannot approve their own request';
+  }
   if (!TRUSTED_ASSOCIATIONS.has(comment.authorAssociation)) {
     return `author association ${comment.authorAssociation ?? 'unknown'} is not trusted`;
   }
@@ -56,7 +61,21 @@ function untrustedReason(comment) {
   return null;
 }
 
-function decisionsFrom(comments) {
+// Comment ids are integers. Comparing their strings puts "10" before "9", which
+// would let an approval outrank a later withdrawal posted in the same second.
+function compareCommentIds(a, b) {
+  try {
+    const left = BigInt(a);
+    const right = BigInt(b);
+    if (left < right) return -1;
+    if (left > right) return 1;
+    return 0;
+  } catch {
+    return String(a).localeCompare(String(b));
+  }
+}
+
+function decisionsFrom(comments, issueAuthor) {
   const decisions = [];
   const rejected = [];
   for (const comment of comments) {
@@ -64,7 +83,7 @@ function decisionsFrom(comments) {
       const approval = APPROVAL.exec(line);
       const withdrawn = approval ? null : WITHDRAWN.exec(line);
       if (!approval && !withdrawn) continue;
-      const reason = untrustedReason(comment);
+      const reason = untrustedReason(comment, issueAuthor);
       if (reason) {
         rejected.push({ commentId: comment.id, reason });
         continue;
@@ -91,7 +110,7 @@ function decisionsFrom(comments) {
   decisions.sort(
     (a, b) =>
       a.createdAt.localeCompare(b.createdAt) ||
-      String(a.commentId).localeCompare(String(b.commentId)),
+      compareCommentIds(a.commentId, b.commentId),
   );
   return { decisions, rejected };
 }
@@ -102,11 +121,15 @@ function blocked(state, reason, extra = {}) {
 
 // input: {
 //   readComplete: boolean,
-//   issue: { state: 'open'|'closed', labels: string[] },
+//   issue: { state: 'open'|'closed', labels: string[], authorLogin: string },
 //   briefText: string | null,
-//   comments: [{ id, authorAssociation, authorType, createdAt, updatedAt, body }],
+//   comments: [{ id, authorLogin, authorAssociation, authorType, createdAt,
+//                updatedAt, body }],
 //   slice: 'S1'
 // }
+// authorLogin on the issue and on each comment is required. Without the issue
+// author the gate cannot tell an approval from the requester's self-approval, so
+// a missing identity is an incomplete read, not an empty one.
 export function evaluateFeatureClaim(input) {
   if (input.readComplete !== true) {
     return blocked(
@@ -114,7 +137,16 @@ export function evaluateFeatureClaim(input) {
       'A GitHub read was partial or failed; treating state as unknown.',
     );
   }
-  if (input.issue?.state !== 'open') {
+  if (
+    typeof input.issue?.authorLogin !== 'string' ||
+    !input.issue.authorLogin
+  ) {
+    return blocked(
+      'unknown',
+      'The issue author was not read; treating state as unknown.',
+    );
+  }
+  if (input.issue.state !== 'open') {
     return blocked('blocked', 'The issue is not open.');
   }
   const labels = input.issue.labels ?? [];
@@ -143,7 +175,10 @@ export function evaluateFeatureClaim(input) {
 
   const { brief } = validation;
   const digest = digestBrief(input.briefText);
-  const { decisions, rejected } = decisionsFrom(input.comments ?? []);
+  const { decisions, rejected } = decisionsFrom(
+    input.comments ?? [],
+    input.issue.authorLogin,
+  );
   const forThisBrief = decisions.filter(
     (decision) => decision.digest === digest,
   );

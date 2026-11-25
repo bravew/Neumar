@@ -38,8 +38,12 @@ Slice rules, taken from `LESSONS.md`, "Working with parallel agents":
   `package.json`, `pnpm-lock.yaml`, locale modules, the component size allowlist,
   `http-daemon.ts`, `video-edit-server.ts`, or `packages/video-ir/` under
   `Owned files` fails. Those edits must be scheduled as shared.
-- `Depends on` may only name an earlier slice.
-- Paths are repository-relative.
+- `Depends on` is mandatory, with `none` when it depends on nothing. `Depends on`
+  may only name an earlier slice.
+- Paths are repository-relative. A noncanonical spelling such as `./package.json`
+  is normalized before the shared-file check, so it cannot dodge that rule.
+- A section that contains only a placeholder, including a placeholder bullet
+  such as `- TBD`, counts as empty.
 
 A valid example is
 [fixtures/valid-brief.md](../../scripts/feature-brief/fixtures/valid-brief.md).
@@ -65,15 +69,20 @@ The gate ignores or rejects:
 
 - Labels. Editing an issue does not clear a label, so a label can outlive the
   scope it approved.
-- Comments from any other author association, including the issue author.
+- The issue author's own approval. A requester cannot approve their own request,
+  matching GitHub's rule for pull request authors.
+- Comments from any other author association.
 - Comments whose author type is not `User`.
 - Comments edited after they were posted. A collaborator can edit another
   person's comment, so an edited comment cannot be trusted as written.
-- Marker lines inside code fences or block quotes.
+- Marker lines inside code fences or block quotes. Fences follow CommonMark:
+  `~~~` counts, and a shorter or differently fenced line does not close an open
+  fence.
 
 The latest trusted decision for the current digest wins. A later withdrawal
-blocks, and a later approval restores. Approval for a different digest never
-applies.
+blocks, and a later approval restores. Decisions in the same second are ordered
+by numeric comment id, so a withdrawal posted after an approval still wins.
+Approval for a different digest never applies.
 
 This binds approval to a digest of the brief content rather than a commit SHA,
 so the same rule works whether the brief sits in an issue body or on a branch.
@@ -84,11 +93,14 @@ maintainer. Keep the publisher App and the maintainer identity separate (#362).
 
 `evaluateFeatureClaim` in `scripts/feature-brief/approval.mjs` is a pure
 function. The caller reads the issue, labels, comments, and brief, then passes
-them in with `readComplete: true`.
+them in with `readComplete: true`. The input must include the issue author's
+`authorLogin` and each comment's `authorLogin`. A missing author is an incomplete
+read, because the gate cannot tell an approval from the requester's
+self-approval without it.
 
 | State | Meaning | Claim |
 | --- | --- | --- |
-| `unknown` | A GitHub read was partial or failed. | None. Never treated as empty. |
+| `unknown` | A GitHub read was partial or failed, or an author identity is missing. | None. Never treated as empty. |
 | `blocked` | Closed, `agent:hold`, `needs-decision`, no approval, withdrawn, stale digest, wrong epic, or slice not authorized. | None. |
 | `needs-decision` | The brief is missing or underspecified. | None. Returns `labelsToAdd: ['needs-decision']` and exactly one `question`. |
 | `eligible` | Trusted approval matches the current digest. | Only the authorized slices. |

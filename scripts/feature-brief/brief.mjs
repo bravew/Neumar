@@ -31,11 +31,44 @@ const SHARED_FILE_PREFIXES = [
   'packages/video-ir/',
 ];
 
+// `./package.json` and `src//x.ts` name the same file as their canonical forms, so
+// classify and validate the canonical spelling. Paths are repository-relative.
+export function normalizeRepoPath(path) {
+  return path
+    .replace(/^(?:\.\/)+/, '')
+    .replace(/\/{2,}/g, '/')
+    .replace(/\/$/, '');
+}
+
 export function isSharedFile(path) {
+  const canonical = normalizeRepoPath(path);
   return (
-    SHARED_FILE_EXACT.has(path) ||
-    SHARED_FILE_PREFIXES.some((prefix) => path.startsWith(prefix))
+    SHARED_FILE_EXACT.has(canonical) ||
+    SHARED_FILE_PREFIXES.some((prefix) => canonical.startsWith(prefix))
   );
+}
+
+// CommonMark fences open with at least three backticks or tildes. A closing fence
+// uses the same character, is at least as long, and carries no info string. A
+// three-backtick line inside a four-backtick fence is content, not a close.
+export function trackFence(line, fence) {
+  const opening = /^\s*(`{3,}|~{3,})/.exec(line);
+  if (!opening) return { fence, isFenceLine: false };
+  if (!fence) {
+    return {
+      fence: { char: opening[1][0], length: opening[1].length },
+      isFenceLine: true,
+    };
+  }
+  const closing = /^\s*(`{3,}|~{3,})\s*$/.exec(line);
+  if (
+    closing &&
+    closing[1][0] === fence.char &&
+    closing[1].length >= fence.length
+  ) {
+    return { fence: null, isFenceLine: true };
+  }
+  return { fence, isFenceLine: true };
 }
 
 export const EPIC_BRANCH = /^epic\/\d+-[a-z0-9][a-z0-9-]*$/;
@@ -111,10 +144,12 @@ function splitSections(lines) {
   const header = [];
   const sections = new Map();
   let current = null;
-  let inFence = false;
+  let fence = null;
   for (const line of lines) {
-    if (/^\s*```/.test(line)) inFence = !inFence;
-    const heading = !inFence && /^##\s+(.+?)\s*$/.exec(line);
+    const tracked = trackFence(line, fence);
+    fence = tracked.fence;
+    if (tracked.isFenceLine) continue;
+    const heading = !fence && /^##\s+(.+?)\s*$/.exec(line);
     if (heading) {
       current = { title: heading[1], lines: [] };
       sections.set(heading[1].toLowerCase(), current);
@@ -127,9 +162,11 @@ function splitSections(lines) {
   return { header, sections };
 }
 
+// A bullet or quote marker is formatting, not content: `- TBD` is still a
+// placeholder and must not satisfy a required section.
 function meaningful(lines) {
   return lines
-    .map((line) => line.trim())
+    .map((line) => line.trim().replace(/^(?:[-*+]\s+|>\s*)+/, ''))
     .filter((line) => line && !PLACEHOLDER.test(line));
 }
 
@@ -145,7 +182,7 @@ function fileList(value) {
   if (!trimmed || /^none$/i.test(trimmed)) return [];
   return trimmed
     .split(',')
-    .map((item) => item.trim().replace(/^`|`$/g, ''))
+    .map((item) => normalizeRepoPath(item.trim().replace(/^`|`$/g, '')))
     .filter(Boolean);
 }
 
@@ -291,6 +328,7 @@ export function validateBrief(text) {
       const label = `Slice ${slice.id}`;
       const owned = fileList(slice.fields['owned files'] ?? '');
       const hasSharedField = 'shared files' in slice.fields;
+      const hasDependsField = 'depends on' in slice.fields;
       const shared = fileList(slice.fields['shared files'] ?? '');
       const depends = fileList(slice.fields['depends on'] ?? '');
 
@@ -313,6 +351,13 @@ export function validateBrief(text) {
           'slice-shared',
           `${label} must state "Shared files" (use "none" if there are none).`,
           `Does ${slice.id} edit any shared file (package.json, lockfile, locale modules, size allowlist, http-daemon.ts, video-edit-server.ts, packages/video-ir)?`,
+        );
+      }
+      if (!hasDependsField) {
+        fail(
+          'slice-depends-missing',
+          `${label} must state "Depends on" (use "none" if it depends on nothing).`,
+          `Which earlier slice must ${slice.id} wait for, or none?`,
         );
       }
       for (const path of [...owned, ...shared]) {
