@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_NEUMA_SIDECAR_PATH?: string;
   readonly VITE_NEUMA_CONNECTORS_PLATFORM_V2?: string;
   readonly VITE_SITE_API_BASE_URL?: string;
+  readonly VITE_NEUMAR_PREVIEW_BUILD?: string;
   readonly NEUMA_HOTKEY_STRICT?: string;
 }
 

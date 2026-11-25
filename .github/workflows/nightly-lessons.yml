@@ -1,0 +1,210 @@
+name: Nightly Lessons
+
+# ABOUT THIS WORKFLOW
+# - Purpose: Read the first-parent commits that landed on main since the last completed
+#   review, correlate them with evidence, and propose evidence-backed changes to
+#   LESSONS.md in a pull request that a person reviews. Runbook:
+#   doc/maintenance/review-process.md ("Nightly review").
+# - No model is called. The review is deterministic: scripts/nightly-lessons.mjs reads git
+#   and the GitHub API, and every lesson edit must pass the evidence validator.
+# - Independent of daily-preview and of the bug and feature agents. It runs on ubuntu-latest,
+#   holds no signing, release, R2 or Claude credentials, and does not touch ci.yml.
+#
+# TWO JOBS, TWO PRIVILEGE LEVELS
+# - review: contents read only. Reads commits, check runs and issue events, and writes a
+#   report and a patch. It never pushes.
+# - propose: contents and pull-requests write. It never reads the GitHub API for evidence.
+#   It applies the patch from the review job, refuses anything that touches a file other
+#   than LESSONS.md, pushes one branch and opens one PR.
+#
+# CURSOR
+# - The cursor is line 1 of LESSONS.md (`reviewed-through`). It moves only when a reviewed PR
+#   merges, so a failed or incomplete run never advances it. An incomplete read (any failed or
+#   truncated API call) fails this run, writes nothing and opens no PR.
+# - A quiet day (no commits, or no new evidence) opens no PR. The report is in the run
+#   summary and in the uploaded artifact, so a quiet day is visible and not absent.
+#
+# ONE-TIME CATCH-UP
+# - Run it once by hand with `catch_up: true`. It reports the whole gap since the cursor,
+#   writes no lesson, and opens a PR that moves only line 1. After that merges, scheduled
+#   runs start from an agreed cursor. See the runbook for why.
+#
+# STOP SWITCH
+# - Set the repository variable NIGHTLY_LESSONS_DISABLED to `true`. Both jobs are skipped.
+#   A skipped run is not a completed review. Delete the variable to resume.
+#
+# KNOWN LIMIT
+# - A PR opened with GITHUB_TOKEN does not trigger other workflows, so `CI Gate` does not run
+#   on it by itself. Close and reopen the PR to run CI before merging. Replace the token
+#   with the publisher GitHub App from #358 when that exists.
+# - The repository setting "Allow GitHub Actions to create and approve pull requests" must
+#   be on, or the propose job fails at `gh pr create`.
+
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      catch_up:
+        description: Report the whole gap, write no lesson, and move the cursor to main
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-lessons
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: Review merged commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: vars.NIGHTLY_LESSONS_DISABLED != 'true'
+    permissions:
+      contents: read
+    outputs:
+      complete: ${{ steps.review.outputs.complete }}
+      actionable: ${{ steps.review.outputs.actionable }}
+      head: ${{ steps.review.outputs.head }}
+      review_date: ${{ steps.review.outputs.review_date }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+
+      - name: Review commits since the cursor
+        id: review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CATCH_UP: ${{ inputs.catch_up }}
+          OUT_DIR: ${{ runner.temp }}/nightly
+        run: |
+          set -euo pipefail
+          review_date="$(date -u +%F)"
+          echo "review_date=$review_date" >> "$GITHUB_OUTPUT"
+
+          args=(--repo "$REPO" --out "$OUT_DIR" --date "$review_date" --apply)
+          if [ "$CATCH_UP" = "true" ]; then
+            args+=(--catch-up)
+          fi
+
+          status=0
+          node scripts/nightly-lessons.mjs "${args[@]}" || status=$?
+
+          # Capture the proposed change as a patch whatever the exit status was. An
+          # incomplete run leaves LESSONS.md untouched, so the patch is empty.
+          git diff --binary -- LESSONS.md > "$OUT_DIR/lessons.patch"
+          exit "$status"
+
+      - name: Publish report to the run summary
+        if: always()
+        env:
+          OUT_DIR: ${{ runner.temp }}/nightly
+        run: |
+          if [ -f "$OUT_DIR/report.md" ]; then
+            cat "$OUT_DIR/report.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No report was written. The run failed before the review started." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload report and patch
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: nightly-lessons
+          path: ${{ runner.temp }}/nightly
+          if-no-files-found: warn
+          retention-days: 90
+
+  propose:
+    name: Open proposal PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: review
+    if: needs.review.outputs.actionable == 'true' && vars.NIGHTLY_LESSONS_DISABLED != 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Download report and patch
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: nightly-lessons
+          path: ${{ runner.temp }}/nightly
+
+      - name: Open the proposal PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWED_HEAD: ${{ needs.review.outputs.head }}
+          REVIEW_DATE: ${{ needs.review.outputs.review_date }}
+          CATCH_UP: ${{ inputs.catch_up }}
+          OUT_DIR: ${{ runner.temp }}/nightly
+        run: |
+          set -euo pipefail
+          branch="automation/nightly-lessons-$REVIEW_DATE"
+
+          # Main moved after the review read it: the patch's cursor and evidence no longer
+          # describe this head. Tomorrow's run starts again from the same cursor.
+          if [ "$(git rev-parse HEAD)" != "$REVIEWED_HEAD" ]; then
+            echo "::error::main moved from $REVIEWED_HEAD during the review. No PR was opened."
+            exit 1
+          fi
+
+          # One proposal at a time. A second PR from the same cursor would duplicate it.
+          open="$(gh pr list --state open --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("automation/nightly-lessons-"))] | length')"
+          if [ "$open" != "0" ]; then
+            echo "::notice::A nightly lessons PR is already open. No new PR was opened."
+            exit 0
+          fi
+
+          # Only LESSONS.md may change.
+          changed="$(git apply --numstat "$OUT_DIR/lessons.patch" | cut -f3)"
+          if [ "$changed" != "LESSONS.md" ]; then
+            echo "::error::The patch touches files other than LESSONS.md."
+            exit 1
+          fi
+          git apply --index "$OUT_DIR/lessons.patch"
+          git diff --cached --check
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          if [ "$CATCH_UP" = "true" ]; then
+            subject="docs(lessons): move the review cursor to main ($REVIEW_DATE)"
+          else
+            subject="docs(lessons): nightly review $REVIEW_DATE"
+          fi
+          git commit -m "$subject"
+          git push origin "$branch"
+
+          {
+            cat "$OUT_DIR/report.md"
+            echo
+            echo "## Before merging"
+            echo
+            echo "- A person reviews every evidence line against the cited PR, commit or file and line."
+            echo "- This PR was opened with GITHUB_TOKEN, so CI does not start on its own. Close and reopen it to run \`CI Gate\`."
+            echo "- Reviewed head: \`$REVIEWED_HEAD\`. Merging moves the cursor to that head."
+          } > "$OUT_DIR/pr-body.md"
+
+          gh pr create --base main --head "$branch" --title "$subject" --body-file "$OUT_DIR/pr-body.md"

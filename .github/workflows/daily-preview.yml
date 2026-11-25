@@ -1,0 +1,321 @@
+name: Daily Preview
+
+# ABOUT THIS WORKFLOW (#366, epic #360)
+# - Purpose: build an internal, ad-hoc signed, unnotarized macOS arm64 preview of the
+#   newest `main` commit that has a passing `CI Gate`, then verify it from a fresh
+#   download before recording it as the last-good build.
+# - Runbook: doc/maintenance/daily-desktop-preview.md
+# - Trigger: daily at the 20:00 UTC cutoff, plus manual dispatch. Scheduled runs can
+#   start several minutes late; the commit is frozen when the plan job starts, not at
+#   20:00 sharp.
+#
+# WHAT IT NEVER DOES
+# - No secrets: this file references none. No Apple, Tauri updater, Google, Slack,
+#   Cloudflare or R2 credentials reach any job.
+# - No tag, no GitHub Release, no stable updater feed, no R2 upload.
+# - No schedule on build.yml. That workflow holds the signing and publishing wiring.
+#
+# JOBS
+# - plan:    freeze main, read the durable pointer, require `CI Gate` on that exact SHA.
+#            Unchanged main ends here, so no macOS runner starts.
+# - build:   frozen lockfile, NEUMAR_PREVIEW_BUILD=true (updater isolated), stage the DMG
+#            with SHA256SUMS and a manifest, upload.
+# - verify:  separate job. Download, check SHA256SUMS, mount the DMG, check the ad-hoc
+#            signature, start the bundled sidecar against a temp data dir.
+# - record:  the only job with write access. Advances `state/daily-preview` with a
+#            fast-forward push, and only when verify passed.
+#
+# FAILURE KEEPS THE OLD POINTER
+# - A failed, cancelled or missing gate, a packaging failure, or a corrupt artifact fails
+#   its job, so `record` is skipped and last-good stays where it was.
+
+on:
+  schedule:
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+    inputs:
+      plan_only:
+        description: Decide and report only. Do not start a macOS runner.
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: daily-preview
+  cancel-in-progress: false
+
+env:
+  RETENTION_DAYS: '14'
+  TARGET_TRIPLE: aarch64-apple-darwin
+  STATE_BRANCH: state/daily-preview
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      action: ${{ steps.plan.outputs.action }}
+      candidate_sha: ${{ steps.plan.outputs.candidate_sha }}
+      last_good_sha: ${{ steps.plan.outputs.last_good_sha }}
+      range: ${{ steps.plan.outputs.range }}
+      artifact_name: ${{ steps.plan.outputs.artifact_name }}
+    steps:
+      - name: Freeze candidate commit
+        id: freeze
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$REPO/commits/main" --jq .sha)
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::could not resolve the main head commit"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ steps.freeze.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+
+      # A missing state branch is the only "no pointer" case. Any other failure to read
+      # it fails the job: an unreadable pointer is unknown, never empty.
+      - name: Read last-good pointer
+        id: pointer
+        run: |
+          set -euo pipefail
+          listing=$(git ls-remote --heads origin "refs/heads/$STATE_BRANCH")
+          if [ -z "$listing" ]; then
+            echo "path=none" >> "$GITHUB_OUTPUT"
+            echo "No $STATE_BRANCH branch yet: first run"
+          else
+            git fetch --depth=1 origin "refs/heads/$STATE_BRANCH"
+            git show FETCH_HEAD:last-good.json > "$RUNNER_TEMP/last-good.json"
+            echo "path=$RUNNER_TEMP/last-good.json" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CANDIDATE: ${{ steps.freeze.outputs.sha }}
+          RUN_DATE: ${{ steps.freeze.outputs.date }}
+          POINTER_PATH: ${{ steps.pointer.outputs.path }}
+        run: |
+          node scripts/daily-preview.mjs plan \
+            --repo "$REPO" \
+            --candidate "$CANDIDATE" \
+            --date "$RUN_DATE" \
+            --pointer "$POINTER_PATH"
+
+  build:
+    name: Build unsigned preview
+    needs: plan
+    if: needs.plan.outputs.action == 'build' && inputs.plan_only != true
+    runs-on: macos-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.plan.outputs.candidate_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@631a55b12751854ce901bb631d5902ceb48146f7 # stable
+        with:
+          targets: ${{ env.TARGET_TRIPLE }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: './src-tauri -> target'
+          shared-key: daily-preview
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # NEUMAR_PREVIEW_BUILD makes build.sh ad-hoc sign only, clear the Tauri updater
+      # endpoints, and build the frontend with VITE_NEUMAR_PREVIEW_BUILD=true.
+      - name: Build application
+        env:
+          NEUMAR_PREVIEW_BUILD: 'true'
+          CARGO_INCREMENTAL: '0'
+        run: ./scripts/build.sh mac-arm
+
+      - name: Stage artifact
+        env:
+          ARTIFACT_NAME: ${{ needs.plan.outputs.artifact_name }}
+          CANDIDATE: ${{ needs.plan.outputs.candidate_sha }}
+          LAST_GOOD: ${{ needs.plan.outputs.last_good_sha }}
+          RANGE: ${{ needs.plan.outputs.range }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          dmgs=("src-tauri/target/$TARGET_TRIPLE/release/bundle/dmg/"*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one .dmg, found ${#dmgs[@]}"
+            exit 1
+          fi
+          stage="$RUNNER_TEMP/stage"
+          mkdir -p "$stage"
+          cp "${dmgs[0]}" "$stage/neumar-preview_${ARTIFACT_NAME}_aarch64.dmg"
+          node scripts/measure-bundle-size.mjs --triple "$TARGET_TRIPLE" \
+            --output "$RUNNER_TEMP/bundle-size-report.json"
+          node scripts/daily-preview.mjs write-manifest \
+            --dir "$stage" \
+            --candidate "$CANDIDATE" \
+            --last-good "$LAST_GOOD" \
+            --range "$RANGE" \
+            --triple "$TARGET_TRIPLE" \
+            --artifact-name "$ARTIFACT_NAME" \
+            --run-url "$RUN_URL" \
+            --retention-days "$RETENTION_DAYS" \
+            --bundle-size "$RUNNER_TEMP/bundle-size-report.json"
+          node scripts/daily-preview.mjs write-sums --dir "$stage"
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: daily-preview-${{ needs.plan.outputs.artifact_name }}
+          path: ${{ runner.temp }}/stage
+          retention-days: ${{ env.RETENTION_DAYS }}
+          if-no-files-found: error
+
+  verify:
+    name: Verify downloaded preview
+    needs: [plan, build]
+    runs-on: macos-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.plan.outputs.candidate_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+
+      # Downloaded into a fresh directory outside the checkout.
+      - name: Download preview artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: daily-preview-${{ needs.plan.outputs.artifact_name }}
+          path: ${{ runner.temp }}/preview-download
+
+      - name: Verify checksums and manifest
+        id: artifact
+        env:
+          CANDIDATE: ${{ needs.plan.outputs.candidate_sha }}
+          DOWNLOAD_DIR: ${{ runner.temp }}/preview-download
+        run: |
+          node scripts/daily-preview.mjs verify-artifact \
+            --dir "$DOWNLOAD_DIR" \
+            --candidate "$CANDIDATE"
+
+      - name: Smoke test DMG, app and sidecar
+        env:
+          DOWNLOAD_DIR: ${{ runner.temp }}/preview-download
+          DMG: ${{ steps.artifact.outputs.dmg }}
+        run: scripts/daily-preview-smoke.sh "$DOWNLOAD_DIR/$DMG"
+
+  record:
+    name: Advance last-good pointer
+    needs: [plan, build, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.plan.outputs.candidate_sha }}
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: 22
+
+      # Fast-forward only: a concurrent move of the pointer makes the push fail and
+      # the old pointer stays. `next-pointer` also refuses when the pointer is no
+      # longer what the plan read.
+      - name: Advance pointer
+        env:
+          CANDIDATE: ${{ needs.plan.outputs.candidate_sha }}
+          EXPECTED: ${{ needs.plan.outputs.last_good_sha }}
+          ARTIFACT_NAME: ${{ needs.plan.outputs.artifact_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          state_dir="$RUNNER_TEMP/state"
+
+          status=0
+          git ls-remote --exit-code --heads origin "refs/heads/$STATE_BRANCH" > /dev/null || status=$?
+          if [ "$status" -eq 0 ]; then
+            git fetch --depth=1 origin "refs/heads/$STATE_BRANCH"
+            git worktree add --detach "$state_dir" FETCH_HEAD
+            current="$state_dir/last-good.json"
+          elif [ "$status" -eq 2 ]; then
+            git worktree add --detach "$state_dir" HEAD
+            git -C "$state_dir" checkout --orphan "$STATE_BRANCH"
+            git -C "$state_dir" rm -rfq .
+            current=none
+          else
+            echo "::error::could not read $STATE_BRANCH (git ls-remote exit $status)"
+            exit 1
+          fi
+
+          node scripts/daily-preview.mjs next-pointer \
+            --current "$current" \
+            --expected "$EXPECTED" \
+            --candidate "$CANDIDATE" \
+            --verified true \
+            --run-url "$RUN_URL" \
+            --artifact "$ARTIFACT_NAME" \
+            --out "$state_dir/last-good.json"
+
+          git -C "$state_dir" config user.name "github-actions[bot]"
+          git -C "$state_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$state_dir" add last-good.json
+          if git -C "$state_dir" diff --cached --quiet; then
+            echo "Pointer already at $CANDIDATE"
+          else
+            git -C "$state_dir" commit -m "chore(preview): last good ${ARTIFACT_NAME}"
+            git -C "$state_dir" push origin "HEAD:refs/heads/$STATE_BRANCH"
+          fi
