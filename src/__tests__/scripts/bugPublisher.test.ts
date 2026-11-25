@@ -232,7 +232,7 @@ function validOptions(overrides: Partial<PublishOptions> = {}): PublishOptions {
     baseSha: BASE,
     localHead: HEAD,
     remoteHead: null,
-    commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+    commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
     botLogin: BOT,
     isAncestor: () => true,
     now: '2026-11-24T12:00:00.000Z',
@@ -1038,7 +1038,7 @@ describe('safe push', () => {
       baseSha: BASE,
       localHead: HEAD,
       remoteHead: REMOTE,
-      commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+      commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       botLogin: BOT,
       isAncestor: () => true,
     });
@@ -1066,11 +1066,66 @@ describe('safe push', () => {
       baseSha: BASE,
       localHead: HEAD,
       remoteHead: REMOTE,
-      commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+      commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       botLogin: BOT,
-      isAncestor: () => false,
+      isAncestor: (ancestor: string) => ancestor === BASE,
     });
     expect(result).toMatchObject({ ok: false, reason: 'non-fast-forward' });
+  });
+
+  it('proves the base is an ancestor on every push, including a new branch', () => {
+    const input = {
+      baseSha: BASE,
+      localHead: HEAD,
+      remoteHead: null,
+      commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
+      botLogin: BOT,
+    };
+    expect(assertSafePush(input)).toMatchObject({
+      ok: false,
+      reason: 'ancestry-check-missing',
+    });
+    expect(assertSafePush({ ...input, isAncestor: () => false })).toMatchObject(
+      { ok: false, reason: 'base-not-ancestor' },
+    );
+    expect(assertSafePush({ ...input, isAncestor: () => true })).toMatchObject({
+      ok: true,
+      needsPush: true,
+    });
+  });
+
+  it('requires the complete linear commit range from the base to the head', () => {
+    const MIDDLE = 'd'.repeat(40);
+    const base = {
+      baseSha: BASE,
+      localHead: HEAD,
+      remoteHead: null,
+      botLogin: BOT,
+      isAncestor: () => true,
+    };
+    expect(
+      assertSafePush({
+        ...base,
+        commitsAhead: [
+          { sha: MIDDLE, authorLogin: BOT, parentSha: BASE },
+          { sha: HEAD, authorLogin: BOT, parentSha: MIDDLE },
+        ],
+      }),
+    ).toMatchObject({ ok: true });
+    // The middle commit is missing from the list.
+    expect(
+      assertSafePush({
+        ...base,
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: MIDDLE }],
+      }),
+    ).toMatchObject({ ok: false, reason: 'commit-range-incomplete' });
+    // No parent evidence at all.
+    expect(
+      assertSafePush({
+        ...base,
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+      }),
+    ).toMatchObject({ ok: false, reason: 'commit-range-incomplete' });
   });
 
   it('requires commit evidence that ends at the local head', () => {
@@ -1249,7 +1304,7 @@ describe('publisher', () => {
       .fn()
       .mockResolvedValueOnce({
         remoteHead: null,
-        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       })
       .mockResolvedValueOnce({
         remoteHead: null,
@@ -1278,15 +1333,15 @@ describe('publisher', () => {
       .fn()
       .mockResolvedValueOnce({
         remoteHead: null,
-        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       })
       .mockResolvedValueOnce({
         remoteHead: null,
-        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       })
       .mockResolvedValueOnce({
         remoteHead: REMOTE,
-        commitsAhead: [{ sha: HEAD, authorLogin: BOT }],
+        commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
       });
     const result = await publishBugFix(
       validOptions({
@@ -1312,7 +1367,7 @@ describe('publisher', () => {
         github: github.github,
         git: git.git,
         remoteHead: REMOTE,
-        isAncestor: () => false,
+        isAncestor: (ancestor: string) => ancestor === BASE,
       }),
     );
 
@@ -1320,6 +1375,58 @@ describe('publisher', () => {
       published: false,
       reason: 'non-fast-forward',
     });
+    expect(git.push).not.toHaveBeenCalled();
+  });
+
+  it('refuses to trust the report when the caller supplies no changed files', async () => {
+    const github = createGithubFake();
+    const git = createGitFake();
+    for (const changedFiles of [undefined, []]) {
+      const result = await publishBugFix(
+        validOptions({
+          github: github.github,
+          git: git.git,
+          changedFiles: changedFiles as PublishOptions['changedFiles'],
+        }),
+      );
+      expect(result).toMatchObject({
+        published: false,
+        reason: 'changed-files-missing',
+      });
+    }
+    expect(git.push).not.toHaveBeenCalled();
+    expect(github.createPullRequest).not.toHaveBeenCalled();
+  });
+
+  it('refuses a patch whose trusted file list is denied even if the report hides it', async () => {
+    const github = createGithubFake();
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({
+        github: github.github,
+        git: git.git,
+        changedFiles: ['.github/workflows/ci.yml'],
+        report: validReport({
+          changedFiles: ['scripts/bug-publisher/publisher.mjs'],
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      published: false,
+      reason: 'policy-violation',
+    });
+    expect(git.push).not.toHaveBeenCalled();
+  });
+
+  it('refuses a push on a new branch when the base ancestry is unproven', async () => {
+    const github = createGithubFake();
+    const git = createGitFake();
+    for (const isAncestor of [undefined, () => false]) {
+      const result = await publishBugFix(
+        validOptions({ github: github.github, git: git.git, isAncestor }),
+      );
+      expect(result.published).toBe(false);
+    }
     expect(git.push).not.toHaveBeenCalled();
   });
 

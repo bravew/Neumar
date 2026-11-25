@@ -35,7 +35,11 @@ export interface IdentityCheck {
 }
 
 export interface PatchPolicyInput {
-  changedFiles?: Array<string | { path: string; previousPath?: string }>;
+  /**
+   * Files changed by `baseSha..localHead`, computed by the trusted caller. The
+   * worker's reported list is compared against it and never replaces it.
+   */
+  changedFiles: Array<string | { path: string; previousPath?: string }>;
   authorizedPaths?: string[];
   componentSizeBase?: unknown;
   componentSizeHead?: unknown;
@@ -261,6 +265,8 @@ export interface TrustedActor {
 export interface CommitInfo {
   sha: string;
   authorLogin: string | null;
+  /** The commit's single parent; the range must chain from the pinned base. */
+  parentSha?: string;
 }
 
 export interface PublisherIdentity {
@@ -317,7 +323,11 @@ export interface PublishOptions {
   isAncestor?: (ancestor: string, descendant: string) => boolean;
   now?: string | (() => string);
   report: VerificationReport;
-  changedFiles?: Array<string | { path: string; previousPath?: string }>;
+  /**
+   * Files changed by `baseSha..localHead`, computed by the trusted caller. The
+   * worker's reported list is compared against it and never replaces it.
+   */
+  changedFiles: Array<string | { path: string; previousPath?: string }>;
   authorizedPaths?: string[];
   componentSizeBase?: unknown;
   componentSizeHead?: unknown;

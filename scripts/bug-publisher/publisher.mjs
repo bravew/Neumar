@@ -156,8 +156,11 @@ async function recheck(options, policy) {
 
 /**
  * Refuse a push that is not a fast-forward, that carries a commit not authored
- * by the bot, or that cannot prove the local head is the tip of the commits
- * ahead of the pinned base.
+ * by the bot, or that cannot prove the local head is the tip of the complete,
+ * linear commit range `baseSha..localHead`. Every commit names its single
+ * parent so a missing or foreign commit in the range is detectable. The pinned
+ * base must be an ancestor of the local head on every push, including the first
+ * push of a new branch.
  */
 export function assertSafePush({
   baseSha,
@@ -197,11 +200,25 @@ export function assertSafePush({
       };
     }
   }
-  if (remoteHead !== null && remoteHead !== localHead) {
-    if (typeof isAncestor !== 'function') {
-      return { ok: false, reason: 'ancestry-check-missing' };
+  let expectedParent = baseSha;
+  for (const commit of commitsAhead) {
+    if (commit.parentSha !== expectedParent) {
+      return {
+        ok: false,
+        reason: 'commit-range-incomplete',
+        commit: commit.sha,
+      };
     }
-    if (!isAncestor(remoteHead, localHead)) {
+    expectedParent = commit.sha;
+  }
+  if (typeof isAncestor !== 'function') {
+    return { ok: false, reason: 'ancestry-check-missing' };
+  }
+  if (isAncestor(baseSha, localHead) !== true) {
+    return { ok: false, reason: 'base-not-ancestor' };
+  }
+  if (remoteHead !== null && remoteHead !== localHead) {
+    if (isAncestor(remoteHead, localHead) !== true) {
       return { ok: false, reason: 'non-fast-forward' };
     }
   }
@@ -266,8 +283,18 @@ export async function publishBugFix(options) {
     return refuse('report-base-mismatch');
   }
 
+  // The file list must come from the caller's own `baseSha..localHead` diff. The
+  // worker's report is untrusted input, so it is compared against this list and
+  // never substituted for it.
+  if (
+    !Array.isArray(options.changedFiles) ||
+    options.changedFiles.length === 0
+  ) {
+    return refuse('changed-files-missing');
+  }
+
   const policyResult = evaluatePatchPolicy({
-    changedFiles: options.changedFiles ?? options.report?.changedFiles ?? [],
+    changedFiles: options.changedFiles,
     authorizedPaths: options.authorizedPaths ?? [],
     componentSizeBase: options.componentSizeBase,
     componentSizeHead: options.componentSizeHead,
