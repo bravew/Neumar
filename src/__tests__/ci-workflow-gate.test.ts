@@ -278,6 +278,7 @@ function checkRun(
   overrides: Partial<CheckRunInput> = {},
 ): CheckRunInput {
   return {
+    id: 1,
     name,
     head_sha: HEAD,
     status: 'completed',
@@ -498,10 +499,47 @@ describe('verifyPrGate revision binding', () => {
     );
   });
 
+  it('blocks when a rerun lacks an id and the newest result is unknown', () => {
+    const older = checkRun('Test', { completed_at: '2026-01-02T00:00:00Z' });
+    const queued = checkRun('Test', {
+      id: null,
+      status: 'queued',
+      conclusion: null,
+    });
+    const others = successfulChecks().filter((check) => check.name !== 'Test');
+    for (const runs of [
+      [older, queued],
+      [queued, older],
+    ]) {
+      const result = verify({ checks: [...others, ...runs] });
+      expect(result.ok).toBe(false);
+      expect(result.reasons).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: 'unknown-order', job: 'Test' }),
+        ]),
+      );
+    }
+  });
+
+  it('blocks when two runs of the aggregate share an id', () => {
+    const checks = [
+      ...successfulChecks(),
+      checkRun(AGGREGATE_CHECK, { conclusion: 'failure' }),
+    ];
+    expect(verify({ checks }).reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unknown-order',
+          job: AGGREGATE_CHECK,
+        }),
+      ]),
+    );
+  });
+
   it('uses the newest rerun instead of an older success', () => {
     const checks = [
       ...successfulChecks(),
-      checkRun('Test', { status: 'in_progress', conclusion: null }),
+      checkRun('Test', { id: 2, status: 'in_progress', conclusion: null }),
     ];
     const result = verify({ checks });
     expect(result.ok).toBe(false);

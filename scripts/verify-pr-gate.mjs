@@ -56,7 +56,7 @@ export const MAX_REWORK_CYCLES = 3;
 const VERDICT_PATTERN =
   /Verdict: `(ready-for-human|request-changes|needs-decision)`/g;
 
-function normalizeCheck(check, index) {
+function normalizeCheck(check) {
   const state = check.state == null ? null : String(check.state).toLowerCase();
   const status =
     check.status == null ? null : String(check.status).toLowerCase();
@@ -68,7 +68,6 @@ function normalizeCheck(check, index) {
       : String(check.conclusion).toLowerCase();
 
   return {
-    index,
     name: check.name == null ? '' : String(check.name),
     headSha: check.head_sha ?? check.headSha ?? null,
     status:
@@ -76,32 +75,30 @@ function normalizeCheck(check, index) {
       (state == null || state === 'pending' ? 'pending' : 'completed'),
     conclusion,
     appId: check.app?.id ?? null,
-    id: Number.isSafeInteger(Number(check.id)) ? Number(check.id) : null,
+    id: Number.isSafeInteger(check.id) && check.id > 0 ? check.id : null,
     url: check.html_url ?? check.details_url ?? null,
-    time: Date.parse(check.completed_at ?? check.started_at ?? '') || 0,
   };
 }
 
-/**
- * Orders check runs oldest to newest. The REST `id` is assigned at creation and
- * only grows, so it is the reliable key: a queued rerun has no `started_at` or
- * `completed_at` yet, and ordering by timestamp would let an older success
- * outrank it. Timestamps and input order only break ties for ids that are absent.
- */
-function compareCheckAge(a, b) {
-  if (a.id != null && b.id != null && a.id !== b.id) return a.id - b.id;
-  return a.time - b.time || a.index - b.index;
+function hasDistinctIds(pool) {
+  const ids = new Set(pool.map((check) => check.id));
+  return !ids.has(null) && ids.size === pool.length;
 }
 
 /**
  * Picks the newest check run for each name. A rerun must not be hidden by an
  * older success, and a check from another app must not impersonate Actions. A
  * check without an app identity is never evidence: there is no fallback pool.
+ *
+ * The REST `id` is assigned at creation and only grows, so it is the only
+ * ordering key. A queued rerun has no timestamps yet, so ordering by time would
+ * let an older success outrank it. When a name has several runs without
+ * distinct ids the newest is unknown, and the name is reported as unordered.
  */
 function latestChecks(checks, appId) {
   const byName = new Map();
   for (const raw of checks) {
-    const check = normalizeCheck(raw, byName.size);
+    const check = normalizeCheck(raw);
     if (!check.name) continue;
     const candidates = byName.get(check.name) ?? [];
     candidates.push(check);
@@ -109,14 +106,27 @@ function latestChecks(checks, appId) {
   }
 
   const latest = new Map();
+  const unordered = new Set();
   for (const [name, candidates] of byName) {
     const pool = candidates.filter((check) => check.appId === appId);
     if (pool.length === 0) continue;
+    if (pool.length > 1 && !hasDistinctIds(pool)) {
+      unordered.add(name);
+      continue;
+    }
 
-    pool.sort(compareCheckAge);
+    pool.sort((a, b) => a.id - b.id);
     latest.set(name, pool[pool.length - 1]);
   }
-  return latest;
+  return { latest, unordered };
+}
+
+function unknownOrderReason(job) {
+  return {
+    code: 'unknown-order',
+    job,
+    message: `"${job}" has several runs without distinct check-run ids, so the newest run cannot be identified.`,
+  };
 }
 
 function isTauriPath(filePath) {
@@ -154,6 +164,7 @@ function checkFailureReason(check, head, job) {
  * @param {object} input
  * @param {object} input.pr `gh pr view --json state,isDraft,headRefOid,baseRefOid,...`
  * @param {object[]} input.checks Check runs for the head (REST shape or `gh pr checks` shape).
+ *   Several runs of one name need distinct REST `id`s, or that name is blocked.
  * @param {string[]} [input.changedPaths] Changed paths, used to scope Rust checks.
  * @param {boolean} [input.rustRequired] Explicit Rust requirement; overrides changedPaths.
  * @param {string} [input.expectedHead] Head captured earlier. A mismatch means a pushed follow-up.
@@ -209,11 +220,18 @@ export function verifyPrGate(input = {}) {
   }
 
   const requiredJobs = [...REQUIRED_JOBS, ...(rustRequired ? [RUST_JOB] : [])];
-  const latest = latestChecks(checks, input.appId ?? GITHUB_ACTIONS_APP_ID);
+  const { latest, unordered } = latestChecks(
+    checks,
+    input.appId ?? GITHUB_ACTIONS_APP_ID,
+  );
   const evaluated = [];
 
   for (const job of requiredJobs) {
     const check = latest.get(job);
+    if (unordered.has(job)) {
+      reasons.push(unknownOrderReason(job));
+      continue;
+    }
     if (!check) {
       reasons.push({
         code: 'missing-check',
@@ -236,7 +254,9 @@ export function verifyPrGate(input = {}) {
   // check that failed is still a real failure, not something to ignore.
   if (rustRequired === false) {
     const rust = latest.get(RUST_JOB);
-    if (rust) {
+    if (unordered.has(RUST_JOB)) {
+      reasons.push(unknownOrderReason(RUST_JOB));
+    } else if (rust) {
       evaluated.push({
         name: RUST_JOB,
         conclusion: rust.conclusion,
@@ -260,7 +280,9 @@ export function verifyPrGate(input = {}) {
 
   if (input.requireAggregate !== false) {
     const gate = latest.get(AGGREGATE_CHECK);
-    if (!gate) {
+    if (unordered.has(AGGREGATE_CHECK)) {
+      reasons.push(unknownOrderReason(AGGREGATE_CHECK));
+    } else if (!gate) {
       reasons.push({
         code: 'missing-check',
         job: AGGREGATE_CHECK,

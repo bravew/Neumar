@@ -19,6 +19,7 @@ export interface PrMetadata {
 }
 
 export interface CheckRunInput {
+  id?: number | null;
   name?: string;
   head_sha?: string;
   headSha?: string;
