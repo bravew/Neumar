@@ -1,0 +1,64 @@
+{
+  "name": "duplicate-delivery",
+  "description": "GitHub redelivers the same webhook, then sends a new delivery for the same issue. Only the first produces a claim.",
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "bug12": {
+      "number": 12,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-1",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["bug12"] },
+      "expect": {
+        "outcome": "ok",
+        "claims": [12],
+        "dispatched": [12],
+        "decisions": { "12": "eligible" },
+        "watermarkAfter": null
+      }
+    },
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-1",
+      "runId": "run-2",
+      "now": "2026-11-24T10:00:05.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["bug12"] },
+      "expect": {
+        "outcome": "duplicate-delivery",
+        "claims": [],
+        "dispatched": [],
+        "decisions": {}
+      }
+    },
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-2",
+      "runId": "run-3",
+      "now": "2026-11-24T10:01:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["bug12"] },
+      "expect": {
+        "outcome": "ok",
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "12": "already-claimed" }
+      }
+    }
+  ]
+}

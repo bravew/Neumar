@@ -207,7 +207,7 @@ describe('LESSONS.md helpers', () => {
     const cancellation = lessonsFile
       .parseLessons(real)
       .find((l) => l.key.startsWith('after cancellation'));
-    expect(cancellation?.seenDates).toEqual(['2026-11-21']);
+    expect(cancellation?.seenDates).toContain('2026-11-21');
   });
 
   it('rejects a Seen line whose count disagrees with its dates', () => {

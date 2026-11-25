@@ -164,6 +164,43 @@ describe('evaluateCiGate', () => {
     expect(verdict).toMatchObject({ ok: false, state: 'pending' });
   });
 
+  it('orders by id when runs carry no created_at (the documented check-run shape)', () => {
+    // The check-run API has no run-level created_at. A queued rerun has no
+    // started_at either, so id is the only creation-order key.
+    const run = (overrides: Record<string, unknown>) => {
+      const { created_at: _created, ...base } = gateRun();
+      return { ...base, ...overrides };
+    };
+    const older = run({
+      id: 100,
+      started_at: '2026-11-24T09:00:00Z',
+      completed_at: '2026-11-24T09:05:00Z',
+    });
+    const queued = run({
+      id: 200,
+      started_at: null,
+      status: 'queued',
+      conclusion: null,
+    });
+    for (const runs of [
+      [older, queued],
+      [queued, older],
+    ]) {
+      expect(evaluateCiGate(payload(runs), CANDIDATE)).toMatchObject({
+        ok: false,
+        state: 'pending',
+      });
+    }
+  });
+
+  it('treats a gate run without a numeric id as unknown order', () => {
+    const { id: _id, ...noId } = gateRun();
+    expect(evaluateCiGate(payload([noId]), CANDIDATE)).toMatchObject({
+      ok: false,
+      state: 'unknown',
+    });
+  });
+
   it('treats a truncated response as unknown', () => {
     const verdict = evaluateCiGate(payload([gateRun()], 3), CANDIDATE);
     expect(verdict).toMatchObject({ ok: false, state: 'unknown' });

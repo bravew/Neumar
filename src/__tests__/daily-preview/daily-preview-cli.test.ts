@@ -300,6 +300,15 @@ describe('daily-preview artifact verification', () => {
     expect(result.stderr).toContain('missing SHA256SUMS');
   });
 
+  it('rejects an empty SHA256SUMS instead of skipping the checksum check', () => {
+    const stageDir = stage();
+    writeFileSync(path.join(stageDir, 'SHA256SUMS'), '');
+    const result = verify(stageDir);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('SHA256SUMS lists no files');
+    expect(result.outputs.dmg).toBeUndefined();
+  });
+
   it('rejects an extra file that SHA256SUMS does not list', () => {
     const stageDir = stage();
     writeFileSync(path.join(stageDir, 'injected.sh'), 'echo hi');

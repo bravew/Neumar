@@ -1,0 +1,156 @@
+{
+  "name": "held-and-withdrawn",
+  "description": "A held approved bug is skipped, claimed once the hold clears, and the claim is revoked when the hold returns. The publisher's pre-push check then fails.",
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "held12": {
+      "number": 12,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved", "agent:hold"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        },
+        {
+          "event": "labeled",
+          "label": "agent:hold",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:30:00.000Z"
+        }
+      ]
+    },
+    "released12": {
+      "number": 12,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        },
+        {
+          "event": "labeled",
+          "label": "agent:hold",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:30:00.000Z"
+        },
+        {
+          "event": "unlabeled",
+          "label": "agent:hold",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T10:30:00.000Z"
+        }
+      ]
+    },
+    "approvalRemoved12": {
+      "number": 12,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        },
+        {
+          "event": "unlabeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T11:05:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "cron",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["held12"] },
+      "expect": {
+        "outcome": "ok",
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "12": "held" }
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-2",
+      "now": "2026-11-24T11:00:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["released12"] },
+      "expect": {
+        "outcome": "ok",
+        "claims": [12],
+        "dispatched": [12],
+        "decisions": { "12": "eligible" }
+      }
+    },
+    {
+      "op": "verify",
+      "issue": 12,
+      "runId": "run-2",
+      "epoch": 1,
+      "now": "2026-11-24T11:02:00.000Z",
+      "expect": { "ok": true, "reason": "ok" }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-3",
+      "now": "2026-11-24T11:10:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["held12"] },
+      "expect": {
+        "outcome": "ok",
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "12": "held" },
+        "revoked": [12]
+      }
+    },
+    {
+      "op": "verify",
+      "issue": 12,
+      "runId": "run-2",
+      "epoch": 1,
+      "now": "2026-11-24T11:11:00.000Z",
+      "expect": { "ok": false, "reason": "no-claim" }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-4",
+      "now": "2026-11-24T11:30:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["released12"] },
+      "expect": {
+        "outcome": "ok",
+        "claims": [12],
+        "decisions": { "12": "eligible" },
+        "attempts": { "12": 2 }
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-5",
+      "now": "2026-11-24T11:40:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["approvalRemoved12"] },
+      "expect": {
+        "outcome": "ok",
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "12": "not-approved" },
+        "revoked": [12]
+      }
+    }
+  ]
+}
