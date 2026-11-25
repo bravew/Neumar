@@ -76,14 +76,27 @@ function normalizeCheck(check, index) {
       (state == null || state === 'pending' ? 'pending' : 'completed'),
     conclusion,
     appId: check.app?.id ?? null,
+    id: Number.isSafeInteger(Number(check.id)) ? Number(check.id) : null,
     url: check.html_url ?? check.details_url ?? null,
     time: Date.parse(check.completed_at ?? check.started_at ?? '') || 0,
   };
 }
 
 /**
+ * Orders check runs oldest to newest. The REST `id` is assigned at creation and
+ * only grows, so it is the reliable key: a queued rerun has no `started_at` or
+ * `completed_at` yet, and ordering by timestamp would let an older success
+ * outrank it. Timestamps and input order only break ties for ids that are absent.
+ */
+function compareCheckAge(a, b) {
+  if (a.id != null && b.id != null && a.id !== b.id) return a.id - b.id;
+  return a.time - b.time || a.index - b.index;
+}
+
+/**
  * Picks the newest check run for each name. A rerun must not be hidden by an
- * older success, and a check from another app must not impersonate Actions.
+ * older success, and a check from another app must not impersonate Actions. A
+ * check without an app identity is never evidence: there is no fallback pool.
  */
 function latestChecks(checks, appId) {
   const byName = new Map();
@@ -97,13 +110,10 @@ function latestChecks(checks, appId) {
 
   const latest = new Map();
   for (const [name, candidates] of byName) {
-    const withApp = candidates.filter((check) => check.appId != null);
-    const pool = withApp.length
-      ? withApp.filter((check) => check.appId === appId)
-      : candidates;
+    const pool = candidates.filter((check) => check.appId === appId);
     if (pool.length === 0) continue;
 
-    pool.sort((a, b) => a.time - b.time || a.index - b.index);
+    pool.sort(compareCheckAge);
     latest.set(name, pool[pool.length - 1]);
   }
   return latest;

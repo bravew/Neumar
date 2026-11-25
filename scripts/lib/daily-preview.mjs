@@ -58,15 +58,13 @@ export function parsePointer(text) {
 }
 
 /**
- * Creation order. `started_at` is null while a run is queued, and an empty string
- * would sort *before* every real timestamp, hiding a newer pending run behind an
- * older success. Fall back to `created_at`, which the API always sets, and use the
- * numeric id as the last resort.
+ * Creation order. The documented check-run object has no run-level `created_at`,
+ * and `started_at` is null while a run is queued, so no timestamp reliably orders
+ * a queued rerun against an older success. The numeric `id` is assigned at
+ * creation and only grows, so it is the ordering key.
  */
 function runOrder(a, b) {
-  const key = (run) => String(run.created_at ?? run.started_at ?? '');
-  const byCreation = key(a).localeCompare(key(b));
-  return byCreation !== 0 ? byCreation : Number(a.id ?? 0) - Number(b.id ?? 0);
+  return a.id - b.id;
 }
 
 /**
@@ -101,14 +99,12 @@ export function evaluateCiGate(payload, sha) {
     };
   }
 
-  const gates = payload.check_runs
-    .filter(
-      (run) =>
-        run?.name === GATE_CHECK_NAME &&
-        run?.app?.id === GATE_APP_ID &&
-        run?.head_sha === sha,
-    )
-    .sort(runOrder);
+  const gates = payload.check_runs.filter(
+    (run) =>
+      run?.name === GATE_CHECK_NAME &&
+      run?.app?.id === GATE_APP_ID &&
+      run?.head_sha === sha,
+  );
   if (gates.length === 0) {
     return {
       ok: false,
@@ -117,7 +113,16 @@ export function evaluateCiGate(payload, sha) {
     };
   }
 
-  const latest = gates[gates.length - 1];
+  // Without a numeric id the creation order is unknowable: unknown, not empty.
+  if (!gates.every((run) => Number.isSafeInteger(run.id))) {
+    return {
+      ok: false,
+      state: 'unknown',
+      detail: `a "${GATE_CHECK_NAME}" check run has no numeric id, so creation order is unknown`,
+    };
+  }
+
+  const latest = [...gates].sort(runOrder).at(-1);
   if (latest.status !== 'completed') {
     return {
       ok: false,

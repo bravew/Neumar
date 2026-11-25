@@ -225,6 +225,7 @@ describe('intake tick', () => {
         runId,
         now: '2026-11-24T10:00:00.000Z',
         read: read([approvedBug(12)]),
+        refreshRead: async () => read([approvedBug(12)]),
       });
 
     const results = await Promise.all([
@@ -236,6 +237,93 @@ describe('intake tick', () => {
     expect(results.flatMap((result) => result.claims)).toHaveLength(1);
     expect(results.map((result) => result.casRetries).sort()).toEqual([0, 1]);
     expect(Object.keys(store.snapshot.claims)).toEqual(['12']);
+  });
+
+  describe('compare-and-swap retry after a withdrawal', () => {
+    // The first swap loses to a tick that already saw the approval withdrawn.
+    // The state it wrote has no claim, so a retry planned from the older read
+    // would claim an issue whose approval is gone.
+    class LosesFirstSwap extends InMemoryStore {
+      swaps = 0;
+      async compareAndSwap(expectedVersion: number, next: never) {
+        this.swaps += 1;
+        if (this.swaps === 1) {
+          const { state, version } = await this.read();
+          await super.compareAndSwap(version, state);
+          return { ok: false };
+        }
+        return super.compareAndSwap(expectedVersion, next);
+      }
+    }
+
+    const withdrawn = () => read([approvedBug(12, { labels: ['bug'] })]);
+    const run = (
+      store: InMemoryStore,
+      extra: { refreshRead?: () => Promise<ReadResult> } = {},
+    ) => {
+      const dispatch = vi.fn();
+      const result = runTick({
+        store,
+        dispatch,
+        trigger: 'event',
+        deliveryId: 'd-1',
+        runId: 'run-1',
+        now: '2026-11-24T10:00:00.000Z',
+        read: read([approvedBug(12)]),
+        ...extra,
+      });
+      return { dispatch, result };
+    };
+
+    it('fails closed instead of reusing the stale read when no fresh read is given', async () => {
+      const store = new LosesFirstSwap();
+      const { dispatch, result } = run(store);
+      expect(await result).toMatchObject({
+        outcome: 'stale-read',
+        claims: [],
+        dispatched: [],
+        casRetries: 1,
+      });
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(store.snapshot.claims).toEqual({});
+      // The delivery was not recorded, so a redelivery is still processed.
+      expect(store.snapshot.seenDeliveries).not.toContain('d-1');
+    });
+
+    it('plans the retry from the fresh read, so a withdrawn approval is not claimed', async () => {
+      const store = new LosesFirstSwap();
+      const refreshRead = vi.fn(async () => withdrawn());
+      const { dispatch, result } = run(store, { refreshRead });
+      expect(await result).toMatchObject({ outcome: 'ok', claims: [] });
+      expect(refreshRead).toHaveBeenCalledTimes(1);
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(store.snapshot.claims).toEqual({});
+    });
+
+    it('still claims on retry when the fresh read confirms the approval', async () => {
+      const store = new LosesFirstSwap();
+      const { dispatch, result } = run(store, {
+        refreshRead: async () => read([approvedBug(12)]),
+      });
+      expect(await result).toMatchObject({ outcome: 'ok', casRetries: 1 });
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(Object.keys(store.snapshot.claims)).toEqual(['12']);
+    });
+
+    it('fails closed when the fresh read is unusable', async () => {
+      const store = new LosesFirstSwap();
+      const { dispatch, result } = run(store, {
+        refreshRead: async () => {
+          throw new Error('HTTP 502');
+        },
+      });
+      expect(await result).toMatchObject({
+        outcome: 'read-failed',
+        claims: [],
+      });
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(store.snapshot.claims).toEqual({});
+    });
   });
 
   it('keeps the lease when dispatch fails, so the attempt is not lost', async () => {

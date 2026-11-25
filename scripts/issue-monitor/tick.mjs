@@ -181,20 +181,43 @@ export function planTick(prev, input, config = DEFAULT_CONFIG) {
 
 /**
  * Read state, plan, persist with compare-and-swap, then dispatch. A lost swap
- * re-reads and re-plans, so two concurrent ticks cannot both claim an issue.
- * Contention that outlasts the retries fails closed with no claim.
+ * means another tick changed the state after this tick's issue read, so that
+ * read can no longer vouch for it: an approval it shows may have been withdrawn
+ * by the winning tick. A retry therefore needs `refreshRead`, a callback that
+ * returns a new issue read, taken after the state was re-read. Without one, or
+ * when the fresh read is unusable, the tick fails closed with no claim; the
+ * delivery id is not recorded, so a redelivery or the next cron tick retries.
+ * Contention that outlasts the retries also fails closed with no claim.
  */
 export async function runTick({
   store,
   dispatch,
   config = DEFAULT_CONFIG,
+  refreshRead,
   ...input
 }) {
   let before = null;
+  let current = input;
   for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt += 1) {
     const { state, version } = await store.read();
     before = state.watermark?.updatedSince ?? null;
-    const plan = planTick(state, input, config);
+
+    if (attempt > 0) {
+      // Read the state first, then the issues: the issue read is then at least
+      // as new as the state it is planned against.
+      let fresh = null;
+      if (typeof refreshRead === 'function') {
+        try {
+          fresh = await refreshRead();
+        } catch (error) {
+          fresh = { ok: false, complete: false, error: error?.message };
+        }
+      }
+      if (!fresh) return failClosed('stale-read', attempt, before, input);
+      current = { ...input, read: fresh };
+    }
+
+    const plan = planTick(state, current, config);
 
     if (plan.changed) {
       const written = await store.compareAndSwap(version, plan.state);
@@ -219,12 +242,16 @@ export async function runTick({
     return { ...plan, dispatched, casRetries: attempt };
   }
 
+  return failClosed('store-contention', MAX_CAS_ATTEMPTS, before, input);
+}
+
+function failClosed(outcome, casRetries, before, input) {
   return {
-    outcome: 'store-contention',
+    outcome,
     changed: false,
     claims: [],
     dispatched: [],
-    casRetries: MAX_CAS_ATTEMPTS,
+    casRetries,
     watermark: { before, after: before },
     audit: [
       {
@@ -235,7 +262,7 @@ export async function runTick({
         issue: null,
         actorAssociation: null,
         decision: 'abort',
-        reason: 'store-contention',
+        reason: outcome,
         watermarkBefore: before,
         watermarkAfter: before,
       },
