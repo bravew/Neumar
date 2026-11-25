@@ -1,0 +1,137 @@
+{
+  "name": "kill-switch",
+  "description": "Disabling stops claims, event and cron ticks, and heartbeats without advancing the watermark. Resume is refused while a lease is live and succeeds only after the owner releases it.",
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "bug70": {
+      "number": 70,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    },
+    "bug71": {
+      "number": 71,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T10:10:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "cron",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T09:59:55.000Z",
+        "issues": ["bug70"]
+      },
+      "expect": {
+        "claims": [70],
+        "watermarkAfter": "2026-11-24T09:59:55.000Z"
+      }
+    },
+    {
+      "op": "disable",
+      "now": "2026-11-24T10:05:00.000Z",
+      "expect": { "ok": true }
+    },
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-5",
+      "runId": "run-2",
+      "now": "2026-11-24T10:11:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["bug71"] },
+      "expect": { "outcome": "disabled", "claims": [], "dispatched": [] }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-3",
+      "now": "2026-11-24T10:15:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T10:14:55.000Z",
+        "issues": ["bug71"]
+      },
+      "expect": {
+        "outcome": "disabled",
+        "claims": [],
+        "dispatched": [],
+        "watermarkBefore": "2026-11-24T09:59:55.000Z",
+        "watermarkAfter": "2026-11-24T09:59:55.000Z"
+      }
+    },
+    {
+      "op": "heartbeat",
+      "issue": 70,
+      "runId": "run-1",
+      "epoch": 1,
+      "now": "2026-11-24T10:16:00.000Z",
+      "expect": { "ok": false, "reason": "disabled" }
+    },
+    {
+      "op": "resume",
+      "now": "2026-11-24T10:17:00.000Z",
+      "expect": { "ok": false, "reason": "active-claims", "issues": [70] }
+    },
+    {
+      "op": "release",
+      "issue": 70,
+      "runId": "run-1",
+      "epoch": 1,
+      "now": "2026-11-24T10:18:00.000Z",
+      "expect": { "ok": true }
+    },
+    {
+      "op": "resume",
+      "now": "2026-11-24T10:19:00.000Z",
+      "expect": { "ok": true }
+    },
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-5",
+      "runId": "run-4",
+      "now": "2026-11-24T10:20:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["bug71"] },
+      "expect": { "outcome": "ok", "claims": [71], "dispatched": [71] }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-5",
+      "now": "2026-11-24T10:40:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T10:39:55.000Z",
+        "issues": ["bug70", "bug71"]
+      },
+      "expect": {
+        "outcome": "ok",
+        "decisions": { "70": "eligible", "71": "already-claimed" },
+        "claims": [70],
+        "watermarkBefore": "2026-11-24T09:59:55.000Z",
+        "watermarkAfter": "2026-11-24T10:39:55.000Z"
+      }
+    }
+  ]
+}

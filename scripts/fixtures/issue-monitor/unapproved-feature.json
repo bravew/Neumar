@@ -1,0 +1,76 @@
+{
+  "name": "unapproved-feature",
+  "description": "Feature requests never start work, including one a maintainer labelled approved. An epic and a needs-decision bug are also skipped.",
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "feature20": {
+      "number": 20,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["enhancement"],
+      "linkedOpenPrs": 0,
+      "labelEvents": null
+    },
+    "approvedFeature21": {
+      "number": 21,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["enhancement", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    },
+    "epic22": {
+      "number": 22,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["epic", "bug"],
+      "linkedOpenPrs": 0,
+      "labelEvents": null
+    },
+    "undecided23": {
+      "number": 23,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "needs-decision", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "cron",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "issues": ["feature20", "approvedFeature21", "epic22", "undecided23"]
+      },
+      "expect": {
+        "outcome": "ok",
+        "claims": [],
+        "dispatched": [],
+        "decisions": {
+          "20": "feature-request",
+          "21": "feature-request",
+          "22": "feature-request",
+          "23": "needs-decision"
+        }
+      }
+    }
+  ]
+}

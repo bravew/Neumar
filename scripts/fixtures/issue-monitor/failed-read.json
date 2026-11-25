@@ -1,0 +1,126 @@
+{
+  "name": "failed-read",
+  "description": "A failed API read and a truncated read both fail closed: no claim, no watermark advance, no recorded delivery. A later complete read recovers, and an empty tick dispatches nothing.",
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "bug40": {
+      "number": 40,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    },
+    "bug41": {
+      "number": 41,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T10:50:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "cron",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T09:59:55.000Z",
+        "issues": ["bug40"]
+      },
+      "expect": {
+        "outcome": "ok",
+        "claims": [40],
+        "watermarkAfter": "2026-11-24T09:59:55.000Z"
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-2",
+      "now": "2026-11-24T11:00:00.000Z",
+      "read": { "ok": false, "error": "HTTP 502" },
+      "expect": {
+        "outcome": "read-failed",
+        "claims": [],
+        "dispatched": [],
+        "watermarkBefore": "2026-11-24T09:59:55.000Z",
+        "watermarkAfter": "2026-11-24T09:59:55.000Z"
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-3",
+      "now": "2026-11-24T11:05:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": false,
+        "startedAt": "2026-11-24T11:04:55.000Z",
+        "issues": ["bug41"]
+      },
+      "expect": {
+        "outcome": "read-failed",
+        "claims": [],
+        "dispatched": [],
+        "decisions": {},
+        "watermarkAfter": "2026-11-24T09:59:55.000Z"
+      }
+    },
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-9",
+      "runId": "run-4",
+      "now": "2026-11-24T11:10:00.000Z",
+      "read": { "ok": false, "error": "HTTP 403 rate limited" },
+      "expect": { "outcome": "read-failed", "claims": [], "dispatched": [] }
+    },
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-9",
+      "runId": "run-5",
+      "now": "2026-11-24T11:11:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["bug41"] },
+      "expect": {
+        "outcome": "ok",
+        "claims": [41],
+        "dispatched": [41],
+        "decisions": { "41": "eligible" }
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-6",
+      "now": "2026-11-24T12:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T11:59:55.000Z",
+        "issues": []
+      },
+      "expect": {
+        "outcome": "ok",
+        "claims": [],
+        "dispatched": [],
+        "decisions": {},
+        "watermarkBefore": "2026-11-24T09:59:55.000Z",
+        "watermarkAfter": "2026-11-24T11:59:55.000Z"
+      }
+    }
+  ]
+}
