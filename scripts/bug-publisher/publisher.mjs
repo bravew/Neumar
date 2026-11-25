@@ -37,6 +37,15 @@ function refuse(reason, detail = {}) {
   return { published: false, reason, ...detail };
 }
 
+/** GitHub repository names are case-insensitive; compare `owner/name` forms. */
+function sameRepository(actual, expected) {
+  return (
+    isNonEmptyString(actual) &&
+    isNonEmptyString(expected) &&
+    actual.toLowerCase() === expected.toLowerCase()
+  );
+}
+
 function toTrustedMap(trustedActors) {
   if (trustedActors instanceof Map) return trustedActors;
   const map = new Map();
@@ -293,6 +302,12 @@ export async function publishBugFix(options) {
     return refuse('changed-files-missing');
   }
 
+  // Branch names are not unique across forks: ownership is the branch in this
+  // repository, so the caller names the repository the branch is pushed to.
+  if (!isNonEmptyString(options.repository)) {
+    return refuse('repository-missing');
+  }
+
   const policyResult = evaluatePatchPolicy({
     changedFiles: options.changedFiles,
     authorizedPaths: options.authorizedPaths ?? [],
@@ -359,16 +374,18 @@ export async function publishBugFix(options) {
       issue,
       targetBase,
     );
+  // A PR is ours only when both the head branch and the head repository match.
+  // A fork PR that reuses the branch name is someone else's PR.
+  const isOurs = (pullRequest) =>
+    pullRequest?.state === 'open' &&
+    pullRequest?.headRefName === options.branch &&
+    sameRepository(pullRequest?.headRepository, options.repository);
   const inspect = (open) => ({
-    ours: open.filter(
-      (pullRequest) =>
-        pullRequest?.headRefName === options.branch &&
-        pullRequest?.state === 'open',
-    ),
+    ours: open.filter(isOurs),
     others: open.filter(
       (pullRequest) =>
         pullRequest?.state === 'open' &&
-        pullRequest?.headRefName !== options.branch &&
+        !isOurs(pullRequest) &&
         findClosingIssues(pullRequest?.body ?? '').includes(issue),
     ),
   });
@@ -488,11 +505,7 @@ export async function publishBugFix(options) {
       // The request may have succeeded and the response been lost. Re-read
       // before retrying so a restart never creates a second PR.
       const after = await list();
-      const recovered = after.filter(
-        (pullRequest) =>
-          pullRequest?.headRefName === options.branch &&
-          pullRequest?.state === 'open',
-      );
+      const recovered = after.filter(isOurs);
       if (recovered.length === 1) {
         action = 'recovered';
       } else {
@@ -505,11 +518,7 @@ export async function publishBugFix(options) {
   }
 
   const finalOpen = await list();
-  const finalOurs = finalOpen.filter(
-    (pullRequest) =>
-      pullRequest?.headRefName === options.branch &&
-      pullRequest?.state === 'open',
-  );
+  const finalOurs = finalOpen.filter(isOurs);
   if (finalOurs.length !== 1) {
     return refuse('pr-count-mismatch', {
       pushed,

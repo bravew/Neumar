@@ -286,6 +286,8 @@ export interface PublisherGit {
 export interface PullRequestInfo {
   number: number;
   headRefName: string;
+  /** `owner/name` of the repository the head branch lives in. */
+  headRepository?: string;
   state: string;
   body?: string;
   url?: string;
@@ -315,6 +317,8 @@ export interface PublishOptions {
   issue: number;
   claim: { runId: string; epoch: number };
   branch: string;
+  /** `owner/name` of the repository the branch is pushed to. */
+  repository: string;
   baseSha: string;
   localHead: string;
   remoteHead?: string | null;

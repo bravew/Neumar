@@ -60,6 +60,7 @@ const HEAD = 'b'.repeat(40);
 const REMOTE = 'c'.repeat(40);
 const BOT = 'neumar-publisher[bot]';
 const TARGET_BASE = 'epic/358-cloud-bug-monitor';
+const REPO = 'bravew/Neumar';
 
 // The worker compares physical paths, and macOS `tmpdir()` is a symlink.
 const SANDBOX_ROOT = realpathSync(
@@ -188,6 +189,7 @@ function createGithubFake(
       const pullRequest: PullRequestInfo = {
         number,
         headRefName: input.head,
+        headRepository: REPO,
         state: 'open',
         body: input.body,
         url: `https://example.test/pull/${number}`,
@@ -229,6 +231,7 @@ function validOptions(overrides: Partial<PublishOptions> = {}): PublishOptions {
     issue: ISSUE,
     claim: { runId: 'run-1', epoch: 7 },
     branch: BRANCH,
+    repository: REPO,
     baseSha: BASE,
     localHead: HEAD,
     remoteHead: null,
@@ -1191,6 +1194,7 @@ describe('publisher', () => {
       {
         number: 77,
         headRefName: BRANCH,
+        headRepository: REPO,
         state: 'open',
         body: 'Closes #362',
         url: 'https://example.test/pull/77',
@@ -1621,10 +1625,82 @@ describe('publisher', () => {
     expect(git.push).not.toHaveBeenCalled();
   });
 
+  it('does not treat a fork PR that reuses the branch name as ours', async () => {
+    const github = createGithubFake([
+      {
+        number: 5,
+        headRefName: BRANCH,
+        headRepository: 'someone-else/Neumar',
+        state: 'open',
+        body: 'Closes #362',
+      },
+    ]);
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({ github: github.github, git: git.git }),
+    );
+
+    expect(result).toMatchObject({
+      published: false,
+      reason: 'duplicate-pr-exists',
+      numbers: [5],
+    });
+    expect(git.push).not.toHaveBeenCalled();
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+  });
+
+  it('never updates a PR whose head repository is unknown', async () => {
+    const github = createGithubFake([
+      {
+        number: 6,
+        headRefName: BRANCH,
+        state: 'open',
+        body: 'unrelated',
+      },
+    ]);
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({ github: github.github, git: git.git }),
+    );
+
+    expect(result).toMatchObject({ published: true, action: 'created' });
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
+    expect(github.createPullRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses to publish without the repository the branch lives in', async () => {
+    const github = createGithubFake();
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({
+        github: github.github,
+        git: git.git,
+        repository: undefined as unknown as string,
+      }),
+    );
+    expect(result).toMatchObject({
+      published: false,
+      reason: 'repository-missing',
+    });
+    expect(git.push).not.toHaveBeenCalled();
+  });
+
   it('refuses more than one open PR on the owned branch', async () => {
     const github = createGithubFake([
-      { number: 1, headRefName: BRANCH, state: 'open', body: '' },
-      { number: 2, headRefName: BRANCH, state: 'open', body: '' },
+      {
+        number: 1,
+        headRefName: BRANCH,
+        headRepository: REPO,
+        state: 'open',
+        body: '',
+      },
+      {
+        number: 2,
+        headRefName: BRANCH,
+        headRepository: REPO,
+        state: 'open',
+        body: '',
+      },
     ]);
     const git = createGitFake();
     const result = await publishBugFix(
