@@ -13,56 +13,81 @@ import {
   validateVerificationReport,
 } from './verify.mjs';
 
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const DENIED_ENV_NAMES = new Set([
-  'GH_TOKEN',
-  'GITHUB_TOKEN',
-  'GITHUB_ENTERPRISE_TOKEN',
-  'GITHUB_PAT',
-  'ACTIONS_RUNTIME_TOKEN',
-  'ACTIONS_ID_TOKEN_REQUEST_TOKEN',
-  'ACTIONS_ID_TOKEN_REQUEST_URL',
-  'ACTIONS_CACHE_URL',
-  'ACTIONS_RESULTS_URL',
-  'SSH_AUTH_SOCK',
-  'SSH_AGENT_PID',
-  'GPG_AGENT_INFO',
-  'KUBECONFIG',
-  'DOCKER_CONFIG',
-  'NPM_TOKEN',
-  'NODE_AUTH_TOKEN',
-  'YARN_NPM_AUTH_TOKEN',
-  'CARGO_REGISTRY_TOKEN',
-  'TWINE_PASSWORD',
+// The worker environment is an allowlist. A denylist cannot enumerate every
+// credential-bearing or behavior-changing variable a runner may carry (for
+// example `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n` inject git
+// configuration without any `GIT_CONFIG_GLOBAL` file), so only these names are
+// copied from the caller's environment.
+const ALLOWED_RUNTIME_ENV_NAMES = new Set([
+  'PATH',
+  'LANG',
+  'LANGUAGE',
+  'TZ',
+  'TERM',
+  'COLORTERM',
+  'NO_COLOR',
+  'FORCE_COLOR',
+  'CI',
+  // Model access the worker is approved to use. It is a model credential, not a
+  // publish credential: it cannot push, open a PR, or sign a release.
+  'ANTHROPIC_API_KEY',
+  'ANTHROPIC_MODEL',
 ]);
 
-const DENIED_ENV_PREFIXES = [
-  'GH_',
-  'GITHUB_',
-  'ACTIONS_',
-  'PUBLISHER_',
-  'NEUMAR_PUBLISHER_',
-  'AWS_',
-  'R2_',
-  'CLOUDFLARE_',
-  'SIGNING_',
-  'TAURI_SIGNING_',
-  'APPLE_',
-  'CSC_',
-  'NOTARIZATION_',
-  'MACOS_SIGNING_',
-];
+const ALLOWED_RUNTIME_ENV_PREFIXES = ['LC_', 'NEUMAR_MODEL_'];
 
-// Paths the worker sets itself. `GH_` is otherwise a credential prefix, but
-// this variable only relocates gh's config directory into the sandbox.
-const ALLOWED_ENV_NAMES = new Set(['GH_CONFIG_DIR']);
+// Names `scrubWorkerEnvironment` sets itself, every one pointing into the
+// sandbox or disabling an interactive/global lookup.
+const WORKER_SET_ENV_NAMES = new Set([
+  'HOME',
+  'XDG_CONFIG_HOME',
+  'XDG_CACHE_HOME',
+  'XDG_DATA_HOME',
+  'XDG_STATE_HOME',
+  'NEUMAR_APP_DATA_DIR',
+  'TMPDIR',
+  'GH_CONFIG_DIR',
+  'GIT_CONFIG_GLOBAL',
+  'GIT_CONFIG_NOSYSTEM',
+  'GIT_TERMINAL_PROMPT',
+  'GIT_ASKPASS',
+  'npm_config_cache',
+]);
 
+function isAllowedRuntimeEnvName(name) {
+  return (
+    ALLOWED_RUNTIME_ENV_NAMES.has(name) ||
+    ALLOWED_RUNTIME_ENV_PREFIXES.some((prefix) => name.startsWith(prefix))
+  );
+}
+
+/** True when the worker must not receive or hold this variable. */
 export function isDeniedEnvName(name) {
-  if (ALLOWED_ENV_NAMES.has(name)) return false;
-  if (DENIED_ENV_NAMES.has(name)) return true;
-  return DENIED_ENV_PREFIXES.some((prefix) => name.startsWith(prefix));
+  return !isAllowedRuntimeEnvName(name) && !WORKER_SET_ENV_NAMES.has(name);
+}
+
+/**
+ * Resolve symlinks for a path that may not exist yet: the nearest existing
+ * ancestor is resolved physically and the missing remainder is appended.
+ */
+function physicalPath(target) {
+  const resolved = path.resolve(target);
+  try {
+    return fs.realpathSync(resolved);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    const parent = path.dirname(resolved);
+    if (parent === resolved) return resolved;
+    return path.join(physicalPath(parent), path.basename(resolved));
+  }
+}
+
+function isWithin(candidate, root) {
+  return candidate === root || candidate.startsWith(`${root}${path.sep}`);
 }
 
 /**
@@ -78,37 +103,46 @@ export function assertIsolatedSandbox(
   if (!isNonEmptyString(sandboxDir) || !path.isAbsolute(sandboxDir)) {
     return { ok: false, reason: 'sandbox-not-absolute' };
   }
-  const resolved = path.resolve(sandboxDir);
-  const home = path.resolve(os.homedir());
-  const root = path.resolve(tmpRoot);
-  if (resolved === home || resolved.startsWith(`${home}${path.sep}`)) {
+  // Compare physical paths: a symlink under the temp root that points at the
+  // home directory or the repository must not pass a lexical prefix check.
+  let resolved;
+  let home;
+  let root;
+  let repo = null;
+  try {
+    resolved = physicalPath(sandboxDir);
+    home = physicalPath(os.homedir());
+    root = physicalPath(tmpRoot);
+    if (repoRoot) repo = physicalPath(repoRoot);
+  } catch {
+    return { ok: false, reason: 'sandbox-unresolvable' };
+  }
+  if (isWithin(resolved, home)) {
     return { ok: false, reason: 'sandbox-inside-home' };
   }
-  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+  if (!isWithin(resolved, root)) {
     return { ok: false, reason: 'sandbox-outside-temp' };
   }
-  if (repoRoot) {
-    const repo = path.resolve(repoRoot);
-    if (resolved === repo || resolved.startsWith(`${repo}${path.sep}`)) {
-      return { ok: false, reason: 'sandbox-inside-repo' };
-    }
+  if (repo !== null && isWithin(resolved, repo)) {
+    return { ok: false, reason: 'sandbox-inside-repo' };
   }
   return { ok: true, sandboxDir: resolved };
 }
 
 /**
- * Build the worker environment: remove every publish/release credential, and
- * point HOME, XDG, git, gh, npm, and NEUMAR_APP_DATA_DIR at the sandbox.
+ * Build the worker environment: copy only the allowlisted runtime and model
+ * variables, and point HOME, XDG, git, gh, npm, and NEUMAR_APP_DATA_DIR at the
+ * sandbox.
  */
 export function scrubWorkerEnvironment(
   baseEnv = {},
   sandboxDir,
   tmpRoot = os.tmpdir(),
 ) {
-  const sandbox = path.resolve(sandboxDir);
+  const sandbox = physicalPath(sandboxDir);
   const env = {};
   for (const [name, value] of Object.entries(baseEnv)) {
-    if (value === undefined || isDeniedEnvName(name)) continue;
+    if (value === undefined || !isAllowedRuntimeEnvName(name)) continue;
     env[name] = value;
   }
   env.HOME = path.join(sandbox, 'home');
@@ -127,12 +161,12 @@ export function scrubWorkerEnvironment(
   return env;
 }
 
-/** Fail if a credential that the worker must never hold is still present. */
+/** Fail if the worker holds a variable outside the approved allowlist. */
 export function assertWorkerEnvironment(env, tmpRoot = os.tmpdir()) {
   const violations = [];
   for (const name of Object.keys(env ?? {})) {
     if (isDeniedEnvName(name)) {
-      violations.push({ rule: 'worker-credential-present', name });
+      violations.push({ rule: 'worker-env-not-allowed', name });
     }
   }
   if (env?.NEUMAR_APP_DATA_DIR !== undefined) {

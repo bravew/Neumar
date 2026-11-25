@@ -8,6 +8,7 @@ import {
   assertPublisherIdentity,
   assertSafePush,
   assertTargetBase,
+  assertWorkerEnvironment,
   buildPullRequestBody,
   createAppJwt,
   createInstallationTokenFromEnv,
@@ -33,7 +34,13 @@ import {
 
 // @vitest-environment node
 import { generateKeyPairSync } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -54,7 +61,10 @@ const REMOTE = 'c'.repeat(40);
 const BOT = 'neumar-publisher[bot]';
 const TARGET_BASE = 'epic/358-cloud-bug-monitor';
 
-const SANDBOX_ROOT = mkdtempSync(path.join(os.tmpdir(), 'neumar-362-'));
+// The worker compares physical paths, and macOS `tmpdir()` is a symlink.
+const SANDBOX_ROOT = realpathSync(
+  mkdtempSync(path.join(os.tmpdir(), 'neumar-362-')),
+);
 const APP_DATA_DIR = path.join(SANDBOX_ROOT, 'app-data');
 
 afterAll(() => {
@@ -805,6 +815,13 @@ describe('unprivileged worker', () => {
       PATH: '/usr/bin',
       LANG: 'en_US.UTF-8',
       NEUMAR_MODEL_KEY: 'model-only',
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'core.sshCommand',
+      GIT_CONFIG_VALUE_0: 'curl http://example.test',
+      GIT_SSH_COMMAND: 'ssh -i /key',
+      NODE_OPTIONS: '--require /tmp/x.js',
+      AZURE_CLIENT_SECRET: 'secret',
+      OPENAI_API_KEY: 'secret',
       HOME: os.homedir(),
       GH_TOKEN: 'secret',
       GITHUB_TOKEN: 'secret',
@@ -832,6 +849,13 @@ describe('unprivileged worker', () => {
       'TAURI_SIGNING_PRIVATE_KEY',
       'APPLE_ID',
       'SSH_AUTH_SOCK',
+      'GIT_CONFIG_COUNT',
+      'GIT_CONFIG_KEY_0',
+      'GIT_CONFIG_VALUE_0',
+      'GIT_SSH_COMMAND',
+      'NODE_OPTIONS',
+      'AZURE_CLIENT_SECRET',
+      'OPENAI_API_KEY',
     ]) {
       expect(env[denied], denied).toBeUndefined();
     }
@@ -840,8 +864,33 @@ describe('unprivileged worker', () => {
     expect(env.HOME).not.toBe(os.homedir());
     expect(env.XDG_CONFIG_HOME).toBe(path.join(SANDBOX_ROOT, 'xdg', 'config'));
     expect(isDeniedEnvName('GH_TOKEN')).toBe(true);
+    expect(isDeniedEnvName('GIT_CONFIG_COUNT')).toBe(true);
+    expect(isDeniedEnvName('SOME_UNLISTED_SECRET')).toBe(true);
     expect(isDeniedEnvName('PATH')).toBe(false);
     expect(isDeniedEnvName('NEUMAR_MODEL_KEY')).toBe(false);
+  });
+
+  it('refuses a worker environment that carries an unapproved variable', () => {
+    const prepared = prepareUnprivilegedWorker({
+      issue: ISSUE,
+      claim: { runId: 'run-1', epoch: 7 },
+      branch: BRANCH,
+      baseSha: BASE,
+      sandboxDir: SANDBOX_ROOT,
+      baseEnv: { PATH: '/usr/bin', GIT_CONFIG_COUNT: '1' },
+    });
+    expect(prepared.ok).toBe(true);
+    expect(prepared.context?.env.GIT_CONFIG_COUNT).toBeUndefined();
+
+    const tampered = assertWorkerEnvironment({
+      ...prepared.context?.env,
+      GIT_CONFIG_COUNT: '1',
+    });
+    expect(tampered.ok).toBe(false);
+    expect(tampered.violations).toContainEqual({
+      rule: 'worker-env-not-allowed',
+      name: 'GIT_CONFIG_COUNT',
+    });
   });
 
   it('refuses a sandbox inside the host home or outside the temp root', () => {
@@ -859,6 +908,40 @@ describe('unprivileged worker', () => {
         path.join(SANDBOX_ROOT, 'repo'),
       ),
     ).toMatchObject({ ok: false, reason: 'sandbox-inside-repo' });
+  });
+
+  it('resolves symlinks before judging the sandbox location', () => {
+    const outside = path.join(SANDBOX_ROOT, 'outside');
+    const repo = path.join(SANDBOX_ROOT, 'repo-checkout');
+    mkdirSync(outside, { recursive: true });
+    mkdirSync(repo, { recursive: true });
+    const intoHome = path.join(SANDBOX_ROOT, 'link-to-home');
+    const intoRepo = path.join(SANDBOX_ROOT, 'link-to-repo');
+    const outOfTemp = path.join(SANDBOX_ROOT, 'link-to-root');
+    symlinkSync(os.homedir(), intoHome);
+    symlinkSync(repo, intoRepo);
+    symlinkSync(path.parse(SANDBOX_ROOT).root, outOfTemp);
+
+    expect(assertIsolatedSandbox(path.join(intoHome, 'x'))).toMatchObject({
+      ok: false,
+      reason: 'sandbox-inside-home',
+    });
+    expect(
+      assertIsolatedSandbox(path.join(intoRepo, 'x'), os.tmpdir(), repo),
+    ).toMatchObject({ ok: false, reason: 'sandbox-inside-repo' });
+    expect(
+      assertIsolatedSandbox(path.join(outOfTemp, 'x'), SANDBOX_ROOT),
+    ).toMatchObject({ ok: false, reason: 'sandbox-outside-temp' });
+
+    const prepared = prepareUnprivilegedWorker({
+      issue: ISSUE,
+      claim: { runId: 'run-1', epoch: 7 },
+      branch: BRANCH,
+      baseSha: BASE,
+      sandboxDir: path.join(intoHome, 'x'),
+    });
+    expect(prepared.ok).toBe(false);
+    expect(prepared.context).toBeNull();
   });
 
   it('prepares only a read-only worker with a clean environment', () => {
