@@ -190,6 +190,8 @@ function createGithubFake(
         number,
         headRefName: input.head,
         headRepository: REPO,
+        title: input.title,
+        baseRefName: input.base,
         state: 'open',
         body: input.body,
         url: `https://example.test/pull/${number}`,
@@ -200,9 +202,18 @@ function createGithubFake(
     },
   );
   const updatePullRequest = vi.fn(
-    async (input: { number: number; title: string; body: string }) => {
+    async (input: {
+      number: number;
+      title: string;
+      body: string;
+      base: string;
+    }) => {
       const pullRequest = prs.find((entry) => entry.number === input.number);
-      if (pullRequest) pullRequest.body = input.body;
+      if (pullRequest) {
+        pullRequest.body = input.body;
+        pullRequest.title = input.title;
+        pullRequest.baseRefName = input.base;
+      }
       return pullRequest ?? { number: input.number };
     },
   );
@@ -1252,10 +1263,91 @@ describe('publisher', () => {
     );
 
     expect(first.action).toBe('created');
-    expect(second.action).toBe('updated');
+    expect(second.action).toBe('unchanged');
     expect(github.createPullRequest).toHaveBeenCalledTimes(1);
-    expect(github.updatePullRequest).toHaveBeenCalledTimes(1);
+    expect(github.updatePullRequest).not.toHaveBeenCalled();
     expect(github.prs).toHaveLength(1);
+  });
+
+  it('updates the PR only for the field that differs', async () => {
+    const created = createGithubFake();
+    await publishBugFix(
+      validOptions({ github: created.github, git: createGitFake().git }),
+    );
+    const [existing] = created.prs;
+    expect(existing).toBeDefined();
+
+    for (const drift of [
+      { title: 'something else' },
+      { body: 'Closes #362\n\nedited by a human' },
+      { baseRefName: 'main' },
+    ]) {
+      const github = createGithubFake([{ ...existing!, ...drift }]);
+      const result = await publishBugFix(
+        validOptions({
+          github: github.github,
+          git: createGitFake().git,
+          remoteHead: HEAD,
+        }),
+      );
+      expect(result, JSON.stringify(drift)).toMatchObject({
+        published: true,
+        action: 'updated',
+      });
+      expect(github.updatePullRequest).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('re-reads the issue and then the claim immediately before every write', async () => {
+    const log: string[] = [];
+    const github = createGithubFake();
+    const git = createGitFake();
+    const result = await publishBugFix(
+      validOptions({
+        github: {
+          listOpenPullRequests: async (input) => {
+            log.push('list');
+            return github.github.listOpenPullRequests(input);
+          },
+          createPullRequest: async (input) => {
+            log.push('create');
+            return github.github.createPullRequest(input);
+          },
+          updatePullRequest: async (input) => {
+            log.push('update');
+            return github.github.updatePullRequest(input);
+          },
+        },
+        git: {
+          push: async () => {
+            log.push('push');
+            await git.push();
+          },
+        },
+        readFreshIssue: async () => {
+          log.push('issue');
+          return approvedIssue();
+        },
+        readState: async () => {
+          log.push('claim');
+          return { disabled: false, claims: {} };
+        },
+        readBranchState: async () => {
+          log.push('branch');
+          return {
+            remoteHead: log.includes('push') ? HEAD : null,
+            commitsAhead: [{ sha: HEAD, authorLogin: BOT, parentSha: BASE }],
+          };
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({ published: true, action: 'created' });
+    for (const write of ['push', 'create']) {
+      const at = log.indexOf(write);
+      expect(at, write).toBeGreaterThan(1);
+      expect(log.slice(at - 2, at), write).toEqual(['issue', 'claim']);
+    }
   });
 
   it('aborts cleanly when the bug could not be reproduced', async () => {

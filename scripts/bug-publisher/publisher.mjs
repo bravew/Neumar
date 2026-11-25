@@ -84,8 +84,10 @@ async function resolveBranchState(options) {
 }
 
 /**
- * Re-read the durable claim and the issue, and require the approval to still be
- * active. Unknown, held, closed, or reclassified issues fail closed.
+ * Re-read the issue and then the durable claim, and require the approval to
+ * still be active. Unknown, held, closed, or reclassified issues fail closed.
+ * The claim is read last. Callers run this after their final read and before
+ * their write, with no other read in between.
  */
 async function recheck(options, policy) {
   if (typeof options.verifyClaim !== 'function') {
@@ -99,23 +101,6 @@ async function recheck(options, policy) {
   }
   if (typeof options.resolveApproval !== 'function') {
     return { ok: false, reason: 'approval-resolver-missing' };
-  }
-
-  const state = await options.readState();
-  const verdict = options.verifyClaim(
-    state,
-    {
-      issue: options.issue,
-      runId: options.claim.runId,
-      epoch: options.claim.epoch,
-    },
-    clock(options.now),
-  );
-  if (!verdict || verdict.ok !== true) {
-    return {
-      ok: false,
-      reason: `claim-${verdict?.reason ?? 'unknown'}`,
-    };
   }
 
   const fresh = await options.readFreshIssue();
@@ -158,6 +143,25 @@ async function recheck(options, policy) {
     return {
       ok: false,
       reason: `approval-${approval?.status ?? 'unknown'}`,
+    };
+  }
+
+  // Sample the durable claim last so it is the freshest read before the write
+  // the caller is about to make.
+  const state = await options.readState();
+  const verdict = options.verifyClaim(
+    state,
+    {
+      issue: options.issue,
+      runId: options.claim.runId,
+      epoch: options.claim.epoch,
+    },
+    clock(options.now),
+  );
+  if (!verdict || verdict.ok !== true) {
+    return {
+      ok: false,
+      reason: `claim-${verdict?.reason ?? 'unknown'}`,
     };
   }
   return { ok: true, fresh, approval };
@@ -410,11 +414,8 @@ export async function publishBugFix(options) {
 
   let pushed = false;
   if (pushCheck.needsPush) {
-    // TOCTOU: re-read both the durable claim and the issue immediately before
-    // the push, and re-check the branch state.
-    const prePush = await recheck({ ...options, issue, claim }, policy);
-    if (!prePush.ok) return refuse(prePush.reason);
-
+    // TOCTOU: re-check the branch state, then re-read the issue and the claim
+    // as the last reads before the push.
     const prePushState = await resolveBranchState(options);
     if (!prePushState) return refuse('branch-state-unreadable');
     const pushCheckAgain = assertSafePush({
@@ -430,6 +431,8 @@ export async function publishBugFix(options) {
     if (!options.git || typeof options.git.push !== 'function') {
       return refuse('git-push-missing');
     }
+    const prePush = await recheck({ ...options, issue, claim }, policy);
+    if (!prePush.ok) return refuse(prePush.reason);
     try {
       await options.git.push({
         branch: options.branch,
@@ -466,33 +469,44 @@ export async function publishBugFix(options) {
     }
   }
 
-  // A restart after a push creates no new commit, but the PR is still a
-  // mutation. Re-check the claim and approval immediately before it too.
-  const prePr = await recheck({ ...options, issue, claim }, policy);
-  if (!prePr.ok) return refuse(prePr.reason, { pushed });
-
   // Re-read after the push: another actor may have created a PR meanwhile.
   const current = inspect(await list());
   const currentRefusal = refuseDuplicate(current);
   if (currentRefusal) return { ...currentRefusal, pushed };
 
+  // A restart after a push creates no new commit, but the PR is still a
+  // mutation. The issue and claim are re-read after the list, as the last reads
+  // before the create or update.
   let action;
   if (current.ours.length === 1) {
-    try {
-      await options.github.updatePullRequest({
-        number: current.ours[0].number,
-        title,
-        body,
-        base: targetBase,
-      });
-    } catch (error) {
-      return refuse('pr-update-failed', {
-        pushed,
-        error: String(error?.message ?? error),
-      });
+    const existing = current.ours[0];
+    if (
+      existing.title === title &&
+      existing.body === body &&
+      existing.baseRefName === targetBase
+    ) {
+      action = 'unchanged';
+    } else {
+      const prePr = await recheck({ ...options, issue, claim }, policy);
+      if (!prePr.ok) return refuse(prePr.reason, { pushed });
+      try {
+        await options.github.updatePullRequest({
+          number: existing.number,
+          title,
+          body,
+          base: targetBase,
+        });
+      } catch (error) {
+        return refuse('pr-update-failed', {
+          pushed,
+          error: String(error?.message ?? error),
+        });
+      }
+      action = 'updated';
     }
-    action = 'updated';
   } else {
+    const prePr = await recheck({ ...options, issue, claim }, policy);
+    if (!prePr.ok) return refuse(prePr.reason, { pushed });
     try {
       await options.github.createPullRequest({
         head: options.branch,

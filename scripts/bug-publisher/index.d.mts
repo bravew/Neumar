@@ -288,6 +288,8 @@ export interface PullRequestInfo {
   headRefName: string;
   /** `owner/name` of the repository the head branch lives in. */
   headRepository?: string;
+  title?: string;
+  baseRefName?: string;
   state: string;
   body?: string;
   url?: string;
@@ -358,7 +360,7 @@ export interface PublishResult {
   published: boolean;
   reason?: string;
   pushed?: boolean;
-  action?: 'created' | 'updated' | 'recovered';
+  action?: 'created' | 'updated' | 'recovered' | 'unchanged';
   branch?: string;
   baseSha?: string;
   headSha?: string;
