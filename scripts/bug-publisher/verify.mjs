@@ -13,7 +13,7 @@ export const REPORT_VERSION = 1;
 
 const SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const CLOSING_KEYWORD =
-  /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
+  /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)\b/gi;
 
 export function isGitSha(value) {
   return typeof value === 'string' && SHA.test(value);
@@ -513,6 +513,16 @@ export function validateVerificationReport(report, expected = {}) {
         ),
       );
     }
+    if (byName.has(check.name)) {
+      violations.push(
+        violation(
+          'check-duplicate',
+          `${check.name} is reported more than once`,
+          'checks',
+        ),
+      );
+      continue;
+    }
     byName.set(check.name, check);
   }
   for (const name of requiredChecksForFiles([...expectedSet])) {
@@ -524,6 +534,14 @@ export function validateVerificationReport(report, expected = {}) {
     } else if (check.status !== 'passed') {
       violations.push(
         violation('check-not-passed', `${name} is ${check.status}`, 'checks'),
+      );
+    } else if (check.command !== name) {
+      violations.push(
+        violation(
+          'check-command-mismatch',
+          `${name} must record the exact command it ran`,
+          'checks',
+        ),
       );
     }
   }

@@ -278,6 +278,7 @@ function checkRun(
   overrides: Partial<CheckRunInput> = {},
 ): CheckRunInput {
   return {
+    id: 1,
     name,
     head_sha: HEAD,
     status: 'completed',
@@ -426,10 +427,119 @@ describe('verifyPrGate revision binding', () => {
     ).toBe(true);
   });
 
+  // The REST check-run `id` is assigned at creation and only grows. A queued
+  // rerun has no started_at or completed_at, so a timestamp sort would rank the
+  // older success above it.
+  it('lets a newer queued rerun with null timestamps block an older success', () => {
+    const older = { ...checkRun('Test'), id: 100, completed_at: null };
+    const queued = {
+      ...checkRun('Test', { status: 'queued', conclusion: null }),
+      id: 200,
+      started_at: null,
+      completed_at: null,
+    };
+    for (const checks of [
+      [...successfulChecks(), older, queued],
+      [...successfulChecks(), queued, older],
+    ]) {
+      const result = verify({ checks });
+      expect(result.ok).toBe(false);
+      expect(result.reasons).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: 'not-completed', job: 'Test' }),
+        ]),
+      );
+    }
+  });
+
+  it('orders by id before timestamps when an older id has a later timestamp', () => {
+    const checks = [
+      ...successfulChecks().filter((check) => check.name !== 'Test'),
+      {
+        ...checkRun('Test'),
+        id: 100,
+        completed_at: '2026-01-02T00:00:00Z',
+      },
+      {
+        ...checkRun('Test', { conclusion: 'failure' }),
+        id: 200,
+        completed_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+    expect(verify({ checks }).reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'not-success', job: 'Test' }),
+      ]),
+    );
+  });
+
+  it('does not accept a check with no app identity', () => {
+    const checks = successfulChecks().map((check) => {
+      const { app: _app, ...withoutApp } = check;
+      return withoutApp;
+    });
+    const result = verify({ checks });
+    expect(result.ok).toBe(false);
+    expect(
+      result.reasons.filter((reason) => reason.code === 'missing-check'),
+    ).not.toHaveLength(0);
+  });
+
+  it('does not let an app-less check stand in when other apps report the name', () => {
+    const { app: _app, ...withoutApp } = checkRun('Test');
+    const checks = [
+      ...successfulChecks().filter((check) => check.name !== 'Test'),
+      withoutApp,
+      checkRun('Test', { app: { id: 999 } }),
+    ];
+    expect(verify({ checks }).reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'missing-check', job: 'Test' }),
+      ]),
+    );
+  });
+
+  it('blocks when a rerun lacks an id and the newest result is unknown', () => {
+    const older = checkRun('Test', { completed_at: '2026-01-02T00:00:00Z' });
+    const queued = checkRun('Test', {
+      id: null,
+      status: 'queued',
+      conclusion: null,
+    });
+    const others = successfulChecks().filter((check) => check.name !== 'Test');
+    for (const runs of [
+      [older, queued],
+      [queued, older],
+    ]) {
+      const result = verify({ checks: [...others, ...runs] });
+      expect(result.ok).toBe(false);
+      expect(result.reasons).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: 'unknown-order', job: 'Test' }),
+        ]),
+      );
+    }
+  });
+
+  it('blocks when two runs of the aggregate share an id', () => {
+    const checks = [
+      ...successfulChecks(),
+      checkRun(AGGREGATE_CHECK, { conclusion: 'failure' }),
+    ];
+    expect(verify({ checks }).reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'unknown-order',
+          job: AGGREGATE_CHECK,
+        }),
+      ]),
+    );
+  });
+
   it('uses the newest rerun instead of an older success', () => {
     const checks = [
       ...successfulChecks(),
-      checkRun('Test', { status: 'in_progress', conclusion: null }),
+      checkRun('Test', { id: 2, status: 'in_progress', conclusion: null }),
     ];
     const result = verify({ checks });
     expect(result.ok).toBe(false);

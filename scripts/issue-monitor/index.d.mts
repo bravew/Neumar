@@ -186,6 +186,11 @@ export function runTick(
     store: InMemoryStore;
     dispatch?: (claim: { issue: number } & Claim) => Promise<void>;
     config?: MonitorConfig;
+    /**
+     * Returns a new issue read. Required to retry after a lost compare-and-swap:
+     * without it the tick ends `stale-read` with no claim.
+     */
+    refreshRead?: () => Promise<ReadResult>;
   },
 ): Promise<TickPlan & { dispatched: number[]; casRetries: number }>;
 

@@ -59,8 +59,11 @@ and only for claims in that plan. Consequences that the tests enforce:
 - A tick that claims nothing calls `dispatch` zero times. There is no model
   call, no container start, and no spend on an empty or failed tick.
 - A worker cannot start before its lease is durable.
-- A lost swap re-reads and re-plans. Three lost swaps return
-  `store-contention` with no claims rather than claiming on stale state.
+- A lost swap re-reads the state and takes a fresh issue read through
+  `refreshRead` before re-planning, so an approval withdrawn by the winning tick
+  cannot be claimed from the older read. A retry with no `refreshRead` returns
+  `stale-read` with no claims. Three lost swaps return `store-contention` with
+  no claims rather than claiming on stale state.
 - A dispatch failure leaves the lease in place, counts the attempt, and records
   `dispatch-failed` in the audit.
 

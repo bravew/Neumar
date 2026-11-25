@@ -191,13 +191,14 @@ async function verifyArtifact(flags) {
   const candidateSha = required(flags, 'candidate');
   const problems = [];
 
-  let sums = '';
+  let sums = null;
   try {
     sums = await readFile(path.join(dir, SUMS_FILE), 'utf8');
   } catch {
     problems.push(`missing ${SUMS_FILE}`);
   }
-  if (sums !== '') {
+  // An empty SHA256SUMS is still a listing to check: it vouches for nothing.
+  if (sums !== null) {
     const result = checkChecksums(sums, await hashDirectory(dir));
     problems.push(...result.problems);
   }

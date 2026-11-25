@@ -37,6 +37,15 @@ function refuse(reason, detail = {}) {
   return { published: false, reason, ...detail };
 }
 
+/** GitHub repository names are case-insensitive; compare `owner/name` forms. */
+function sameRepository(actual, expected) {
+  return (
+    isNonEmptyString(actual) &&
+    isNonEmptyString(expected) &&
+    actual.toLowerCase() === expected.toLowerCase()
+  );
+}
+
 function toTrustedMap(trustedActors) {
   if (trustedActors instanceof Map) return trustedActors;
   const map = new Map();
@@ -75,8 +84,10 @@ async function resolveBranchState(options) {
 }
 
 /**
- * Re-read the durable claim and the issue, and require the approval to still be
- * active. Unknown, held, closed, or reclassified issues fail closed.
+ * Re-read the issue and then the durable claim, and require the approval to
+ * still be active. Unknown, held, closed, or reclassified issues fail closed.
+ * The claim is read last. Callers run this after their final read and before
+ * their write, with no other read in between.
  */
 async function recheck(options, policy) {
   if (typeof options.verifyClaim !== 'function') {
@@ -90,23 +101,6 @@ async function recheck(options, policy) {
   }
   if (typeof options.resolveApproval !== 'function') {
     return { ok: false, reason: 'approval-resolver-missing' };
-  }
-
-  const state = await options.readState();
-  const verdict = options.verifyClaim(
-    state,
-    {
-      issue: options.issue,
-      runId: options.claim.runId,
-      epoch: options.claim.epoch,
-    },
-    clock(options.now),
-  );
-  if (!verdict || verdict.ok !== true) {
-    return {
-      ok: false,
-      reason: `claim-${verdict?.reason ?? 'unknown'}`,
-    };
   }
 
   const fresh = await options.readFreshIssue();
@@ -151,13 +145,35 @@ async function recheck(options, policy) {
       reason: `approval-${approval?.status ?? 'unknown'}`,
     };
   }
+
+  // Sample the durable claim last so it is the freshest read before the write
+  // the caller is about to make.
+  const state = await options.readState();
+  const verdict = options.verifyClaim(
+    state,
+    {
+      issue: options.issue,
+      runId: options.claim.runId,
+      epoch: options.claim.epoch,
+    },
+    clock(options.now),
+  );
+  if (!verdict || verdict.ok !== true) {
+    return {
+      ok: false,
+      reason: `claim-${verdict?.reason ?? 'unknown'}`,
+    };
+  }
   return { ok: true, fresh, approval };
 }
 
 /**
  * Refuse a push that is not a fast-forward, that carries a commit not authored
- * by the bot, or that cannot prove the local head is the tip of the commits
- * ahead of the pinned base.
+ * by the bot, or that cannot prove the local head is the tip of the complete,
+ * linear commit range `baseSha..localHead`. Every commit names its single
+ * parent so a missing or foreign commit in the range is detectable. The pinned
+ * base must be an ancestor of the local head on every push, including the first
+ * push of a new branch.
  */
 export function assertSafePush({
   baseSha,
@@ -197,11 +213,25 @@ export function assertSafePush({
       };
     }
   }
-  if (remoteHead !== null && remoteHead !== localHead) {
-    if (typeof isAncestor !== 'function') {
-      return { ok: false, reason: 'ancestry-check-missing' };
+  let expectedParent = baseSha;
+  for (const commit of commitsAhead) {
+    if (commit.parentSha !== expectedParent) {
+      return {
+        ok: false,
+        reason: 'commit-range-incomplete',
+        commit: commit.sha,
+      };
     }
-    if (!isAncestor(remoteHead, localHead)) {
+    expectedParent = commit.sha;
+  }
+  if (typeof isAncestor !== 'function') {
+    return { ok: false, reason: 'ancestry-check-missing' };
+  }
+  if (isAncestor(baseSha, localHead) !== true) {
+    return { ok: false, reason: 'base-not-ancestor' };
+  }
+  if (remoteHead !== null && remoteHead !== localHead) {
+    if (isAncestor(remoteHead, localHead) !== true) {
       return { ok: false, reason: 'non-fast-forward' };
     }
   }
@@ -266,8 +296,24 @@ export async function publishBugFix(options) {
     return refuse('report-base-mismatch');
   }
 
+  // The file list must come from the caller's own `baseSha..localHead` diff. The
+  // worker's report is untrusted input, so it is compared against this list and
+  // never substituted for it.
+  if (
+    !Array.isArray(options.changedFiles) ||
+    options.changedFiles.length === 0
+  ) {
+    return refuse('changed-files-missing');
+  }
+
+  // Branch names are not unique across forks: ownership is the branch in this
+  // repository, so the caller names the repository the branch is pushed to.
+  if (!isNonEmptyString(options.repository)) {
+    return refuse('repository-missing');
+  }
+
   const policyResult = evaluatePatchPolicy({
-    changedFiles: options.changedFiles ?? options.report?.changedFiles ?? [],
+    changedFiles: options.changedFiles,
     authorizedPaths: options.authorizedPaths ?? [],
     componentSizeBase: options.componentSizeBase,
     componentSizeHead: options.componentSizeHead,
@@ -332,16 +378,18 @@ export async function publishBugFix(options) {
       issue,
       targetBase,
     );
+  // A PR is ours only when both the head branch and the head repository match.
+  // A fork PR that reuses the branch name is someone else's PR.
+  const isOurs = (pullRequest) =>
+    pullRequest?.state === 'open' &&
+    pullRequest?.headRefName === options.branch &&
+    sameRepository(pullRequest?.headRepository, options.repository);
   const inspect = (open) => ({
-    ours: open.filter(
-      (pullRequest) =>
-        pullRequest?.headRefName === options.branch &&
-        pullRequest?.state === 'open',
-    ),
+    ours: open.filter(isOurs),
     others: open.filter(
       (pullRequest) =>
         pullRequest?.state === 'open' &&
-        pullRequest?.headRefName !== options.branch &&
+        !isOurs(pullRequest) &&
         findClosingIssues(pullRequest?.body ?? '').includes(issue),
     ),
   });
@@ -366,11 +414,8 @@ export async function publishBugFix(options) {
 
   let pushed = false;
   if (pushCheck.needsPush) {
-    // TOCTOU: re-read both the durable claim and the issue immediately before
-    // the push, and re-check the branch state.
-    const prePush = await recheck({ ...options, issue, claim }, policy);
-    if (!prePush.ok) return refuse(prePush.reason);
-
+    // TOCTOU: re-check the branch state, then re-read the issue and the claim
+    // as the last reads before the push.
     const prePushState = await resolveBranchState(options);
     if (!prePushState) return refuse('branch-state-unreadable');
     const pushCheckAgain = assertSafePush({
@@ -386,6 +431,8 @@ export async function publishBugFix(options) {
     if (!options.git || typeof options.git.push !== 'function') {
       return refuse('git-push-missing');
     }
+    const prePush = await recheck({ ...options, issue, claim }, policy);
+    if (!prePush.ok) return refuse(prePush.reason);
     try {
       await options.git.push({
         branch: options.branch,
@@ -422,33 +469,44 @@ export async function publishBugFix(options) {
     }
   }
 
-  // A restart after a push creates no new commit, but the PR is still a
-  // mutation. Re-check the claim and approval immediately before it too.
-  const prePr = await recheck({ ...options, issue, claim }, policy);
-  if (!prePr.ok) return refuse(prePr.reason, { pushed });
-
   // Re-read after the push: another actor may have created a PR meanwhile.
   const current = inspect(await list());
   const currentRefusal = refuseDuplicate(current);
   if (currentRefusal) return { ...currentRefusal, pushed };
 
+  // A restart after a push creates no new commit, but the PR is still a
+  // mutation. The issue and claim are re-read after the list, as the last reads
+  // before the create or update.
   let action;
   if (current.ours.length === 1) {
-    try {
-      await options.github.updatePullRequest({
-        number: current.ours[0].number,
-        title,
-        body,
-        base: targetBase,
-      });
-    } catch (error) {
-      return refuse('pr-update-failed', {
-        pushed,
-        error: String(error?.message ?? error),
-      });
+    const existing = current.ours[0];
+    if (
+      existing.title === title &&
+      existing.body === body &&
+      existing.baseRefName === targetBase
+    ) {
+      action = 'unchanged';
+    } else {
+      const prePr = await recheck({ ...options, issue, claim }, policy);
+      if (!prePr.ok) return refuse(prePr.reason, { pushed });
+      try {
+        await options.github.updatePullRequest({
+          number: existing.number,
+          title,
+          body,
+          base: targetBase,
+        });
+      } catch (error) {
+        return refuse('pr-update-failed', {
+          pushed,
+          error: String(error?.message ?? error),
+        });
+      }
+      action = 'updated';
     }
-    action = 'updated';
   } else {
+    const prePr = await recheck({ ...options, issue, claim }, policy);
+    if (!prePr.ok) return refuse(prePr.reason, { pushed });
     try {
       await options.github.createPullRequest({
         head: options.branch,
@@ -461,11 +519,7 @@ export async function publishBugFix(options) {
       // The request may have succeeded and the response been lost. Re-read
       // before retrying so a restart never creates a second PR.
       const after = await list();
-      const recovered = after.filter(
-        (pullRequest) =>
-          pullRequest?.headRefName === options.branch &&
-          pullRequest?.state === 'open',
-      );
+      const recovered = after.filter(isOurs);
       if (recovered.length === 1) {
         action = 'recovered';
       } else {
@@ -478,11 +532,7 @@ export async function publishBugFix(options) {
   }
 
   const finalOpen = await list();
-  const finalOurs = finalOpen.filter(
-    (pullRequest) =>
-      pullRequest?.headRefName === options.branch &&
-      pullRequest?.state === 'open',
-  );
+  const finalOurs = finalOpen.filter(isOurs);
   if (finalOurs.length !== 1) {
     return refuse('pr-count-mismatch', {
       pushed,
