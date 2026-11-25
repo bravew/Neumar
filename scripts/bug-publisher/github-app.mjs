@@ -116,14 +116,40 @@ export function assertAppTokenLeastPrivilege(permissions) {
   return { ok: violations.length === 0, violations };
 }
 
+const REPOSITORY_NAME = /^[A-Za-z0-9._-]+$/;
+
 /**
- * Exchange the App JWT for an installation access token. The response body is
- * validated and the token is returned; it is never logged.
+ * Reduce a repository input (`name` or `owner/name`) to the bare repository
+ * name GitHub's `repositories` body field takes. The owner is implied by the
+ * installation, so an `owner/name` input only contributes its name.
+ */
+function repositoryName(repository) {
+  if (typeof repository !== 'string') {
+    throw credentialsError('repository is required to scope the token');
+  }
+  const parts = repository.split('/');
+  const name = parts[parts.length - 1];
+  if (
+    parts.length > 2 ||
+    !REPOSITORY_NAME.test(name) ||
+    name === '.' ||
+    name === '..'
+  ) {
+    throw credentialsError('repository must be a repository name');
+  }
+  return name;
+}
+
+/**
+ * Exchange the App JWT for an installation access token scoped to one
+ * repository. The response body is validated and the token is returned; it is
+ * never logged.
  */
 export async function exchangeInstallationToken({
   appId,
   privateKey,
   installationId,
+  repository,
   fetchImpl = globalThis.fetch,
   now,
   apiBase = DEFAULT_API_BASE,
@@ -137,6 +163,7 @@ export async function exchangeInstallationToken({
   if (typeof fetchImpl !== 'function') {
     throw credentialsError('a fetch implementation is required');
   }
+  const name = repositoryName(repository);
   const jwt = createAppJwt({ appId, privateKey, now });
   const response = await fetchImpl(
     `${apiBase}/app/installations/${Number(installationId)}/access_tokens`,
@@ -146,8 +173,10 @@ export async function exchangeInstallationToken({
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${jwt}`,
         'X-GitHub-Api-Version': API_VERSION,
+        'Content-Type': 'application/json',
         'User-Agent': USER_AGENT,
       },
+      body: JSON.stringify({ repositories: [name] }),
     },
   );
   if (!response || response.ok !== true) {
@@ -175,10 +204,12 @@ export async function exchangeInstallationToken({
 
 /**
  * Convenience wrapper for a workflow step: the two App credentials come from
- * the environment; the installation id is passed explicitly.
+ * the environment; the installation id and the one repository the token may
+ * touch are passed explicitly.
  */
 export async function createInstallationTokenFromEnv({
   installationId,
+  repository,
   env = process.env,
   fetchImpl,
   now,
@@ -188,6 +219,7 @@ export async function createInstallationTokenFromEnv({
   return exchangeInstallationToken({
     ...credentials,
     installationId,
+    repository,
     fetchImpl,
     now,
     apiBase,

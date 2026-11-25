@@ -424,12 +424,16 @@ export function exchangeInstallationToken(input: {
   appId: string;
   privateKey: string;
   installationId: number | string;
+  /** Repository name (or `owner/name`) the token is scoped to. */
+  repository: string;
   fetchImpl?: FetchLike;
   now?: number;
   apiBase?: string;
 }): Promise<InstallationToken>;
 export function createInstallationTokenFromEnv(input: {
   installationId: number | string;
+  /** Repository name (or `owner/name`) the token is scoped to. */
+  repository: string;
   env?: {
     PUBLISHER_APP_ID?: string;
     PUBLISHER_APP_PRIVATE_KEY?: string;

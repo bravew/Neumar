@@ -1611,6 +1611,7 @@ describe('GitHub App installation token helper', () => {
     };
     const token = await createInstallationTokenFromEnv({
       installationId: 99,
+      repository: 'bravew/Neumar',
       env,
       fetchImpl,
       now: 1_700_000_000,
@@ -1631,6 +1632,9 @@ describe('GitHub App installation token helper', () => {
       'https://api.github.com/app/installations/99/access_tokens',
     );
     expect(calls[0]?.init?.method).toBe('POST');
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      repositories: ['Neumar'],
+    });
     expect(calls[0]?.init?.headers).toMatchObject({
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
@@ -1670,10 +1674,26 @@ describe('GitHub App installation token helper', () => {
     await expect(
       createInstallationTokenFromEnv({
         installationId: 99,
+        repository: 'Neumar',
         env,
         fetchImpl,
       }),
     ).rejects.toThrow(/least-privilege/);
+  });
+
+  it('refuses to request a token that is not scoped to one repository', async () => {
+    const fetchImpl = vi.fn<FetchLike>();
+    for (const repository of [undefined, '', 'a/b/c', '..', 'bad name']) {
+      await expect(
+        createInstallationTokenFromEnv({
+          installationId: 99,
+          repository: repository as string,
+          env,
+          fetchImpl,
+        }),
+      ).rejects.toThrow(/repository/);
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('does not log or return a token on a failed exchange', async () => {
@@ -1685,6 +1705,7 @@ describe('GitHub App installation token helper', () => {
     await expect(
       createInstallationTokenFromEnv({
         installationId: 99,
+        repository: 'Neumar',
         env,
         fetchImpl,
       }),
