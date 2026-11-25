@@ -1,4 +1,4 @@
-<!-- reviewed-through: c0926618 (2026-10-13) -->
+<!-- reviewed-through: df30a341761e3f233e076304377dfaa9776a4ffd (2026-11-25) -->
 # Lessons from merged work
 
 Neumar's code is written, reviewed, merged, and released by agents and by the
@@ -27,7 +27,10 @@ exact commit you want merged, and write down what ran.**
   #175. #176 passed only because someone dispatched CI by hand on its commit.
 - Four release PRs merged with a quality or Test failure already completed on the
   matching head: #2, #24, #26, #106. A cancelled run is not a pass either.
-- Seen 1x (2026-10-13).
+- 2026-11-25: CI Gate from app 15368 is failure on merged commit f50f6436. (f50f6436) Ran: Nightly collector read the CI Gate check run for f50f6436. Missed: The commit reached main without a successful aggregate gate on its own head.
+- 2026-11-25: CI Gate from app 15368 is missing on merged commit 7a29c9f1. (7a29c9f1) Ran: Nightly collector read the CI Gate check run for 7a29c9f1. Missed: The commit reached main without a successful aggregate gate on its own head.
+- 2026-11-25: CI Gate from app 15368 is failure on merged commit 2f6f3af2. (2f6f3af2) Ran: Nightly collector read the CI Gate check run for 2f6f3af2. Missed: The commit reached main without a successful aggregate gate on its own head.
+- Seen 2x (2026-10-13, 2026-11-25).
 
 **A unit test that stops short of the real boundary does not prove the feature.**
 - #175 proves the runner cancels when handed a signal. The MCP handler at
