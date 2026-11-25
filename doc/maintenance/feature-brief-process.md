@@ -135,4 +135,5 @@ node --test scripts/feature-brief/
 - The publisher path deny-list (`.github/**`, Tauri capability and signing files,
   release scripts, policy documents, ceiling raises) belongs to #362. A brief
   cannot authorize those paths.
-- Slice execution and integrated-head verification belong to #365.
+- Slice execution and integrated-head verification belong to #365; see
+  [feature-slice.md](feature-slice.md).
