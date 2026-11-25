@@ -35,9 +35,14 @@ on:
 permissions:
   contents: read
 
+# Only a superseded pull request run is cancelled. A push to main or epic/** is never
+# cancelled by the next merge: the daily preview (#366) and the merge gate need a
+# completed `CI Gate` on every integrated head. Non-PR runs are keyed by commit SHA
+# because a shared group would still replace a *pending* run when a newer one queues,
+# leaving that commit without a gate.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ─── Quality Gate ────────────────────────────────────────────
