@@ -1,0 +1,86 @@
+{
+  "name": "missed-event-reconciliation",
+  "description": "The webhook for issue 14 is lost. The hourly cron read, which looks back past the watermark, claims it without touching issue 12.",
+  "config": { "leaseTtlMs": 7200000 },
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "bug12": {
+      "number": 12,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    },
+    "bug14": {
+      "number": 14,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T10:20:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-1",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["bug12"] },
+      "expect": { "outcome": "ok", "claims": [12], "watermarkAfter": null }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-2",
+      "now": "2026-11-24T11:00:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T10:59:55.000Z",
+        "issues": ["bug12", "bug14"]
+      },
+      "expect": {
+        "outcome": "ok",
+        "claims": [14],
+        "dispatched": [14],
+        "decisions": { "12": "already-claimed", "14": "eligible" },
+        "watermarkBefore": null,
+        "watermarkAfter": "2026-11-24T10:59:55.000Z"
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-3",
+      "now": "2026-11-24T11:20:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T11:19:50.000Z",
+        "issues": ["bug14"]
+      },
+      "expect": {
+        "outcome": "ok",
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "14": "already-claimed" },
+        "watermarkBefore": "2026-11-24T10:59:55.000Z",
+        "watermarkAfter": "2026-11-24T11:19:50.000Z"
+      }
+    }
+  ]
+}

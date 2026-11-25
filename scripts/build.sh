@@ -5,6 +5,13 @@
 # Platforms: linux, windows, mac-intel, mac-arm, all
 # Options:
 #   --with-cli  Bundle CLI tools (Claude Code + Codex) with shared Node.js
+#
+# Environment:
+#   NEUMAR_PREVIEW_BUILD=true  Internal daily preview (#366). Installs with
+#                              --frozen-lockfile, refuses --sign, builds the
+#                              frontend with VITE_NEUMAR_PREVIEW_BUILD=true, and
+#                              empties the Tauri updater endpoints so the app never
+#                              polls the production feed.
 
 set -e
 
@@ -31,6 +38,12 @@ NC='\033[0m' # No Color
 BUNDLE_CLI=false  # Bundle CLI tools (Claude Code + Codex) with shared Node.js
 BUILD_PLATFORM="current"
 SKIP_SIGNING=true  # Default: skip signing for faster builds
+PREVIEW_BUILD=false  # NEUMAR_PREVIEW_BUILD=true: internal daily preview, updater isolated
+if [ "${NEUMAR_PREVIEW_BUILD:-}" = "true" ]; then
+    PREVIEW_BUILD=true
+    # The frontend reads this at build time; set it here so it cannot be forgotten.
+    export VITE_NEUMAR_PREVIEW_BUILD=true
+fi
 
 log_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -69,7 +82,12 @@ check_requirements() {
 # Install dependencies
 install_deps() {
     log_info "Installing dependencies..."
-    pnpm install
+    if [ "$PREVIEW_BUILD" = "true" ]; then
+        # Reproducible: fail on any manifest/lockfile mismatch instead of resolving anew.
+        pnpm install --frozen-lockfile
+    else
+        pnpm install
+    fi
 }
 
 # Pre-download the embedding model for bundling
@@ -97,7 +115,11 @@ build_api_sidecar() {
 
     # Install dependencies if needed
     if [ ! -d "node_modules" ]; then
-        pnpm install
+        if [ "$PREVIEW_BUILD" = "true" ]; then
+            pnpm install --frozen-lockfile
+        else
+            pnpm install
+        fi
     fi
 
     case "$target" in
@@ -656,6 +678,32 @@ fs.writeFileSync('$config_file', JSON.stringify(config, null, 2));
 console.log('Removed CLI bundle config');
 "
         log_info "Removed CLI bundle config from tauri.conf.json"
+    fi
+
+    # Daily previews must never poll or update from the production feed. The plugin's
+    # `endpoints` defaults to empty (tauri-plugin-updater config.rs), so an empty list
+    # is a valid config and `check()` fails with EmptyEndpoints before any network call.
+    # `pubkey` is required by the plugin's config, so it stays. The frontend guard
+    # (VITE_NEUMAR_PREVIEW_BUILD) is the second layer.
+    if [ "$PREVIEW_BUILD" = "true" ]; then
+        CONFIG_FILE="$PROJECT_ROOT/src-tauri/tauri.conf.json" node -e "
+const fs = require('fs');
+const configFile = process.env.CONFIG_FILE;
+const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+if (!config.plugins || !config.plugins.updater) {
+    console.error('plugins.updater is missing from tauri.conf.json');
+    process.exit(1);
+}
+config.plugins.updater.endpoints = [];
+fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+const written = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+if (written.plugins.updater.endpoints.length !== 0) {
+    console.error('updater endpoints are not empty after the preview override');
+    process.exit(1);
+}
+console.log('Preview build: updater endpoints cleared');
+"
+        return 0
     fi
 
     # Inject updater endpoint from branding.json/env so local signed builds use the
@@ -1573,6 +1621,14 @@ parse_args() {
 main() {
     # Parse arguments first (sets BUILD_PLATFORM, BUNDLE_CLI, SKIP_SIGNING)
     parse_args "$@"
+
+    if [ "$PREVIEW_BUILD" = "true" ] && [ "$SKIP_SIGNING" != "true" ]; then
+        log_error "NEUMAR_PREVIEW_BUILD cannot be combined with --sign: previews are ad-hoc signed only."
+        exit 1
+    fi
+    if [ "$PREVIEW_BUILD" = "true" ]; then
+        log_info "Preview build: ad-hoc signed, frozen lockfile, production updater isolated"
+    fi
 
     if [ "$BUNDLE_CLI" = "true" ]; then
         log_info "CLI bundling enabled (Claude Code + Codex with shared Node.js)"

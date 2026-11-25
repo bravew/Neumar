@@ -1,0 +1,122 @@
+{
+  "name": "worker-crash-expired-lease",
+  "description": "A heartbeat keeps a lease alive. After the worker stops heartbeating the lease expires, another run reclaims it with a new epoch, the old run is fenced out, and the attempt cap ends the retries.",
+  "trustedActors": [{ "login": "maintainer", "association": "OWNER" }],
+  "issues": {
+    "bug50": {
+      "number": 50,
+      "state": "open",
+      "isPullRequest": false,
+      "labels": ["bug", "agent:bug-approved"],
+      "linkedOpenPrs": 0,
+      "labelEvents": [
+        {
+          "event": "labeled",
+          "label": "agent:bug-approved",
+          "actor": "maintainer",
+          "createdAt": "2026-11-24T09:00:00.000Z"
+        }
+      ]
+    }
+  },
+  "ticks": [
+    {
+      "trigger": "event",
+      "deliveryId": "delivery-1",
+      "runId": "run-1",
+      "now": "2026-11-24T10:00:00.000Z",
+      "read": { "ok": true, "complete": true, "issues": ["bug50"] },
+      "expect": { "outcome": "ok", "claims": [50], "attempts": { "50": 1 } }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-2",
+      "now": "2026-11-24T10:20:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T10:19:55.000Z",
+        "issues": ["bug50"]
+      },
+      "expect": {
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "50": "already-claimed" }
+      }
+    },
+    {
+      "op": "heartbeat",
+      "issue": 50,
+      "runId": "run-1",
+      "epoch": 1,
+      "now": "2026-11-24T10:25:00.000Z",
+      "expect": { "ok": true, "reason": "ok" }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-3",
+      "now": "2026-11-24T10:50:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T10:49:55.000Z",
+        "issues": ["bug50"]
+      },
+      "expect": {
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "50": "already-claimed" }
+      }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-4",
+      "now": "2026-11-24T11:10:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T11:09:55.000Z",
+        "issues": ["bug50"]
+      },
+      "expect": {
+        "claims": [50],
+        "dispatched": [50],
+        "decisions": { "50": "lease-expired-reclaimed" },
+        "attempts": { "50": 2 }
+      }
+    },
+    {
+      "op": "verify",
+      "issue": 50,
+      "runId": "run-1",
+      "epoch": 1,
+      "now": "2026-11-24T11:11:00.000Z",
+      "expect": { "ok": false, "reason": "claim-superseded" }
+    },
+    {
+      "op": "heartbeat",
+      "issue": 50,
+      "runId": "run-1",
+      "epoch": 1,
+      "now": "2026-11-24T11:11:00.000Z",
+      "expect": { "ok": false, "reason": "claim-superseded" }
+    },
+    {
+      "trigger": "cron",
+      "runId": "run-5",
+      "now": "2026-11-24T11:50:00.000Z",
+      "read": {
+        "ok": true,
+        "complete": true,
+        "startedAt": "2026-11-24T11:49:55.000Z",
+        "issues": ["bug50"]
+      },
+      "expect": {
+        "claims": [],
+        "dispatched": [],
+        "decisions": { "50": "attempts-exhausted" },
+        "followUps": []
+      }
+    }
+  ]
+}
